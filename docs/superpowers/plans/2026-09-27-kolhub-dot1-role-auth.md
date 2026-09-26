@@ -327,10 +327,10 @@ test('đặt lại mật khẩu qua SMS rồi đăng nhập bằng mật khẩu 
   - `<ComingSoon title: string; note: string />`
 
 - [ ] **Step 1: Viết `AuthContext`, `AccessGuard`, `GuestLayout`** (nền `bg-page`, logo `logo.svg` ở trên, nội dung trong khung `max-w-xl`, căn giữa, có `pb-safe`).
-- [ ] **Step 2: Viết lại `routes.tsx`**: route gốc `element: <AccessGuard/>`; con 1 `element: <GuestLayout/>` gồm `dang-ky`, `dang-nhap`, `quen-mat-khau`; con 2 `element: <Layout/>` gồm `ho-so-kol` (ComingSoon "Hồ sơ KOL", "Đợt 2"), `ho-so-mcn` (Đợt 2), `kol-safety` ("KOL Safety", "Sắp ra mắt"), `tim-kiem-kol`, `danh-sach-da-luu`, `tai-khoan-doanh-nghiep` (Đợt 3); `index` và `*` → `<Navigate to="/" />` để guard xử lý. Gỡ import các trang cũ khỏi route (giữ file).
+- [ ] **Step 2: Viết lại `routes.tsx`**: route gốc `element: <AccessGuard/>`; con 1 `element: <GuestLayout/>` gồm `dang-ky`, `dang-nhap`, `quen-mat-khau` (tạm dùng `ComingSoon`, Task 7–8 thay bằng trang thật); con 2 `element: <Layout/>` gồm `ho-so-kol` (ComingSoon "Hồ sơ KOL", "Đợt 2"), `ho-so-mcn` (Đợt 2), `kol-safety` ("KOL Safety", "Sắp ra mắt"), `tim-kiem-kol`, `danh-sach-da-luu`, `tai-khoan-doanh-nghiep` (Đợt 3); `index` và `*` → `<Navigate to="/" />` để guard xử lý. Gỡ import các trang cũ khỏi route (giữ file).
 - [ ] **Step 3: `App.tsx`** bọc `AuthProvider`, thêm `<Toaster richColors position="top-center" />`. (`<OtpInboxToaster />` thêm ở Task 6; `<DemoPanel />` render trong `AccessGuard` ở Task 9 vì cần router.)
 - [ ] **Step 4: Sidebar/BottomNavigation/Header** đọc `ROLE_CONFIG[role].menu`. Sidebar: một nhóm menu duy nhất, bỏ khối "secondary". BottomNavigation: hiện toàn bộ menu của role, bỏ nút "Thêm". Header: badge = `ROLE_CONFIG[role].label`; dropdown có tên/email từ `account`, mục Đăng xuất gọi `logout()` rồi `navigate('/dang-nhap')`; bỏ `useUser`.
-- [ ] **Step 5: Kiểm tra** — `npm run build` thành công (project không có `tsconfig`, Vite không kiểm kiểu nên phải chạy thử trên trình duyệt: 3 tài khoản mẫu đăng nhập qua Demo chưa có → tạm dùng `authService.quickLogin` trong console); `npm test` PASS.
+- [ ] **Step 5: Kiểm tra** — `npm test` PASS; `npm run build` thành công (project không có `tsconfig`, Vite không kiểm kiểu nên phải chạy thử). Trên trình duyệt khi là khách: `/` → `/dang-ky`; `/ho-so-kol` → `/dang-nhap?returnTo=%2Fho-so-kol`; GuestLayout hiện logo, không có sidebar. Luồng đã đăng nhập kiểm ở Task 7–9.
 - [ ] **Step 6: Commit** — `feat(app): role-based routing, layouts and menus`
 
 ---
