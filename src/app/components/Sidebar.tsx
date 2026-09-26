@@ -1,0 +1,103 @@
+import logoImg from '../../assets/logo.svg';
+import logoMarkImg from '../../assets/logo-mark.svg';
+import { Link, useLocation } from 'react-router';
+import { ChevronLeft } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { cn } from './ui/utils';
+import { mainNavItems, secondaryNavItems, type NavItem } from './navigation';
+
+interface SidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+// NetSpace admin pattern: 256px rail, same tint as the page, 67px header.
+export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const location = useLocation();
+
+  return (
+    <aside
+      className={cn(
+        'flex h-full shrink-0 flex-col bg-page transition-[width] duration-200 motion-reduce:transition-none',
+        collapsed ? 'w-16' : 'w-64'
+      )}
+    >
+      {/* Logo */}
+      <div className={cn('flex h-[67px] shrink-0 items-center border-b border-panel-sidebar', collapsed ? 'justify-center px-2' : 'px-4')}>
+        <Link to="/" aria-label="KOLHUB - Tổng quan" className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {collapsed ? (
+            <img src={logoMarkImg} alt="KOLHUB" className="h-8 w-auto object-contain" />
+          ) : (
+            <img src={logoImg} alt="KOLHUB" className="h-7 w-auto object-contain object-left" />
+          )}
+        </Link>
+      </div>
+
+      {/* Main nav */}
+      <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {!collapsed && (
+          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">Quản lý</p>
+        )}
+        <div className="space-y-0.5">
+          {mainNavItems.map((item) => (
+            <SidebarLink key={item.path} item={item} active={location.pathname === item.path} collapsed={collapsed} />
+          ))}
+        </div>
+      </nav>
+
+      {/* Secondary nav + collapse */}
+      <div className="shrink-0 space-y-0.5 border-t border-panel-sidebar p-2">
+        {secondaryNavItems.map((item) => (
+          <SidebarLink key={item.path} item={item} active={location.pathname === item.path} collapsed={collapsed} />
+        ))}
+        <SidebarTip label={collapsed ? 'Mở rộng' : undefined}>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
+            className={cn(
+              'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-sm font-normal text-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              collapsed && 'justify-center px-0'
+            )}
+          >
+            <ChevronLeft className={cn('size-4 shrink-0 transition-transform', collapsed && 'rotate-180')} />
+            {!collapsed && <span>Thu gọn</span>}
+          </button>
+        </SidebarTip>
+      </div>
+    </aside>
+  );
+}
+
+function SidebarLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+  const Icon = item.icon;
+  return (
+    <SidebarTip label={collapsed ? item.label : undefined}>
+      <Link
+        to={item.path}
+        aria-current={active ? 'page' : undefined}
+        className={cn(
+          'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          active
+            ? 'bg-primary/10 font-medium text-primary'
+            : 'text-foreground/70 hover:bg-muted hover:text-foreground',
+          collapsed && 'justify-center px-0'
+        )}
+      >
+        <Icon className={cn('size-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
+        {!collapsed && <span className="truncate">{item.label}</span>}
+        {!collapsed && active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
+      </Link>
+    </SidebarTip>
+  );
+}
+
+function SidebarTip({ label, children }: { label?: string; children: React.ReactElement }) {
+  if (!label) return children;
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  );
+}

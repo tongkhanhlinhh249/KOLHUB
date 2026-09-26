@@ -1,0 +1,56 @@
+{
+  "backupDate": "2026-03-11",
+  "description": "Backup ảnh đại diện (profile images) của tất cả influencers",
+  "profileImages": {
+    "1": {
+      "name": "Châu Bùi",
+      "nickname": "chaubui",
+      "url": "https://images.unsplash.com/photo-1673533981698-a3d4fd4e5d64?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "2": {
+      "name": "Khoa Pug",
+      "nickname": "khoapug",
+      "url": "https://images.unsplash.com/photo-1595017734643-07386d930c6a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "3": {
+      "name": "Khoai Lang Thang",
+      "nickname": "khoailangthang",
+      "url": "https://images.unsplash.com/photo-1737985068132-81ff7b617421?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhc2lhbiUyMG1hbiUyMGJhY2twYWNrZXIlMjB0cmF2ZWxlciUyMGFkdmVudHVyZXxlbnwxfHx8fDE3NzMyMjkwOTF8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+    },
+    "4": {
+      "name": "NTN Vlogs",
+      "nickname": "ntnvlogs",
+      "url": "https://images.unsplash.com/photo-1740727262777-4ba208a78c3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "5": {
+      "name": "Hậu Hoàng",
+      "nickname": "hauhoang",
+      "url": "https://images.unsplash.com/photo-1570984429335-39f89baffcca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "6": {
+      "name": "Changmakeup",
+      "nickname": "changmakeup",
+      "url": "https://images.unsplash.com/photo-1749003659562-a1beba85eee2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "7": {
+      "name": "Dân Chơi Sài Gòn",
+      "nickname": "danchoisaigon",
+      "url": "https://images.unsplash.com/photo-1722417129363-845a36f4cb2f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "8": {
+      "name": "Võ Hoàng Yến",
+      "nickname": "vohoangyen",
+      "url": "https://images.unsplash.com/photo-1762175048416-8b9f181556fe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "9": {
+      "name": "Độ Mixi",
+      "nickname": "domixi",
+      "url": "https://images.unsplash.com/photo-1593229874334-90d965f27c42?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    },
+    "10": {
+      "name": "PewPew",
+      "nickname": "pewpew",
+      "url": "https://images.unsplash.com/photo-1699413209298-4e2abf5bd991?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=300"
+    }
+  }
+}
