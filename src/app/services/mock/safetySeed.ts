@@ -1,7 +1,7 @@
 // KOL Safety demo data for the two verified demo accounts (Khánh Vy KOL, Sao Việt Media MCN).
 import type { Channel } from '../profile-types';
 import type { SafetyMonitor, SafetyVideo, ScanResult } from '../safety-types';
-import { applyScan, isMonitorPlatform, newMonitor } from './safety';
+import { applyScan, isMonitorPlatform, newMonitor, profileChannelFor } from './safety';
 import { IMAGE_POOL } from './socialListening';
 
 const DAY = 86_400_000;
@@ -106,13 +106,16 @@ function seedVideos(accountId: string, now: number, imageOffset: number): Safety
   });
 }
 
-/** Handle (without "@") of a profile channel link, e.g. tiktok.com/@minhthu.bepnha → minhthu.bepnha. */
+/** Handle (without "@", original case) of a profile channel link, e.g. tiktok.com/@minhthu.bepnha → minhthu.bepnha. */
 function handleOf(url: string): string {
   const seg = url.replace(/^https?:\/\//, '').split('/')[1] ?? '';
   return seg.replace(/^@/, '');
 }
 
-/** Extra TikTok channels Sao Việt watches (not its verified channels); `scannedDaysAgo` null = never scanned. */
+/**
+ * Extra TikTok channels Sao Việt watches (not its verified channels; some are its expired / pending
+ * profile channels, which then keep that channel's follower count); `scannedDaysAgo` null = never scanned.
+ */
 const MCN_EXTRA_TIKTOK: { handle: string; connectedDaysAgo: number; scannedDaysAgo: number | null }[] = [
   { handle: 'ngochan.nhayvui', connectedDaysAgo: 40, scannedDaysAgo: 1 },
   { handle: 'thaovy.chamda', connectedDaysAgo: 20, scannedDaysAgo: 9 },
@@ -134,7 +137,8 @@ export function seedSafety(channels: Channel[], now: number): { safetyVideos: Sa
   const kolMonitors = seedVerifiedMonitors(SAFETY_KOL_ACCOUNT_ID, channels, now);
   const mcnMonitors = seedVerifiedMonitors(SAFETY_MCN_ACCOUNT_ID, channels, now);
   MCN_EXTRA_TIKTOK.forEach((x, i) => {
-    const m = newMonitor(SAFETY_MCN_ACCOUNT_ID, 'tiktok', x.handle, now - x.connectedDaysAgo * DAY, `${SAFETY_MCN_ACCOUNT_ID}-mon-x${i + 1}`);
+    const followers = profileChannelFor(channels, SAFETY_MCN_ACCOUNT_ID, 'tiktok', x.handle)?.stats?.followers;
+    const m = newMonitor(SAFETY_MCN_ACCOUNT_ID, 'tiktok', x.handle, now - x.connectedDaysAgo * DAY, `${SAFETY_MCN_ACCOUNT_ID}-mon-x${i + 1}`, followers);
     if (x.scannedDaysAgo !== null) applyScan(m, now - x.scannedDaysAgo * DAY - 5 * HOUR);
     mcnMonitors.push(m);
   });

@@ -47,11 +47,14 @@ export interface PendingRegistration {
   createdAt: number;
 }
 
-/** Bump when the stored shape changes incompatibly; any other stored version is replaced by the seed. */
-export const DB_VERSION = 5;
+/**
+ * Bump when the stored shape or seed content changes incompatibly; any other stored version is replaced by the seed.
+ * v6: seeded monitors of profile channels carry that channel's follower count.
+ */
+export const DB_VERSION = 6;
 
 export interface DemoState {
-  version: 5;
+  version: 6;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];

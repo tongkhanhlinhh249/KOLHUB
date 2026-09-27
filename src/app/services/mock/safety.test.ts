@@ -329,3 +329,75 @@ describe('dữ liệu mẫu KOL Safety', () => {
     expect(JSON.stringify([s.safetyVideos, s.safetyMonitors]).toLowerCase()).not.toContain('netspace');
   });
 });
+
+describe('kênh theo dõi dùng dữ liệu hồ sơ', () => {
+  const kolProfile = () => h.db.read().kolProfiles.find((p) => p.accountId === SAFETY_KOL_ACCOUNT_ID)!;
+  const clearMonitors = (accountId: string) =>
+    h.db.update((s) => {
+      s.safetyMonitors = s.safetyMonitors.filter((m) => m.accountId !== accountId);
+    });
+
+  test('KOL: kênh của chính hồ sơ → tên + ảnh đại diện hồ sơ, follower của kênh', async () => {
+    clearMonitors(SAFETY_KOL_ACCOUNT_ID);
+    const p = kolProfile();
+    const m = await svc.connect(SAFETY_KOL_ACCOUNT_ID, 'facebook', 'https://facebook.com/KhanhVy.Official');
+    expect(m.displayName).toBe('Khánh Vy');
+    expect(m.avatar).toBe(p.avatar!.thumbnail);
+    expect(m.followers).toBe(2_100_000);
+  });
+
+  test('KOL: kênh hồ sơ chưa xác thực vẫn lấy tên hồ sơ và follower của kênh', async () => {
+    clearMonitors(SAFETY_KOL_ACCOUNT_ID);
+    h.db.update((s) => {
+      const ch = s.channels.find((c) => c.ownerId === SAFETY_KOL_ACCOUNT_ID && c.url === 'tiktok.com/@khanhvy')!;
+      ch.status = 'EXPIRED';
+      ch.stats = { ...ch.stats!, followers: 1_234 };
+    });
+    const m = await svc.connect(SAFETY_KOL_ACCOUNT_ID, 'tiktok', '@KHANHVY');
+    expect(m).toMatchObject({ displayName: 'Khánh Vy', followers: 1_234, verified: false });
+  });
+
+  test('KOL chưa có ảnh đại diện → ảnh mô phỏng; kênh lạ giữ tên theo handle', async () => {
+    clearMonitors(SAFETY_KOL_ACCOUNT_ID);
+    h.db.update((s) => {
+      delete s.kolProfiles.find((p) => p.accountId === SAFETY_KOL_ACCOUNT_ID)!.avatar;
+    });
+    const own = await svc.connect(SAFETY_KOL_ACCOUNT_ID, 'youtube', '@khanhvy');
+    expect(own.displayName).toBe('Khánh Vy');
+    expect(IMAGE_POOL).toContain(own.avatar);
+    const other = await svc.connect(SAFETY_KOL_ACCOUNT_ID, 'tiktok', '@kenh.khac');
+    expect(other.displayName).toBe('Kenh Khac');
+    expect(IMAGE_POOL).toContain(other.avatar);
+  });
+
+  test('KOL: sửa tên / ảnh hồ sơ sau khi kết nối → kênh theo dõi cập nhật theo', async () => {
+    h.db.update((s) => {
+      const p = s.kolProfiles.find((x) => x.accountId === SAFETY_KOL_ACCOUNT_ID)!;
+      p.contact.displayName = 'Vy Khánh';
+      p.avatar = { name: 'a.png', type: 'image/png', size: 1, thumbnail: 'data:new' };
+    });
+    const list = await svc.listMonitors(SAFETY_KOL_ACCOUNT_ID, 'tiktok');
+    expect(list.length).toBeGreaterThan(0);
+    expect(list.every((m) => m.displayName === 'Vy Khánh' && m.avatar === 'data:new')).toBe(true);
+    expect((await svc.getMonitor(list[0].id)).displayName).toBe('Vy Khánh');
+  });
+
+  test('MCN: kênh của nhà sáng tạo giữ tên theo kênh nhưng dùng follower của kênh trong hồ sơ (mọi trạng thái)', async () => {
+    clearMonitors(SAFETY_MCN_ACCOUNT_ID);
+    const m = await svc.connect(SAFETY_MCN_ACCOUNT_ID, 'tiktok', 'https://www.tiktok.com/@ngochan.nhayvui');
+    expect(m).toMatchObject({ displayName: 'Ngochan Nhayvui', followers: 401_569, verified: false });
+    const mcn = h.db.read().mcnProfiles.find((p) => p.accountId === SAFETY_MCN_ACCOUNT_ID)!;
+    expect(m.displayName).not.toBe(mcn.contact.displayName);
+  });
+
+  test('dữ liệu mẫu: kênh Khánh Vy mang tên hồ sơ; kênh Sao Việt dùng follower của kênh trong hồ sơ', async () => {
+    const s = h.db.read();
+    for (const p of ['tiktok', 'facebook', 'youtube'] as const) {
+      for (const m of await svc.listMonitors(SAFETY_KOL_ACCOUNT_ID, p)) expect(m.displayName).toBe('Khánh Vy');
+    }
+    const tiktok = await svc.listMonitors(SAFETY_MCN_ACCOUNT_ID, 'tiktok');
+    const ngochan = tiktok.find((m) => m.handle === 'ngochan.nhayvui')!;
+    expect(ngochan.followers).toBe(401_569);
+    expect(s.safetyMonitors.find((m) => m.id === ngochan.id)!.followers).toBe(401_569);
+  });
+});

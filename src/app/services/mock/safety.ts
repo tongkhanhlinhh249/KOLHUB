@@ -1,6 +1,7 @@
 // Mock KOL Safety: video pre-check before posting and channel monitoring (TikTok / Facebook / YouTube).
 // Results are deterministic from the file name / channel handle so the demo is repeatable.
 import { KolhubError } from '../types';
+import type { Channel } from '../profile-types';
 import type { DemoState, Db } from './db';
 import type {
   ChannelHealth,
@@ -18,6 +19,7 @@ import type {
 } from '../safety-types';
 import { delay as fakeDelay } from './delay';
 import { detectPlatform } from './channelRules';
+import { findProfile } from './profileRules';
 import { IMAGE_POOL, VIDEO_TITLES } from './socialListening';
 // --- violations ---
 import { syncViolationsFromMonitor } from './violations';
@@ -291,14 +293,55 @@ export function mockChannelProfile(platform: MonitorPlatform, handle: string, fo
   };
 }
 
+/** Handle (lower-case, no "@") of a profile channel link, e.g. tiktok.com/@Minhthu.Bepnha → minhthu.bepnha. */
+export function channelHandle(url: string): string {
+  return handleFromLink(url).toLowerCase();
+}
+
+/** The account's own profile channel on `platform` with this handle (any status; handle case-insensitive). */
+export function profileChannelFor(
+  channels: Channel[],
+  accountId: string,
+  platform: MonitorPlatform,
+  handle: string,
+): Channel | undefined {
+  const key = handle.toLowerCase();
+  return channels.find((c) => c.ownerId === accountId && c.platform === platform && channelHandle(c.url) === key);
+}
+
 /** Handles (lower-case, no "@") of the account's VERIFIED profile channels on `platform`. */
 export function verifiedHandles(state: DemoState, accountId: string, platform: MonitorPlatform): Set<string> {
   return new Set(
     state.channels
       .filter((c) => c.ownerId === accountId && c.platform === platform && c.status === 'VERIFIED')
-      .map((c) => handleFromLink(c.url).toLowerCase())
+      .map((c) => channelHandle(c.url))
       .filter(Boolean),
   );
+}
+
+/**
+ * Name / avatar / followers a monitor shows, derived on read so later profile edits stay in sync.
+ * When the handle is one of the owner's profile channels: its follower count (any status); for a KOL
+ * owner also the profile's display name and avatar (the channel is the KOL's own). An MCN watches its
+ * creators' channels, so it keeps the channel-based name. Anything missing falls back to the mock.
+ */
+export function monitorDisplay(state: DemoState, m: SafetyMonitor): Pick<SafetyMonitor, 'displayName' | 'avatar' | 'followers' | 'likes'> {
+  const out = { displayName: m.displayName, avatar: m.avatar, followers: m.followers, likes: m.likes };
+  const ch = profileChannelFor(state.channels, m.accountId, m.platform, m.handle);
+  if (!ch) return out;
+  const followers = ch.stats?.followers;
+  if (followers !== undefined && followers !== m.followers) {
+    // Keep the mock likes-per-follower ratio.
+    out.likes = m.followers > 0 ? Math.round((m.likes / m.followers) * followers) : m.likes;
+    out.followers = followers;
+  }
+  const p = findProfile(state, m.accountId);
+  if (p?.ownerType === 'KOL') {
+    const name = p.contact.displayName.trim().replace(/\s+/g, ' ');
+    if (name) out.displayName = name;
+    if (p.avatar?.thumbnail) out.avatar = p.avatar.thumbnail;
+  }
+  return out;
 }
 
 export function newMonitor(
@@ -371,7 +414,7 @@ export function createSafetyService(deps: SafetyServiceDeps) {
     return m;
   }
   function view(s: DemoState, m: SafetyMonitor): MonitorView {
-    return { ...m, verified: verifiedHandles(s, m.accountId, m.platform).has(m.handle.toLowerCase()) };
+    return { ...m, ...monitorDisplay(s, m), verified: verifiedHandles(s, m.accountId, m.platform).has(m.handle.toLowerCase()) };
   }
 
   // --- video pre-check ---
@@ -478,10 +521,8 @@ export function createSafetyService(deps: SafetyServiceDeps) {
       if (s.safetyMonitors.some((m) => m.accountId === accountId && m.platform === platform && m.handle.toLowerCase() === key)) {
         throw new KolhubError('KOLHUB-4507', { field: 'channel' });
       }
-      // A verified profile channel keeps the follower count the platform already reported.
-      const own = s.channels.find(
-        (c) => c.ownerId === accountId && c.platform === platform && c.status === 'VERIFIED' && handleFromLink(c.url).toLowerCase() === key,
-      );
+      // A profile channel (any status) keeps the follower count the platform already reported.
+      const own = profileChannelFor(s.channels, accountId, platform, handle);
       const m = newMonitor(accountId, platform, handle, t, newId('mon'), own?.stats?.followers);
       s.safetyMonitors.push(m);
       out = view(s, m);

@@ -39,7 +39,8 @@ const SEED_BIZ_NEW: Account = {
  * Demo data v4: the quick-login accounts (KOL + MCN with empty DRAFT profiles, the approved MCN
  * "Sao Việt Media" with 12 managed channels, a verified Brand with saved lists and a brand-new Brand),
  * then 40 approved sample KOLs registered like any other KOL (Khánh Vy logs in as khanhvy@demo.kolhub.vn).
- * v4 adds KOL Safety data (videos + monitored channels) for the two verified demo accounts; v5 adds violations.
+ * v4 adds KOL Safety data (videos + monitored channels) for the two verified demo accounts; v5 adds violations;
+ * v6: monitors of profile channels (any status) keep that channel's follower count.
  */
 export function seedState(): DemoState {
   const now = Date.now();
@@ -57,7 +58,7 @@ export function seedState(): DemoState {
   const channels = [...kols.channels, ...mcn.channels];
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 5,
+    version: 6,
     accounts,
     otps: [],
     registrations: [],
