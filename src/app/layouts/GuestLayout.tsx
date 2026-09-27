@@ -1,18 +1,13 @@
-import { Outlet } from 'react-router';
-import logoImg from '../../assets/logo.svg';
+import { Outlet, useSearchParams } from 'react-router';
+import { AuthShell } from '../features/auth-shell/AuthShell';
+import { accountTypeFromQuery } from '../features/auth-shell/accountTypeQuery';
 
-/** Guest frame: logo on top, content card centred, no sidebar. */
+/** Guest frame: split-screen auth shell; `?loai=` drives the brand eyebrow. */
 export function GuestLayout() {
+  const [params] = useSearchParams();
   return (
-    <div className="min-h-dvh w-full overflow-x-hidden bg-page pb-safe">
-      <div className="mx-auto flex w-full max-w-xl flex-col px-4 py-6 sm:py-10">
-        <div className="mb-6 flex justify-center sm:mb-8">
-          <img src={logoImg} alt="KOLHUB" className="h-8 w-auto object-contain" />
-        </div>
-        <main className="rounded-[20px] border border-panel bg-card p-4 shadow-xs sm:p-8">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+    <AuthShell accountType={accountTypeFromQuery(params.get('loai'))}>
+      <Outlet />
+    </AuthShell>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { AlertCircle, ArrowLeft, Loader2, Mail, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
@@ -8,6 +8,8 @@ import { Label } from '../../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { cn } from '../../components/ui/utils';
 import { authService, errorMessage, isStrongPassword, isValidEmail, isValidPhone, KolhubError, type OtpChannel } from '../../services';
+import { AuthPageHeader } from '../auth-shell/AuthPageHeader';
+import { accountTypeFromQuery, withAccountType } from '../auth-shell/accountTypeQuery';
 import { Field, PASSWORD_HINT, splitError, type FieldErrors } from '../form/Field';
 import { OtpStep } from '../otp/OtpStep';
 
@@ -22,6 +24,8 @@ const CHANNELS: { value: OtpChannel; icon: typeof Mail; label: string }[] = [
 /** SCR-02 — password recovery by email or SMS OTP (BR-09, BR-10). */
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const loginPath = withAccountType('/dang-nhap', accountTypeFromQuery(params.get('loai')));
   const [step, setStep] = useState<Step>('target');
   const [channel, setChannel] = useState<OtpChannel>('email');
   const [target, setTarget] = useState('');
@@ -56,7 +60,7 @@ export function ForgotPasswordPage() {
     try {
       await authService.resetPassword({ channel, target, otpRequestId: requestId, password, confirmPassword });
       toast.success('Đã đổi mật khẩu. Vui lòng đăng nhập lại.');
-      navigate('/dang-nhap', { replace: true });
+      navigate(loginPath, { replace: true });
     } catch (err) {
       // Unknown email/phone (4012) or a used/expired code (4014): the OTP cannot be reused, restart from the target step.
       if (err instanceof KolhubError && (err.code === 'KOLHUB-4012' || err.code === 'KOLHUB-4014')) {
@@ -90,16 +94,14 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1 text-center">
-        <h1 className="text-xl font-semibold text-foreground">
-          {step === 'password' ? 'Đặt mật khẩu mới' : 'Quên mật khẩu'}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {step === 'password'
+      <AuthPageHeader
+        title={step === 'password' ? 'Đặt mật khẩu mới' : 'Quên mật khẩu'}
+        subtitle={
+          step === 'password'
             ? 'Mã xác thực hợp lệ. Hãy tạo mật khẩu mới cho tài khoản.'
-            : 'Chọn cách nhận mã xác thực để đặt lại mật khẩu'}
-        </p>
-      </div>
+            : 'Chọn cách nhận mã xác thực để đặt lại mật khẩu.'
+        }
+      />
 
       {step === 'target' ? (
         <form onSubmit={submitTarget} noValidate className="space-y-4">
@@ -195,7 +197,7 @@ export function ForgotPasswordPage() {
 
       <div className="flex justify-center">
         <Button asChild variant="ghost" className="h-11">
-          <Link to="/dang-nhap">
+          <Link to={loginPath}>
             <ArrowLeft aria-hidden />
             Quay lại đăng nhập
           </Link>

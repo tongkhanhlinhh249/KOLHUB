@@ -6,7 +6,10 @@ import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { useAuth } from '../../auth/AuthContext';
 import { roleOf, safeReturnTo } from '../../auth/roles';
-import { authService, isValidEmail, isValidPhone, type Account } from '../../services';
+import { authService, isValidEmail, isValidPhone, type Account, type AccountType } from '../../services';
+import { AccountTypeCards } from '../auth-shell/AccountTypeCards';
+import { AuthLegalNote, AuthPageHeader } from '../auth-shell/AuthPageHeader';
+import { accountTypeFromQuery, QUERY_BY_TYPE, withAccountType } from '../auth-shell/accountTypeQuery';
 import { Field, splitError, type FieldErrors } from '../form/Field';
 import { OtpStep } from '../otp/OtpStep';
 
@@ -22,12 +25,20 @@ function FormAlert({ message }: { message: string | null }) {
   );
 }
 
-/** SCR-02 — sign in with email + password, or phone + SMS OTP for KOL/MCN (BR-06..08). */
+/**
+ * SCR-02 — sign in with email + password, or phone + SMS OTP for KOL/MCN (BR-06..08).
+ * The account-type cards are a UI hint only: the role still comes from the account,
+ * and AccessGuard sends the user to their role home after sign-in.
+ */
 export function LoginPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const returnTo = params.get('returnTo');
+  const type = accountTypeFromQuery(params.get('loai'));
+  const isBiz = type === 'BIZ';
   const { setAccount } = useAuth();
-  const [tab, setTab] = useState<'email' | 'phone'>('email');
+  const [tabState, setTab] = useState<'email' | 'phone'>('email');
+  // BR-07: phone OTP sign-in is only offered to KOL/MCN.
+  const tab = isBiz ? 'email' : tabState;
 
   // Email tab
   const [email, setEmail] = useState('');
@@ -54,6 +65,18 @@ export function LoginPage() {
     setFormError(null);
   };
 
+  const changeType = (t: AccountType) => {
+    reset();
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('loai', QUERY_BY_TYPE[t]);
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   const submitEmail = async (e: FormEvent) => {
     e.preventDefault();
     reset();
@@ -78,7 +101,10 @@ export function LoginPage() {
     e.preventDefault();
     reset();
     if (!phone.trim()) return setErrors({ phone: REQUIRED });
-    if (!isValidPhone(phone)) return setErrors({ phone: 'Số điện thoại không hợp lệ (ví dụ: 0912345678).' });
+    if (!isValidPhone(phone))
+      return setErrors({
+        phone: 'Số điện thoại không hợp lệ (ví dụ: 0912345678).',
+      });
 
     setSubmitting(true);
     try {
@@ -102,16 +128,57 @@ export function LoginPage() {
 
   if (tab === 'phone' && phoneStep === 'otp') {
     return (
-      <OtpStep channel="sms" target={phone} purpose="login" onVerified={onPhoneVerified} onBack={() => setPhoneStep('phone')} />
+      <OtpStep
+        channel="sms"
+        target={phone}
+        purpose="login"
+        onVerified={onPhoneVerified}
+        onBack={() => setPhoneStep('phone')}
+      />
     );
   }
 
+  const emailForm = (
+    <form onSubmit={submitEmail} noValidate className="space-y-4">
+      <Field
+        label={isBiz ? 'Email công ty' : 'Email'}
+        type="email"
+        autoComplete="email"
+        placeholder={isBiz ? 'ban@congty.vn' : 'ban@email.com'}
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        error={errors.email}
+      />
+      <div className="space-y-1">
+        <Field
+          label="Mật khẩu"
+          password
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          error={errors.password}
+        />
+        <div className="flex justify-end">
+          <Link
+            to={withAccountType('/quen-mat-khau', type)}
+            className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline md:min-h-8"
+          >
+            Quên mật khẩu?
+          </Link>
+        </div>
+      </div>
+      <FormAlert message={formError} />
+      <Button type="submit" className="h-11 w-full" disabled={submitting}>
+        {submitting && <Loader2 className="animate-spin" aria-hidden />}
+        Đăng nhập
+      </Button>
+    </form>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="space-y-1 text-center">
-        <h1 className="text-xl font-semibold text-foreground">Đăng nhập KOLHUB</h1>
-        <p className="text-sm text-muted-foreground">Chào mừng bạn quay lại</p>
-      </div>
+      <AuthPageHeader title="Chào mừng trở lại" subtitle="Chọn loại tài khoản để đăng nhập." />
+      <AccountTypeCards value={type} onChange={changeType} label="Loại tài khoản đăng nhập" />
 
       {returnTo?.startsWith('/') && !returnTo.startsWith('//') && (
         <Alert>
@@ -120,87 +187,62 @@ export function LoginPage() {
         </Alert>
       )}
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          setTab(v as 'email' | 'phone');
-          reset();
-        }}
-      >
-        <TabsList className="grid h-11 w-full grid-cols-2">
-          <TabsTrigger value="email" className="h-full">
-            Email
-          </TabsTrigger>
-          <TabsTrigger value="phone" className="h-full whitespace-normal text-xs leading-tight sm:text-sm">
-            Số điện thoại (OTP SMS)
-          </TabsTrigger>
-        </TabsList>
+      {isBiz ? (
+        emailForm
+      ) : (
+        <Tabs
+          value={tab}
+          onValueChange={(v) => {
+            setTab(v as 'email' | 'phone');
+            reset();
+          }}
+        >
+          <TabsList className="grid h-11 w-full grid-cols-2">
+            <TabsTrigger value="email" className="h-full">
+              Email
+            </TabsTrigger>
+            <TabsTrigger value="phone" className="h-full whitespace-normal text-xs leading-tight sm:text-sm">
+              Số điện thoại (OTP SMS)
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="email" className="mt-5">
-          <form onSubmit={submitEmail} noValidate className="space-y-4">
-            <Field
-              label="Email"
-              type="email"
-              autoComplete="email"
-              placeholder="ban@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={errors.email}
-            />
-            <div className="space-y-1">
+          <TabsContent value="email" className="mt-5">
+            {emailForm}
+          </TabsContent>
+
+          <TabsContent value="phone" className="mt-5">
+            <form onSubmit={submitPhone} noValidate className="space-y-4">
               <Field
-                label="Mật khẩu"
-                password
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={errors.password}
+                label="Số điện thoại"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="0912 345 678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                error={errors.phone}
+                hint="Dành cho tài khoản Cá nhân/KOL và Tổ chức/MCN."
               />
-              <div className="flex justify-end">
-                <Link
-                  to="/quen-mat-khau"
-                  className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline md:min-h-8"
-                >
-                  Quên mật khẩu?
-                </Link>
-              </div>
-            </div>
-            <FormAlert message={formError} />
-            <Button type="submit" className="h-11 w-full" disabled={submitting}>
-              {submitting && <Loader2 className="animate-spin" aria-hidden />}
-              Đăng nhập
-            </Button>
-          </form>
-        </TabsContent>
-
-        <TabsContent value="phone" className="mt-5">
-          <form onSubmit={submitPhone} noValidate className="space-y-4">
-            <Field
-              label="Số điện thoại"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="0912 345 678"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              error={errors.phone}
-              hint="Dành cho tài khoản Cá nhân/KOL và Tổ chức/MCN."
-            />
-            <FormAlert message={formError} />
-            <Button type="submit" className="h-11 w-full" disabled={submitting}>
-              {submitting && <Loader2 className="animate-spin" aria-hidden />}
-              Nhận mã OTP
-            </Button>
-          </form>
-        </TabsContent>
-      </Tabs>
+              <FormAlert message={formError} />
+              <Button type="submit" className="h-11 w-full" disabled={submitting}>
+                {submitting && <Loader2 className="animate-spin" aria-hidden />}
+                Nhận mã OTP
+              </Button>
+            </form>
+          </TabsContent>
+        </Tabs>
+      )}
 
       <p className="text-center text-sm text-muted-foreground">
         Chưa có tài khoản?{' '}
-        <Link to="/dang-ky" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline md:min-h-0">
+        <Link
+          to={withAccountType('/dang-ky', type)}
+          className="inline-flex min-h-11 items-center font-medium text-primary hover:underline md:min-h-0"
+        >
           Đăng ký
         </Link>
       </p>
+      <AuthLegalNote />
     </div>
   );
 }

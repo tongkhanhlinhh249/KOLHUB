@@ -17,14 +17,14 @@ import {
 } from '../../services';
 import { splitError, type FieldErrors } from '../form/Field';
 import { OtpStep } from '../otp/OtpStep';
-import { AccountTypeCards } from './AccountTypeCards';
+import { AccountTypeCards } from '../auth-shell/AccountTypeCards';
+import { AuthPageHeader } from '../auth-shell/AuthPageHeader';
+import { accountTypeFromQuery, QUERY_BY_TYPE, withAccountType } from '../auth-shell/accountTypeQuery';
 import { BizForm, EMPTY_BIZ, type BizValues } from './BizForm';
 import { EMPTY_KOL_MCN, KolMcnForm, type KolMcnValues } from './KolMcnForm';
 
 type Step = 'form' | 'otp-email' | 'otp-sms';
 
-const TYPE_BY_QUERY: Record<string, AccountType> = { kol: 'KOL', mcn: 'MCN', biz: 'BIZ' };
-const QUERY_BY_TYPE: Record<AccountType, string> = { KOL: 'kol', MCN: 'mcn', BIZ: 'biz' };
 const FIELDS = ['phone', 'email', 'password', 'confirmPassword', 'consent', 'fullName', 'company'];
 const REQUIRED = 'Vui lòng nhập thông tin này.';
 
@@ -60,7 +60,7 @@ function validateBiz(v: BizValues): FieldErrors {
 export function RegisterPage() {
   const [params, setParams] = useSearchParams();
   const { setAccount } = useAuth();
-  const type: AccountType = TYPE_BY_QUERY[params.get('loai') ?? ''] ?? 'KOL';
+  const type: AccountType = accountTypeFromQuery(params.get('loai'));
 
   const [step, setStep] = useState<Step>('form');
   const [kolMcn, setKolMcn] = useState<KolMcnValues>(EMPTY_KOL_MCN);
@@ -160,7 +160,7 @@ export function RegisterPage() {
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         Đã có tài khoản?{' '}
-        <Link to="/dang-nhap" className="inline-flex min-h-11 items-center font-medium text-primary hover:underline md:min-h-0">
+        <Link to={withAccountType('/dang-nhap', type)} className="inline-flex min-h-11 items-center font-medium text-primary hover:underline md:min-h-0">
           Đăng nhập
         </Link>
       </p>
@@ -169,11 +169,8 @@ export function RegisterPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1 text-center">
-        <h1 className="text-xl font-semibold text-foreground">Tạo tài khoản KOLHUB</h1>
-        <p className="text-sm text-muted-foreground">Chọn loại tài khoản phù hợp với bạn</p>
-      </div>
-      <AccountTypeCards value={type} onChange={changeType} />
+      <AuthPageHeader title="Tạo tài khoản KOLHUB" subtitle="Chọn loại tài khoản phù hợp với bạn." />
+      <AccountTypeCards value={type} onChange={changeType} label="Loại tài khoản đăng ký" />
       {isBiz ? (
         <BizForm values={biz} errors={errors} onChange={setBiz} onSubmit={submit} footer={footer} />
       ) : (
