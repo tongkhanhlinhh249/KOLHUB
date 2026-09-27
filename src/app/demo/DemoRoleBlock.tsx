@@ -1,6 +1,7 @@
 import { BadgeCheck, Building2, Loader2, UserRound, Users, UserX, type LucideIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
+import { cn } from '../components/ui/utils';
 import { IdentityAvatar } from '../components/IdentityAvatar';
 import { useIdentity } from '../auth/useIdentity';
 import type { DemoAccountKey } from '../services';
@@ -15,7 +16,7 @@ const ICONS: Record<DemoAccountKey, LucideIcon> = {
   biz: Building2,
 };
 
-/** Who is signed in + quick switch between the guest and the sample accounts (same options as the topbar). */
+/** Who is signed in + quick switch between the guest and the sample accounts (the only role switcher in the app). */
 export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
   const identity = useIdentity();
   const { options, current, busy, switchTo } = useRoleSwitch(onDone);
@@ -44,7 +45,10 @@ export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
               aria-pressed={active}
               disabled={busy !== null}
               onClick={() => void switchTo(o.key)}
-              className="h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left"
+              className={cn(
+                'h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left',
+                !active && 'border-primary/30 text-primary hover:border-primary hover:bg-primary/10 hover:text-primary',
+              )}
             >
               {busy === o.key ? <Loader2 className="animate-spin" aria-hidden /> : <Icon aria-hidden />}
               {o.label}

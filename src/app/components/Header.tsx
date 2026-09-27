@@ -7,7 +7,6 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { IdentityAvatar } from './IdentityAvatar';
 import { useIdentity } from '../auth/useIdentity';
-import { RoleSwitchMenuGroup, RoleSwitcher } from '../demo/RoleSwitcher';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   DropdownMenu,
@@ -65,9 +64,6 @@ export function Header({ onToggleSidebar }: HeaderProps) {
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
-        {/* Prototype role switcher (design §2.3); on mobile it lives in the account menu. */}
-        <RoleSwitcher className="hidden max-w-60 md:inline-flex" />
-
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -96,10 +92,6 @@ export function Header({ onToggleSidebar }: HeaderProps) {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <div className="md:hidden">
-              <RoleSwitchMenuGroup />
-              <DropdownMenuSeparator />
-            </div>
             <DropdownMenuItem variant="destructive" onSelect={handleLogout} className="min-h-11 md:min-h-0">
               <LogOut />
               Đăng xuất
