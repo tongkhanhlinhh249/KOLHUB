@@ -3,7 +3,6 @@ import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AccessGuard } from './auth/AccessGuard';
 import { GuestLayout } from './layouts/GuestLayout';
-import { ComingSoon } from './features/placeholder/ComingSoon';
 import { RegisterPage } from './features/register/RegisterPage';
 import { LoginPage } from './features/login/LoginPage';
 import { ForgotPasswordPage } from './features/login/ForgotPasswordPage';
@@ -15,6 +14,10 @@ import { BizAccountPage } from './features/biz-account/BizAccountPage';
 import { ProfileIndexRedirect, ProfilePage } from './features/profile/ProfilePage';
 import { PROFILE_SECTIONS } from './features/profile/primaryAction';
 import type { OwnerType } from './services';
+// --- KOL Safety ---
+import { VideoCheckPage } from './features/safety/VideoCheckPage';
+import { ChannelMonitorPage } from './features/safety/ChannelMonitorPage';
+import { ChannelMonitorDetail } from './features/safety/ChannelMonitorDetail';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
@@ -57,9 +60,9 @@ export const router = createBrowserRouter([
             path: 'kiem-duyet',
             children: [
               { index: true, element: <Navigate to="/kiem-duyet/video" replace /> },
-              { path: 'video', element: <ComingSoon title="Kiểm tra video trước khi đăng" note="Tính năng sắp ra mắt." /> },
-              { path: ':platform', element: <ComingSoon title="Kiểm duyệt kênh" note="Tính năng sắp ra mắt." /> },
-              { path: ':platform/:monitorId', element: <ComingSoon title="Kiểm duyệt kênh" note="Tính năng sắp ra mắt." /> },
+              { path: 'video', element: <VideoCheckPage /> },
+              { path: ':platform', element: <ChannelMonitorPage /> },
+              { path: ':platform/:monitorId', element: <ChannelMonitorDetail /> },
             ],
           },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
