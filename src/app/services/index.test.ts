@@ -19,3 +19,12 @@ test('services/index nối dịch vụ Đợt 2 và subscribeData báo khi dữ 
   expect(calls).toBe(1);
   expect(ekycService.getScenario()).toBe('KOLHUB-4101');
 });
+
+test('services/index xuất identityOf và DEMO_ACCOUNTS cho thanh chuyển vai trò', async () => {
+  const { identityOf, DEMO_ACCOUNTS, authService: auth } = await import('./index');
+  expect(identityOf(db.read(), null).roleLabel).toBe('Khách');
+  expect(DEMO_ACCOUNTS.map((d) => d.key)).toContain('kol-verified');
+  const vy = await auth.quickLogin('kol-verified');
+  expect(identityOf(db.read(), vy)).toMatchObject({ name: 'Khánh Vy', subtitle: 'KOL-2026-0001' });
+  await auth.logout();
+});

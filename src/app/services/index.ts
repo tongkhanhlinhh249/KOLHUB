@@ -23,7 +23,7 @@ export { errorMessage } from './errors';
 export * from './types';
 export type { Db, DemoState } from './mock/db';
 export type { OtpMessage, OtpService } from './mock/otp';
-export type { AuthService, RegisterInput } from './mock/auth';
+export type { AuthService, RegisterInput, QuickLoginKey } from './mock/auth';
 export { DEMO_PASSWORD } from './mock/seed';
 // Pure validators, re-exported so forms can check input client-side before calling services.
 export { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from './mock/normalize';
@@ -66,4 +66,7 @@ export { FUNNEL_STEPS, formatDuration } from './mock/funnel';
 export { toPublicKol, publicKolOf } from './mock/directory';
 export type { PublicKol } from './mock/directory';
 export { syncChannelStats } from './mock/socialListening';
+export { identityOf, DEMO_ACCOUNTS, ROLE_LABELS } from './mock/identity';
+export type { DisplayIdentity, DemoAccount, DemoAccountKey } from './mock/identity';
+export { VERIFIED_KOL_EMAIL } from './mock/seed';
 export { COUNTED_CODES, MAX_EKYC_ATTEMPTS } from './mock/ekyc';

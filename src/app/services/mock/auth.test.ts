@@ -215,6 +215,21 @@ describe('login', () => {
     await auth.logout();
     expect(auth.currentAccount()).toBeNull();
   });
+
+  test('quickLogin theo khoá tài khoản demo; kiểu cũ vẫn chạy', async () => {
+    await expect(auth.quickLogin('KOL')).resolves.toMatchObject({ email: 'kol@demo.kolhub.vn' });
+    await expect(auth.quickLogin('kol-new')).resolves.toMatchObject({ email: 'kol@demo.kolhub.vn' });
+    await expect(auth.quickLogin('kol-verified')).resolves.toMatchObject({ type: 'KOL', email: 'khanhvy@demo.kolhub.vn' });
+    expect(auth.currentAccount()?.email).toBe('khanhvy@demo.kolhub.vn');
+    await expect(auth.quickLogin('mcn')).resolves.toMatchObject({ email: 'mcn@demo.kolhub.vn' });
+    await expect(auth.quickLogin('biz')).resolves.toMatchObject({ email: 'brand@vinamilk-demo.vn' });
+    expect(auth.currentAccount()).not.toHaveProperty('password');
+    await expect(auth.quickLogin('guest' as never)).rejects.toMatchObject({ code: 'KOLHUB-4012' });
+  });
+
+  test('KOL mẫu đã duyệt đăng nhập bằng khanhvy@demo.kolhub.vn / demo1234', async () => {
+    await expect(auth.loginWithEmail('khanhvy@demo.kolhub.vn', 'demo1234')).resolves.toMatchObject({ type: 'KOL' });
+  });
 });
 
 describe('resetPassword', () => {

@@ -3,6 +3,10 @@ import type { Db, DemoState, PendingRegistration, StoredAccount } from './db';
 import { delay as fakeDelay } from './delay';
 import { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from './normalize';
 import type { OtpService } from './otp';
+import { DEMO_ACCOUNTS, type DemoAccountKey } from './identity';
+
+/** Role-switcher keys accepted by quickLogin (the guest signs out instead). */
+export type QuickLoginKey = Exclude<DemoAccountKey, 'guest'>;
 
 export type { PendingRegistration };
 
@@ -257,9 +261,20 @@ export function createAuthService(deps: AuthServiceDeps) {
     });
   }
 
-  async function quickLogin(type: AccountType): Promise<Account> {
+  /**
+   * Demo sign-in without password: by account type (first seed account of that type) or by a
+   * DEMO_ACCOUNTS key ('kol-verified' = khanhvy@demo.kolhub.vn). The guest has no account: use logout().
+   */
+  async function quickLogin(target: AccountType | QuickLoginKey): Promise<Account> {
     await wait();
-    const account = db.read().accounts.find((a) => a.type === type);
+    const state = db.read();
+    const email = DEMO_ACCOUNTS.find((d) => d.key === target)?.email;
+    const byKey = DEMO_ACCOUNTS.some((d) => d.key === target);
+    const account = byKey
+      ? email
+        ? findByEmail(state, email)
+        : undefined
+      : state.accounts.find((a) => a.type === target);
     if (!account) throw new KolhubError('KOLHUB-4012');
     startSession(account.id);
     return toAccount(account);
