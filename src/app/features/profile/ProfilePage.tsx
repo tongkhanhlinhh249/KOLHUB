@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { channelService, ekycService, profileService, type OwnerType } from '../../services';
 import { ComingSoon } from '../placeholder/ComingSoon';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { ContactTab } from './ContactTab';
 import { ProfileHeader } from './ProfileHeader';
 import type { ProfileTab } from './primaryAction';
 
@@ -96,7 +97,7 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
               ))}
             </TabsList>
             <TabsContent value="lien-he" className="mt-4">
-              <ComingSoon title="Thông tin liên hệ" note="Đang hoàn thiện." />
+              <ContactTab view={q.data.view} />
             </TabsContent>
             <TabsContent value="dinh-danh" className="mt-4">
               <ComingSoon title="Thông tin định danh" note="Đang hoàn thiện." />
