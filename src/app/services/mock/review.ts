@@ -1,17 +1,23 @@
 import { addMonths, format } from 'date-fns';
 import type {
   ApprovedKolSummary,
+  ChangeRequest,
   Channel,
   KolProfile,
   McnProfile,
   NoticeMessage,
+  OcrData,
+  OrgIdentity,
+  OwnerType,
+  ProfileStatus,
   ReviewRequest,
+  StoredFile,
 } from '../profile-types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { trackFunnel } from './funnel';
 import { newId } from './profile';
-import { findProfile, submitChecklist } from './profileRules';
+import { findProfile, submitChecklist, sweepExpired } from './profileRules';
 
 export type ChannelVerdict = { verdict: 'PASS' } | { verdict: 'NEEDS_FIX'; reason: string };
 
@@ -244,7 +250,159 @@ export function createReviewService(deps: ReviewServiceDeps) {
     });
   }
 
-  return { submit, approve, requestFix, reject, expireChannelNow };
+  function nameOf(s: DemoState, p: AnyProfile): string {
+    const name = p.contact.displayName.trim() || (p.ownerType === 'MCN' ? p.org.orgName.trim() : '');
+    return name || s.accounts.find((a) => a.id === p.accountId)?.email || p.accountId;
+  }
+
+  async function listAdminQueue(): Promise<AdminQueue> {
+    await wait();
+    const t = now();
+    if (db.read().channels.some((c) => c.status === 'VERIFIED' && c.badgeExpiresAt !== undefined && c.badgeExpiresAt <= t)) {
+      db.update((s) => sweepExpired(s, t));
+    }
+    const s = db.read();
+    const all: AnyProfile[] = [...s.kolProfiles, ...s.mcnProfiles];
+    const byId = new Map(all.map((p) => [p.accountId, p]));
+
+    const profiles = all
+      .filter((p) => p.status === 'SUBMITTED' || (p.status === 'APPROVED' && pendingChannelsOf(s, p.accountId).length))
+      .sort((a, b) => (a.submittedAt ?? 0) - (b.submittedAt ?? 0))
+      .map((p) => ({
+        ownerType: p.ownerType,
+        ownerId: p.accountId,
+        displayName: nameOf(s, p),
+        status: p.status,
+        submittedAt: p.submittedAt,
+        ...(p.ownerType === 'MCN' ? { org: p.org, gcnFile: p.gcnFile } : {}),
+        pendingChannels: pendingChannelsOf(s, p.accountId),
+      }));
+
+    const changes = s.changeRequests
+      .filter((c) => c.status === 'PENDING_CHANGE')
+      .map((c) => ({ ...c, displayName: byId.has(c.ownerId) ? nameOf(s, byId.get(c.ownerId)!) : c.ownerId }));
+
+    const ekycCases = s.kolProfiles
+      .filter((p) => p.ekycStatus === 'MANUAL_REVIEW' || p.ekycStatus === 'REPORTED')
+      .map((p) => ({
+        accountId: p.accountId,
+        displayName: nameOf(s, p),
+        status: p.ekycStatus as 'MANUAL_REVIEW' | 'REPORTED',
+        ...(p.ekycDraft
+          ? {
+              ocr: {
+                fullName: p.ekycDraft.fullName,
+                dob: p.ekycDraft.dob,
+                idNoMasked: p.ekycDraft.idNoMasked,
+                issueDate: p.ekycDraft.issueDate,
+              },
+            }
+          : {}),
+      }));
+
+    const verifiedChannels = s.channels
+      .filter((c) => c.status === 'VERIFIED')
+      .map((c) => ({ ...c, displayName: byId.has(c.ownerId) ? nameOf(s, byId.get(c.ownerId)!) : c.ownerId }));
+
+    return { profiles, changes, ekycCases, verifiedChannels };
+  }
+
+  async function decideChange(
+    changeId: string,
+    decision: { approve: true } | { approve: false; reason: string },
+  ): Promise<void> {
+    await wait();
+    const t = now();
+    const reason = decision.approve ? undefined : requireReason(decision.reason);
+    let target: AnyProfile | undefined;
+    let label = '';
+    db.update((s) => {
+      const c = s.changeRequests.find((x) => x.id === changeId);
+      if (!c || c.status !== 'PENDING_CHANGE') throw new Error('CHANGE_NOT_FOUND');
+      const p = requireProfile(s, c.ownerId);
+      label = c.field === 'displayName' ? 'Họ tên KOL/KOC' : 'Thông tin định danh tổ chức';
+      if (decision.approve) {
+        if (c.field === 'displayName' && typeof c.newValue === 'string') p.contact.displayName = c.newValue;
+        if (c.field === 'orgIdentity' && typeof c.newValue !== 'string' && p.ownerType === 'MCN') {
+          p.org = c.newValue.org;
+          p.gcnFile = c.newValue.gcnFile;
+        }
+        p.updatedAt = t;
+      }
+      c.status = decision.approve ? 'APPROVED' : 'REJECTED';
+      c.decidedAt = t;
+      c.reason = reason;
+      target = p;
+    });
+    send(
+      target!,
+      CHANGE_TITLE,
+      decision.approve
+        ? `KOL Hub: Yêu cầu thay đổi ${label} đã được duyệt.`
+        : `KOL Hub: Yêu cầu thay đổi ${label} không được duyệt. Lý do: ${reason}`,
+    );
+  }
+
+  async function closeEkycCase(accountId: string, outcome: 'accept-name' | 'reset', reason?: string): Promise<void> {
+    await wait();
+    const t = now();
+    let target: AnyProfile | undefined;
+    db.update((s) => {
+      const p = requireProfile(s, accountId);
+      if (p.ownerType !== 'KOL' || (p.ekycStatus !== 'MANUAL_REVIEW' && p.ekycStatus !== 'REPORTED')) {
+        throw new Error('EKYC_CASE_NOT_FOUND');
+      }
+      if (outcome === 'accept-name') {
+        if (p.ekycStatus !== 'MANUAL_REVIEW' || !p.ekycDraft) throw new Error('EKYC_CASE_NOT_FOUND');
+        p.contact.displayName = p.ekycDraft.fullName;
+        p.ekycDraft.nameMismatch = false;
+        p.ekycStatus = 'OCR_PASSED';
+        const email = s.accounts.find((a) => a.id === accountId)?.email ?? p.contact.email;
+        trackFunnel(s, email, 'ekyc_ocr_passed', t);
+      } else {
+        p.ekycStatus = 'NOT_STARTED';
+        delete p.ekycDraft;
+      }
+      p.updatedAt = t;
+      target = p;
+    });
+    const r = (reason ?? '').trim();
+    const tail =
+      outcome === 'accept-name'
+        ? 'Bạn có thể tiếp tục quay video khuôn mặt.'
+        : `Vui lòng xác thực lại.${r ? ` Lý do: ${r}` : ''}`;
+    send(target!, EKYC_TITLE, `KOL Hub: Yêu cầu xem xét eKYC đã được xử lý. ${tail}`);
+  }
+
+  return {
+    submit,
+    approve,
+    requestFix,
+    reject,
+    expireChannelNow,
+    listAdminQueue,
+    decideChange,
+    closeEkycCase,
+  };
+}
+
+const CHANGE_TITLE = 'Kết quả duyệt thay đổi hồ sơ';
+const EKYC_TITLE = 'Kết quả xem xét eKYC';
+
+export interface AdminQueue {
+  profiles: {
+    ownerType: OwnerType;
+    ownerId: string;
+    displayName: string;
+    status: ProfileStatus;
+    submittedAt?: number;
+    org?: OrgIdentity;
+    gcnFile?: StoredFile;
+    pendingChannels: Channel[];
+  }[];
+  changes: (ChangeRequest & { displayName: string })[];
+  ekycCases: { accountId: string; displayName: string; status: 'MANUAL_REVIEW' | 'REPORTED'; ocr?: OcrData }[];
+  verifiedChannels: (Channel & { displayName: string })[];
 }
 
 export type ReviewService = ReturnType<typeof createReviewService>;

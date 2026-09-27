@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import type { KolProfile, McnProfile, StoredFile } from '../profile-types';
 import { createChannelService } from './channel';
+import { createEkycService } from './ekyc';
 import { createProfileService } from './profile';
 import { findProfile } from './profileRules';
 import { createReviewService, listApprovedKols, pendingChannelsOf } from './review';
@@ -256,5 +257,99 @@ describe('listApprovedKols', () => {
     await review.expireChannelNow('c1');
     expect(h.db.read().channels.find((c) => c.id === 'c1')).toMatchObject({ status: 'EXPIRED', badgeExpiresAt: h.clock.t });
     expect(listApprovedKols(h.db.read(), h.now())).toEqual([]);
+  });
+});
+
+describe('admin queue', () => {
+  const org = { orgName: 'Công ty Sao', regNo: '0312345678', regDate: '2020-01-01', regBy: 'Sở KH&ĐT', legalRep: 'Nguyễn A' };
+
+  test('hàng chờ có hồ sơ SUBMITTED kèm kênh chờ; DRAFT không vào', async () => {
+    readyKol(h);
+    await review.submit(h.kolId, ALL);
+    const q = await review.listAdminQueue();
+    expect(q.profiles.map((p) => p.ownerId)).toEqual([h.kolId]);
+    expect(q.profiles[0]).toMatchObject({ ownerType: 'KOL', displayName: 'Khánh Vy', status: 'SUBMITTED' });
+    expect(q.profiles[0].pendingChannels.map((c) => c.id)).toEqual(['c1', 'c2']);
+  });
+
+  test('hồ sơ APPROVED có kênh mới vào hàng chờ', async () => {
+    await approvedKol(h);
+    expect((await review.listAdminQueue()).profiles).toEqual([]);
+    await channels.add(h.kolId, { url: 'youtube.com/@khanhvy', proofImage: png });
+    expect((await review.listAdminQueue()).profiles.map((p) => p.status)).toEqual(['APPROVED']);
+  });
+
+  test('duyệt đổi Họ tên → hồ sơ hiển thị tên mới', async () => {
+    readyKol(h);
+    await review.submit(h.kolId, ALL);
+    await profile.updateContact(h.kolId, { displayName: 'Vy Khánh' });
+    const q = await review.listAdminQueue();
+    expect(q.changes).toHaveLength(1);
+    expect(q.changes[0]).toMatchObject({ displayName: 'Khánh Vy', field: 'displayName' });
+    await review.decideChange(q.changes[0].id, { approve: true });
+    const s = h.db.read();
+    expect(findProfile(s, h.kolId)!.contact.displayName).toBe('Vy Khánh');
+    expect(s.changeRequests[0]).toMatchObject({ status: 'APPROVED', decidedAt: h.clock.t });
+    expect(h.notices.map((n) => n.body)).toEqual([
+      'KOL Hub: Yêu cầu thay đổi Họ tên KOL/KOC đã được duyệt.',
+      'KOL Hub: Yêu cầu thay đổi Họ tên KOL/KOC đã được duyệt.',
+    ]);
+    expect(h.notices[0].title).toBe('Kết quả duyệt thay đổi hồ sơ');
+    expect((await review.listAdminQueue()).changes).toEqual([]);
+  });
+
+  test('từ chối đổi định danh MCN không lý do → REASON_REQUIRED; có lý do → org giữ nguyên, tin nhắn có lý do', async () => {
+    readyMcn(h);
+    await review.submit(h.mcnId, ALL);
+    await profile.updateOrgIdentity(h.mcnId, { ...org, legalRep: 'Trần B' });
+    const [chg] = (await review.listAdminQueue()).changes;
+    await expect(review.decideChange(chg.id, { approve: false, reason: ' ' })).rejects.toThrow('REASON_REQUIRED');
+    await review.decideChange(chg.id, { approve: false, reason: 'Chưa có GCN mới' });
+    expect((findProfile(h.db.read(), h.mcnId) as McnProfile).org.legalRep).toBe('Nguyễn A');
+    expect(h.notices[0].body).toBe(
+      'KOL Hub: Yêu cầu thay đổi Thông tin định danh tổ chức không được duyệt. Lý do: Chưa có GCN mới',
+    );
+  });
+
+  test('duyệt đổi định danh MCN → org và GCN mới', async () => {
+    readyMcn(h);
+    await review.submit(h.mcnId, ALL);
+    await profile.uploadGcn(h.mcnId, { name: 'gcn2.pdf', type: 'application/pdf', size: 5 });
+    await profile.updateOrgIdentity(h.mcnId, { ...org, legalRep: 'Trần B' });
+    const [chg] = (await review.listAdminQueue()).changes;
+    await review.decideChange(chg.id, { approve: true });
+    expect(findProfile(h.db.read(), h.mcnId)).toMatchObject({ org: { legalRep: 'Trần B' }, gcnFile: { name: 'gcn2.pdf' } });
+  });
+
+  test('case 4103 chờ xem xét → accept-name → OCR_PASSED, tên theo CCCD', async () => {
+    const ekyc = createEkycService({ db: h.db, now: h.now, delay: false });
+    await profile.updateContact(h.kolId, { displayName: 'Khánh Vy' });
+    ekyc.setScenario('KOLHUB-4103');
+    await expect(ekyc.submitIdCard(h.kolId, { front: png, back: png })).rejects.toBeTruthy();
+    await ekyc.resolveNameMismatch(h.kolId, 'request-review');
+    const q = await review.listAdminQueue();
+    expect(q.ekycCases).toEqual([
+      expect.objectContaining({ accountId: h.kolId, displayName: 'Khánh Vy', status: 'MANUAL_REVIEW', ocr: expect.objectContaining({ fullName: 'TRẦN THỊ BÌNH' }) }),
+    ]);
+    await review.closeEkycCase(h.kolId, 'accept-name');
+    const p = findProfile(h.db.read(), h.kolId) as KolProfile;
+    expect(p).toMatchObject({ ekycStatus: 'OCR_PASSED', contact: { displayName: 'TRẦN THỊ BÌNH' }, ekycDraft: { nameMismatch: false } });
+    expect(h.notices[0].body).toBe('KOL Hub: Yêu cầu xem xét eKYC đã được xử lý. Bạn có thể tiếp tục quay video khuôn mặt.');
+  });
+
+  test('case báo mạo danh → reset → NOT_STARTED, rời hàng chờ', async () => {
+    const ekyc = createEkycService({ db: h.db, now: h.now, delay: false });
+    await ekyc.reportImpersonation(h.kolId);
+    expect((await review.listAdminQueue()).ekycCases.map((c) => c.status)).toEqual(['REPORTED']);
+    await review.closeEkycCase(h.kolId, 'reset', 'Đã xác minh');
+    expect((findProfile(h.db.read(), h.kolId) as KolProfile).ekycStatus).toBe('NOT_STARTED');
+    expect((await review.listAdminQueue()).ekycCases).toEqual([]);
+    expect(h.notices[0].body).toBe('KOL Hub: Yêu cầu xem xét eKYC đã được xử lý. Vui lòng xác thực lại. Lý do: Đã xác minh');
+  });
+
+  test('verifiedChannels liệt kê kênh có dấu để đẩy hết hạn', async () => {
+    await approvedKol(h);
+    const q = await review.listAdminQueue();
+    expect(q.verifiedChannels.map((c) => [c.id, c.displayName])).toEqual([['c1', 'Khánh Vy']]);
   });
 });
