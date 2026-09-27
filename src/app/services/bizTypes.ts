@@ -114,16 +114,26 @@ export interface KolSearchQuery {
   page?: number;
 }
 
+/** One searchable channel of a search result (verified, active, unexpired). Public data only. */
+export interface KolSearchChannel {
+  platform: Platform;
+  followers: number;
+  badge: BadgeState;
+}
+
 export interface KolSearchItem {
   kolId: string;
   displayName: string;
   nickname: string;
   avatar?: string;
+  bio: string;
   category?: KolCategory;
   region?: KolRegion;
   totalFollowers: number;
   scale: KolScale;
   platforms: Platform[];
+  /** Only the channels that make the KOL searchable. */
+  channels: KolSearchChannel[];
   verifiedAt: string;
 }
 

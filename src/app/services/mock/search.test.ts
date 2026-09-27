@@ -73,7 +73,9 @@ describe('search', () => {
   test('kết quả chỉ có trường công khai; platforms bỏ kênh không tìm được', async () => {
     const f = (await svc.search({ keyword: 'kenh tron' })).items[0];
     expect(Object.keys(f).sort()).toEqual([
+      'bio',
       'category',
+      'channels',
       'displayName',
       'kolId',
       'nickname',
@@ -86,6 +88,21 @@ describe('search', () => {
     expect(f).not.toHaveProperty('private');
     expect(f.platforms).toEqual(['facebook']);
     expect(f.totalFollowers).toBe(20_000);
+    expect(f.channels).toEqual([{ platform: 'facebook', followers: 20_000, badge: 'VERIFIED' }]);
+  });
+
+  test('BR-58: kết quả có bio + kênh theo nền tảng, không lộ dữ liệu private', async () => {
+    const a = (await svc.search({ keyword: 'KOL-T-0001' })).items[0];
+    expect(a.bio).toBe('Giới thiệu');
+    expect(a.channels).toEqual([
+      { platform: 'tiktok', followers: 3_200_000, badge: 'VERIFIED' },
+      { platform: 'facebook', followers: 1_000_000, badge: 'VERIFIED' },
+    ]);
+    for (const c of a.channels) expect(Object.keys(c).sort()).toEqual(['badge', 'followers', 'platform']);
+    expect(a.channels.reduce((s, c) => s + c.followers, 0)).toBe(a.totalFollowers);
+    const json = JSON.stringify((await svc.search({})).items);
+    for (const v of ['0909000001', 'Đường Bí Mật', '0010******01', '99,000,000', 'private', 'violations', 'bookingPrice'])
+      expect(json).not.toContain(v);
   });
 
   test.each(['kol', null] as const)('BR-53: phiên %s → 4016', async (session) => {

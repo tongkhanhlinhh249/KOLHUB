@@ -67,9 +67,11 @@ function toItem(k: DirectoryKol, now: number): KolSearchItem {
     kolId: k.kolId,
     displayName: k.displayName,
     nickname: k.nickname,
+    bio: k.bio,
     totalFollowers: followers,
     scale: scaleOf(followers),
     platforms: uniquePlatforms(k, now),
+    channels: searchableChannels(k, now).map((c) => ({ platform: c.platform, followers: c.followers, badge: 'VERIFIED' as const })),
     verifiedAt: k.verifiedAt,
   };
   if (k.avatar) item.avatar = k.avatar;
