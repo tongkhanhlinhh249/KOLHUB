@@ -4,6 +4,8 @@ import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { DemoDataBlock } from './DemoDataBlock';
 import { DemoRoleBlock } from './DemoRoleBlock';
+// --- phase 3 ---
+import { Phase3AssumptionsBlock } from './Phase3AssumptionsBlock';
 
 export { DemoPanelSection } from './DemoPanelSection';
 
@@ -35,6 +37,8 @@ export function DemoPanel() {
         <div className="space-y-4 p-4 pb-safe">
           <DemoRoleBlock onDone={close} />
           <DemoDataBlock onDone={close} />
+          {/* --- phase 3 --- */}
+          <Phase3AssumptionsBlock />
         </div>
       </SheetContent>
     </Sheet>
