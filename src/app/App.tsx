@@ -9,8 +9,9 @@ import { NoticeInboxToaster } from './features/notice/NoticeInboxToaster';
 export default function App() {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      {/* Mounted before the router so its subscription exists when a guard toasts on first load (BR-67). */}
       <Toaster richColors position="top-center" />
+      <RouterProvider router={router} />
       <OtpInboxToaster />
       <NoticeInboxToaster />
     </AuthProvider>

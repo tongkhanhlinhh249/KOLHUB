@@ -18,6 +18,8 @@ function afterRoleChange(role: RoleKey, requested: string | null, pathname: stri
   return ROLE_CONFIG[role].home;
 }
 
+let forbiddenToastPending = false;
+
 /** Root route element: applies resolveAccess (BR-66..69) to every path. */
 export function AccessGuard() {
   const { role, pendingRedirect, clearPendingRedirect } = useAuth();
@@ -36,7 +38,15 @@ export function AccessGuard() {
   });
 
   useEffect(() => {
-    if (forbidden) toast.error('Bạn không có quyền truy cập trang này', { id: 'access-forbidden' });
+    if (!forbidden || forbiddenToastPending) return;
+    // Deferred so the Toaster is subscribed even on a direct page load (BR-67). Not cancelled on
+    // cleanup: the guard redirects right away, which would otherwise clear the timer. The pending
+    // flag (plus the fixed id) keeps StrictMode's double effect from showing it twice.
+    forbiddenToastPending = true;
+    setTimeout(() => {
+      forbiddenToastPending = false;
+      toast.error('Bạn không có quyền truy cập trang này', { id: 'access-forbidden' });
+    }, 0);
   }, [forbidden, pathname]);
 
   if (roleChanged) {
