@@ -4,8 +4,8 @@ import type { ErrorCode } from './types';
 export type OwnerType = 'KOL' | 'MCN';
 export type ProfileStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'NEEDS_FIX' | 'REJECTED';
 
-export type Platform = 'facebook' | 'youtube' | 'tiktok';
-export type ChannelStatus = 'PENDING_REVIEW' | 'VERIFIED' | 'NEEDS_FIX' | 'EXPIRED';
+import type { ChannelStatus, Platform } from './bizTypes';
+export type { ChannelStatus, Platform };
 
 export type EkycStatus = 'NOT_STARTED' | 'OCR_PASSED' | 'PASSED' | 'MANUAL_REVIEW' | 'REPORTED';
 export type EkycScenario =
@@ -199,19 +199,8 @@ export interface ApprovedKolSummary {
   verifiedAt: string;
 }
 
-export const KOL_CATEGORIES = [
-  'Giáo dục',
-  'Làm đẹp',
-  'Thời trang',
-  'Ẩm thực',
-  'Du lịch',
-  'Công nghệ',
-  'Giải trí',
-  'Thể thao',
-  'Gia đình',
-  'Tài chính',
-  'Khác',
-];
+// Single category list shared with brand search filters (bizTypes).
+export { KOL_CATEGORIES } from './bizTypes';
 
 export const PROVINCES = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ', 'Khác'];
 

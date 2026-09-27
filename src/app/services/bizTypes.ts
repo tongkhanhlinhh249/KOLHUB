@@ -19,6 +19,9 @@ export const KOL_CATEGORIES = [
   'Gaming',
   'Thể thao',
   'Giải trí',
+  'Gia đình',
+  'Tài chính',
+  'Khác',
 ] as const;
 export type KolCategory = (typeof KOL_CATEGORIES)[number];
 
