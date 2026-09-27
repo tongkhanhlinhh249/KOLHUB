@@ -33,6 +33,13 @@ const ORG_LABELS: Record<OrgKey, string> = {
   legalRep: 'Người đại diện theo pháp luật',
 };
 const ORG_KEYS = Object.keys(ORG_LABELS) as OrgKey[];
+const ORG_PLACEHOLDERS: Record<OrgKey, string> = {
+  orgName: 'Tên theo Giấy chứng nhận ĐKDN',
+  regNo: '0312345678',
+  regDate: '',
+  regBy: 'Sở Kế hoạch và Đầu tư TP. Hà Nội',
+  legalRep: 'Họ tên người đại diện',
+};
 const STEPS = ['Thông tin tổ chức', 'Giấy chứng nhận ĐKDN', 'Xem lại & gửi'];
 
 const complete = (o: OrgIdentity) => ORG_KEYS.every((k) => o[k].trim() !== '');
@@ -83,6 +90,7 @@ function OrgFields({ values, errors, onChange }: { values: OrgIdentity; errors: 
         <div key={k} className={k === 'orgName' || k === 'legalRep' ? 'md:col-span-2' : undefined}>
           <Field
             label={`${ORG_LABELS[k]} *`}
+            placeholder={ORG_PLACEHOLDERS[k] || undefined}
             type={k === 'regDate' ? 'date' : 'text'}
             inputMode={k === 'regNo' ? 'numeric' : undefined}
             value={values[k]}

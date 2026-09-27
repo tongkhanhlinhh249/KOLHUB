@@ -133,18 +133,18 @@ function ContactDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="space-y-1.5">
-          <Field label={`${labels.displayName} *`} value={values.displayName} error={errors.displayName} onChange={(e) => set('displayName')(e.target.value)} />
+          <Field label={`${labels.displayName} *`} placeholder="Tên hiển thị công khai" value={values.displayName} error={errors.displayName} onChange={(e) => set('displayName')(e.target.value)} />
           {nameNeedsApproval && <p className="text-xs text-muted-foreground">Thay đổi họ tên cần được duyệt trước khi hiển thị.</p>}
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label={`${labels.phone} *`} inputMode="tel" value={values.phone} error={errors.phone} onChange={(e) => set('phone')(e.target.value)} />
-          <Field label={`${labels.email} *`} type="email" value={values.email} error={errors.email} onChange={(e) => set('email')(e.target.value)} />
-          <Field label={labels.zalo} inputMode="tel" value={values.zalo} error={errors.zalo} onChange={(e) => set('zalo')(e.target.value)} />
-          <Field label={labels.country} value={values.country} error={errors.country} onChange={(e) => set('country')(e.target.value)} />
+          <Field label={`${labels.phone} *`} placeholder="0912 345 678" inputMode="tel" value={values.phone} error={errors.phone} onChange={(e) => set('phone')(e.target.value)} />
+          <Field label={`${labels.email} *`} placeholder="ban@email.com" type="email" value={values.email} error={errors.email} onChange={(e) => set('email')(e.target.value)} />
+          <Field label={labels.zalo} placeholder="Số điện thoại Zalo" inputMode="tel" value={values.zalo} error={errors.zalo} onChange={(e) => set('zalo')(e.target.value)} />
+          <Field label={labels.country} placeholder="Việt Nam" value={values.country} error={errors.country} onChange={(e) => set('country')(e.target.value)} />
           <SelectField label={`${labels.province} *`} value={values.province} options={PROVINCES} onChange={set('province')} error={errors.province} />
           <SelectField label={`${labels.category} *`} value={values.category} options={KOL_CATEGORIES} onChange={set('category')} error={errors.category} />
         </div>
-        <Field label={`${labels.address} *`} value={values.address} error={errors.address} onChange={(e) => set('address')(e.target.value)} />
+        <Field label={`${labels.address} *`} placeholder="Số nhà, đường, phường/xã, quận/huyện" value={values.address} error={errors.address} onChange={(e) => set('address')(e.target.value)} />
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => onOpenChange(false)}>
             Huỷ
@@ -194,9 +194,9 @@ function StaffDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange(o
         <DialogDescription>Người phụ trách nội dung và hợp tác của hồ sơ.</DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <Field label={`${STAFF_LABELS.staffName} *`} value={values.staffName} error={errors.staffName} onChange={(e) => set('staffName')(e.target.value)} />
-        <Field label={`${STAFF_LABELS.staffPhone} *`} inputMode="tel" value={values.staffPhone} error={errors.staffPhone} onChange={(e) => set('staffPhone')(e.target.value)} />
-        <Field label={STAFF_LABELS.staffEmail} type="email" value={values.staffEmail} error={errors.staffEmail} onChange={(e) => set('staffEmail')(e.target.value)} />
+        <Field label={`${STAFF_LABELS.staffName} *`} placeholder="Nguyễn Văn An" value={values.staffName} error={errors.staffName} onChange={(e) => set('staffName')(e.target.value)} />
+        <Field label={`${STAFF_LABELS.staffPhone} *`} placeholder="0912 345 678" inputMode="tel" value={values.staffPhone} error={errors.staffPhone} onChange={(e) => set('staffPhone')(e.target.value)} />
+        <Field label={STAFF_LABELS.staffEmail} placeholder="nhansu@email.com" type="email" value={values.staffEmail} error={errors.staffEmail} onChange={(e) => set('staffEmail')(e.target.value)} />
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => onOpenChange(false)}>
             Huỷ

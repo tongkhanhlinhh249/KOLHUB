@@ -63,9 +63,9 @@ export function EditBizProfileDialog({ open, onOpenChange }: Props) {
             <DialogTitle>Sửa thông tin doanh nghiệp</DialogTitle>
             <DialogDescription>Thông tin hiển thị trên tài khoản của bạn.</DialogDescription>
           </DialogHeader>
-          <Field label="Họ tên" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} error={errors.fullName} />
+          <Field label="Họ tên" placeholder="Nguyễn Văn An" autoComplete="name" value={fullName} onChange={(e) => setFullName(e.target.value)} error={errors.fullName} />
           <Field
-            label="Tên công ty"
+            label="Tên công ty" placeholder="Công ty TNHH ABC"
             autoComplete="organization"
             value={company}
             onChange={(e) => setCompany(e.target.value)}

@@ -69,6 +69,7 @@ export function NoteDialog({ open, kolName, initialNote, onSubmit, onOpenChange 
             </div>
             <Textarea
               id={id}
+              placeholder="Ghi chú nội bộ về KOL này (chỉ tài khoản của bạn nhìn thấy)"
               autoFocus
               rows={5}
               value={note}

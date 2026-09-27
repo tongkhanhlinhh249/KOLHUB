@@ -68,6 +68,7 @@ export function ListNameDialog({ open, mode, initialName = '', onSubmit, onOpenC
               </span>
             </div>
             <Input
+              placeholder="Ví dụ: Chiến dịch Tết 2027"
               id={id}
               autoFocus
               value={name}

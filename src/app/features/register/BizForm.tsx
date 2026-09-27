@@ -32,6 +32,7 @@ export function BizForm({ values, errors, onChange, onSubmit, footer }: Props) {
     <form onSubmit={submit} noValidate className="space-y-4">
       <Field
         label="Họ và tên"
+        placeholder="Nguyễn Văn An"
         autoComplete="name"
         value={values.fullName}
         onChange={(e) => set('fullName', e.target.value)}
@@ -39,6 +40,7 @@ export function BizForm({ values, errors, onChange, onSubmit, footer }: Props) {
       />
       <Field
         label="Tên công ty"
+        placeholder="Công ty TNHH ABC"
         autoComplete="organization"
         value={values.company}
         onChange={(e) => set('company', e.target.value)}
@@ -56,6 +58,7 @@ export function BizForm({ values, errors, onChange, onSubmit, footer }: Props) {
       />
       <Field
         label="Mật khẩu"
+        placeholder="Tối thiểu 8 ký tự, có chữ và số"
         password
         autoComplete="new-password"
         value={values.password}
@@ -65,6 +68,7 @@ export function BizForm({ values, errors, onChange, onSubmit, footer }: Props) {
       />
       <Field
         label="Nhập lại mật khẩu"
+        placeholder="Nhập lại mật khẩu"
         password
         autoComplete="new-password"
         value={values.confirmPassword}

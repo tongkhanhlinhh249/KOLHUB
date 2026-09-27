@@ -75,7 +75,7 @@ function ReasonDialog({
         </DialogHeader>
         <div className="space-y-2">
           <Label htmlFor={id}>Lý do</Label>
-          <Textarea id={id} value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
+          <Textarea id={id} placeholder="Nêu rõ lý do để người dùng sửa hồ sơ" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} />
           {quickFill && (
             <Button type="button" variant="link" size="sm" className="h-auto p-0 text-left whitespace-normal" onClick={() => setReason(quickFill)}>
               Điền nhanh: {quickFill}

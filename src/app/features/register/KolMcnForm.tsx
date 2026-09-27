@@ -50,6 +50,7 @@ export function KolMcnForm({ values, errors, onChange, onSubmit, footer }: Props
       />
       <Field
         label="Mật khẩu"
+        placeholder="Tối thiểu 8 ký tự, có chữ và số"
         password
         autoComplete="new-password"
         value={values.password}
@@ -59,6 +60,7 @@ export function KolMcnForm({ values, errors, onChange, onSubmit, footer }: Props
       />
       <Field
         label="Nhập lại mật khẩu"
+        placeholder="Nhập lại mật khẩu"
         password
         autoComplete="new-password"
         value={values.confirmPassword}
