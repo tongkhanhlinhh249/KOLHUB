@@ -191,12 +191,26 @@ export interface SavedListSummary {
   updatedAt: string;
 }
 
+/** One public channel of a saved KOL (active, badge valid or expired — BR-62). */
+export interface SavedListRowChannel {
+  platform: Platform;
+  followers: number;
+}
+
 export interface SavedListRow {
   kolId: string;
   displayName: string;
+  /** Public nickname without "@". */
+  handle?: string;
   avatar?: string;
   category?: KolCategory;
+  /** 0–3 "Lĩnh vực hoạt động". */
+  fields: KolField[];
   platforms: Platform[];
+  /** Public channels (also those whose badge expired), in profile order. */
+  channels: SavedListRowChannel[];
+  /** Sum of `channels` followers. */
+  totalFollowers: number;
   status: KolListingStatus;
   note: string;
   addedAt: string;
@@ -205,6 +219,7 @@ export interface SavedListRow {
 export interface SavedListDetail {
   id: string;
   name: string;
+  updatedAt: string;
   rows: SavedListRow[];
 }
 

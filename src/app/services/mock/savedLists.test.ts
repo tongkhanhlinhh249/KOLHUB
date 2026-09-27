@@ -103,8 +103,12 @@ test('dòng: thông tin công khai, nền tảng của kênh tìm được, mớ
   expect(rows[1]).toEqual({
     kolId: 'KOL-T-0006',
     displayName: 'Kênh Trộn',
+    handle: expect.stringMatching(/^ch\d+$/), // nickname = first public channel handle, no "@"
     category: 'Gaming',
+    fields: [{ name: 'Gaming', medal: 'none' }],
     platforms: ['facebook'],
+    channels: [{ platform: 'facebook', followers: 20_000 }],
+    totalFollowers: 20_000,
     status: 'VISIBLE',
     note: '',
     addedAt: iso(NOW),
@@ -226,4 +230,98 @@ test('restoreItem: danh sách của tài khoản khác → 4403; danh sách đã
 test('removeFromList KOL không có trong danh sách → null', async () => {
   const a = await svc.createList('A');
   await expect(svc.removeFromList(a.id, 'KOL-T-0001')).resolves.toBeNull();
+});
+
+test('getList: updatedAt của danh sách; kênh + người theo dõi từng kênh', async () => {
+  const a = await svc.createList('A');
+  clock += DAY;
+  await svc.setMembership('KOL-T-0001', [a.id]);
+  const d = await svc.getList(a.id);
+  expect(d.updatedAt).toBe(iso(NOW + DAY));
+  expect(d.rows[0]).toMatchObject({
+    handle: 'chaubui',
+    channels: [
+      { platform: 'tiktok', followers: 3_200_000 },
+      { platform: 'facebook', followers: 1_000_000 },
+    ],
+    totalFollowers: 4_200_000,
+  });
+  expect(d.rows[0].fields.map((f) => f.name)).toEqual(['Thời trang', 'Làm đẹp', 'Lifestyle']);
+});
+
+test('BR-62: KOL hết hạn dấu vẫn hiện kênh và người theo dõi', async () => {
+  const a = await svc.createList('A');
+  await svc.setMembership('KOL-T-0002', [a.id]);
+  db.update((s) => {
+    kolChannels(s, 'KOL-T-0002').forEach((c) => {
+      c.badgeExpiresAt = NOW - 1;
+    });
+  });
+  const [row] = (await svc.getList(a.id)).rows;
+  expect(row).toMatchObject({ status: 'BADGE_EXPIRED', channels: [{ platform: 'youtube', followers: 2_800_000 }], totalFollowers: 2_800_000 });
+});
+
+test('KOL biến mất: dòng UNAVAILABLE có kênh rỗng, lĩnh vực rỗng, 0 người theo dõi', async () => {
+  const a = await svc.createList('A');
+  await svc.setMembership('KOL-T-0003', [a.id]);
+  db.update((s) => {
+    s.kolProfiles = s.kolProfiles.filter((k) => k.kolId !== 'KOL-T-0003');
+  });
+  const [row] = (await svc.getList(a.id)).rows;
+  expect(row).toMatchObject({ channels: [], fields: [], totalFollowers: 0 });
+});
+
+test('moveItems: chuyển giữ ghi chú, ngày lưu mới ở đích; đã có ở đích thì chỉ bỏ khỏi nguồn', async () => {
+  const a = await svc.createList('A');
+  const b = await svc.createList('B');
+  await svc.setMembership('KOL-T-0001', [a.id]);
+  await svc.setMembership('KOL-T-0002', [a.id, b.id]);
+  await svc.setMembership('KOL-T-0003', [a.id]);
+  await svc.updateNote(a.id, 'KOL-T-0001', 'Báo giá 20tr');
+  await svc.updateNote(b.id, 'KOL-T-0002', 'Ghi chú B');
+  clock += DAY;
+  expect(await svc.moveItems(a.id, b.id, ['KOL-T-0001', 'KOL-T-0002', 'KOL-T-9999'])).toEqual({ moved: 1, alreadyInTarget: 1 });
+  expect((await svc.getList(a.id)).rows.map((r) => r.kolId)).toEqual(['KOL-T-0003']);
+  const rowsB = (await svc.getList(b.id)).rows;
+  expect(rowsB.find((r) => r.kolId === 'KOL-T-0001')).toMatchObject({ note: 'Báo giá 20tr', addedAt: iso(NOW + DAY) });
+  expect(rowsB.find((r) => r.kolId === 'KOL-T-0002')).toMatchObject({ note: 'Ghi chú B' });
+  const lists = await svc.listLists();
+  expect(lists.map((l) => [l.count, l.updatedAt])).toEqual([
+    [1, iso(NOW + DAY)],
+    [2, iso(NOW + DAY)],
+  ]);
+});
+
+test('moveItems: cùng danh sách → không đổi; danh sách của người khác → 4403', async () => {
+  const a = await svc.createList('A');
+  await svc.setMembership('KOL-T-0001', [a.id]);
+  expect(await svc.moveItems(a.id, a.id, ['KOL-T-0001'])).toEqual({ moved: 0, alreadyInTarget: 0 });
+  expect((await svc.listLists())[0].count).toBe(1);
+  switchSession(db, 'biz2');
+  const other = await svc.createList('X');
+  await expect(svc.moveItems(a.id, other.id, ['KOL-T-0001'])).rejects.toMatchObject({ code: 'KOLHUB-4403' });
+  await expect(svc.moveItems(other.id, a.id, ['KOL-T-0001'])).rejects.toMatchObject({ code: 'KOLHUB-4403' });
+});
+
+test('removeItems + restoreItems: bỏ nhiều KOL rồi hoàn tác đúng vị trí, ghi chú, ngày lưu', async () => {
+  const a = await svc.createList('A');
+  for (const id of ['KOL-T-0001', 'KOL-T-0002', 'KOL-T-0003', 'KOL-T-0006']) {
+    await svc.setMembership(id, [a.id]);
+    clock += 1000;
+  }
+  await svc.updateNote(a.id, 'KOL-T-0003', 'N3');
+  const before = db.read().savedLists.find((l) => l.id === a.id)!.items.map((i) => ({ ...i }));
+  const removed = await svc.removeItems(a.id, ['KOL-T-0003', 'KOL-T-0001', 'KOL-T-9999']);
+  expect(removed.map((r) => r.item.kolId)).toEqual(['KOL-T-0003', 'KOL-T-0001']);
+  expect((await svc.getList(a.id)).rows.map((r) => r.kolId).sort()).toEqual(['KOL-T-0002', 'KOL-T-0006']);
+  await svc.restoreItems(removed);
+  expect(db.read().savedLists.find((l) => l.id === a.id)!.items).toEqual(before);
+  await svc.restoreItems(removed);
+  expect((await svc.listLists())[0].count).toBe(4);
+});
+
+test('removeItems: danh sách của người khác → 4403', async () => {
+  const a = await svc.createList('A');
+  switchSession(db, 'biz2');
+  await expect(svc.removeItems(a.id, ['KOL-T-0001'])).rejects.toMatchObject({ code: 'KOLHUB-4403' });
 });

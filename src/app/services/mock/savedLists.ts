@@ -126,22 +126,38 @@ export function createSavedListService(deps: SavedListServiceDeps) {
       .map((it) => {
         const k = dir.find((x) => x.kolId === it.kolId);
         if (!k) {
-          return { kolId: it.kolId, displayName: it.kolId, platforms: [], status: 'UNAVAILABLE' as const, note: it.note, addedAt: it.addedAt };
+          const gone: SavedListRow = {
+            kolId: it.kolId,
+            displayName: it.kolId,
+            fields: [],
+            platforms: [],
+            channels: [],
+            totalFollowers: 0,
+            status: 'UNAVAILABLE',
+            note: it.note,
+            addedAt: it.addedAt,
+          };
+          return gone;
         }
+        const channels = k.channels.map((c) => ({ platform: c.platform, followers: c.followers }));
         const row: SavedListRow = {
           kolId: k.kolId,
           displayName: k.displayName,
+          fields: k.fields.map((f) => ({ ...f })),
           platforms: [...k.platforms],
+          channels,
+          totalFollowers: channels.reduce((sum, c) => sum + c.followers, 0),
           status: k.listingStatus,
           note: it.note,
           addedAt: it.addedAt,
         };
+        if (k.nickname) row.handle = k.nickname;
         if (k.avatar) row.avatar = k.avatar;
         if (k.category) row.category = k.category;
         return row;
       })
       .sort((a, b) => Date.parse(b.addedAt) - Date.parse(a.addedAt));
-    return { id: list.id, name: list.name, rows };
+    return { id: list.id, name: list.name, updatedAt: list.updatedAt, rows };
   }
 
   async function getMembership(kolId: string): Promise<ListMembership[]> {
@@ -224,6 +240,65 @@ export function createSavedListService(deps: SavedListServiceDeps) {
     });
   }
 
+  /**
+   * Moves KOLs from one own list to another in one call: the note travels with the KOL and the
+   * "Ngày lưu" in the target is now. A KOL already in the target keeps the target's item and is only
+   * removed from the source. Unknown KOL ids are ignored. Same source and target → no-op.
+   */
+  async function moveItems(fromId: string, toId: string, kolIds: string[]): Promise<{ moved: number; alreadyInTarget: number }> {
+    await wait();
+    const state = db.read();
+    ownList(state, fromId);
+    ownList(state, toId);
+    if (fromId === toId) return { moved: 0, alreadyInTarget: 0 };
+    const at = new Date(now()).toISOString();
+    let moved = 0;
+    let alreadyInTarget = 0;
+    db.update((s) => {
+      const from = s.savedLists.find((x) => x.id === fromId)!;
+      const to = s.savedLists.find((x) => x.id === toId)!;
+      for (const kolId of new Set(kolIds)) {
+        const item = from.items.find((i) => i.kolId === kolId);
+        if (!item) continue;
+        from.items = from.items.filter((i) => i.kolId !== kolId);
+        if (to.items.some((i) => i.kolId === kolId)) alreadyInTarget += 1;
+        else {
+          to.items.push({ kolId, note: item.note, addedAt: at });
+          moved += 1;
+        }
+      }
+      if (moved + alreadyInTarget > 0) {
+        from.updatedAt = at;
+        if (moved > 0) to.updatedAt = at;
+      }
+    });
+    return { moved, alreadyInTarget };
+  }
+
+  /** Bulk removeFromList; snapshots come back in removal order (undo with restoreItems). */
+  async function removeItems(listId: string, kolIds: string[]): Promise<RemovedListItem[]> {
+    await wait();
+    ownList(db.read(), listId);
+    const at = new Date(now()).toISOString();
+    const out: RemovedListItem[] = [];
+    db.update((s) => {
+      const l = s.savedLists.find((x) => x.id === listId)!;
+      for (const kolId of new Set(kolIds)) {
+        const index = l.items.findIndex((i) => i.kolId === kolId);
+        if (index < 0) continue;
+        out.push({ listId, index, item: { ...l.items[index] } });
+        l.items.splice(index, 1);
+      }
+      if (out.length > 0) l.updatedAt = at;
+    });
+    return out;
+  }
+
+  /** Undo of removeItems: restores in reverse removal order so every item lands at its old position. */
+  async function restoreItems(removed: RemovedListItem[]): Promise<void> {
+    for (const r of [...removed].reverse()) await restoreItem(r);
+  }
+
   async function updateNote(listId: string, kolId: string, note: string): Promise<void> {
     await wait();
     const list = ownList(db.read(), listId);
@@ -256,6 +331,9 @@ export function createSavedListService(deps: SavedListServiceDeps) {
     setMembership,
     removeFromList,
     restoreItem,
+    moveItems,
+    removeItems,
+    restoreItems,
     updateNote,
     getSavedKolIds,
   };
