@@ -13,16 +13,25 @@ import {
 
 const SORTS: SearchSort[] = ['relevance', 'followers', 'newest'];
 
+/** Result layout: grid of cards (default) or full-width list rows. */
+export type SearchView = 'grid' | 'list';
+const VIEWS: SearchView[] = ['grid', 'list'];
+
+/** Page state kept in the URL: the service query plus the result layout (`view` is never sent to the service). */
+export interface SearchPageQuery extends KolSearchQuery {
+  view?: SearchView;
+}
+
 /** URL keys used by the search page. */
-export const SEARCH_KEYS = ['q', 'linhVuc', 'khuVuc', 'quyMo', 'nenTang', 'sapXep', 'trang'] as const;
+export const SEARCH_KEYS = ['q', 'linhVuc', 'khuVuc', 'quyMo', 'nenTang', 'sapXep', 'trang', 'view'] as const;
 
 function oneOf<T extends string>(v: string | null, list: readonly T[]): T | undefined {
   return v !== null && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 }
 
-/** URL → query. Unknown values are dropped; missing sort → relevance; missing/bad page → 1. */
-export function parseSearchParams(sp: URLSearchParams): KolSearchQuery {
-  const q: KolSearchQuery = {};
+/** URL → query. Unknown values are dropped; missing sort → relevance; missing/bad page → 1; missing/unknown view → grid. */
+export function parseSearchParams(sp: URLSearchParams): SearchPageQuery {
+  const q: SearchPageQuery = {};
   const keyword = sp.get('q');
   if (keyword && keyword.trim()) q.keyword = keyword;
   const category = oneOf<KolCategory>(sp.get('linhVuc'), KOL_CATEGORIES);
@@ -44,11 +53,12 @@ export function parseSearchParams(sp: URLSearchParams): KolSearchQuery {
   const rawPage = sp.get('trang');
   const page = rawPage !== null && /^\d+$/.test(rawPage) ? Number(rawPage) : NaN;
   q.page = Number.isInteger(page) && page >= 1 ? page : 1;
+  q.view = oneOf<SearchView>(sp.get('view'), VIEWS) ?? 'grid';
   return q;
 }
 
-/** Query → URL params, leaving out defaults (relevance, page 1, empty values). */
-export function toSearchParams(q: KolSearchQuery): URLSearchParams {
+/** Query → URL params, leaving out defaults (relevance, page 1, grid view, empty values). */
+export function toSearchParams(q: SearchPageQuery): URLSearchParams {
   const sp = new URLSearchParams();
   if (q.keyword && q.keyword.trim()) sp.set('q', q.keyword);
   if (q.category) sp.set('linhVuc', q.category);
@@ -57,13 +67,25 @@ export function toSearchParams(q: KolSearchQuery): URLSearchParams {
   if (q.platforms && q.platforms.length > 0) sp.set('nenTang', q.platforms.join(','));
   if (q.sort && q.sort !== 'relevance') sp.set('sapXep', q.sort);
   if (q.page && q.page > 1) sp.set('trang', String(q.page));
+  if (q.view === 'list') sp.set('view', 'list');
   return sp;
 }
 
-/** Apply a change; any change other than the page itself goes back to page 1. */
-export function applyQueryPatch(q: KolSearchQuery, patch: Partial<KolSearchQuery>): KolSearchQuery {
-  const next: KolSearchQuery = { ...q, ...patch };
-  if (!('page' in patch)) next.page = 1;
+/** The part of the page query the search service needs (drops `view`). */
+export function toServiceQuery(q: SearchPageQuery): KolSearchQuery {
+  const { view: _view, ...rest } = q;
+  return rest;
+}
+
+/**
+ * Apply a change; any change other than the page itself goes back to page 1.
+ * Changing only the view keeps the page and filters.
+ */
+export function applyQueryPatch<Q extends SearchPageQuery>(q: Q, patch: Partial<SearchPageQuery>): Q {
+  const next: Q = { ...q, ...patch };
+  const keys = Object.keys(patch);
+  const viewOnly = keys.length > 0 && keys.every((k) => k === 'view');
+  if (!('page' in patch) && !viewOnly) next.page = 1;
   return next;
 }
 

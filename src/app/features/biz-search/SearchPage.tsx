@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Lock, RotateCcw, SearchX } from 'lucide-react';
+import { LayoutGrid, List, Lock, RotateCcw, SearchX } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import {
@@ -11,12 +11,21 @@ import {
   type KolSearchResult,
 } from '../../services';
 import { KolCard, KolCardSkeleton } from './KolCard';
+import { KolListRow, KolListRowSkeleton } from './KolListRow';
 import { KolProfileSheet } from './KolProfileSheet';
 import { SaveToListsDialog } from './SaveToListsDialog';
 import { createLatestOnly } from './latestOnly';
 import { SearchFilters } from './SearchFilters';
 import { SearchPagination } from './SearchPagination';
-import { applyQueryPatch, hasActiveFilters, parseSearchParams, toSearchParams } from './searchParams';
+import {
+  applyQueryPatch,
+  hasActiveFilters,
+  parseSearchParams,
+  toSearchParams,
+  toServiceQuery,
+  type SearchPageQuery,
+  type SearchView,
+} from './searchParams';
 
 function errorText(e: unknown): string {
   return e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.';
@@ -25,8 +34,11 @@ function errorText(e: unknown): string {
 /** SCR-09 — KOL search for Brand/Agency accounts. */
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const queryKey = toSearchParams(parseSearchParams(searchParams)).toString();
-  const query = useMemo(() => parseSearchParams(new URLSearchParams(queryKey)), [queryKey]);
+  const pageQuery = parseSearchParams(searchParams);
+  const view: SearchView = pageQuery.view ?? 'grid';
+  // The service query leaves out `view`, so switching layout does not refetch.
+  const queryKey = toSearchParams(toServiceQuery(pageQuery)).toString();
+  const query = useMemo(() => toServiceQuery(parseSearchParams(new URLSearchParams(queryKey))), [queryKey]);
 
   const [result, setResult] = useState<KolSearchResult | null>(null);
   const [resultKey, setResultKey] = useState<string | null>(null);
@@ -63,12 +75,12 @@ export function SearchPage() {
       });
   }, [query, queryKey, reload, latest]);
 
-  /** Write a new query to the URL, keeping the open profile (?kol=). */
+  /** Write a new query to the URL, keeping the open profile (?kol=) and the current view. */
   const writeQuery = useCallback(
-    (next: KolSearchQuery, replace = false) => {
+    (next: SearchPageQuery, replace = false) => {
       setSearchParams(
         (prev) => {
-          const sp = toSearchParams(next);
+          const sp = toSearchParams({ view: parseSearchParams(prev).view, ...next });
           const kol = prev.get('kol');
           if (kol) sp.set('kol', kol);
           return sp;
@@ -81,6 +93,9 @@ export function SearchPage() {
 
   const onChange = useCallback((patch: Partial<KolSearchQuery>) => writeQuery(applyQueryPatch(query, patch)), [query, writeQuery]);
   const onClear = useCallback(() => writeQuery({ sort: query.sort, page: 1 }), [query.sort, writeQuery]);
+  const onView = (next: SearchView) => {
+    if (next !== view) writeQuery(applyQueryPatch({ ...query, view }, { view: next }), true);
+  };
 
   // The service clamps ?trang=9 / ?trang=abc to a valid page: mirror that in the URL.
   useEffect(() => {
@@ -141,17 +156,42 @@ export function SearchPage() {
     <div className="mx-auto w-full max-w-[1600px] space-y-4 p-4 md:p-6">
       <SearchFilters query={query} onChange={onChange} onClear={onClear} />
 
-      <div className="flex min-h-5 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm" aria-live="polite">
-        {result && (
-          <>
-            <p className="font-medium text-foreground">{result.total} KOL đã xác thực</p>
-            {result.total > 0 && (
-              <p className="text-muted-foreground">
-                Hiển thị {from}–{to}
-              </p>
-            )}
-          </>
-        )}
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1" aria-live="polite">
+          {result && (
+            <>
+              <p className="font-medium text-foreground">{result.total} KOL đã xác thực</p>
+              {result.total > 0 && (
+                <p className="text-muted-foreground">
+                  Hiển thị {from}–{to}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+        <div role="group" aria-label="Kiểu hiển thị" className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
+          {(
+            [
+              { key: 'grid', label: 'Lưới', Icon: LayoutGrid },
+              { key: 'list', label: 'Danh sách', Icon: List },
+            ] as const
+          ).map(({ key, label, Icon }) => (
+            <Button
+              key={key}
+              type="button"
+              variant={view === key ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-11 md:h-8"
+              aria-pressed={view === key}
+              aria-label={`Xem dạng ${label.toLowerCase()}`}
+              title={label}
+              onClick={() => onView(key)}
+            >
+              <Icon aria-hidden />
+              <span className="hidden sm:inline">{label}</span>
+            </Button>
+          ))}
+        </div>
       </div>
 
       {error ? (
@@ -165,11 +205,19 @@ export function SearchPage() {
           </AlertDescription>
         </Alert>
       ) : loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" aria-busy="true" aria-label="Đang tải">
-          {Array.from({ length: 8 }, (_, i) => (
-            <KolCardSkeleton key={i} />
-          ))}
-        </div>
+        view === 'list' ? (
+          <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải">
+            {Array.from({ length: 5 }, (_, i) => (
+              <KolListRowSkeleton key={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" aria-busy="true" aria-label="Đang tải">
+            {Array.from({ length: 8 }, (_, i) => (
+              <KolCardSkeleton key={i} />
+            ))}
+          </div>
+        )
       ) : result && result.items.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
           <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -185,17 +233,32 @@ export function SearchPage() {
         </div>
       ) : result ? (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-            {result.items.map((k) => (
-              <KolCard
-                key={k.kolId}
-                kol={k}
-                saved={savedIds.has(k.kolId)}
-                onView={() => openProfile(k.kolId)}
-                onSave={() => openSave(k.kolId, k.displayName)}
-              />
-            ))}
-          </div>
+          {view === 'list' ? (
+            <ul className="flex flex-col gap-3" aria-label="Kết quả tìm kiếm KOL">
+              {result.items.map((k) => (
+                <li key={k.kolId}>
+                  <KolListRow
+                    kol={k}
+                    saved={savedIds.has(k.kolId)}
+                    onView={() => openProfile(k.kolId)}
+                    onSave={() => openSave(k.kolId, k.displayName)}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+              {result.items.map((k) => (
+                <KolCard
+                  key={k.kolId}
+                  kol={k}
+                  saved={savedIds.has(k.kolId)}
+                  onView={() => openProfile(k.kolId)}
+                  onSave={() => openSave(k.kolId, k.displayName)}
+                />
+              ))}
+            </div>
+          )}
           <SearchPagination page={result.page} pageCount={result.pageCount} onPage={onPage} />
         </>
       ) : null}
