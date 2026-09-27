@@ -51,3 +51,20 @@ export class KolhubError extends Error {
     this.meta = meta;
   }
 }
+
+export type InvalidInputField = 'email' | 'phone' | 'consent';
+
+/**
+ * Input-format error that has no KOLHUB code in the business spec (bad email/phone
+ * format, terms not accepted). The UI normally catches these client-side; `message`
+ * is Vietnamese and `field` names the form field to show it under.
+ */
+export class InvalidInputError extends Error {
+  field: InvalidInputField;
+
+  constructor(field: InvalidInputField, message: string) {
+    super(message);
+    this.name = 'InvalidInputError';
+    this.field = field;
+  }
+}
