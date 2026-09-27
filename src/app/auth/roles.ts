@@ -31,14 +31,17 @@ export interface RoleConfig {
 
 export const GUEST_PATHS = ['/dang-ky', '/dang-nhap', '/quen-mat-khau'];
 
-const KOL_SAFETY: MenuItem = { icon: ShieldCheck, label: 'KOL Safety', shortLabel: 'Safety', path: '/kol-safety' };
+/** Second sidebar group of KOL/MCN: channels and KOL Safety. */
+const CONTENT_GROUP = 'Quản lý nội dung';
 
-/** Profile sections, each its own sidebar page (formerly the 3 tabs of the profile page). */
+const KOL_SAFETY: MenuItem = { icon: ShieldCheck, label: 'KOL Safety', shortLabel: 'Safety', path: '/kol-safety', group: CONTENT_GROUP };
+
+/** Profile sections (group "Hồ sơ KOL/MCN") + channel management (group "Quản lý nội dung"). */
 function profileMenu(base: string, group: string, identityIcon: LucideIcon): MenuItem[] {
   return [
     { icon: UserRound, label: 'Thông tin liên hệ', shortLabel: 'Liên hệ', path: `${base}/lien-he`, group },
     { icon: identityIcon, label: 'Thông tin định danh', shortLabel: 'Định danh', path: `${base}/dinh-danh`, group },
-    { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group },
+    { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group: CONTENT_GROUP },
   ];
 }
 

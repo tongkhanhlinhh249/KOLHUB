@@ -39,14 +39,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Main nav */}
       <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {!collapsed && (
+        {/* Role label only when the menu has no own groups (e.g. Nhãn hàng); KOL/MCN show their group headings. */}
+        {!collapsed && !menu.some((m) => m.group) && (
           <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">{label}</p>
         )}
         <div className="space-y-3">
           {sections(menu).map((section, i) => (
             <div key={section.group ?? `section-${i}`} role={section.group ? 'group' : undefined} aria-label={section.group}>
               {section.group && !collapsed && (
-                <p className="mb-1 px-2 pt-1 text-xs font-medium text-muted-foreground">{section.group}</p>
+                <p className="mb-1 px-2 pt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                  {section.group}
+                </p>
               )}
               {collapsed && i > 0 && <div className="mx-2 mb-3 h-px bg-border" aria-hidden />}
               <div className="space-y-0.5">

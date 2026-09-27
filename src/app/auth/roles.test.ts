@@ -83,14 +83,14 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     expect(ROLE_CONFIG['kolhub.user.kol'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
       ['Thông tin liên hệ', 'Liên hệ', '/ho-so-kol/lien-he', 'Hồ sơ KOL'],
       ['Thông tin định danh', 'Định danh', '/ho-so-kol/dinh-danh', 'Hồ sơ KOL'],
-      ['Quản lý kênh', 'Kênh', '/ho-so-kol/kenh', 'Hồ sơ KOL'],
-      ['KOL Safety', 'Safety', '/kol-safety', undefined],
+      ['Quản lý kênh', 'Kênh', '/ho-so-kol/kenh', 'Quản lý nội dung'],
+      ['KOL Safety', 'Safety', '/kol-safety', 'Quản lý nội dung'],
     ]);
     expect(ROLE_CONFIG['kolhub.user.mcn'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
       ['Thông tin liên hệ', 'Liên hệ', '/ho-so-mcn/lien-he', 'Hồ sơ MCN'],
       ['Thông tin định danh', 'Định danh', '/ho-so-mcn/dinh-danh', 'Hồ sơ MCN'],
-      ['Quản lý kênh', 'Kênh', '/ho-so-mcn/kenh', 'Hồ sơ MCN'],
-      ['KOL Safety', 'Safety', '/kol-safety', undefined],
+      ['Quản lý kênh', 'Kênh', '/ho-so-mcn/kenh', 'Quản lý nội dung'],
+      ['KOL Safety', 'Safety', '/kol-safety', 'Quản lý nội dung'],
     ]);
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => m.path)).toEqual([
       '/tim-kiem-kol',
