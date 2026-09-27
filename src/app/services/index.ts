@@ -20,7 +20,11 @@ export { isFreeEmail, isStrongPassword } from './mock/auth';
 
 // --- phase 3 ---
 import { createSearchService } from './mock/search';
+import { createSavedListService } from './mock/savedLists';
 
 export const searchService = createSearchService({ db, now: Date.now });
+export const savedListService = createSavedListService({ db, now: Date.now });
 export * from './bizTypes';
 export type { SearchService } from './mock/search';
+export type { SavedListService } from './mock/savedLists';
+export { LIST_NAME_MAX, NOTE_MAX, normalizeListName } from './mock/savedLists';
