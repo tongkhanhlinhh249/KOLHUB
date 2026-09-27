@@ -68,9 +68,10 @@ export function SubmitPanel({ ownerType, accountId, view, pledges, resubmit }: S
               id={`${baseId}-${idx}`}
               checked={checked[idx]}
               onCheckedChange={(v) => setChecked((c) => c.map((x, j) => (j === idx ? v === true : x)))}
+              aria-labelledby={`${baseId}-${idx}-label`}
               className="mt-0.5"
             />
-            <Label htmlFor={`${baseId}-${idx}`} className="text-sm leading-snug font-normal text-foreground">
+            <Label id={`${baseId}-${idx}-label`} htmlFor={`${baseId}-${idx}`} className="text-sm leading-snug font-normal text-foreground">
               {p}
             </Label>
           </div>

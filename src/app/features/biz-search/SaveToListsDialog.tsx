@@ -147,12 +147,21 @@ export function SaveToListsDialog({ kolId, kolName, onOpenChange, onSaved }: Sav
                     htmlFor={id}
                     className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 font-normal hover:bg-muted"
                   >
-                    <Checkbox id={id} checked={checked.has(l.listId)} onCheckedChange={(v) => toggle(l.listId, v === true)} />
+                    {/* The label wraps the checkbox, so name it explicitly from the list name. */}
+                    <Checkbox
+                      id={id}
+                      checked={checked.has(l.listId)}
+                      onCheckedChange={(v) => toggle(l.listId, v === true)}
+                      aria-labelledby={`${id}-name`}
+                      aria-describedby={`${id}-count`}
+                    />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm text-foreground" title={l.name}>
+                      <span id={`${id}-name`} className="block truncate text-sm text-foreground" title={l.name}>
                         {l.name}
                       </span>
-                      <span className="block text-xs text-muted-foreground">{l.count} KOL</span>
+                      <span id={`${id}-count`} className="block text-xs text-muted-foreground">
+                        {l.count} KOL
+                      </span>
                     </span>
                   </Label>
                 </li>

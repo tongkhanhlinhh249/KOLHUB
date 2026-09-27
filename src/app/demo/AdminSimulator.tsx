@@ -179,12 +179,12 @@ function ProfileReview({ p }: { p: QueueProfile }) {
               aria-label={`Kết luận kênh ${c.handle}`}
             >
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="PASS" id={`${baseId}-${c.id}-pass`} />
-                <Label htmlFor={`${baseId}-${c.id}-pass`} className="font-normal">Đạt</Label>
+                <RadioGroupItem value="PASS" id={`${baseId}-${c.id}-pass`} aria-labelledby={`${baseId}-${c.id}-pass-label`} />
+                <Label id={`${baseId}-${c.id}-pass-label`} htmlFor={`${baseId}-${c.id}-pass`} className="font-normal">Đạt</Label>
               </div>
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="NEEDS_FIX" id={`${baseId}-${c.id}-fix`} />
-                <Label htmlFor={`${baseId}-${c.id}-fix`} className="font-normal">Cần bổ sung</Label>
+                <RadioGroupItem value="NEEDS_FIX" id={`${baseId}-${c.id}-fix`} aria-labelledby={`${baseId}-${c.id}-fix-label`} />
+                <Label id={`${baseId}-${c.id}-fix-label`} htmlFor={`${baseId}-${c.id}-fix`} className="font-normal">Cần bổ sung</Label>
               </div>
             </RadioGroup>
             {d.verdict === 'NEEDS_FIX' && (

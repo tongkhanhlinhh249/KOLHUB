@@ -37,8 +37,8 @@ export function EkycScenarioPicker() {
       >
         {OPTIONS.map((o) => (
           <div key={o.value} className="flex min-h-9 items-center gap-2">
-            <RadioGroupItem value={o.value} id={`${baseId}-${o.value}`} />
-            <Label htmlFor={`${baseId}-${o.value}`} className="flex-1 font-normal">
+            <RadioGroupItem value={o.value} id={`${baseId}-${o.value}`} aria-labelledby={`${baseId}-${o.value}-label`} />
+            <Label id={`${baseId}-${o.value}-label`} htmlFor={`${baseId}-${o.value}`} className="flex-1 font-normal">
               {o.label}
             </Label>
             {COUNTED_CODES.includes(o.value as ErrorCode) && (
