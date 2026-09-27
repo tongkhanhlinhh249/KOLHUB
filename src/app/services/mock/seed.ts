@@ -4,6 +4,7 @@ import { seedKols, seedSavedLists } from './kolSeed';
 import { seedVerifiedMcn } from './mcnSeed';
 import { emptyKolProfile, emptyMcnProfile } from './profileRules';
 import { seedSafety } from './safetySeed';
+import { seedViolations } from './violationSeed';
 
 const SEED_CREATED_AT = '2026-09-01T08:00:00.000Z';
 const SEED_T = Date.parse(SEED_CREATED_AT);
@@ -38,7 +39,7 @@ const SEED_BIZ_NEW: Account = {
  * Demo data v4: the quick-login accounts (KOL + MCN with empty DRAFT profiles, the approved MCN
  * "Sao Việt Media" with 12 managed channels, a verified Brand with saved lists and a brand-new Brand),
  * then 40 approved sample KOLs registered like any other KOL (Khánh Vy logs in as khanhvy@demo.kolhub.vn).
- * v4 adds KOL Safety data (videos + monitored channels) for the two verified demo accounts.
+ * v4 adds KOL Safety data (videos + monitored channels) for the two verified demo accounts; v5 adds violations.
  */
 export function seedState(): DemoState {
   const now = Date.now();
@@ -54,15 +55,16 @@ export function seedState(): DemoState {
     ...kols.accounts,
   ];
   const channels = [...kols.channels, ...mcn.channels];
+  const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 4,
+    version: 5,
     accounts,
     otps: [],
     registrations: [],
     loginFails: {},
     sessionAccountId: null,
     savedLists: seedSavedLists(accounts, now),
-    kolProfiles: [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles],
+    kolProfiles,
     mcnProfiles: [emptyMcnProfile(SEED_MCN, SEED_T), mcn.profile],
     identities: kols.identities,
     ekycSessions: [],
@@ -73,5 +75,7 @@ export function seedState(): DemoState {
     funnel: [],
     // Pre-checked videos + monitored channels for Khánh Vy and Sao Việt Media only.
     ...seedSafety(channels, now),
+    // v5: violations (Khánh Vy, Sao Việt Media and a few sample KOLs).
+    violations: seedViolations(kolProfiles, channels, now),
   };
 }

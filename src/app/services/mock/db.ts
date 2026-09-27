@@ -16,6 +16,8 @@ import type {
 } from '../profile-types';
 // --- KOL Safety ---
 import type { SafetyMonitor, SafetyVideo } from '../safety-types';
+// --- violations ---
+import type { Violation } from '../violation-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -46,10 +48,10 @@ export interface PendingRegistration {
 }
 
 /** Bump when the stored shape changes incompatibly; any other stored version is replaced by the seed. */
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 
 export interface DemoState {
-  version: 4;
+  version: 5;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -70,6 +72,8 @@ export interface DemoState {
   // --- KOL Safety ---
   safetyVideos: SafetyVideo[];
   safetyMonitors: SafetyMonitor[];
+  // --- violations ---
+  violations: Violation[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

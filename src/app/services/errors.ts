@@ -149,6 +149,28 @@ function safetyMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4509':
       return 'Video đang được kiểm tra, vui lòng đợi kết quả.';
     default:
+      return violationMessage(code);
+  }
+}
+
+// --- violations ---
+function violationMessage(code: ErrorCode): string {
+  switch (code) {
+    case 'KOLHUB-4601':
+      return 'Không tìm thấy vi phạm. Có thể mục này đã bị xoá.';
+    case 'KOLHUB-4602':
+      return 'Vi phạm không còn ở trạng thái cho phép thao tác này. Vui lòng tải lại.';
+    case 'KOLHUB-4603':
+      return 'Bạn không có quyền xử lý vi phạm này.';
+    case 'KOLHUB-4604':
+      return 'Vui lòng nhập lý do.';
+    case 'KOLHUB-4605':
+      return 'Lý do khiếu nại cần tối thiểu 20 ký tự.';
+    case 'KOLHUB-4606':
+      return 'Vi phạm này đã khiếu nại một lần. Bạn chỉ có thể khắc phục nội dung.';
+    case 'KOLHUB-4607':
+      return 'Vui lòng mô tả cách bạn đã khắc phục.';
+    default:
       return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }
 }

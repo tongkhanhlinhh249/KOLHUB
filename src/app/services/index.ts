@@ -87,3 +87,10 @@ export {
   validateVideo,
   VIDEO_EXTENSIONS,
 } from './mock/safety';
+// --- violations ---
+import { createViolationService } from './mock/violations';
+
+export const violationService = createViolationService({ db, now: Date.now });
+export * from './violation-types';
+export type { ViolationService } from './mock/violations';
+export { countByStatus as countViolationsByStatus } from './mock/violations';

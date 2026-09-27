@@ -19,6 +19,8 @@ import type {
 import { delay as fakeDelay } from './delay';
 import { detectPlatform } from './channelRules';
 import { IMAGE_POOL, VIDEO_TITLES } from './socialListening';
+// --- violations ---
+import { syncViolationsFromMonitor } from './violations';
 
 const DAY = 86_400_000;
 
@@ -500,6 +502,8 @@ export function createSafetyService(deps: SafetyServiceDeps) {
     db.update((s) => {
       const m = monitor(s, monitorId);
       applyScan(m, t);
+      // VIOLATION videos become violations awaiting Admin review (deduped by video).
+      syncViolationsFromMonitor(s, m, t);
       out = view(s, m);
     });
     return out;
