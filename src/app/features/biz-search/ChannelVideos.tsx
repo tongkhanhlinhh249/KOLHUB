@@ -161,32 +161,50 @@ function ChannelCard({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="border-t border-border bg-muted/40 p-3 sm:p-4">
-        {c.latestVideos.length === 0 ? (
-          <>
-            <VideoSectionHeader url={c.url} label={label} />
-            <NoVideoCard />
-          </>
-        ) : (
-          <Carousel opts={{ align: 'start', containScroll: 'trimSnaps' }} aria-label={`Video mới nhất trên ${label}`}>
-            <VideoSectionHeader url={c.url} label={label}>
-              <CarouselPrevious variant="outline" className={NAV} aria-label="Video trước" title="Video trước" />
-              <CarouselNext variant="outline" className={NAV} aria-label="Video tiếp theo" title="Video tiếp theo" />
-            </VideoSectionHeader>
-            <CarouselContent className="-ml-3">
-              {c.latestVideos.map((v, i) => (
-                <CarouselItem
-                  key={`${v.url ?? v.thumbnail}-${i}`}
-                  className={SLIDE}
-                  aria-label={`${i + 1} / ${c.latestVideos.length}`}
-                >
-                  <VideoCard video={v} kolName={kolName} />
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-        )}
+        <ChannelVideoCarousel videos={c.latestVideos} url={c.url} platform={c.platform} kolName={kolName} />
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/**
+ * "Video mới nhất" of one channel: 2:3 cards in a carousel (prev/next in the header), or a
+ * "Chưa có video" card. `url` is the channel link without protocol.
+ */
+export function ChannelVideoCarousel({
+  videos,
+  url,
+  platform,
+  kolName,
+}: {
+  videos: KolVideo[];
+  url: string;
+  platform: PublicChannel['platform'];
+  kolName: string;
+}) {
+  const label = platformLabel(platform);
+  if (videos.length === 0) {
+    return (
+      <>
+        <VideoSectionHeader url={url} label={label} />
+        <NoVideoCard />
+      </>
+    );
+  }
+  return (
+    <Carousel opts={{ align: 'start', containScroll: 'trimSnaps' }} aria-label={`Video mới nhất trên ${label}`}>
+      <VideoSectionHeader url={url} label={label}>
+        <CarouselPrevious variant="outline" className={NAV} aria-label="Video trước" title="Video trước" />
+        <CarouselNext variant="outline" className={NAV} aria-label="Video tiếp theo" title="Video tiếp theo" />
+      </VideoSectionHeader>
+      <CarouselContent className="-ml-3">
+        {videos.map((v, i) => (
+          <CarouselItem key={`${v.url ?? v.thumbnail}-${i}`} className={SLIDE} aria-label={`${i + 1} / ${videos.length}`}>
+            <VideoCard video={v} kolName={kolName} />
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+    </Carousel>
   );
 }
 
