@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type Context, type ReactNode } from 'react';
 import { authService, type Account, type RoleKey } from '../services';
 import { roleOf } from './roles';
 
@@ -17,7 +17,12 @@ interface AuthValue {
   clearPendingRedirect(): void;
 }
 
-const AuthContext = createContext<AuthValue | null>(null);
+// Keep one context object across Vite HMR re-evaluations of this module. Without it,
+// editing a dependency re-creates the context while mounted consumers still hold the
+// old one, and the app crashes with "useAuth must be used inside <AuthProvider>".
+const globalKey = '__kolhubAuthContext__';
+const store = globalThis as unknown as Record<string, Context<AuthValue | null> | undefined>;
+const AuthContext = (store[globalKey] ??= createContext<AuthValue | null>(null));
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [account, setAccountState] = useState<Account | null>(() => authService.currentAccount());
