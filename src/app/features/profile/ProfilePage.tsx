@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { channelService, ekycService, profileService, type OwnerType } from '../../services';
 import { ComingSoon } from '../placeholder/ComingSoon';
 import { ChannelsTab } from '../channels/ChannelsTab';
+import { KolIdentityTab } from '../kol-profile/KolIdentityTab';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
 import { ProfileHeader } from './ProfileHeader';
@@ -101,7 +102,11 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
               <ContactTab view={q.data.view} />
             </TabsContent>
             <TabsContent value="dinh-danh" className="mt-4">
-              <ComingSoon title="Thông tin định danh" note="Đang hoàn thiện." />
+              {ownerType === 'KOL' && q.data.ekyc ? (
+                <KolIdentityTab accountId={accountId} view={q.data.view} ekyc={q.data.ekyc} />
+              ) : (
+                <ComingSoon title="Thông tin định danh" note="Đang hoàn thiện." />
+              )}
             </TabsContent>
             <TabsContent value="kenh" className="mt-4">
               <ChannelsTab accountId={accountId} profileStatus={q.data.view.profile.status} />
