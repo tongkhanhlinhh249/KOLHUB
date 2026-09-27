@@ -4,7 +4,8 @@ import { Link, useLocation } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from './ui/utils';
-import { mainNavItems, secondaryNavItems, type NavItem } from './navigation';
+import { useAuth } from '../auth/AuthContext';
+import { ROLE_CONFIG, type MenuItem } from '../auth/roles';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -14,6 +15,9 @@ interface SidebarProps {
 // NetSpace admin pattern: 256px rail, same tint as the page, 67px header.
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
+  const { role } = useAuth();
+  const { home, label, menu } = ROLE_CONFIG[role];
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   return (
     <aside
@@ -24,7 +28,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     >
       {/* Logo */}
       <div className={cn('flex h-[67px] shrink-0 items-center border-b border-panel-sidebar', collapsed ? 'justify-center px-2' : 'px-4')}>
-        <Link to="/" aria-label="KOLHUB - Tổng quan" className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link to={home} aria-label="KOLHUB - Trang chính" className="flex items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {collapsed ? (
             <img src={logoMarkImg} alt="KOLHUB" className="h-8 w-auto object-contain" />
           ) : (
@@ -36,20 +40,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Main nav */}
       <nav aria-label="Điều hướng chính" className="flex-1 overflow-y-auto px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {!collapsed && (
-          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">Quản lý</p>
+          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">{label}</p>
         )}
         <div className="space-y-0.5">
-          {mainNavItems.map((item) => (
-            <SidebarLink key={item.path} item={item} active={location.pathname === item.path} collapsed={collapsed} />
+          {menu.map((item) => (
+            <SidebarLink key={item.path} item={item} active={isActive(item.path)} collapsed={collapsed} />
           ))}
         </div>
       </nav>
 
-      {/* Secondary nav + collapse */}
+      {/* Collapse */}
       <div className="shrink-0 space-y-0.5 border-t border-panel-sidebar p-2">
-        {secondaryNavItems.map((item) => (
-          <SidebarLink key={item.path} item={item} active={location.pathname === item.path} collapsed={collapsed} />
-        ))}
         <SidebarTip label={collapsed ? 'Mở rộng' : undefined}>
           <button
             type="button"
@@ -69,7 +70,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   );
 }
 
-function SidebarLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+function SidebarLink({ item, active, collapsed }: { item: MenuItem; active: boolean; collapsed: boolean }) {
   const Icon = item.icon;
   return (
     <SidebarTip label={collapsed ? item.label : undefined}>

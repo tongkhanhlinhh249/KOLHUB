@@ -1,10 +1,11 @@
 import { ChevronDown, LogOut, Briefcase, PanelLeft } from 'lucide-react';
-import { Link, useLocation } from 'react-router';
-import { useUser } from '../contexts/UserContext';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { useAuth } from '../auth/AuthContext';
+import { ROLE_CONFIG, getPageMeta } from '../auth/roles';
 import logoMarkImg from '../../assets/logo-mark.svg';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Avatar, AvatarFallback } from './ui/avatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   DropdownMenu,
@@ -14,7 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { secondaryNavItems, getPageMeta } from './navigation';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -22,15 +22,24 @@ interface HeaderProps {
 
 // Topbar row inside the content card (NetSpace pattern: h-[61px]).
 export function Header({ onToggleSidebar }: HeaderProps) {
-  const { user } = useUser();
+  const { account, role, logout } = useAuth();
+  const navigate = useNavigate();
   const { pathname } = useLocation();
-  const meta = getPageMeta(pathname);
+  const meta = getPageMeta(pathname, role);
+  const { home, label: roleLabel } = ROLE_CONFIG[role];
+  const displayName = account?.fullName || account?.company || account?.email || 'Khách';
+  const initial = displayName.charAt(0).toUpperCase();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/dang-nhap', { replace: true });
+  };
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-panel px-3 md:h-[61px] md:px-5">
       <div className="flex min-w-0 items-center gap-3">
         {/* Mobile: logo mark (sidebar is replaced by bottom nav) */}
-        <Link to="/" className="flex shrink-0 items-center md:hidden" aria-label="KOLHUB - Tổng quan">
+        <Link to={home} className="flex min-h-11 shrink-0 items-center md:hidden" aria-label="KOLHUB - Trang chính">
           <img src={logoMarkImg} alt="KOLHUB" className="h-7 w-auto object-contain" />
         </Link>
 
@@ -49,7 +58,6 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-base font-semibold leading-tight text-foreground">{meta.title}</h1>
-            <Badge variant="secondary" className="hidden h-5 shrink-0 px-1.5 text-[10px] sm:inline-flex">{meta.group}</Badge>
           </div>
           {meta.description && (
             <p className="mt-0.5 hidden truncate text-xs text-muted-foreground lg:block">{meta.description}</p>
@@ -67,11 +75,10 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           >
             <Badge variant="secondary" className="hidden gap-1 rounded-full bg-primary/10 text-primary md:inline-flex">
               <Briefcase className="size-3" />
-              Nhãn hàng
+              {roleLabel}
             </Badge>
             <Avatar className="size-8">
-              <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary">{initial}</AvatarFallback>
             </Avatar>
             <ChevronDown className="hidden size-4 text-muted-foreground md:block" />
           </button>
@@ -79,28 +86,20 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         <DropdownMenuContent align="end" className="w-64">
           <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
             <Avatar className="size-10">
-              <AvatarImage src={user.avatar} alt={user.name} className="object-cover" />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="bg-primary/10 text-primary">{initial}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              {account?.email && displayName !== account.email && (
+                <p className="truncate text-xs text-muted-foreground">{account.email}</p>
+              )}
+              <Badge variant="secondary" className="mt-1 h-5 rounded-full bg-primary/10 px-1.5 text-[10px] text-primary md:hidden">
+                {roleLabel}
+              </Badge>
             </div>
           </DropdownMenuLabel>
-          {/* On mobile these live in the bottom nav "Thêm" sheet */}
-          <div className="hidden md:block">
-            <DropdownMenuSeparator />
-            {secondaryNavItems.map((item) => (
-              <DropdownMenuItem key={item.path} asChild>
-                <Link to={item.path}>
-                  <item.icon />
-                  {item.label}
-                </Link>
-              </DropdownMenuItem>
-            ))}
-          </div>
           <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive">
+          <DropdownMenuItem variant="destructive" onSelect={handleLogout} className="min-h-11 md:min-h-0">
             <LogOut />
             Đăng xuất
           </DropdownMenuItem>
