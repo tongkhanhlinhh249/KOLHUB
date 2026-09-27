@@ -24,8 +24,16 @@ export function BottomNavigation() {
         {menu.map((item) => {
           const active = pathname === item.path || pathname.startsWith(item.path + '/');
           return (
-            <Link key={item.path} to={item.path} aria-current={active ? 'page' : undefined} className={itemClass(active)}>
-              <item.icon className="size-5" />
+            // Explicit name = the visible text, so the link is never announced nameless.
+            <Link
+              key={item.path}
+              to={item.path}
+              aria-label={item.shortLabel}
+              title={item.label}
+              aria-current={active ? 'page' : undefined}
+              className={itemClass(active)}
+            >
+              <item.icon className="size-5" aria-hidden />
               <span className="truncate">{item.shortLabel}</span>
             </Link>
           );

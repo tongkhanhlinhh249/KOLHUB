@@ -111,9 +111,15 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
           <Tabs value={tab} onValueChange={(v) => isTab(v) && setTab(v)}>
             <TabsList className="grid h-11 w-full grid-cols-3 md:inline-flex md:h-10 md:w-auto">
               {TABS.map((t) => (
-                <TabsTrigger key={t.value} value={t.value} className="h-9 md:h-8">
-                  <span className="sm:hidden">{t.short}</span>
-                  <span className="hidden sm:inline">{t.label}</span>
+                // Only one of the two spans is displayed per breakpoint; the explicit name (which contains
+                // both visible texts) keeps the tab named regardless.
+                <TabsTrigger key={t.value} value={t.value} aria-label={t.label} className="h-9 md:h-8">
+                  <span className="sm:hidden" aria-hidden>
+                    {t.short}
+                  </span>
+                  <span className="hidden sm:inline" aria-hidden>
+                    {t.label}
+                  </span>
                 </TabsTrigger>
               ))}
             </TabsList>
