@@ -86,6 +86,9 @@ function Platforms({ row }: { row: SavedListRow }) {
   );
 }
 
+// Keeps the row menu reachable when the table scrolls horizontally on narrow desktops.
+const STICKY_ACTIONS = 'sticky right-0 z-10 w-12 bg-card shadow-[-8px_0_8px_-8px_rgb(0_0_0/0.15)]';
+
 /** KOLs of one saved list: table from md, cards below. */
 export function ListItemsTable({ rows, onView, onEditNote, onRemove }: ListItemsTableProps) {
   const actions = { onView, onEditNote, onRemove };
@@ -101,7 +104,7 @@ export function ListItemsTable({ rows, onView, onEditNote, onRemove }: ListItems
               <TableHead>Trạng thái</TableHead>
               <TableHead className="w-[28%]">Ghi chú</TableHead>
               <TableHead>Ngày lưu</TableHead>
-              <TableHead className="w-12">
+              <TableHead className={STICKY_ACTIONS}>
                 <span className="sr-only">Thao tác</span>
               </TableHead>
             </TableRow>
@@ -123,7 +126,7 @@ export function ListItemsTable({ rows, onView, onEditNote, onRemove }: ListItems
                   <NoteButton row={r} onEditNote={onEditNote} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap">{formatDate(r.addedAt)}</TableCell>
-                <TableCell>
+                <TableCell className={STICKY_ACTIONS}>
                   <RowActions row={r} {...actions} />
                 </TableCell>
               </TableRow>

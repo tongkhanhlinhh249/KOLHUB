@@ -284,17 +284,19 @@ export function SavedListsPage() {
 
   if (lists === null) {
     return (
-      <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-4 md:grid-cols-[280px_1fr] md:p-6" aria-busy="true" aria-label="Đang tải">
-        <Card className="gap-3 p-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-9 w-full" />
-          ))}
-        </Card>
-        <Card className="gap-3 p-4">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </Card>
+      <div className="@container">
+        <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-4 md:p-6 @6xl:grid-cols-[280px_1fr]" aria-busy="true" aria-label="Đang tải">
+          <Card className="hidden gap-3 p-4 @6xl:flex">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-9 w-full" />
+            ))}
+          </Card>
+          <Card className="gap-3 p-4">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </Card>
+        </div>
       </div>
     );
   }
@@ -316,86 +318,90 @@ export function SavedListsPage() {
     );
   }
 
+  // The list column sits beside the table only when <main> itself is wide enough (container query,
+  // not viewport): next to the app sidebar at 1280px the table would otherwise be squeezed and clipped.
   return (
-    <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-4 md:grid-cols-[280px_1fr] md:items-start md:p-6">
-      <Card className="hidden gap-0 p-4 md:flex">
-        <ListColumn lists={lists} selectedId={selectedId} onSelect={(id) => setParam('ds', id)} onCreate={() => setNameDialog('create')} />
-      </Card>
+    <div className="@container">
+      <div className="mx-auto grid w-full max-w-[1600px] gap-4 p-4 md:p-6 @6xl:grid-cols-[280px_1fr] @6xl:items-start">
+        <Card className="hidden gap-0 p-4 @6xl:flex">
+          <ListColumn lists={lists} selectedId={selectedId} onSelect={(id) => setParam('ds', id)} onCreate={() => setNameDialog('create')} />
+        </Card>
 
-      <div className="flex gap-2 md:hidden">
-        <Select value={selectedId ?? undefined} onValueChange={(id) => setParam('ds', id)}>
-          <SelectTrigger aria-label="Chọn danh sách" className="h-11 min-w-0 flex-1">
-            <SelectValue placeholder="Chọn danh sách" />
-          </SelectTrigger>
-          <SelectContent>
-            {lists.map((l) => (
-              <SelectItem key={l.id} value={l.id}>
-                {l.name} ({l.count})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="button" variant="outline" className="h-11" onClick={() => setNameDialog('create')}>
-          <Plus aria-hidden />
-          <span className="sr-only sm:not-sr-only">Tạo danh sách</span>
-        </Button>
-      </div>
+        <div className="flex w-full gap-2 md:max-w-xl @6xl:hidden">
+          <Select value={selectedId ?? undefined} onValueChange={(id) => setParam('ds', id)}>
+            <SelectTrigger aria-label="Chọn danh sách" className="h-11 min-w-0 flex-1">
+              <SelectValue placeholder="Chọn danh sách" />
+            </SelectTrigger>
+            <SelectContent>
+              {lists.map((l) => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name} ({l.count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button type="button" variant="outline" className="h-11" onClick={() => setNameDialog('create')}>
+            <Plus aria-hidden />
+            <span className="sr-only sm:not-sr-only">Tạo danh sách</span>
+          </Button>
+        </div>
 
-      <Card className="min-w-0 gap-4 p-4 md:p-6">
-        {selected && (
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold text-foreground" title={selected.name}>
-                {selected.name}
-              </h2>
-              <p className="text-sm text-muted-foreground">{selected.count} KOL</p>
+        <Card className="min-w-0 gap-4 p-4 md:p-6">
+          {selected && (
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold text-foreground" title={selected.name}>
+                  {selected.name}
+                </h2>
+                <p className="text-sm text-muted-foreground">{selected.count} KOL</p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="size-10" aria-label="Thao tác với danh sách">
+                    <MoreVertical aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => setNameDialog('rename')}>
+                    <Pencil aria-hidden />
+                    Đổi tên
+                  </DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+                    <Trash2 aria-hidden />
+                    Xoá danh sách
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="size-10" aria-label="Thao tác với danh sách">
-                  <MoreVertical aria-hidden />
+          )}
+
+          {detailError ? (
+            <Alert variant="destructive">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{detailError}</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => setDetailTick((n) => n + 1)}>
+                  <RotateCcw aria-hidden />
+                  Thử lại
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => setNameDialog('rename')}>
-                  <Pencil aria-hidden />
-                  Đổi tên
-                </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
-                  <Trash2 aria-hidden />
-                  Xoá danh sách
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+              </AlertDescription>
+            </Alert>
+          ) : detailLoading && (!detail || detail.id !== selectedId) ? (
+            <div className="space-y-3" aria-busy="true" aria-label="Đang tải danh sách">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : detail && detail.rows.length === 0 ? (
+            <EmptyState title="Danh sách trống" text="Tìm KOL phù hợp và bấm biểu tượng lưu để thêm vào danh sách này.">
+              <SearchLink />
+            </EmptyState>
+          ) : detail ? (
+            <ListItemsTable rows={detail.rows} onView={openProfile} onEditNote={setNoteRow} onRemove={(id) => void removeKol(id)} />
+          ) : null}
+        </Card>
 
-        {detailError ? (
-          <Alert variant="destructive">
-            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-              <span>{detailError}</span>
-              <Button type="button" variant="outline" size="sm" onClick={() => setDetailTick((n) => n + 1)}>
-                <RotateCcw aria-hidden />
-                Thử lại
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : detailLoading && (!detail || detail.id !== selectedId) ? (
-          <div className="space-y-3" aria-busy="true" aria-label="Đang tải danh sách">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-12 w-full" />
-            ))}
-          </div>
-        ) : detail && detail.rows.length === 0 ? (
-          <EmptyState title="Danh sách trống" text="Tìm KOL phù hợp và bấm biểu tượng lưu để thêm vào danh sách này.">
-            <SearchLink />
-          </EmptyState>
-        ) : detail ? (
-          <ListItemsTable rows={detail.rows} onView={openProfile} onEditNote={setNoteRow} onRemove={(id) => void removeKol(id)} />
-        ) : null}
-      </Card>
-
-      {dialogs}
+        {dialogs}
+      </div>
     </div>
   );
 }
