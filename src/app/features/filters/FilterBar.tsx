@@ -30,6 +30,8 @@ interface FilterBarProps {
   /** Width of each filter on the one-line layout, e.g. "@4xl:w-32". */
   inlineFilterClass: string;
   renderSort(className?: string): ReactNode;
+  /** Extra classes for the sort box on wide layouts, e.g. "@4xl:w-56" for long sort labels. */
+  sortClass?: string;
   /** Filters set (keyword and sort excluded) — badge on the mobile "Bộ lọc" button. */
   filterCount: number;
   /** Keyword or any filter set — shows the chips row and "Xoá bộ lọc". */
@@ -55,6 +57,7 @@ export function FilterBar({
   filterGridClass,
   inlineFilterClass,
   renderSort,
+  sortClass,
   filterCount,
   active,
   chips,
@@ -116,7 +119,7 @@ export function FilterBar({
         </div>
 
         {/* Sort — separated from filters on the one-line layout */}
-        <div className="order-2 hidden w-52 @xl:block @4xl:order-3 @4xl:w-44 @4xl:border-l @4xl:border-border @4xl:pl-2">
+        <div className={cn('order-2 hidden w-52 @xl:block @4xl:order-3 @4xl:w-44 @4xl:border-l @4xl:border-border @4xl:pl-2', sortClass)}>
           {renderSort()}
         </div>
 
