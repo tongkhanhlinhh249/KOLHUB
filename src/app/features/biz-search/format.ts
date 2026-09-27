@@ -11,6 +11,23 @@ export function formatFollowers(n: number): string {
   return String(n);
 }
 
+/**
+ * Vietnamese short units for channel stats: 11 800 000 → "11,8 Tr", 3 600 000 000 → "3,6 Tỷ",
+ * 4 500 → "4,5 K", 999 → "999". One decimal, trailing ",0" dropped.
+ */
+export function formatCompactVi(n: number): string {
+  const v = Math.max(0, Math.round(n));
+  const fmt = (x: number, unit: string) => {
+    const r = Math.round(x * 10) / 10;
+    return `${String(r).replace('.', ',')} ${unit}`;
+  };
+  // Rounding 999 950 → "1000 K" reads badly: promote to the next unit instead.
+  if (v >= 999_950_000) return fmt(v / 1_000_000_000, 'Tỷ');
+  if (v >= 999_950) return fmt(v / 1_000_000, 'Tr');
+  if (v >= 1_000) return fmt(v / 1_000, 'K');
+  return String(v);
+}
+
 /** ISO date → "dd/MM/yyyy" (local time). */
 export function formatDate(iso: string): string {
   const d = new Date(iso);

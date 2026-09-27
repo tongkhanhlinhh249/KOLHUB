@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { Channel, KolProfile } from '../profile-types';
+import { channelTotals } from './socialListening';
 import {
   channelBadge,
   findPublicKol,
@@ -131,6 +132,8 @@ describe('toPublicKol / publicKolOf', () => {
       url: 'tiktok.com/@x',
       handle: '@x',
       followers: 3000,
+      ...channelTotals('tiktok.com/@x', 3000),
+      latestVideos: [expect.objectContaining({ title: 'V1' }), expect.objectContaining({ title: 'V3' })],
       badge: 'VERIFIED',
       badgeExpiresAt: new Date(NOW + DAY).toISOString(),
     });

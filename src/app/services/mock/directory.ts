@@ -1,6 +1,7 @@
 // KOL directory = one public projection of registered KOL profiles (BR-54 searchable, BR-58 whitelist).
 import {
   FIELD_LIMIT,
+  PROFILE_VIDEO_LIMIT,
   KOL_CATEGORIES,
   KOL_REGIONS,
   KOL_SCALES,
@@ -18,6 +19,7 @@ import {
 } from '../bizTypes';
 import type { Channel, KolProfile } from '../profile-types';
 import type { DemoState } from './db';
+import { channelTotals } from './socialListening';
 
 /** Accent-, case- and whitespace-insensitive form used for keyword matching. */
 export function normalizeText(s: string): string {
@@ -163,6 +165,8 @@ export function publicKolOf(profile: KolProfile, channels: Channel[], now: numbe
       url: displayUrl(c.url),
       handle: c.handle,
       followers: followersOf(c),
+      ...channelTotals(c.url, followersOf(c)),
+      latestVideos: publicVideos([c]).slice(0, PROFILE_VIDEO_LIMIT),
       badge: channelBadge(c, now)!,
       badgeExpiresAt: c.badgeExpiresAt !== undefined ? new Date(c.badgeExpiresAt).toISOString() : '',
     })),

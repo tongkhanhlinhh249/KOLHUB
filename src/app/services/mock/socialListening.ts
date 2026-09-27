@@ -50,3 +50,16 @@ export function syncChannelStats(channel: Pick<Channel, 'platform' | 'url'>, now
   }));
   return { followers: 10_000 + (h % 1_990_001), latestVideos, syncedAt: now };
 }
+
+/**
+ * Channel totals "pulled" with the stats, derived at read time (not stored) so no DB change is
+ * needed: deterministic from the URL, scaled on followers. `views` ≈ 40–400 × followers,
+ * `videoCount` 60–1 500.
+ */
+export function channelTotals(url: string, followers: number): { views: number; videoCount: number } {
+  const key = url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^(www|m)\./, '').replace(/\/+$/, '');
+  const h = hash(`totals:${key}`);
+  const videoCount = 60 + (h % 1_441);
+  const perFollower = 40 + ((h >>> 11) % 361);
+  return { views: Math.max(0, Math.round(followers)) * perFollower, videoCount };
+}

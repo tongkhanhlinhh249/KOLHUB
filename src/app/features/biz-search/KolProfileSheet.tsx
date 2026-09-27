@@ -6,7 +6,6 @@ import {
   Briefcase,
   CheckCircle2,
   Copy,
-  ExternalLink,
   FileText,
   Link2,
   Mail,
@@ -24,9 +23,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { KolhubError, searchService, type KolPublicProfile } from '../../services';
 import { formatDate, formatFollowers } from './format';
 import { KolAvatar } from './KolCard';
-import { FieldBadges, NoVideoTile, VideoThumb } from './KolMedia';
+import { FieldBadges } from './KolMedia';
 import { PlatformIcon, platformLabel } from './PlatformIcon';
-import { ChannelBadge, ListingStatusBadge } from './StatusBadges';
+import { ListingStatusBadge } from './StatusBadges';
+import { ChannelVideos } from './ChannelVideos';
 
 interface KolProfileSheetProps {
   kolId: string | null;
@@ -79,14 +79,19 @@ function Info({ label, children }: { label: string; children: ReactNode }) {
 
 function StatCard({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-1">
-        <span className="block text-xl font-bold text-foreground sm:text-2xl">{value}</span>
-        {hint && <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>}
+    <div className="min-w-0 rounded-xl border border-primary/20 bg-primary/5 p-3">
+      <dt className="truncate text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 min-w-0">
+        <span className="block text-lg font-bold text-foreground sm:text-xl">{value}</span>
+        {hint && <span className="block truncate text-xs text-muted-foreground">{hint}</span>}
       </dd>
     </div>
   );
+}
+
+/** "Số liệu chung": one column per card from sm (2 on mobile). Static classes so Tailwind keeps them. */
+function statCols(n: number): string {
+  return ['sm:grid-cols-1', 'sm:grid-cols-2', 'sm:grid-cols-3', 'sm:grid-cols-4', 'sm:grid-cols-5'][Math.min(Math.max(n, 1), 5) - 1];
 }
 
 type TabKey = 'details' | 'profile';
@@ -156,12 +161,12 @@ export function KolProfileSheet({ kolId, saved, onOpenChange, onSave }: KolProfi
             <div className="space-y-4 p-4 sm:p-6">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-24 rounded-xl" />
+                  <Skeleton key={i} className="h-20 rounded-xl" />
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="aspect-square rounded-xl" />
+              <div className="space-y-3">
+                {[0, 1].map((i) => (
+                  <Skeleton key={i} className="h-[4.5rem] rounded-xl" />
                 ))}
               </div>
             </div>
@@ -256,22 +261,22 @@ export function KolProfileSheet({ kolId, saved, onOpenChange, onSave }: KolProfi
               )}
 
               <TabsContent value="details" className="mt-0 space-y-6 p-4 sm:p-6">
-                <Section title="Thống kê">
-                  <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Section title="Số liệu chung">
+                  <dl className={`grid grid-cols-2 gap-2 sm:gap-3 ${statCols(ready.channels.length + 1)}`}>
                     <StatCard
                       label="Tổng người theo dõi"
                       value={formatFollowers(ready.totalFollowers)}
-                      hint={`Trên ${ready.channels.filter((c) => c.badge === 'VERIFIED').length} kênh đã xác thực`}
+                      hint={`${ready.channels.filter((c) => c.badge === 'VERIFIED').length} kênh đã xác thực`}
                     />
                     {ready.channels.map((c) => (
                       <StatCard
                         key={`stat-${c.platform}-${c.url}`}
-                        label={`Người theo dõi ${platformLabel(c.platform)}`}
+                        label={platformLabel(c.platform)}
                         value={formatFollowers(c.followers)}
                         hint={
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex max-w-full items-center gap-1">
                             <PlatformIcon platform={c.platform} className="size-3.5" />
-                            {c.handle}
+                            <span className="truncate">{c.handle}</span>
                           </span>
                         }
                       />
@@ -280,70 +285,7 @@ export function KolProfileSheet({ kolId, saved, onOpenChange, onSave }: KolProfi
                 </Section>
 
                 <Section title="Video mới nhất">
-                  {ready.latestVideos.length === 0 ? (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      <NoVideoTile />
-                    </div>
-                  ) : (
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {ready.latestVideos.map((v, i) => (
-                        <li key={`${v.thumbnail}-${i}`}>
-                          <VideoThumb video={v} kolName={ready.displayName} showMeta />
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Section>
-
-                <Section title="Chi tiết từng kênh">
-                  {ready.channels.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Chưa có kênh công khai.</p>
-                  ) : (
-                    <ul className="space-y-3">
-                      {ready.channels.map((c) => (
-                        <li key={c.platform + c.url} className="rounded-xl border border-border bg-card p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <PlatformIcon platform={c.platform} className="size-10 rounded-lg" />
-                              <div className="min-w-0">
-                                <p className="font-semibold text-foreground">{platformLabel(c.platform)}</p>
-                                <a
-                                  href={`https://${c.url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
-                                >
-                                  <span className="truncate">{c.handle || c.url}</span>
-                                  <ExternalLink className="size-3 shrink-0" aria-hidden />
-                                  <span className="sr-only">(mở tab mới)</span>
-                                </a>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-bold text-foreground">{formatFollowers(c.followers)}</p>
-                              <p className="text-xs text-muted-foreground">Người theo dõi</p>
-                            </div>
-                          </div>
-                          <dl className="mt-3 grid grid-cols-2 gap-2">
-                            <div className="rounded-lg bg-muted/50 p-2.5">
-                              <dt className="text-xs text-muted-foreground">Trạng thái dấu</dt>
-                              <dd className="mt-1">
-                                <ChannelBadge badge={c.badge} expiresAt={c.badgeExpiresAt} />
-                              </dd>
-                            </div>
-                            <div className="rounded-lg bg-muted/50 p-2.5">
-                              <dt className="text-xs text-muted-foreground">
-                                {c.badge === 'VERIFIED' ? 'Dấu hiệu lực đến' : 'Dấu hết hạn ngày'}
-                              </dt>
-                              <dd className="mt-1 text-sm font-semibold text-foreground">
-                                {c.badgeExpiresAt ? formatDate(c.badgeExpiresAt) : '—'}
-                              </dd>
-                            </div>
-                          </dl>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <ChannelVideos key={ready.kolId} channels={ready.channels} kolName={ready.displayName} />
                 </Section>
               </TabsContent>
 

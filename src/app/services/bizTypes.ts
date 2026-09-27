@@ -151,6 +151,13 @@ export interface PublicChannel {
   url: string;
   handle: string;
   followers: number;
+  /** Total views of the channel (mock social listening, derived from the URL). */
+  views: number;
+  /** Number of videos on the channel (mock social listening, derived from the URL). */
+  videoCount: number;
+  /** 0–6 newest videos of this channel, newest first. */
+  latestVideos: KolVideo[];
+  /** Badge status of the channel. */
   badge: BadgeState;
   badgeExpiresAt: string;
 }

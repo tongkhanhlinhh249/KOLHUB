@@ -75,7 +75,7 @@ function toProfile(k: PublicKol): KolPublicProfile {
     scale: k.scale,
     listingStatus: k.listingStatus,
     verifiedAt: k.verifiedAt,
-    channels: k.channels.map((c) => ({ ...c })),
+    channels: k.channels.map((c) => ({ ...c, latestVideos: c.latestVideos.map((v) => ({ ...v })) })),
     fields: k.fields.map((f) => ({ ...f })),
     latestVideos: k.latestVideos.slice(0, PROFILE_VIDEO_LIMIT),
   };

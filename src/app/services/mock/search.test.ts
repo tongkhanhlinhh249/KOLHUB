@@ -167,7 +167,20 @@ describe('getKolPublicProfile', () => {
     ]);
     const json = JSON.stringify(p);
     for (const v of ['0909000001', 'Đường Bí Mật', '0010******01', '99,000,000']) expect(json).not.toContain(v);
-    expect(Object.keys(p.channels[0]).sort()).toEqual(['badge', 'badgeExpiresAt', 'followers', 'handle', 'platform', 'url']);
+    for (const c of p.channels) {
+      expect(Object.keys(c).sort()).toEqual([
+        'badge',
+        'badgeExpiresAt',
+        'followers',
+        'handle',
+        'latestVideos',
+        'platform',
+        'url',
+        'videoCount',
+        'views',
+      ]);
+      for (const v of c.latestVideos) expect(Object.keys(v).sort()).toEqual(['platform', 'publishedAt', 'thumbnail', 'title', 'url']);
+    }
     expect(p).toMatchObject({ totalFollowers: 4_200_000, scale: 'mega', listingStatus: 'VISIBLE' });
     for (const v of p.latestVideos) expect(Object.keys(v).sort()).toEqual(['platform', 'publishedAt', 'thumbnail', 'title', 'url']);
   });
@@ -183,6 +196,21 @@ describe('getKolPublicProfile', () => {
     expect(JSON.stringify(p)).not.toMatch(/instagram/i);
     expect((await svc.getKolPublicProfile('KOL-T-0006')).latestVideos.map((v) => v.platform)).toEqual(['facebook']);
     expect((await svc.getKolPublicProfile('KOL-T-0002')).fields).toEqual([{ name: 'Du lịch', medal: 'none' }]);
+  });
+
+  test('kênh: video mới nhất theo từng kênh, lượt xem + số video xác định theo URL', async () => {
+    const p = await svc.getKolPublicProfile('KOL-T-0001');
+    const byPlatform = Object.fromEntries(p.channels.map((c) => [c.platform, c]));
+    expect(byPlatform.tiktok.latestVideos.map((v) => v.title)).toEqual(['Video 2', 'Video 5']);
+    expect(byPlatform.facebook.latestVideos.map((v) => v.title)).toEqual(['Video 4']);
+    for (const c of p.channels) {
+      expect(c.latestVideos.every((v) => v.platform === c.platform)).toBe(true);
+      expect(c.views).toBeGreaterThanOrEqual(c.followers);
+      expect(c.videoCount).toBeGreaterThan(0);
+    }
+    const again = await svc.getKolPublicProfile('KOL-T-0001');
+    expect(again.channels.map((c) => [c.views, c.videoCount])).toEqual(p.channels.map((c) => [c.views, c.videoCount]));
+    expect((await svc.getKolPublicProfile('KOL-T-0002')).channels[0].latestVideos).toEqual([]);
   });
 
   test('hồ sơ: tối đa 6 video, tối đa 3 lĩnh vực dù dữ liệu gốc nhiều hơn', async () => {
