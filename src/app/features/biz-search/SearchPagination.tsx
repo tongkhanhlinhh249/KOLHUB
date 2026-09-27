@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Pagination,
@@ -30,7 +31,7 @@ export function SearchPagination({
   onPage(p: number): void;
 }) {
   if (pageCount <= 1) return null;
-  const go = (p: number) => (e: React.MouseEvent) => {
+  const go = (p: number) => (e: MouseEvent) => {
     e.preventDefault();
     if (p >= 1 && p <= pageCount && p !== page) onPage(p);
   };

@@ -11,6 +11,7 @@ import {
   type KolSearchResult,
 } from '../../services';
 import { KolCard, KolCardSkeleton } from './KolCard';
+import { KolProfileSheet } from './KolProfileSheet';
 import { createLatestOnly } from './latestOnly';
 import { SearchFilters } from './SearchFilters';
 import { SearchPagination } from './SearchPagination';
@@ -98,6 +99,13 @@ export function SearchPage() {
       sp.set('kol', kolId);
       return sp;
     });
+  const profileId = searchParams.get('kol');
+  const closeProfile = () =>
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev);
+      sp.delete('kol');
+      return sp;
+    });
   const openSave = (_kolId: string) => {
     // Wired to SaveToListsDialog in Task 8.
   };
@@ -183,6 +191,13 @@ export function SearchPage() {
           <SearchPagination page={result.page} pageCount={result.pageCount} onPage={onPage} />
         </>
       ) : null}
+
+      <KolProfileSheet
+        kolId={profileId}
+        saved={profileId !== null && savedIds.has(profileId)}
+        onOpenChange={(open) => !open && closeProfile()}
+        onSave={openSave}
+      />
     </div>
   );
 }
