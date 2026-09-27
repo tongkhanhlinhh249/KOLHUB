@@ -15,7 +15,9 @@ export interface Account {
 }
 
 export type OtpChannel = 'email' | 'sms';
-export type OtpPurpose = 'register' | 'login' | 'reset';
+export type OtpPurpose = 'register' | 'login' | 'reset'
+  // --- phase 3 ---
+  | 'change-email';
 
 export type ErrorCode =
   | 'KOLHUB-4001'
@@ -31,7 +33,16 @@ export type ErrorCode =
   | 'KOLHUB-4012'
   | 'KOLHUB-4013'
   | 'KOLHUB-4014'
-  | 'KOLHUB-4015';
+  | 'KOLHUB-4015'
+  // --- phase 3 ---
+  | 'KOLHUB-4016'
+  | 'KOLHUB-4017'
+  | 'KOLHUB-4018'
+  | 'KOLHUB-4401'
+  | 'KOLHUB-4402'
+  | 'KOLHUB-4403'
+  | 'KOLHUB-4404'
+  | 'KOLHUB-4405';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;

@@ -27,6 +27,9 @@ export function smsBody(purpose: OtpPurpose, code: string): string {
       return `KOLHUB: Ma dang nhap cua ban la ${code}. Hieu luc 5 phut. Khong chia se ma nay cho bat ky ai.`;
     case 'reset':
       return `KOLHUB: Ma dat lai mat khau cua ban la ${code}. Hieu luc 5 phut. Neu ban khong yeu cau, vui long bo qua tin nhan nay.`;
+    // --- phase 3 ---
+    case 'change-email':
+      throw new Error('change-email chỉ gửi qua email');
   }
 }
 

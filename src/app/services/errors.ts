@@ -42,5 +42,36 @@ export function errorMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Tài khoản chưa xác nhận OTP. Vui lòng hoàn tất xác thực.';
     case 'KOLHUB-4015':
       return 'Nhãn hàng/Agency cần dùng email công ty, không dùng email miễn phí (Gmail, Yahoo, Outlook…).';
+    // --- phase 3 ---
+    case 'KOLHUB-4016':
+      return 'Tính năng này chỉ dành cho tài khoản Nhãn hàng/Agency đã xác thực email công ty.';
+    case 'KOLHUB-4017':
+      return 'Email mới trùng với email công ty hiện tại.';
+    case 'KOLHUB-4018':
+      return `${bizFieldLabel(meta?.field)} không hợp lệ hoặc còn trống.`;
+    case 'KOLHUB-4401':
+      return 'Bạn đã có danh sách tên này. Vui lòng chọn tên khác.';
+    case 'KOLHUB-4402':
+      return 'Tên danh sách phải có từ 1 đến 100 ký tự.';
+    case 'KOLHUB-4403':
+      return 'Không tìm thấy danh sách.';
+    case 'KOLHUB-4404':
+      return 'Không tìm thấy KOL hoặc hồ sơ không còn hiển thị.';
+    case 'KOLHUB-4405':
+      return 'Ghi chú tối đa 500 ký tự.';
+  }
+}
+
+// --- phase 3 ---
+function bizFieldLabel(field?: string): string {
+  switch (field) {
+    case 'fullName':
+      return 'Họ tên';
+    case 'company':
+      return 'Tên công ty';
+    case 'email':
+      return 'Email công ty';
+    default:
+      return 'Thông tin';
   }
 }

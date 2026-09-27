@@ -1,5 +1,7 @@
 import type { Account, AccountType, OtpChannel, OtpPurpose } from '../types';
 import { seedState } from './seed';
+// --- phase 3 ---
+import type { DirectoryKol, SavedList } from '../bizTypes';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -36,6 +38,9 @@ export interface DemoState {
   registrations: PendingRegistration[];
   loginFails: Record<string, { count: number; lockedUntil?: number }>;
   sessionAccountId: string | null;
+  // --- phase 3 ---
+  directory: DirectoryKol[];
+  savedLists: SavedList[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -70,7 +75,7 @@ export function createDb(storage: DemoStorage | null, seed: () => DemoState): Db
       const raw = storage?.getItem(DB_KEY);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
-        if (isValidState(parsed)) return parsed;
+        if (isValidState(parsed)) return backfillMissingKeys(parsed, seed);
       }
     } catch {
       // fall through to seed
@@ -102,6 +107,17 @@ export function createDb(storage: DemoStorage | null, seed: () => DemoState): Db
       persist(state);
     },
   };
+}
+
+// --- phase 3 ---
+/** Data saved by an earlier build may lack keys added later: fill them from the seed (version unchanged). */
+function backfillMissingKeys(parsed: DemoState, seed: () => DemoState): DemoState {
+  const fresh = seed() as unknown as Record<string, unknown>;
+  const target = parsed as unknown as Record<string, unknown>;
+  for (const key of Object.keys(fresh)) {
+    if (!(key in target)) target[key] = fresh[key];
+  }
+  return parsed;
 }
 
 function browserStorage(): DemoStorage | null {

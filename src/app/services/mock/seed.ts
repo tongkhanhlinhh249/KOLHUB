@@ -1,11 +1,13 @@
 import type { DemoState } from './db';
+// --- phase 3 ---
+import { seedDirectory, seedSavedLists } from './directorySeed';
 
 const SEED_CREATED_AT = '2026-09-01T08:00:00.000Z';
 export const DEMO_PASSWORD = 'demo1234';
 
 /** Demo data: one quick-login account per account type. */
 export function seedState(): DemoState {
-  return {
+  const state: Omit<DemoState, 'directory' | 'savedLists'> = {
     version: 1,
     accounts: [
       {
@@ -38,5 +40,12 @@ export function seedState(): DemoState {
     registrations: [],
     loginFails: {},
     sessionAccountId: null,
+  };
+  // --- phase 3 ---
+  const now = Date.now();
+  return {
+    ...state,
+    directory: seedDirectory(now),
+    savedLists: seedSavedLists(state.accounts, now),
   };
 }

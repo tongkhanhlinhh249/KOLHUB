@@ -101,3 +101,25 @@ describe('seedState', () => {
     expect(s.accounts[2]).toMatchObject({ fullName: 'Nguyễn Minh Anh', company: 'Công ty Demo Sữa' });
   });
 });
+
+// --- phase 3 ---
+describe('phase 3 keys', () => {
+  test('dữ liệu cũ thiếu directory/savedLists → bù từ seed, giữ tài khoản đã có', () => {
+    const extraAcc = { ...seedState().accounts[0], id: 'acc-extra', email: 'extra@demo.vn', phone: '0912000009' };
+    const old = { ...seedState(), accounts: [...seedState().accounts, extraAcc] } as Record<string, unknown>;
+    delete old.directory;
+    delete old.savedLists;
+    const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(old) });
+    const db = createDb(mem, seedState);
+    expect(db.read().directory).toHaveLength(40);
+    expect(db.read().savedLists).toHaveLength(2);
+    expect(db.read().accounts).toHaveLength(4);
+    expect(JSON.parse(mem.getItem('kolhub-demo-v1')!).directory).toHaveLength(40);
+  });
+
+  test('dữ liệu đã có savedLists giữ nguyên, không bị ghi đè', () => {
+    const old = { ...seedState(), savedLists: [] };
+    const db = createDb(memoryStorage({ 'kolhub-demo-v1': JSON.stringify(old) }), seedState);
+    expect(db.read().savedLists).toEqual([]);
+  });
+});
