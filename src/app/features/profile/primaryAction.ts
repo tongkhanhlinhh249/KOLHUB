@@ -58,3 +58,25 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
       return null;
   }
 }
+
+export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
+
+const MILESTONE_SECTION: Record<MilestoneKey, ProfileSection> = {
+  contact: 'lien-he',
+  staff: 'lien-he',
+  identity: 'dinh-danh',
+  channel: 'kenh',
+  submitted: 'dinh-danh',
+};
+
+/** Short badge label and the sub-route where a completeness milestone gets done. */
+export function milestoneBadge(ownerType: OwnerType, key: MilestoneKey): { label: string; to: string } {
+  const labels: Record<MilestoneKey, string> = {
+    contact: 'Liên hệ',
+    staff: 'Nhân sự',
+    identity: ownerType === 'KOL' ? 'eKYC' : 'GCN ĐKDN',
+    channel: 'Kênh & ảnh',
+    submitted: 'Gửi xét duyệt',
+  };
+  return { label: labels[key], to: profilePath(ownerType, MILESTONE_SECTION[key]) };
+}

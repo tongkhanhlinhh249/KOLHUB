@@ -1,19 +1,18 @@
 import { useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { Camera, CheckCircle2, ChevronDown, Circle, Loader2, ShieldCheck } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { Camera, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible';
 import { Progress } from '../../components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../components/ui/utils';
 import { profileService, validateProofImage, type EkycView, type ProfileView } from '../../services';
 import { toStoredFile } from '../shared/files';
 import { ProfileStatusBadge } from '../shared/StatusBadges';
-import { primaryAction } from './primaryAction';
+import { milestoneBadge, primaryAction } from './primaryAction';
 
 interface ProfileHeaderProps {
   view: ProfileView;
@@ -69,7 +68,6 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
 export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: ProfileHeaderProps) {
   const navigate = useNavigate();
   const { profile, completeness } = view;
-  const [open, setOpen] = useState(false);
   const name = profile.contact.displayName.trim();
   const shownName = name || 'Chưa đặt tên';
   const publicId = profile.ownerType === 'KOL' ? profile.kolId : profile.mcnId;
@@ -146,33 +144,39 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: Profil
           </div>
         </div>
 
-        <Collapsible open={open} onOpenChange={setOpen} className="mt-4 rounded-lg bg-muted/60 p-3 md:p-4">
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="flex min-h-11 w-full items-center gap-3 text-left md:pointer-events-none md:min-h-0"
-              aria-label={`Hồ sơ hoàn thiện ${completeness.percent}%`}
-            >
-              <span className="shrink-0 text-sm font-medium text-foreground">Hồ sơ hoàn thiện {completeness.percent}%</span>
-              <Progress value={completeness.percent} className="h-2 flex-1" aria-hidden />
-              <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform md:hidden', open && 'rotate-180')} aria-hidden />
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent forceMount className="data-[state=closed]:hidden md:!block">
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              {completeness.milestones.map((m) => (
-                <li key={m.key} className="flex items-start gap-2 text-sm">
+        <div className="mt-4 space-y-3 rounded-lg bg-muted/60 p-3 md:p-4">
+          <p className="text-sm font-semibold text-foreground">Hồ sơ hoàn thiện {completeness.percent}%</p>
+          <Progress value={completeness.percent} className="h-2" aria-label={`Hồ sơ hoàn thiện ${completeness.percent}%`} />
+          <ul className="flex flex-wrap gap-2" aria-label="Các bước hoàn thiện hồ sơ">
+            {completeness.milestones.map((m) => {
+              const badge = milestoneBadge(profile.ownerType, m.key);
+              const pill = 'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm';
+              return (
+                <li key={m.key}>
                   {m.done ? (
-                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-chart-4" aria-label="Đã xong" />
+                    <span className={cn(pill, 'border-chart-4 font-medium text-chart-4')} title={m.label}>
+                      <Check className="size-4 shrink-0" aria-hidden />
+                      {badge.label}
+                      <span className="sr-only">, đã xong</span>
+                    </span>
                   ) : (
-                    <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label="Chưa xong" />
+                    <Link
+                      to={badge.to}
+                      title={m.label}
+                      className={cn(
+                        pill,
+                        'border-border bg-card text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      )}
+                    >
+                      {badge.label}
+                      <span className="sr-only">, chưa xong</span>
+                    </Link>
                   )}
-                  <span className={m.done ? 'text-foreground' : 'text-muted-foreground'}>{m.label}</span>
                 </li>
-              ))}
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     </Card>
   );

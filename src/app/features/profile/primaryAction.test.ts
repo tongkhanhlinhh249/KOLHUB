@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { primaryAction, profilePath, type PrimaryActionInput } from './primaryAction';
+import { milestoneBadge, primaryAction, profilePath, type PrimaryActionInput } from './primaryAction';
 
 const base: PrimaryActionInput = { ownerType: 'KOL', status: 'DRAFT', ekycStatus: 'NOT_STARTED', eligible: false, hasNeedsFixChannel: false };
 
@@ -27,4 +27,16 @@ test('profilePath chỉ thêm ?them=1 cho trang kênh', () => {
   expect(profilePath('KOL', 'lien-he')).toBe('/ho-so-kol/lien-he');
   expect(profilePath('MCN', 'kenh', { openAddChannel: true })).toBe('/ho-so-mcn/kenh?them=1');
   expect(profilePath('KOL', 'dinh-danh', { openAddChannel: true })).toBe('/ho-so-kol/dinh-danh');
+});
+
+test('milestoneBadge: nhãn ngắn và trang con tương ứng', () => {
+  const kol = (['contact', 'staff', 'identity', 'channel', 'submitted'] as const).map((k) => milestoneBadge('KOL', k));
+  expect(kol).toEqual([
+    { label: 'Liên hệ', to: '/ho-so-kol/lien-he' },
+    { label: 'Nhân sự', to: '/ho-so-kol/lien-he' },
+    { label: 'eKYC', to: '/ho-so-kol/dinh-danh' },
+    { label: 'Kênh & ảnh', to: '/ho-so-kol/kenh' },
+    { label: 'Gửi xét duyệt', to: '/ho-so-kol/dinh-danh' },
+  ]);
+  expect(milestoneBadge('MCN', 'identity')).toEqual({ label: 'GCN ĐKDN', to: '/ho-so-mcn/dinh-danh' });
 });
