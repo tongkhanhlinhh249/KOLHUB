@@ -189,6 +189,8 @@ export function ChannelsTab({
 
   const row = (c: Channel) => {
     const locked = isLocked(c);
+    // An MCN channel assigned to a KOL shows that KOL's fields and region; own channels keep the MCN's.
+    const assignedTo = owners.enabled ? owners.ownerOf(c) : null;
     return (
       <ChannelRow
         platform={c.platform}
@@ -205,8 +207,8 @@ export function ChannelsTab({
             <ChannelStatusBadge channel={c} now={now} />
           )
         }
-        fields={fields}
-        region={region}
+        fields={assignedTo ? (assignedTo.fields ?? []) : fields}
+        region={assignedTo ? assignedTo.region : region}
         followers={c.stats?.followers}
         trailing={<ActiveSwitch channel={c} accountId={accountId} />}
         onOpen={() => detail.openChannel(c.id)}

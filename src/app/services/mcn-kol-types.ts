@@ -1,5 +1,5 @@
 // MCN ↔ KOL management: an approved MCN invites approved KOLs, and may assign its own channels to them.
-import type { KolCategory, KolRegion } from './bizTypes';
+import type { ActivityField, KolCategory, KolRegion } from './bizTypes';
 
 export type McnKolLinkStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'ENDED';
 
@@ -34,6 +34,8 @@ export interface McnKolRow {
   avatar?: string;
   category?: KolCategory;
   region?: KolRegion;
+  /** Public "Lĩnh vực hoạt động" (0–3), shown on the MCN channels assigned to this KOL. */
+  fields?: ActivityField[];
   /** Sum of followers of the KOL's own verified, active, unexpired channels. */
   totalFollowers: number;
   /** MCN channels currently assigned to this KOL (0 unless ACTIVE). */

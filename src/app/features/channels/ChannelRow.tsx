@@ -104,7 +104,7 @@ export function ChannelRow({
     <Card className="@container cursor-pointer gap-0 p-4 transition-colors hover:bg-accent/40" onClick={onRowClick}>
       <div className="flex items-start gap-2 @4xl:items-center">
         <div className="flex min-w-0 flex-1 flex-col gap-3 @4xl:flex-row @4xl:items-center @4xl:gap-6">
-          <div className="flex min-w-0 items-start gap-3 @4xl:flex-1">
+          <div className="flex min-w-0 items-start gap-3 @4xl:min-w-[18rem] @4xl:flex-1">
             <PlatformIcon platform={platform} mono className="size-12 shrink-0 rounded-xl" />
             <div className="min-w-0 space-y-1">
               <div className="flex min-w-0 items-center gap-1.5">
@@ -125,10 +125,10 @@ export function ChannelRow({
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 @lg:pl-15 @4xl:flex-nowrap @4xl:gap-6 @4xl:pl-0">
-            <div className="min-w-0 basis-full empty:hidden @4xl:block @4xl:w-44 @4xl:basis-auto @4xl:shrink-0">
+            <div className="min-w-0 basis-full empty:hidden @4xl:block @4xl:w-44 @4xl:min-w-24 @4xl:basis-auto @4xl:shrink">
               <FieldBadges fields={fields} size="sm" />
             </div>
-            <p className="inline-flex min-w-0 items-center gap-1 text-sm text-muted-foreground @4xl:w-32 @4xl:shrink-0">
+            <p className="inline-flex min-w-0 items-center gap-1 text-sm text-muted-foreground @4xl:w-32 @4xl:min-w-20 @4xl:shrink">
               <MapPin className="size-3.5 shrink-0" aria-hidden />
               <span className="truncate">{region || 'Chưa cập nhật'}</span>
             </p>

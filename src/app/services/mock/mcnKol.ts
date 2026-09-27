@@ -74,6 +74,8 @@ function toRow(state: DemoState, link: McnKolLink, now: number): McnKolRow | nul
   if (p.avatar?.thumbnail) row.avatar = p.avatar.thumbnail;
   if (category) row.category = category;
   if (region) row.region = region;
+  const fields = p.contact.fields?.length ? p.contact.fields : category ? [{ name: category, medal: 'none' as const }] : [];
+  if (fields.length) row.fields = fields.slice(0, 3).map((f) => ({ name: f.name, medal: f.medal }));
   if (link.respondedAt !== undefined) row.respondedAt = link.respondedAt;
   if (link.endedAt !== undefined) row.endedAt = link.endedAt;
   if (link.endedBy) row.endedBy = link.endedBy;

@@ -56,6 +56,9 @@ describe('seed Sao Việt Media', () => {
     const r = rows.find((x) => x.kolId === kolId(11))!;
     expect(r).toMatchObject({ displayName: 'An Nhiên Review', category: 'Lifestyle', region: 'Hà Nội' });
     expect(r.totalFollowers).toBeGreaterThan(0);
+    // Public "Lĩnh vực hoạt động" (medal-free copy), first = category — shown on the MCN channels it owns.
+    expect(r.fields?.[0]).toEqual({ name: 'Lifestyle', medal: expect.any(String) });
+    expect(r.fields!.length).toBeLessThanOrEqual(3);
   });
 
   test('Khánh Vy thấy lời mời của Sao Việt Media, chưa có MCN quản lý', async () => {
