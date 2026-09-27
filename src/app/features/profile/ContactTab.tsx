@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import {
+  BIO_MAX,
   isValidEmail,
   isValidPhone,
   KOL_CATEGORIES,
@@ -18,8 +19,11 @@ import {
 } from '../../services';
 import { Field, type FieldErrors } from '../form/Field';
 import { SelectField } from '../shared/SelectField';
+import { FieldBadges } from '../biz-search/KolMedia';
+import { ActivityFieldsEditor, BioField, bioLength, followCategory, initialFields } from './ContactExtras';
 
-type ContactKey = keyof ContactInfo;
+/** Plain text contact fields (bio and activity fields have their own editors). */
+type ContactKey = Exclude<keyof ContactInfo, 'bio' | 'fields'>;
 type StaffKey = keyof StaffInfo;
 
 const REQUIRED_CONTACT: ContactKey[] = ['displayName', 'phone', 'email', 'province', 'address', 'category'];
@@ -34,9 +38,14 @@ function contactLabels(isKol: boolean): Record<ContactKey, string> {
     country: 'Quốc gia',
     province: 'Tỉnh/Thành phố',
     address: 'Địa chỉ',
-    category: 'Lĩnh vực',
+    category: isKol ? 'Lĩnh vực chính' : 'Lĩnh vực',
   };
 }
+
+const BIO_PLACEHOLDER = {
+  KOL: 'Giới thiệu ngắn về nội dung bạn sáng tạo',
+  MCN: 'Giới thiệu ngắn về tổ chức và các kênh bạn quản lý',
+} as const;
 
 const STAFF_LABELS: Record<StaffKey, string> = {
   staffName: 'Họ tên nhân sự',
@@ -92,12 +101,17 @@ function ContactDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange
   const [values, setValues] = useState<ContactInfo>(() => ({
     ...profile.contact,
     displayName: typeof pendingName?.newValue === 'string' ? pendingName.newValue : profile.contact.displayName,
+    bio: profile.contact.bio ?? '',
+    fields: initialFields(profile.contact.fields, profile.contact.category),
   }));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [saving, setSaving] = useState(false);
   const nameNeedsApproval = isKol && (profile.status === 'SUBMITTED' || profile.status === 'APPROVED');
 
   const set = (k: ContactKey) => (v: string) => setValues((s) => ({ ...s, [k]: v }));
+  // The first "Lĩnh vực hoạt động" is the category: keep the chips in sync with the select.
+  const setCategory = (v: string) =>
+    setValues((s) => ({ ...s, category: v, fields: followCategory(s.fields ?? [], v, profile.contact.fields ?? []) }));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -106,13 +120,16 @@ function ContactDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange
     if (!errs.phone && !isValidPhone(values.phone)) errs.phone = 'Số điện thoại không hợp lệ';
     if (!errs.email && !isValidEmail(values.email)) errs.email = 'Email không hợp lệ';
     if (values.zalo.trim() && !isValidPhone(values.zalo)) errs.zalo = 'Số Zalo không hợp lệ';
+    if (bioLength(values.bio ?? '') > BIO_MAX) errs.bio = `Giới thiệu tối đa ${BIO_MAX} ký tự`;
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
     setSaving(true);
     try {
       const nameChanged = values.displayName.trim() !== profile.contact.displayName;
-      const next = await profileService.updateContact(profile.accountId, values);
+      // Activity fields are a KOL-only public attribute; MCN keeps only the bio.
+      const { fields, ...rest } = values;
+      const next = await profileService.updateContact(profile.accountId, isKol ? { ...rest, fields } : rest);
       const pending = next.pendingChanges.some((c) => c.field === 'displayName');
       if (nameChanged && pending) toast.info('Đã gửi yêu cầu thay đổi họ tên, chờ duyệt');
       else toast.success('Đã lưu thông tin');
@@ -142,9 +159,18 @@ function ContactDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange
           <Field label={labels.zalo} placeholder="Số điện thoại Zalo" inputMode="tel" value={values.zalo} error={errors.zalo} onChange={(e) => set('zalo')(e.target.value)} />
           <Field label={labels.country} placeholder="Việt Nam" value={values.country} error={errors.country} onChange={(e) => set('country')(e.target.value)} />
           <SelectField label={`${labels.province} *`} value={values.province} options={PROVINCES} onChange={set('province')} error={errors.province} />
-          <SelectField label={`${labels.category} *`} value={values.category} options={KOL_CATEGORIES} onChange={set('category')} error={errors.category} />
+          <SelectField label={`${labels.category} *`} value={values.category} options={KOL_CATEGORIES} onChange={isKol ? setCategory : set('category')} error={errors.category} />
         </div>
         <Field label={`${labels.address} *`} placeholder="Số nhà, đường, phường/xã, quận/huyện" value={values.address} error={errors.address} onChange={(e) => set('address')(e.target.value)} />
+        {isKol && (
+          <ActivityFieldsEditor fields={values.fields ?? []} onChange={(fields) => setValues((s) => ({ ...s, fields }))} error={errors.fields} />
+        )}
+        <BioField
+          value={values.bio ?? ''}
+          onChange={(bio) => setValues((s) => ({ ...s, bio }))}
+          error={errors.bio}
+          placeholder={BIO_PLACEHOLDER[profile.ownerType]}
+        />
         <DialogFooter className="gap-2">
           <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => onOpenChange(false)}>
             Huỷ
@@ -241,6 +267,24 @@ export function ContactTab({ view }: { view: ProfileView }) {
             }
           />
         ))}
+        {isKol && (
+          <div className="space-y-1 md:col-span-2">
+            <dt className="text-xs text-muted-foreground">Lĩnh vực hoạt động</dt>
+            <dd>
+              {profile.contact.fields?.length ? (
+                <FieldBadges fields={profile.contact.fields} />
+              ) : (
+                <span className="text-sm text-muted-foreground">Chưa cập nhật</span>
+              )}
+            </dd>
+          </div>
+        )}
+        <div className="space-y-0.5 md:col-span-2">
+          <dt className="text-xs text-muted-foreground">Giới thiệu</dt>
+          <dd className={profile.contact.bio?.trim() ? 'whitespace-pre-line break-words text-sm text-foreground' : 'text-sm text-muted-foreground'}>
+            {profile.contact.bio?.trim() || 'Chưa cập nhật'}
+          </dd>
+        </div>
       </SectionCard>
 
       <SectionCard title="Nhân sự quản lý nội dung" onEdit={() => setEditing('staff')}>
