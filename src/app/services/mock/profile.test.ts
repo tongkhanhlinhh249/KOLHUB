@@ -36,7 +36,7 @@ describe('profile service', () => {
     });
     const v = await profile.getProfile('acc-new');
     expect(v.profile).toMatchObject({ status: 'DRAFT', contact: { email: 'new@x.vn', phone: '0987000111' } });
-    expect(h.db.read().kolProfiles).toHaveLength(2);
+    expect(h.db.read().kolProfiles.filter((p) => p.accountId === 'acc-new')).toHaveLength(1);
   });
 
   test('checklist trong view theo BR-64/BR-65, không có pledges', async () => {
@@ -127,5 +127,94 @@ describe('profile service', () => {
     });
     const v = await profile.updateImages(h.kolId, { avatar: { name: 'a.png', type: 'image/png', size: 10, thumbnail: 'data:x' } });
     expect(v.profile.avatar?.thumbnail).toBe('data:x');
+  });
+});
+
+describe('giới thiệu & lĩnh vực hoạt động', () => {
+  const contactOf = () => findProfile(h.db.read(), h.kolId)!.contact;
+
+  test('bio ≤ 300 ký tự (trim); 301 → ValidationError field bio, không lưu', async () => {
+    await expect(profile.updateContact(h.kolId, { bio: 'ệ'.repeat(301) })).rejects.toMatchObject({ field: 'bio' });
+    expect(contactOf().bio).toBeUndefined();
+    const v = await profile.updateContact(h.kolId, { bio: `  ${'a'.repeat(300)}  ` });
+    expect(v.profile.contact.bio).toBe('a'.repeat(300));
+  });
+
+  test('fields: 1–3 mục, mục đầu = category, không trùng; KOL tự khai → medal none', async () => {
+    const v = await profile.updateContact(h.kolId, {
+      category: 'Giáo dục',
+      fields: [
+        { name: 'Giáo dục', medal: 'gold' },
+        { name: 'Lifestyle', medal: 'silver' },
+      ],
+    });
+    expect(v.profile.contact.fields).toEqual([
+      { name: 'Giáo dục', medal: 'none' },
+      { name: 'Lifestyle', medal: 'none' },
+    ]);
+    const bad: [string, { name: string; medal: 'none' }[]][] = [
+      ['rỗng', []],
+      ['4 mục', ['Giáo dục', 'Lifestyle', 'Du lịch', 'Gaming'].map((name) => ({ name, medal: 'none' as const }))],
+      ['mục đầu khác category', [{ name: 'Lifestyle', medal: 'none' }]],
+      ['trùng', [{ name: 'Giáo dục', medal: 'none' }, { name: 'giáo dục', medal: 'none' }]],
+      ['tên rỗng', [{ name: 'Giáo dục', medal: 'none' }, { name: '  ', medal: 'none' }]],
+    ];
+    for (const [, fields] of bad) {
+      await expect(profile.updateContact(h.kolId, { fields })).rejects.toMatchObject({ field: 'fields' });
+    }
+    expect(contactOf().fields).toHaveLength(2);
+  });
+
+  test('medal đã được gán (dữ liệu mẫu/Admin) giữ nguyên khi KOL lưu lại', async () => {
+    h.db.update((s) => {
+      const c = findProfile(s, h.kolId)!.contact;
+      c.category = 'Giáo dục';
+      c.fields = [
+        { name: 'Giáo dục', medal: 'gold' },
+        { name: 'MC', medal: 'silver' },
+      ];
+    });
+    const v = await profile.updateContact(h.kolId, {
+      fields: [
+        { name: 'Giáo dục', medal: 'none' },
+        { name: 'MC', medal: 'none' },
+        { name: 'Lifestyle', medal: 'gold' },
+      ],
+    });
+    expect(v.profile.contact.fields).toEqual([
+      { name: 'Giáo dục', medal: 'gold' },
+      { name: 'MC', medal: 'silver' },
+      { name: 'Lifestyle', medal: 'none' },
+    ]);
+  });
+
+  test('đổi category → mục đầu đổi theo, bỏ mục trùng; category rỗng → fields rỗng', async () => {
+    await profile.updateContact(h.kolId, { category: 'Giáo dục' });
+    expect(contactOf().fields).toEqual([{ name: 'Giáo dục', medal: 'none' }]);
+    await profile.updateContact(h.kolId, {
+      fields: [
+        { name: 'Giáo dục', medal: 'none' },
+        { name: 'Lifestyle', medal: 'none' },
+        { name: 'Du lịch', medal: 'none' },
+      ],
+    });
+    await profile.updateContact(h.kolId, { category: 'Lifestyle' });
+    expect(contactOf().fields).toEqual([
+      { name: 'Lifestyle', medal: 'none' },
+      { name: 'Du lịch', medal: 'none' },
+    ]);
+    await profile.updateContact(h.kolId, { category: '' });
+    expect(contactOf().fields).toEqual([]);
+  });
+
+  test('gửi category mới cùng fields mới trong một lần', async () => {
+    const v = await profile.updateContact(h.kolId, {
+      category: 'Gaming',
+      fields: [
+        { name: 'Gaming', medal: 'none' },
+        { name: 'Giải trí', medal: 'none' },
+      ],
+    });
+    expect(v.profile.contact).toMatchObject({ category: 'Gaming', fields: [{ name: 'Gaming' }, { name: 'Giải trí' }] });
   });
 });

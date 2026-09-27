@@ -67,14 +67,21 @@ export interface KolPrivateData {
 
 export type FieldMedal = 'gold' | 'silver' | 'none';
 
-/** One "Lĩnh vực hoạt động" of a KOL. The first field is the primary one (= `category`, used by filters). */
-export interface KolField {
+/**
+ * One "Lĩnh vực hoạt động" of a KOL (stored on `KolProfile.contact.fields`). The first field is the
+ * primary one and always equals `contact.category` (used by filters). Names a KOL declares come from
+ * KOL_CATEGORIES; seed/Admin data may add free-text sub-fields (e.g. "MC", "Tiếng Anh"), so `name` is
+ * typed `string`. Medals are only set by seed data / Admin; self-declared fields are `none`.
+ */
+export interface ActivityField {
   name: string;
   medal: FieldMedal;
 }
+/** @deprecated alias kept for the UI; same shape as ActivityField. */
+export type KolField = ActivityField;
 
-/** A recent video of a KOL, only ever on Facebook / YouTube / TikTok (BR-20). */
-export interface KolVideo {
+/** A recent video of a channel, only ever on Facebook / YouTube / TikTok (BR-20). */
+export interface LatestVideo {
   platform: Platform;
   thumbnail: string;
   url?: string;
@@ -82,6 +89,8 @@ export interface KolVideo {
   /** ISO date */
   publishedAt?: string;
 }
+/** @deprecated alias kept for the UI; same shape as LatestVideo. */
+export type KolVideo = LatestVideo;
 
 /** Max "Video mới nhất" shown per KOL in a search result (list row). */
 export const SEARCH_VIDEO_LIMIT = 2;

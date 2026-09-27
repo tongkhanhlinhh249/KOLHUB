@@ -18,6 +18,7 @@ import { delay as fakeDelay } from './delay';
 import { trackFunnel } from './funnel';
 import { newId } from './profile';
 import { findProfile, submitChecklist, sweepExpired } from './profileRules';
+import { syncChannelStats } from './socialListening';
 
 export type ChannelVerdict = { verdict: 'PASS' } | { verdict: 'NEEDS_FIX'; reason: string };
 
@@ -27,12 +28,6 @@ const ALL_CHANNELS_NEED_FIX = 'Tất cả kênh cần bổ sung';
 /** Active channels waiting for review. */
 export function pendingChannelsOf(state: DemoState, ownerId: string): Channel[] {
   return state.channels.filter((c) => c.ownerId === ownerId && c.active && c.status === 'PENDING_REVIEW');
-}
-
-function fakeFollowers(url: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < url.length; i++) h = Math.imul(h ^ url.charCodeAt(i), 16777619) >>> 0;
-  return 10_000 + (h % 1_990_001);
 }
 
 const emptyToUndef = (s: string) => (s.trim() ? s : undefined);
@@ -64,7 +59,7 @@ export function listApprovedKols(state: DemoState, now: number = Date.now()): Ap
       channels: chs.map((c) => ({
         platform: c.platform,
         url: c.url,
-        followers: c.followers,
+        followers: c.stats?.followers,
         badgeExpiresAt: new Date(c.badgeExpiresAt!).toISOString(),
       })),
       verifiedAt: new Date(p.approvedAt ?? p.decidedAt ?? now).toISOString(),
@@ -159,7 +154,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
           c.badgeExpiresAt = expires;
           c.badgeSuspended = undefined;
           c.note = undefined;
-          c.followers = fakeFollowers(c.url);
+          c.stats = syncChannelStats(c, t);
         } else {
           fixes++;
           c.status = 'NEEDS_FIX';
@@ -179,11 +174,12 @@ export function createReviewService(deps: ReviewServiceDeps) {
           p.status = 'APPROVED';
           p.decisionReason = undefined;
           if (p.ownerType === 'KOL' && !p.kolId) {
-            p.kolId = 'KH' + (900001 + s.kolProfiles.filter((x) => x.kolId).length);
+            // Seeded sample KOLs use KOL-2026-xxxx ids; only count ids issued here.
+            p.kolId = 'KH' + (900001 + s.kolProfiles.filter((x) => x.kolId?.startsWith('KH')).length);
             p.approvedAt = t;
           }
           if (p.ownerType === 'MCN' && !p.mcnId) {
-            p.mcnId = 'MCN' + (900001 + s.mcnProfiles.filter((x) => x.mcnId).length);
+            p.mcnId = 'MCN' + (900001 + s.mcnProfiles.filter((x) => x.mcnId?.startsWith('MCN9')).length);
             p.approvedAt = t;
           }
           p.approvedAt ??= t;

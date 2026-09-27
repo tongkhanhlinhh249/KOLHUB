@@ -28,11 +28,11 @@ async function verifiedChannel() {
 
 describe('channel service', () => {
   test('thêm kênh → PENDING_REVIEW, active, handle, platform', async () => {
-    expect(await ch.add(h.kolId, { url: 'tiktok.com/@khanhvy', proofImage: png })).toMatchObject({
+    expect(await ch.add(h.kolId, { url: 'tiktok.com/@vytest', proofImage: png })).toMatchObject({
       status: 'PENDING_REVIEW',
       active: true,
       platform: 'tiktok',
-      handle: '@khanhvy',
+      handle: '@vytest',
       ownerType: 'KOL',
     });
     expect(h.db.read().funnel).toEqual([expect.objectContaining({ step: 'channel_added', subject: 'kol@demo.kolhub.vn' })]);

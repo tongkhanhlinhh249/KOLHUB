@@ -1,5 +1,8 @@
 import { KolhubError } from '../types';
+import { FIELD_LIMIT, type ActivityField } from '../bizTypes';
+import { normalizeText } from './directory';
 import {
+  BIO_MAX,
   ValidationError,
   type ChangeField,
   type ChangeRequest,
@@ -174,6 +177,32 @@ function needsWrite(state: DemoState, accountId: string, now: number): boolean {
   );
 }
 
+const fieldKey = (name: string) => normalizeText(name);
+
+/**
+ * Validate KOL-declared "Lĩnh vực hoạt động" (1–3, unique, first = category). Medals cannot be
+ * self-assigned: an entry keeps the medal it already had (seed/Admin data), new entries get `none`.
+ */
+function checkFields(fields: ActivityField[], category: string, prev: ActivityField[]): ActivityField[] {
+  const bad = (msg: string) => new ValidationError('fields', msg);
+  const names = fields.map((f) => (f?.name ?? '').trim().replace(/\s+/g, ' '));
+  if (names.length < 1 || names.length > FIELD_LIMIT) throw bad(`Chọn từ 1 đến ${FIELD_LIMIT} lĩnh vực hoạt động`);
+  if (names.some((n) => !n)) throw bad('Tên lĩnh vực không được để trống');
+  if (fieldKey(names[0]) !== fieldKey(category)) throw bad('Lĩnh vực đầu tiên phải là Lĩnh vực chính');
+  if (new Set(names.map(fieldKey)).size !== names.length) throw bad('Lĩnh vực hoạt động bị trùng');
+  const medalOf = new Map(prev.map((f) => [fieldKey(f.name), f.medal]));
+  return names.map((name, i) => ({ name: i === 0 ? category : name, medal: medalOf.get(fieldKey(name)) ?? 'none' }));
+}
+
+/** Keep fields consistent after a category change: first entry = new category, no duplicate of it. */
+function followCategory(prev: ActivityField[], category: string): ActivityField[] {
+  if (!category) return [];
+  const key = fieldKey(category);
+  const old = prev.find((f) => fieldKey(f.name) === key);
+  const rest = prev.slice(1).filter((f) => fieldKey(f.name) !== key);
+  return [{ name: category, medal: old?.medal ?? 'none' }, ...rest].slice(0, FIELD_LIMIT);
+}
+
 export interface ProfileServiceDeps {
   db: Db;
   now: () => number;
@@ -217,12 +246,20 @@ export function createProfileService(deps: ProfileServiceDeps) {
     if (patch.zalo !== undefined && patch.zalo.trim() !== '' && !isValidPhone(patch.zalo))
       throw new ValidationError('zalo', 'Số Zalo không hợp lệ');
 
+    const bio = patch.bio === undefined ? undefined : patch.bio.trim();
+    if (bio !== undefined && [...bio].length > BIO_MAX)
+      throw new ValidationError('bio', `Giới thiệu tối đa ${BIO_MAX} ký tự`);
+
     return mutate(accountId, (s, p, t) => {
-      const { displayName, ...rest } = patch;
-      for (const [k, v] of Object.entries(rest) as [keyof ContactInfo, string][]) {
+      const { displayName, bio: _bio, fields, ...rest } = patch;
+      const prevFields = p.contact.fields ?? [];
+      for (const [k, v] of Object.entries(rest) as [Exclude<keyof ContactInfo, 'bio' | 'fields'>, string][]) {
         if (v === undefined) continue;
         p.contact[k] = k === 'phone' || k === 'zalo' ? (v.trim() ? normalizePhone(v) : '') : v.trim();
       }
+      if (bio !== undefined) p.contact.bio = bio;
+      if (fields !== undefined) p.contact.fields = checkFields(fields, p.contact.category, prevFields);
+      else if (rest.category !== undefined) p.contact.fields = followCategory(prevFields, p.contact.category);
       if (displayName !== undefined) {
         if (p.ownerType === 'KOL') applyDisplayName(s, p, displayName, t);
         else p.contact.displayName = displayName.trim();

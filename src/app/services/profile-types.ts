@@ -4,8 +4,11 @@ import type { ErrorCode } from './types';
 export type OwnerType = 'KOL' | 'MCN';
 export type ProfileStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'NEEDS_FIX' | 'REJECTED';
 
-import type { ChannelStatus, Platform } from './bizTypes';
-export type { ChannelStatus, Platform };
+import type { ActivityField, ChannelStatus, LatestVideo, Platform } from './bizTypes';
+export type { ActivityField, ChannelStatus, LatestVideo, Platform };
+
+/** Max length of the public "Giới thiệu" (contact.bio). */
+export const BIO_MAX = 300;
 
 export type EkycStatus = 'NOT_STARTED' | 'OCR_PASSED' | 'PASSED' | 'MANUAL_REVIEW' | 'REPORTED';
 export type EkycScenario =
@@ -37,6 +40,10 @@ export interface ContactInfo {
   province: string;
   address: string;
   category: string;
+  /** Public "Giới thiệu", ≤ BIO_MAX characters. */
+  bio?: string;
+  /** Public "Lĩnh vực hoạt động": 1–3 unique entries, `fields[0].name === category`. */
+  fields?: ActivityField[];
 }
 
 export interface StaffInfo {
@@ -124,9 +131,17 @@ export interface Channel {
   verifiedAt?: number;
   badgeSuspended?: boolean;
   note?: string;
-  followers?: number;
+  /** Mock social-listening data, set when the channel is verified (see mock/socialListening). */
+  stats?: ChannelStats;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface ChannelStats {
+  followers: number;
+  /** Newest first. */
+  latestVideos: LatestVideo[];
+  syncedAt: number;
 }
 
 export interface ReviewRequest {

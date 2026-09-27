@@ -5,6 +5,7 @@ import { createEkycService } from './ekyc';
 import { createProfileService } from './profile';
 import { findProfile } from './profileRules';
 import { createReviewService, listApprovedKols, pendingChannelsOf } from './review';
+import { syncChannelStats } from './socialListening';
 import { makeHarness, type Harness } from './testHarness';
 
 const png: StoredFile = { name: 'p.png', type: 'image/png', size: 100 };
@@ -102,7 +103,12 @@ describe('approve / requestFix / reject', () => {
       status: 'VERIFIED',
       badgeExpiresAt: new Date(2027, 8, 27, 9, 0).getTime(),
     });
-    expect(s.channels.find((c) => c.id === c1)!.followers).toBeGreaterThanOrEqual(10_000);
+    // Mock social listening fills stats for the passed channel only.
+    const stats = s.channels.find((c) => c.id === c1)!.stats!;
+    expect(stats).toEqual(syncChannelStats({ platform: 'facebook', url: 'https://facebook.com/khanhvy' }, h.now()));
+    expect(stats.followers).toBeGreaterThanOrEqual(10_000);
+    expect(stats.latestVideos.length).toBeGreaterThanOrEqual(2);
+    expect(s.channels.find((c) => c.id === c2)!.stats).toBeUndefined();
     expect(s.channels.find((c) => c.id === c2)).toMatchObject({ status: 'NEEDS_FIX', note: 'Ảnh không thấy tên kênh' });
     expect(h.notices.map((n) => n.channel)).toEqual(['email', 'sms', 'email', 'sms']);
     expect(h.notices[0]).toMatchObject({ target: 'kol@demo.kolhub.vn', title: 'Kết quả xét duyệt hồ sơ' });
@@ -179,7 +185,7 @@ describe('approve / requestFix / reject', () => {
 
   test('hồ sơ APPROVED thêm kênh mới → approve chỉ đổi kênh, hồ sơ vẫn APPROVED, kolId giữ nguyên', async () => {
     await approvedKol(h);
-    const c3 = await channels.add(h.kolId, { url: 'youtube.com/@khanhvy', proofImage: png });
+    const c3 = await channels.add(h.kolId, { url: 'youtube.com/@vytest', proofImage: png });
     expect(pendingChannelsOf(h.db.read(), h.kolId).map((c) => c.id)).toEqual([c3.id]);
     h.notices.length = 0;
     await review.approve(h.kolId, { [c3.id]: { verdict: 'PASS' } });
@@ -276,7 +282,7 @@ describe('admin queue', () => {
   test('hồ sơ APPROVED có kênh mới vào hàng chờ', async () => {
     await approvedKol(h);
     expect((await review.listAdminQueue()).profiles).toEqual([]);
-    await channels.add(h.kolId, { url: 'youtube.com/@khanhvy', proofImage: png });
+    await channels.add(h.kolId, { url: 'youtube.com/@vytest', proofImage: png });
     expect((await review.listAdminQueue()).profiles.map((p) => p.status)).toEqual(['APPROVED']);
   });
 
