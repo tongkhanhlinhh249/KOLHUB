@@ -21,10 +21,13 @@ export { isFreeEmail, isStrongPassword } from './mock/auth';
 // --- phase 3 ---
 import { createSearchService } from './mock/search';
 import { createSavedListService } from './mock/savedLists';
+import { createBizAccountService } from './mock/bizAccount';
 
 export const searchService = createSearchService({ db, now: Date.now });
 export const savedListService = createSavedListService({ db, now: Date.now });
+export const bizAccountService = createBizAccountService({ db, now: Date.now, otp: otpService });
 export * from './bizTypes';
 export type { SearchService } from './mock/search';
 export type { SavedListService } from './mock/savedLists';
+export type { BizAccountService } from './mock/bizAccount';
 export { LIST_NAME_MAX, NOTE_MAX, normalizeListName } from './mock/savedLists';
