@@ -6,9 +6,9 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { useAuth } from '../../auth/AuthContext';
 import { channelService, ekycService, profileService, type OwnerType } from '../../services';
-import { ComingSoon } from '../placeholder/ComingSoon';
 import { ChannelsTab } from '../channels/ChannelsTab';
 import { KolIdentityTab } from '../kol-profile/KolIdentityTab';
+import { McnIdentityTab } from '../mcn-profile/McnIdentityTab';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
 import { ProfileHeader } from './ProfileHeader';
@@ -102,10 +102,10 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
               <ContactTab view={q.data.view} />
             </TabsContent>
             <TabsContent value="dinh-danh" className="mt-4">
-              {ownerType === 'KOL' && q.data.ekyc ? (
+              {q.data.view.profile.ownerType === 'KOL' && q.data.ekyc ? (
                 <KolIdentityTab accountId={accountId} view={q.data.view} ekyc={q.data.ekyc} />
               ) : (
-                <ComingSoon title="Thông tin định danh" note="Đang hoàn thiện." />
+                <McnIdentityTab accountId={accountId} view={q.data.view} />
               )}
             </TabsContent>
             <TabsContent value="kenh" className="mt-4">
