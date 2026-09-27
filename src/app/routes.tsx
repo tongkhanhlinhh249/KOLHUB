@@ -52,7 +52,16 @@ export const router = createBrowserRouter([
         children: [
           profileRoutes('ho-so-kol', 'KOL'),
           profileRoutes('ho-so-mcn', 'MCN'),
-          { path: 'kol-safety', element: <ComingSoon title="KOL Safety" note="Tính năng sắp ra mắt." /> },
+          { path: 'kol-safety', element: <Navigate to="/kiem-duyet/video" replace /> },
+          {
+            path: 'kiem-duyet',
+            children: [
+              { index: true, element: <Navigate to="/kiem-duyet/video" replace /> },
+              { path: 'video', element: <ComingSoon title="Kiểm tra video trước khi đăng" note="Tính năng sắp ra mắt." /> },
+              { path: ':platform', element: <ComingSoon title="Kiểm duyệt kênh" note="Tính năng sắp ra mắt." /> },
+              { path: ':platform/:monitorId', element: <ComingSoon title="Kiểm duyệt kênh" note="Tính năng sắp ra mắt." /> },
+            ],
+          },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },
           { path: 'tai-khoan-doanh-nghiep', element: <BizAccountPage /> },

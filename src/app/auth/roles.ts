@@ -1,6 +1,7 @@
 import {
   BookMarked,
   Building2,
+  Clapperboard,
   IdCard,
   LogIn,
   MonitorPlay,
@@ -11,6 +12,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Account, AccountType, RoleKey } from '../services/types';
+import { FacebookGlyph, TikTokGlyph, YouTubeGlyph } from '../components/icons/brandGlyphs';
 
 export interface MenuItem {
   icon: LucideIcon;
@@ -27,23 +29,67 @@ export interface RoleConfig {
   menu: MenuItem[];
   /** Extra path prefixes the role may open that are not menu items (e.g. /ho-so-kol, which redirects). */
   areas?: string[];
+  /** Mobile tab bar when the menu has too many items; without it every menu item is a tab. */
+  bottomNav?: BottomNavConfig;
+}
+
+export interface BottomNavItem {
+  label: string;
+  path: string;
+  icon: LucideIcon;
+  /** Path prefixes that mark the tab active (default: `path`). */
+  match?: string[];
+}
+
+export interface BottomNavConfig {
+  items: BottomNavItem[];
+  /** Menu paths listed in the "Thêm" sheet, in this order. */
+  more: string[];
 }
 
 export const GUEST_PATHS = ['/dang-ky', '/dang-nhap', '/quen-mat-khau'];
 
-/** Second sidebar group of KOL/MCN: channels and KOL Safety. */
-const CONTENT_GROUP = 'Quản lý nội dung';
+/** Second sidebar group of KOL/MCN: video pre-check and channel monitoring. */
+export const SAFETY_GROUP = 'Kiểm duyệt (KOL Safety)';
+export const SAFETY_BASE = '/kiem-duyet';
+/** Legacy path of the old "KOL Safety" placeholder; redirects to the video pre-check. */
+export const LEGACY_SAFETY_PATH = '/kol-safety';
 
-const KOL_SAFETY: MenuItem = { icon: ShieldCheck, label: 'KOL Safety', shortLabel: 'Safety', path: '/kol-safety', group: CONTENT_GROUP };
+const SAFETY_MENU: MenuItem[] = [
+  { icon: Clapperboard, label: 'Kiểm tra video trước khi đăng', shortLabel: 'Video', path: `${SAFETY_BASE}/video`, group: SAFETY_GROUP },
+  { icon: TikTokGlyph, label: 'Kiểm duyệt kênh TikTok', shortLabel: 'TikTok', path: `${SAFETY_BASE}/tiktok`, group: SAFETY_GROUP },
+  { icon: FacebookGlyph, label: 'Kiểm duyệt kênh Facebook', shortLabel: 'Facebook', path: `${SAFETY_BASE}/facebook`, group: SAFETY_GROUP },
+  { icon: YouTubeGlyph, label: 'Kiểm duyệt kênh YouTube', shortLabel: 'YouTube', path: `${SAFETY_BASE}/youtube`, group: SAFETY_GROUP },
+];
 
-/** Profile sections (group "Hồ sơ KOL/MCN") + channel management (group "Quản lý nội dung"). */
+/** Profile sections + channel management (group "Hồ sơ KOL/MCN"). */
 function profileMenu(base: string, group: string, identityIcon: LucideIcon): MenuItem[] {
   return [
     { icon: UserRound, label: 'Thông tin liên hệ', shortLabel: 'Liên hệ', path: `${base}/lien-he`, group },
     { icon: identityIcon, label: 'Thông tin định danh', shortLabel: 'Định danh', path: `${base}/dinh-danh`, group },
-    { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group: CONTENT_GROUP },
+    { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group },
   ];
 }
+
+/** 7 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest). */
+function creatorBottomNav(base: string): BottomNavConfig {
+  return {
+    items: [
+      { icon: UserRound, label: 'Liên hệ', path: `${base}/lien-he` },
+      { icon: MonitorPlay, label: 'Kênh', path: `${base}/kenh` },
+      { icon: Clapperboard, label: 'Video', path: `${SAFETY_BASE}/video` },
+      {
+        icon: ShieldCheck,
+        label: 'Kiểm duyệt',
+        path: `${SAFETY_BASE}/tiktok`,
+        match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
+      },
+    ],
+    more: [`${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
+  };
+}
+
+const CREATOR_AREAS = [SAFETY_BASE, LEGACY_SAFETY_PATH];
 
 export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.guest': {
@@ -57,14 +103,16 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.user.kol': {
     label: 'Cá nhân/KOL',
     home: '/ho-so-kol/lien-he',
-    menu: [...profileMenu('/ho-so-kol', 'Hồ sơ KOL', IdCard), KOL_SAFETY],
-    areas: ['/ho-so-kol'],
+    menu: [...profileMenu('/ho-so-kol', 'Hồ sơ KOL', IdCard), ...SAFETY_MENU],
+    areas: ['/ho-so-kol', ...CREATOR_AREAS],
+    bottomNav: creatorBottomNav('/ho-so-kol'),
   },
   'kolhub.user.mcn': {
     label: 'Tổ chức/MCN',
     home: '/ho-so-mcn/lien-he',
-    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), KOL_SAFETY],
-    areas: ['/ho-so-mcn'],
+    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), ...SAFETY_MENU],
+    areas: ['/ho-so-mcn', ...CREATOR_AREAS],
+    bottomNav: creatorBottomNav('/ho-so-mcn'),
   },
   'kolhub.user.biz': {
     label: 'Nhãn hàng/Agency',
@@ -113,6 +161,19 @@ function inPaths(path: string, paths: string[]): boolean {
   return paths.some((b) => matches(path, b));
 }
 
+/** Mobile tab bar of a role: configured tabs + "Thêm" items, or every menu item as a tab. */
+export function bottomNavOf(role: RoleKey): { items: BottomNavItem[]; more: MenuItem[] } {
+  const { menu, bottomNav } = ROLE_CONFIG[role];
+  if (!bottomNav) return { items: menu.map((m) => ({ icon: m.icon, label: m.shortLabel, path: m.path })), more: [] };
+  const more = bottomNav.more.map((p) => menu.find((m) => m.path === p)).filter((m): m is MenuItem => !!m);
+  return { items: bottomNav.items, more };
+}
+
+/** Whether a tab bar item is the current page (its `match` prefixes, else its own path). */
+export function isNavActive(pathname: string, item: Pick<BottomNavItem, 'path' | 'match'>): boolean {
+  return inPaths(cleanPath(pathname), item.match ?? [item.path]);
+}
+
 /** Access rule shared by route guard, sidebar and bottom navigation (BR-66..69). */
 export function resolveAccess(role: RoleKey, path: string): Access {
   const p = cleanPath(path);
@@ -144,13 +205,21 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
+  '/kiem-duyet/video': 'Tải video lên để phát hiện vi phạm trước khi đăng',
+  '/kiem-duyet/tiktok': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',
+  '/kiem-duyet/facebook': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',
+  '/kiem-duyet/youtube': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',
 };
+
+/** /kiem-duyet/:platform/:monitorId — channel detail under a channel monitoring page. */
+const MONITOR_DETAIL = /^\/kiem-duyet\/(tiktok|facebook|youtube)\/[^/]+$/;
+const MONITOR_DETAIL_DESCRIPTION = 'Sức khoẻ kênh và kết quả quét video gần nhất';
 
 const EXTRA_TITLES: Record<string, string> = { '/quen-mat-khau': 'Quên mật khẩu' };
 
 /**
  * Page title/group for the header. `role` (optional) picks the owning group when
- * a path belongs to several roles (e.g. /kol-safety); otherwise the first owner wins.
+ * a path belongs to several roles (e.g. /kiem-duyet/video); otherwise the first owner wins.
  */
 export function getPageMeta(path: string, role?: RoleKey): { title: string; group: string; description?: string } {
   const p = cleanPath(path);
@@ -158,7 +227,7 @@ export function getPageMeta(path: string, role?: RoleKey): { title: string; grou
   for (const r of order) {
     const item = ROLE_CONFIG[r].menu.find((m) => matches(p, m.path));
     if (item) {
-      const description = DESCRIPTIONS[item.path];
+      const description = MONITOR_DETAIL.test(p) ? MONITOR_DETAIL_DESCRIPTION : DESCRIPTIONS[item.path];
       return { title: item.label, group: ROLE_CONFIG[r].label, ...(description ? { description } : {}) };
     }
   }

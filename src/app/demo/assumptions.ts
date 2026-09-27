@@ -10,6 +10,9 @@ export const ASSUMPTIONS: { question: string; decision: string }[] = [
   { question: '7. KOL ẩn khỏi tìm kiếm / email hợp tác', decision: 'Không có tuỳ chọn ẩn; email hợp tác luôn hiện' },
   { question: '9. Phân trang / giới hạn / xuất Excel', decision: '20/trang; không giới hạn danh sách; không xuất Excel' },
   { question: 'BR-55 lọc "thuộc MCN"', decision: 'Ẩn, vì liên kết KOL–MCN ngoài phạm vi' },
-  { question: 'KOL Safety trong menu', decision: 'Hiện mục, trang "Sắp ra mắt"' },
+  {
+    question: 'KOL Safety trong menu',
+    decision: 'Nhóm "Kiểm duyệt (KOL Safety)": kiểm tra video trước khi đăng + kiểm duyệt kênh TikTok/Facebook/YouTube (kết quả mô phỏng)',
+  },
   { question: '2, 3, 4, 8, 10', decision: 'Không ảnh hưởng prototype (nhà cung cấp, API, đa tài khoản)' },
 ];
