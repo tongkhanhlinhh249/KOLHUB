@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
@@ -59,11 +60,29 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
     [accountId, ownerType],
   );
 
-  const setTab = (t: ProfileTab) => {
+  // ?them=1 asks the channels tab to open its add sheet once (header "Thêm kênh").
+  const openAddChannel = tab === 'kenh' && params.get('them') === '1';
+
+  const setTab = (t: ProfileTab, opts?: { openAddChannel?: boolean }) => {
     const next = new URLSearchParams(params);
     next.set('tab', t);
+    if (opts?.openAddChannel && t === 'kenh') next.set('them', '1');
+    else next.delete('them');
     setParams(next, { replace: true });
   };
+
+  const consumeOpenAddChannel = useCallback(
+    () =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('them');
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
@@ -109,7 +128,12 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
               )}
             </TabsContent>
             <TabsContent value="kenh" className="mt-4">
-              <ChannelsTab accountId={accountId} profileStatus={q.data.view.profile.status} />
+              <ChannelsTab
+                accountId={accountId}
+                profileStatus={q.data.view.profile.status}
+                openAddRequest={openAddChannel}
+                onOpenAddConsumed={consumeOpenAddChannel}
+              />
             </TabsContent>
           </Tabs>
         </>

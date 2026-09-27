@@ -15,6 +15,8 @@ export interface PrimaryAction {
   label: string;
   tab: ProfileTab | null;
   disabled: boolean;
+  /** Also open the add-channel sheet after switching to the channels tab. */
+  openAddChannel?: boolean;
 }
 
 /** Main button of the profile header (SCR-03) for each profile state. */
@@ -32,7 +34,7 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
     case 'NEEDS_FIX':
       return go('Xem yêu cầu bổ sung', input.hasNeedsFixChannel ? 'kenh' : 'dinh-danh');
     case 'APPROVED':
-      return go('Thêm kênh', 'kenh');
+      return { ...go('Thêm kênh', 'kenh'), openAddChannel: true };
     case 'REJECTED':
       return null;
   }

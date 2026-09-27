@@ -19,7 +19,7 @@ interface ProfileHeaderProps {
   ekyc?: EkycView;
   /** Whether any channel is NEEDS_FIX (decides where "Xem yêu cầu bổ sung" goes). */
   hasNeedsFixChannel?: boolean;
-  onNavigate(tab: ProfileTab): void;
+  onNavigate(tab: ProfileTab, opts?: { openAddChannel?: boolean }): void;
 }
 
 function errorText(e: unknown): string {
@@ -137,7 +137,7 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false, onNaviga
                 type="button"
                 className="h-11 w-full md:h-9 md:w-auto"
                 disabled={action.disabled}
-                onClick={() => action.tab && onNavigate(action.tab)}
+                onClick={() => action.tab && onNavigate(action.tab, { openAddChannel: action.openAddChannel })}
               >
                 {action.label}
               </Button>

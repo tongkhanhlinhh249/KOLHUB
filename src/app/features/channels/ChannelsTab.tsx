@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertCircle, AlertTriangle, ExternalLink, Plus, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
@@ -131,7 +131,18 @@ function ChannelCard({
 }
 
 /** SCR-06 — channel list with status filters, active switch and add/edit sheet. There is no delete (BR-23). */
-export function ChannelsTab({ accountId, profileStatus }: { accountId: string; profileStatus: ProfileStatus }) {
+export function ChannelsTab({
+  accountId,
+  profileStatus,
+  openAddRequest = false,
+  onOpenAddConsumed,
+}: {
+  accountId: string;
+  profileStatus: ProfileStatus;
+  /** When true, open the add-channel sheet once, then call onOpenAddConsumed (e.g. header "Thêm kênh"). */
+  openAddRequest?: boolean;
+  onOpenAddConsumed?(): void;
+}) {
   const q = useLiveQuery(() => channelService.list(accountId), [accountId]);
   const [filter, setFilter] = useState<ChannelFilter>('all');
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
@@ -140,6 +151,12 @@ export function ChannelsTab({ accountId, profileStatus }: { accountId: string; p
   const counts = countByFilter(channels);
   const shown = channels.filter((c) => matchesFilter(c, filter));
   const openAdd = () => setSheet({ open: true });
+
+  useEffect(() => {
+    if (!openAddRequest) return;
+    setSheet({ open: true });
+    onOpenAddConsumed?.();
+  }, [openAddRequest, onOpenAddConsumed]);
 
   return (
     <div className="space-y-4">

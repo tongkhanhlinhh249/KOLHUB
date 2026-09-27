@@ -11,7 +11,7 @@ test.each<[string, Partial<PrimaryActionInput>, ReturnType<typeof primaryAction>
   ['SUBMITTED', { status: 'SUBMITTED', ekycStatus: 'PASSED', eligible: true }, { label: 'Đang xét duyệt', tab: null, disabled: true }],
   ['NEEDS_FIX có kênh cần bổ sung', { status: 'NEEDS_FIX', hasNeedsFixChannel: true }, { label: 'Xem yêu cầu bổ sung', tab: 'kenh', disabled: false }],
   ['NEEDS_FIX không có kênh', { status: 'NEEDS_FIX' }, { label: 'Xem yêu cầu bổ sung', tab: 'dinh-danh', disabled: false }],
-  ['APPROVED', { status: 'APPROVED', ekycStatus: 'PASSED' }, { label: 'Thêm kênh', tab: 'kenh', disabled: false }],
+  ['APPROVED', { status: 'APPROVED', ekycStatus: 'PASSED' }, { label: 'Thêm kênh', tab: 'kenh', disabled: false, openAddChannel: true }],
   ['REJECTED', { status: 'REJECTED' }, null],
 ])('%s', (_name, patch, expected) => expect(primaryAction({ ...base, ...patch })).toEqual(expected));
 
