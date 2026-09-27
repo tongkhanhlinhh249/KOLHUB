@@ -1,6 +1,6 @@
 # KOL Hub — MCN quản lý KOL và Kênh riêng MCN
 
-Ngày: 2026-09-28 · Trạng thái: Đợt 1 đã làm (dữ liệu, dịch vụ, màn MCN "Quản lý KOL", thẻ "MCN quản lý" của KOL). Đợt 2: chủ sở hữu kênh trong "Quản lý kênh" của MCN.
+Ngày: 2026-09-28 · Trạng thái: đã làm Đợt 1 (dữ liệu, dịch vụ, màn MCN "Quản lý KOL", thẻ "MCN quản lý" của KOL) và Đợt 2 (chủ sở hữu kênh trong "Quản lý kênh" của MCN).
 
 Yêu cầu: "MCN sẽ phải quản lý cả Danh sách KOL + các Kênh riêng của MCN phát triển không gán KOL".
 Trước đây liên kết KOL–MCN nằm ngoài phạm vi (xem `2026-09-27-kolhub-user-prototype-design.md` §Không làm và `2026-09-28-kolhub-role-switch-unified-profile-design.md` §3); nay **đưa vào phạm vi**.
@@ -47,6 +47,10 @@ Sao Việt Media (saoviet@demo.kolhub.vn) quản lý KOL-2026-0011…0016; 6/12 
 - Không cho KOL xem danh sách kênh MCN gán cho mình, chỉ hiện số kênh.
 - **Nhãn hàng:** bộ lọc BR-55 "thuộc MCN" và thông tin MCN trên hồ sơ KOL công khai **vẫn ẩn** ở đợt này.
 
-## 6. Đợt 2
+## 6. Đợt 2 — chủ sở hữu kênh trong "Quản lý kênh" của MCN
 
-Trong "Quản lý kênh" của MCN: hiện chủ sở hữu từng kênh (KOL được gán hoặc "Kênh riêng MCN"), lọc theo chủ sở hữu (Tất cả / Kênh riêng MCN / từng KOL, `?kol=`), gán / bỏ gán trong menu ⋯ của dòng và trong trang chi tiết kênh.
+- Dòng kênh (ChannelRow dùng chung, không tách bản riêng): dưới link hiện trạng thái duyệt + chủ sở hữu — "KOL: <tên>" (avatar nhỏ) hoặc "Kênh riêng MCN".
+- Bộ lọc "Chủ sở hữu" cạnh các tab trạng thái: Tất cả / Kênh riêng MCN / từng KOL đang quản lý (A → Z, kèm số kênh). URL `?kol=rieng` hoặc `?kol=<KOL ID>`; kết hợp với `?trangThai=`; số đếm trên tab trạng thái tính theo chủ sở hữu đang chọn. KOL ID không còn được quản lý → danh sách rỗng + "Xem tất cả chủ sở hữu".
+- Menu ⋯ của dòng: "Gán cho KOL" / "Đổi KOL được gán" (hộp thoại chọn Kênh riêng MCN hoặc một KOL ACTIVE) và "Chuyển về Kênh riêng MCN" (thực hiện ngay, toast có Hoàn tác).
+- "Chi tiết kênh" (OwnerChannelSheet): mục "Chủ sở hữu" với cùng thông tin và nút Gán / Đổi KOL / Bỏ gán.
+- Kênh gán cho KOL đã kết thúc (dữ liệu cũ) được coi là Kênh riêng MCN. Màn "Quản lý kênh" của KOL không đổi.

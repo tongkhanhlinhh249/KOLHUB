@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { channelBadge, channelTotals, PROFILE_VIDEO_LIMIT, type Channel } from '../../services';
 import { ChannelStatusBadge } from '../shared/StatusBadges';
 import { ChannelDetailSheet } from './ChannelDetailSheet';
@@ -16,6 +17,7 @@ export function OwnerChannelSheet({
   isLocked,
   onClose,
   onEdit,
+  renderExtra,
 }: {
   channelId: string | null;
   /** The owner's channels (undefined while loading). */
@@ -26,6 +28,8 @@ export function OwnerChannelSheet({
   isLocked(c: Channel): boolean;
   onClose(): void;
   onEdit(c: Channel): void;
+  /** Extra section under the videos (MCN: "Chủ sở hữu" with assign / unassign). */
+  renderExtra?(c: Channel): ReactNode;
 }) {
   const channel = channelId ? channels?.find((c) => c.id === channelId) : undefined;
   const followers = channel?.stats?.followers;
@@ -55,6 +59,7 @@ export function OwnerChannelSheet({
       }
       status={channel && <ChannelStatusBadge channel={channel} now={now} />}
       notice={channel && <NeedsFixCallout channel={channel} />}
+      children={channel && renderExtra?.(channel)}
       actions={
         channel && (
           <>

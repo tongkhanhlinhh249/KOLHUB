@@ -33,6 +33,7 @@ import {
 import { ActiveSwitch, NeedsFixCallout } from './ChannelParts';
 import { ChannelRow, ROW_MENU_ITEM } from './ChannelRow';
 import { OwnerChannelSheet } from './OwnerChannelSheet';
+import { useMcnChannelOwners } from '../mcn-kols/useMcnChannelOwners';
 import {
   applyChannelPatch,
   CHANNEL_ACTIVE_OPTIONS,
@@ -112,20 +113,21 @@ export function ChannelsTab({
   }, [paramsKey, statusMode]);
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
   const detail = useChannelParam();
+  // MCN only ('status' mode): channel owner (assigned KOL / Kênh riêng MCN), `?kol=` filter, assign.
+  const owners = useMcnChannelOwners(accountId, statusMode);
   const [page, setPage] = useState(1);
   // Back to page 1 when filters change (not when only `?kenh=` changes).
   const queryKey = JSON.stringify(query);
-  useEffect(() => setPage(1), [queryKey]);
+  useEffect(() => setPage(1), [queryKey, owners.owner]);
 
   const channels = data.data;
   // Re-read the clock whenever the list changes, so "Hết hạn dấu" follows the data.
   const now = useMemo(() => Date.now(), [channels]);
   const counts = useMemo(() => countByStatus(channels ?? [], now), [channels, now]);
-  const statusTabs = useMemo(() => channelStatusTabs(channels ?? [], now), [channels, now]);
-  const shown = useMemo(
-    () => sortChannels(filterChannels(channels ?? [], query, now), query.sort),
-    [channels, query, now],
-  );
+  // Status tabs and rows follow the owner filter (all channels when there is none).
+  const scoped = owners.filter(channels ?? []);
+  const statusTabs = useMemo(() => channelStatusTabs(scoped, now), [scoped, now]);
+  const shown = useMemo(() => sortChannels(filterChannels(scoped, query, now), query.sort), [scoped, query, now]);
 
   const writeQuery = useCallback(
     (next: ChannelQuery, replace = false) => setSearchParams((prev) => mergeChannelParams(prev, next), { replace }),
@@ -193,7 +195,16 @@ export function ChannelsTab({
         handle={c.handle}
         url={c.url}
         verifiedUntil={channelBadge(c, now) === 'VERIFIED' ? c.badgeExpiresAt : undefined}
-        subline={<ChannelStatusBadge channel={c} now={now} />}
+        subline={
+          owners.enabled ? (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+              <ChannelStatusBadge channel={c} now={now} />
+              {owners.tag(c)}
+            </div>
+          ) : (
+            <ChannelStatusBadge channel={c} now={now} />
+          )
+        }
         fields={fields}
         region={region}
         followers={c.stats?.followers}
@@ -222,6 +233,7 @@ export function ChannelsTab({
               Sửa kênh
               {locked && <span className="ml-auto text-xs text-muted-foreground">Đang xét duyệt</span>}
             </DropdownMenuItem>
+            {owners.menuItems(c)}
           </>
         }
       />
@@ -256,6 +268,18 @@ export function ChannelsTab({
         }
       />
     );
+  } else if (shown.length === 0 && statusMode && owners.owner) {
+    body = (
+      <ChannelListEmpty
+        title="Không có kênh phù hợp"
+        description="Thử chọn chủ sở hữu hoặc trạng thái khác."
+        action={
+          <Button type="button" variant="outline" className="h-11" onClick={() => owners.setOwner(undefined)}>
+            Xem tất cả chủ sở hữu
+          </Button>
+        }
+      />
+    );
   } else if (shown.length === 0 && statusMode) {
     body = <ChannelListEmpty title="Không có kênh ở trạng thái này" />;
   } else if (shown.length === 0) {
@@ -279,7 +303,8 @@ export function ChannelsTab({
   return (
     <div className="@container space-y-4">
       {!empty && statusMode && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        // Container queries: the MCN header also holds the owner select, so it goes on one line only when wide.
+        <div className="flex flex-col gap-3 @4xl:flex-row @4xl:items-center @4xl:justify-between">
           <div className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
             <Tabs value={query.status ?? 'all'} onValueChange={(key) => writeQuery(statusTabQuery(key))}>
               <TabsList className="h-auto" aria-label="Lọc theo trạng thái duyệt">
@@ -291,7 +316,8 @@ export function ChannelsTab({
               </TabsList>
             </Tabs>
           </div>
-          <div className="shrink-0">
+          <div className="flex shrink-0 flex-col gap-2 @xl:flex-row @xl:items-center">
+            {owners.ownerSelect(channels ?? [], 'h-11 @xl:w-56 md:h-9')}
             <ChannelCountLine count={shown.length} actions={addButton} />
           </div>
         </div>
@@ -340,7 +366,9 @@ export function ChannelsTab({
         isLocked={isLocked}
         onClose={detail.closeChannel}
         onEdit={editFromDetail}
+        renderExtra={owners.enabled ? owners.detailSection : undefined}
       />
+      {owners.dialog}
       <ChannelFormSheet
         open={sheet.open}
         onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
