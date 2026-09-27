@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { RefreshCw, Search, ShieldCheck, type LucideIcon } from 'lucide-react';
 import logoImg from '../../../assets/logo.svg';
 import type { AccountType } from '../../services';
+import { RoleSwitcher } from '../../demo/RoleSwitcher';
 
 const EYEBROW: Record<AccountType, string> = {
   KOL: 'Dành cho người sáng tạo nội dung',
@@ -81,7 +82,11 @@ export function AuthShell({ accountType, children }: { accountType: AccountType;
   return (
     <div className="flex min-h-dvh w-full overflow-x-clip bg-card">
       <BrandPanel type={accountType} />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        {/* Demo-only role switcher: in flow on mobile, pinned top-right of the form column from md. */}
+        <div className="flex justify-end px-4 pt-3 sm:px-6 md:absolute md:top-3 md:right-4 md:z-10 md:p-0 lg:top-4 lg:right-6">
+          <RoleSwitcher variant="guest" />
+        </div>
         <BrandBand type={accountType} />
         {/* Bottom padding keeps the last button clear of the floating Demo Panel button. */}
         <main className="flex flex-1 flex-col justify-center px-4 pt-8 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-6 md:pt-10 md:pb-24 lg:px-10 lg:py-16">

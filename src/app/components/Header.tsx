@@ -5,7 +5,9 @@ import { ROLE_CONFIG, getPageMeta } from '../auth/roles';
 import logoMarkImg from '../../assets/logo-mark.svg';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import { IdentityAvatar } from './IdentityAvatar';
+import { useIdentity } from '../auth/useIdentity';
+import { RoleSwitchMenuGroup, RoleSwitcher } from '../demo/RoleSwitcher';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   DropdownMenu,
@@ -22,13 +24,12 @@ interface HeaderProps {
 
 // Topbar row inside the content card (NetSpace pattern: h-[61px]).
 export function Header({ onToggleSidebar }: HeaderProps) {
-  const { account, role, logout } = useAuth();
+  const { role, logout } = useAuth();
   const { pathname } = useLocation();
   const meta = getPageMeta(pathname, role);
-  const { home, label: roleLabel } = ROLE_CONFIG[role];
-  const displayName = account?.fullName || account?.company || account?.email || 'Khách';
-  const initial = displayName.charAt(0).toUpperCase();
-  const secondary = account ? (displayName !== account.email ? account.email : account.phone) : undefined;
+  const { home } = ROLE_CONFIG[role];
+  // Profile-driven identity (design §2.2): follows name/avatar/org edits and role switches live.
+  const identity = useIdentity();
 
   // AccessGuard sends the user to /dang-nhap once the role becomes guest.
   const handleLogout = () => void logout('/dang-nhap');
@@ -63,44 +64,49 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         </div>
       </div>
 
-      {/* User menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label="Tài khoản"
-            className="flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-normal transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-0 md:border md:border-panel md:pr-3"
-          >
-            <Badge variant="secondary" className="hidden gap-1 rounded-full bg-primary/10 text-primary md:inline-flex">
-              <Briefcase className="size-3" />
-              {roleLabel}
-            </Badge>
-            <Avatar className="size-8">
-              <AvatarFallback className="bg-primary/10 text-primary">{initial}</AvatarFallback>
-            </Avatar>
-            <ChevronDown className="hidden size-4 text-muted-foreground md:block" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
-          <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
-            <Avatar className="size-10">
-              <AvatarFallback className="bg-primary/10 text-primary">{initial}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
-              {secondary && <p className="truncate text-xs text-muted-foreground">{secondary}</p>}
-              <Badge variant="secondary" className="mt-1 h-5 rounded-full bg-primary/10 px-1.5 text-[10px] text-primary md:hidden">
-                {roleLabel}
+      <div className="flex shrink-0 items-center gap-2">
+        {/* Prototype role switcher (design §2.3); on mobile it lives in the account menu. */}
+        <RoleSwitcher className="hidden max-w-60 md:inline-flex" />
+
+        {/* User menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`Tài khoản: ${identity.name}`}
+              className="flex min-h-11 items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm font-normal transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-0 md:border md:border-panel md:pr-3"
+            >
+              <Badge variant="secondary" className="hidden gap-1 rounded-full bg-primary/10 text-primary lg:inline-flex">
+                <Briefcase className="size-3" />
+                {identity.roleLabel}
               </Badge>
+              <IdentityAvatar identity={identity} />
+              <ChevronDown className="hidden size-4 text-muted-foreground md:block" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="flex items-center gap-3 py-2 font-normal">
+              <IdentityAvatar identity={identity} className="size-10" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground">{identity.name}</p>
+                {identity.subtitle && <p className="truncate text-xs text-muted-foreground">{identity.subtitle}</p>}
+                <Badge variant="secondary" className="mt-1 h-5 rounded-full bg-primary/10 px-1.5 text-[10px] text-primary">
+                  {identity.roleLabel}
+                </Badge>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="md:hidden">
+              <RoleSwitchMenuGroup />
+              <DropdownMenuSeparator />
             </div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={handleLogout} className="min-h-11 md:min-h-0">
-            <LogOut />
-            Đăng xuất
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem variant="destructive" onSelect={handleLogout} className="min-h-11 md:min-h-0">
+              <LogOut />
+              Đăng xuất
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

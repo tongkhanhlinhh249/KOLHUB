@@ -1,60 +1,53 @@
-import { useState } from 'react';
-import { Building2, Loader2, UserRound, Users, UserX, type LucideIcon } from 'lucide-react';
-import { toast } from 'sonner';
+import { BadgeCheck, Building2, Loader2, UserRound, Users, UserX, type LucideIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { useAuth } from '../auth/AuthContext';
-import { ROLE_CONFIG, roleOf } from '../auth/roles';
-import { authService, type AccountType, type RoleKey } from '../services';
+import { Badge } from '../components/ui/badge';
+import { IdentityAvatar } from '../components/IdentityAvatar';
+import { useIdentity } from '../auth/useIdentity';
+import type { DemoAccountKey } from '../services';
 import { DemoPanelSection } from './DemoPanelSection';
+import { useRoleSwitch } from './RoleSwitcher';
 
-const ROLES: { role: RoleKey; type?: AccountType; icon: LucideIcon }[] = [
-  { role: 'kolhub.guest', icon: UserX },
-  { role: 'kolhub.user.kol', type: 'KOL', icon: UserRound },
-  { role: 'kolhub.user.mcn', type: 'MCN', icon: Users },
-  { role: 'kolhub.user.biz', type: 'BIZ', icon: Building2 },
-];
+const ICONS: Record<DemoAccountKey, LucideIcon> = {
+  guest: UserX,
+  'kol-new': UserRound,
+  'kol-verified': BadgeCheck,
+  mcn: Users,
+  biz: Building2,
+};
 
-/** Quick switch between the guest role and the three sample accounts. */
+/** Who is signed in + quick switch between the guest and the sample accounts (same options as the topbar). */
 export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
-  const { role, setAccount, logout } = useAuth();
-  const [busy, setBusy] = useState<RoleKey | null>(null);
-
-  const switchTo = async (target: (typeof ROLES)[number]) => {
-    if (target.role === role) return;
-    setBusy(target.role);
-    try {
-      if (target.type) {
-        const account = await authService.quickLogin(target.type);
-        // AccessGuard navigates to the role home once the new role is applied.
-        setAccount(account, ROLE_CONFIG[roleOf(account)].home);
-      } else {
-        await logout(ROLE_CONFIG['kolhub.guest'].home);
-      }
-      onDone?.();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Không chuyển được vai trò.');
-    } finally {
-      setBusy(null);
-    }
-  };
+  const identity = useIdentity();
+  const { options, current, busy, switchTo } = useRoleSwitch(onDone);
 
   return (
     <DemoPanelSection title="Vai trò" description="Đăng nhập nhanh bằng tài khoản mẫu của từng vai trò.">
+      <div className="mb-3 flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-2.5">
+        <IdentityAvatar identity={identity} className="size-9" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{identity.name}</p>
+          {identity.subtitle && <p className="truncate text-xs text-muted-foreground">{identity.subtitle}</p>}
+        </div>
+        <Badge variant="secondary" className="shrink-0 rounded-full bg-primary/10 text-primary">
+          {identity.roleLabel}
+        </Badge>
+      </div>
       <div className="grid grid-cols-2 gap-2">
-        {ROLES.map((r) => {
-          const active = r.role === role;
+        {options.map((o) => {
+          const active = o.key === current?.key;
+          const Icon = ICONS[o.key];
           return (
             <Button
-              key={r.role}
+              key={o.key}
               type="button"
               variant={active ? 'default' : 'outline'}
               aria-pressed={active}
               disabled={busy !== null}
-              onClick={() => switchTo(r)}
+              onClick={() => void switchTo(o.key)}
               className="h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left"
             >
-              {busy === r.role ? <Loader2 className="animate-spin" aria-hidden /> : <r.icon aria-hidden />}
-              {ROLE_CONFIG[r.role].label}
+              {busy === o.key ? <Loader2 className="animate-spin" aria-hidden /> : <Icon aria-hidden />}
+              {o.label}
             </Button>
           );
         })}
