@@ -31,16 +31,26 @@ describe('identityOf', () => {
     expect(identityOf(s, a)).toEqual({ name: 'Mai Anh', roleLabel: 'Cá nhân/KOL' });
   });
 
-  test('MCN: orgName → displayName → email; phụ đề = mã số DN', () => {
+  test('MCN: displayName → orgName → email; chưa duyệt → phụ đề = mã số DN', () => {
     const { s, a } = acc('mcn@demo.kolhub.vn');
     const p = s.mcnProfiles.find((x) => x.accountId === a.id) as McnProfile;
     expect(identityOf(s, a)).toEqual({ name: 'mcn@demo.kolhub.vn', roleLabel: 'Tổ chức/MCN' });
-    p.contact.displayName = 'Sao Việt';
-    expect(identityOf(s, a).name).toBe('Sao Việt');
     p.org.orgName = 'Công ty MCN Sao Việt';
+    expect(identityOf(s, a).name).toBe('Công ty MCN Sao Việt');
+    p.contact.displayName = '  Sao   Việt ';
     p.org.regNo = '0312345678';
     p.avatar = { name: 'a.png', type: 'image/png', size: 1, thumbnail: 'data:x' };
-    expect(identityOf(s, a)).toEqual({ name: 'Công ty MCN Sao Việt', subtitle: '0312345678', avatar: 'data:x', roleLabel: 'Tổ chức/MCN' });
+    expect(identityOf(s, a)).toEqual({ name: 'Sao Việt', subtitle: '0312345678', avatar: 'data:x', roleLabel: 'Tổ chức/MCN' });
+  });
+
+  test('MCN đã duyệt: phụ đề = MCN ID (như KOL ID của KOL)', () => {
+    const { s, a } = acc('mcn@demo.kolhub.vn');
+    const p = s.mcnProfiles.find((x) => x.accountId === a.id) as McnProfile;
+    p.contact.displayName = 'Sao Việt';
+    p.org.regNo = '0312345678';
+    p.status = 'APPROVED';
+    p.mcnId = 'MCN-2026-0099';
+    expect(identityOf(s, a)).toEqual({ name: 'Sao Việt', subtitle: 'MCN-2026-0099', roleLabel: 'Tổ chức/MCN' });
   });
 
   test('Nhãn hàng: fullName, phụ đề = company; thiếu fullName → email', () => {
@@ -49,13 +59,13 @@ describe('identityOf', () => {
     expect(identityOf(s, { ...a, fullName: '', company: undefined })).toEqual({ name: 'brand@vinamilk-demo.vn', roleLabel: 'Nhãn hàng/Agency' });
   });
 
-  test('MCN đã xác thực (Sao Việt Media): tên tổ chức, phụ đề = mã số DN', () => {
+  test('MCN đã xác thực (Sao Việt Media): cùng tên và ảnh với đầu trang hồ sơ, phụ đề = MCN ID', () => {
     const { s, a } = acc('saoviet@demo.kolhub.vn');
-    expect(identityOf(s, a)).toEqual({
-      name: 'Công ty TNHH Truyền thông Sao Việt Media',
-      subtitle: '0316789452',
-      roleLabel: 'Tổ chức/MCN',
-    });
+    const p = s.mcnProfiles.find((x) => x.accountId === a.id) as McnProfile;
+    const id = identityOf(s, a);
+    expect(id).toMatchObject({ name: 'Sao Việt Media', subtitle: p.mcnId, roleLabel: 'Tổ chức/MCN' });
+    expect(id.name).toBe(p.contact.displayName);
+    expect(id.avatar).toBe(p.avatar?.thumbnail);
   });
 
   test('Nhãn hàng tài khoản mới: Trần Thu Hà, phụ đề = công ty', () => {

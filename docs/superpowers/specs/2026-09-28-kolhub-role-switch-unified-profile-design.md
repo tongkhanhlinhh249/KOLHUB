@@ -26,9 +26,10 @@
 ### 2.2 Danh tính hiển thị theo hồ sơ
 `identityOf(state, account)` trả `{ name, subtitle, avatar?, roleLabel }`:
 - KOL: `contact.displayName` (rỗng → email), phụ đề = KOL ID nếu đã duyệt, avatar hồ sơ.
-- MCN: `org.orgName` (rỗng → `contact.displayName` → email), phụ đề = mã số DN.
+- MCN: `contact.displayName` (rỗng → `org.orgName` → email) — cùng tên với đầu trang Hồ sơ; phụ đề = MCN ID nếu đã duyệt (như KOL ID), chưa duyệt thì mã số DN (nếu có); avatar hồ sơ.
 - Nhãn hàng/Agency: `fullName`, phụ đề = `company`.
-Dùng cho Header, DemoPanel, menu tài khoản.
+Tên KOL/MCN lấy từ một hàm chung `profileDisplayName(profile)`; chữ cái viết tắt trên avatar (khi chưa có ảnh) dùng chung `initialsOf(name)`.
+Dùng cho Header, DemoPanel, menu tài khoản, đầu trang Hồ sơ (ProfileHeader).
 
 ### 2.3 Chuyển 3 quyền (prototype)
 - Nút "Vai trò" trên topbar (desktop + tablet), trong menu tài khoản trên mobile: Khách · Cá nhân/KOL (hồ sơ mới) · Cá nhân/KOL (đã xác thực) · Tổ chức/MCN · Nhãn hàng/Agency. Chọn → `authService.quickLogin` → màn mặc định của role (BR-66). Đánh dấu rõ "Chế độ demo".

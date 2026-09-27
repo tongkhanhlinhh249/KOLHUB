@@ -9,7 +9,8 @@ import { Card } from '../../components/ui/card';
 import { Progress } from '../../components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../components/ui/utils';
-import { profileService, validateProofImage, type EkycView, type ProfileView } from '../../services';
+import { profileDisplayName, profileService, validateProofImage, type EkycView, type ProfileView } from '../../services';
+import { initialsOf } from '../../auth/useIdentity';
 import { toStoredFile } from '../shared/files';
 import { ProfileStatusBadge } from '../shared/StatusBadges';
 import { milestoneBadge, primaryAction } from './primaryAction';
@@ -68,7 +69,8 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
 export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: ProfileHeaderProps) {
   const navigate = useNavigate();
   const { profile, completeness } = view;
-  const name = profile.contact.displayName.trim();
+  // Same name + initials as the topbar identity (identityOf), so both always match.
+  const name = profileDisplayName(profile);
   const shownName = name || 'Chưa đặt tên';
   const publicId = profile.ownerType === 'KOL' ? profile.kolId : profile.mcnId;
   const eligible = view.checklist.every((i) => i.ok);
@@ -94,7 +96,7 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: Profil
               <Avatar className="size-20 border-4 border-card bg-card">
                 {profile.avatar?.thumbnail && <AvatarImage src={profile.avatar.thumbnail} alt="Ảnh đại diện" className="object-cover" />}
                 <AvatarFallback className="bg-primary/10 text-2xl font-semibold text-primary">
-                  {(name || profile.contact.email || '?').charAt(0).toUpperCase()}
+                  {initialsOf(name || profile.contact.email)}
                 </AvatarFallback>
               </Avatar>
               <ImageButton label="Đổi ảnh đại diện" kind="avatar" accountId={profile.accountId} className="absolute -right-1 -bottom-1 size-8" />

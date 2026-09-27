@@ -1,5 +1,6 @@
 // Who is signed in, as shown in the header / account menu / demo panel (design §2.2).
 import type { Account, AccountType } from '../types';
+import type { KolProfile, McnProfile } from '../profile-types';
 import type { DemoState } from './db';
 import { findProfile } from './profileRules';
 import { VERIFIED_KOL_EMAIL } from './kolSeed';
@@ -21,6 +22,14 @@ export const ROLE_LABELS: Record<AccountType | 'GUEST', string> = {
 
 const clean = (s: string | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');
 
+/**
+ * Name of a KOL/MCN profile as shown everywhere (topbar, account menu, demo panel, profile header):
+ * KOL = display name; MCN = display name → organisation name. Empty when neither is filled in.
+ */
+export function profileDisplayName(p: KolProfile | McnProfile): string {
+  return clean(p.contact.displayName) || (p.ownerType === 'MCN' ? clean(p.org.orgName) : '');
+}
+
 function build(name: string, roleLabel: string, subtitle?: string, avatar?: string): DisplayIdentity {
   const out: DisplayIdentity = { name, roleLabel };
   if (subtitle) out.subtitle = subtitle;
@@ -30,8 +39,8 @@ function build(name: string, roleLabel: string, subtitle?: string, avatar?: stri
 
 /**
  * Display identity from the registration profile: KOL = displayName (→ email), subtitle KOL ID once
- * approved; MCN = orgName (→ displayName → email), subtitle business reg. no.; Brand = fullName (→ email),
- * subtitle company; `null` = guest.
+ * approved; MCN = displayName (→ orgName → email) — the same name the profile header shows — subtitle MCN ID
+ * once approved, else business reg. no.; Brand = fullName (→ email), subtitle company; `null` = guest.
  */
 export function identityOf(state: DemoState, account: Account | null): DisplayIdentity {
   if (!account) return build(ROLE_LABELS.GUEST, ROLE_LABELS.GUEST);
@@ -44,9 +53,10 @@ export function identityOf(state: DemoState, account: Account | null): DisplayId
   const avatar = p.avatar?.thumbnail;
   if (p.ownerType === 'KOL') {
     const subtitle = p.status === 'APPROVED' && p.kolId ? p.kolId : undefined;
-    return build(clean(p.contact.displayName) || email, label, subtitle, avatar);
+    return build(profileDisplayName(p) || email, label, subtitle, avatar);
   }
-  return build(clean(p.org.orgName) || clean(p.contact.displayName) || email, label, clean(p.org.regNo), avatar);
+  const subtitle = p.status === 'APPROVED' && p.mcnId ? p.mcnId : clean(p.org.regNo);
+  return build(profileDisplayName(p) || email, label, subtitle, avatar);
 }
 
 export type DemoAccountKey =
