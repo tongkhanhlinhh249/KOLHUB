@@ -23,12 +23,14 @@ import { OwnerViolationsPage } from './features/violations/OwnerViolationsPage';
 import { BrandViolationsPage } from './features/violations/BrandViolationsPage';
 // --- channel directory ---
 import { ChannelDirectoryPage } from './features/channel-directory/ChannelDirectoryPage';
+// --- MCN ↔ KOL ---
+import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
 
 /** /ho-so-kol|mcn → first section (legacy ?tab= honoured); one route per section (sidebar item). */
-function profileRoutes(path: string, ownerType: OwnerType): RouteObject {
+function profileRoutes(path: string, ownerType: OwnerType, extra: RouteObject[] = []): RouteObject {
   return {
     path,
     children: [
@@ -37,6 +39,7 @@ function profileRoutes(path: string, ownerType: OwnerType): RouteObject {
         path: section,
         element: <ProfilePage ownerType={ownerType} section={section} />,
       })),
+      ...extra,
     ],
   };
 }
@@ -59,7 +62,7 @@ export const router = createBrowserRouter([
         element: <Layout />,
         children: [
           profileRoutes('ho-so-kol', 'KOL'),
-          profileRoutes('ho-so-mcn', 'MCN'),
+          profileRoutes('ho-so-mcn', 'MCN', [{ path: 'kol', element: <McnKolsPage /> }]),
           { path: 'kol-safety', element: <Navigate to="/kiem-duyet/video" replace /> },
           {
             path: 'kiem-duyet',

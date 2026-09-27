@@ -107,7 +107,7 @@ const SAFETY_ROWS = [
 ];
 
 describe('bottomNavOf', () => {
-  test('KOL/MCN: 4 tab + "Thêm" (định danh, Facebook, YouTube, vi phạm)', () => {
+  test('KOL/MCN: 4 tab + "Thêm" (MCN: Quản lý KOL; định danh, Facebook, YouTube, vi phạm)', () => {
     for (const [role, base] of [
       ['kolhub.user.kol', '/ho-so-kol'],
       ['kolhub.user.mcn', '/ho-so-mcn'],
@@ -120,6 +120,7 @@ describe('bottomNavOf', () => {
         ['Kiểm duyệt', '/kiem-duyet/tiktok'],
       ]);
       expect(nav.more.map((m) => m.label)).toEqual([
+        ...(role === 'kolhub.user.mcn' ? ['Quản lý KOL'] : []),
         'Thông tin định danh',
         'Kiểm duyệt kênh Facebook',
         'Kiểm duyệt kênh YouTube',
@@ -175,6 +176,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       ['Thông tin liên hệ', 'Liên hệ', '/ho-so-mcn/lien-he', 'Hồ sơ MCN'],
       ['Thông tin định danh', 'Định danh', '/ho-so-mcn/dinh-danh', 'Hồ sơ MCN'],
       ['Quản lý kênh', 'Kênh', '/ho-so-mcn/kenh', 'Hồ sơ MCN'],
+      ['Quản lý KOL', 'KOL', '/ho-so-mcn/kol', 'Hồ sơ MCN'],
       ...SAFETY_ROWS,
     ]);
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => m.path)).toEqual([
@@ -204,6 +206,12 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       title: 'Quản lý kênh',
       description: 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
     });
+    expect(getPageMeta('/ho-so-mcn/kol?tab=cho-xac-nhan', 'kolhub.user.mcn')).toEqual({
+      title: 'Quản lý KOL',
+      group: 'Tổ chức/MCN',
+      description: 'Mời KOL, theo dõi lời mời và các KOL MCN đang quản lý',
+    });
+    expect(resolveAccess('kolhub.user.kol', '/ho-so-mcn/kol')).toMatchObject({ allow: false, reason: 'forbidden' });
     expect(getPageMeta('/tim-kiem-kol')).toMatchObject({ title: 'Tìm kiếm KOL', group: 'Nhãn hàng/Agency' });
     expect(getPageMeta('/kiem-duyet/video', 'kolhub.user.mcn')).toEqual({
       title: 'Kiểm tra video trước khi đăng',

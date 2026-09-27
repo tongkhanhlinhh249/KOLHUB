@@ -11,6 +11,7 @@ import { KolIdentityTab } from '../kol-profile/KolIdentityTab';
 import { McnIdentityTab } from '../mcn-profile/McnIdentityTab';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
+import { KolMcnCard } from '../mcn-kols/KolMcnCard';
 import { ProfileHeader } from './ProfileHeader';
 import { isProfileSection, profilePath, type ProfileSection } from './primaryAction';
 
@@ -98,6 +99,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
             ekyc={q.data.ekyc}
             hasNeedsFixChannel={q.data.channels.some((c) => c.status === 'NEEDS_FIX')}
           />
+          {section === 'lien-he' && q.data.view.profile.ownerType === 'KOL' && <KolMcnCard accountId={accountId} />}
           <div>
             {section === 'lien-he' && <ContactTab view={q.data.view} />}
             {section === 'dinh-danh' &&

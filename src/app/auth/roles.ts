@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   UserPlus,
   UserRound,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import type { Account, AccountType, RoleKey } from '../services/types';
@@ -89,8 +90,12 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
   ];
 }
 
-/** 8 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest). */
-function creatorBottomNav(base: string): BottomNavConfig {
+/** MCN only: KOLs the MCN manages (invites, management links; group "Hồ sơ MCN"). */
+export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
+const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
+
+/** 8–9 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` listed first). */
+function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
   return {
     items: [
       { icon: UserRound, label: 'Liên hệ', path: `${base}/lien-he` },
@@ -103,7 +108,7 @@ function creatorBottomNav(base: string): BottomNavConfig {
         match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
       },
     ],
-    more: [`${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
+    more: [...extraMore, `${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
   };
 }
 
@@ -128,9 +133,9 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.user.mcn': {
     label: 'Tổ chức/MCN',
     home: '/ho-so-mcn/lien-he',
-    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), ...SAFETY_MENU],
+    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), MCN_KOLS_ITEM, ...SAFETY_MENU],
     areas: ['/ho-so-mcn', ...CREATOR_AREAS],
-    bottomNav: creatorBottomNav('/ho-so-mcn'),
+    bottomNav: creatorBottomNav('/ho-so-mcn', [MCN_KOLS_PATH]),
   },
   'kolhub.user.biz': {
     label: 'Nhãn hàng/Agency',
@@ -224,6 +229,7 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/lien-he': 'Thông tin liên hệ và nhân sự quản lý nội dung',
   '/ho-so-mcn/dinh-danh': 'Xác thực tổ chức bằng Giấy chứng nhận ĐKDN',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
+  '/ho-so-mcn/kol': 'Mời KOL, theo dõi lời mời và các KOL MCN đang quản lý',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
