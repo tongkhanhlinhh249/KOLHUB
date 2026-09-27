@@ -28,3 +28,9 @@ test('services/index xuất identityOf và DEMO_ACCOUNTS cho thanh chuyển vai 
   expect(identityOf(db.read(), vy)).toMatchObject({ name: 'Khánh Vy', subtitle: 'KOL-2026-0001' });
   await auth.logout();
 });
+
+test('safetyService được export cùng các kiểu KOL Safety', async () => {
+  const { safetyService, MONITOR_PLATFORMS } = await import('./index');
+  expect(typeof safetyService.uploadVideo).toBe('function');
+  expect(MONITOR_PLATFORMS).toEqual(['tiktok', 'facebook', 'youtube']);
+});

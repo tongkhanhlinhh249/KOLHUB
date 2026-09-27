@@ -14,6 +14,8 @@ import type {
   McnProfile,
   ReviewRequest,
 } from '../profile-types';
+// --- KOL Safety ---
+import type { SafetyMonitor, SafetyVideo } from '../safety-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -44,10 +46,10 @@ export interface PendingRegistration {
 }
 
 /** Bump when the stored shape changes incompatibly; any other stored version is replaced by the seed. */
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export interface DemoState {
-  version: 3;
+  version: 4;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -65,6 +67,9 @@ export interface DemoState {
   reviewRequests: ReviewRequest[];
   changeRequests: ChangeRequest[];
   funnel: FunnelEvent[];
+  // --- KOL Safety ---
+  safetyVideos: SafetyVideo[];
+  safetyMonitors: SafetyMonitor[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

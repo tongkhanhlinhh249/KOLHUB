@@ -70,3 +70,20 @@ export { identityOf, DEMO_ACCOUNTS, ROLE_LABELS } from './mock/identity';
 export type { DisplayIdentity, DemoAccount, DemoAccountKey } from './mock/identity';
 export { VERIFIED_KOL_EMAIL, VERIFIED_MCN_EMAIL } from './mock/seed';
 export { COUNTED_CODES, MAX_EKYC_ATTEMPTS } from './mock/ekyc';
+// --- KOL Safety ---
+import { createSafetyService } from './mock/safety';
+
+export const safetyService = createSafetyService({ db, now: Date.now });
+export * from './safety-types';
+export type { SafetyService } from './mock/safety';
+export {
+  healthLabel,
+  isMonitorPlatform,
+  issueSummary,
+  MAX_VIDEO_BYTES,
+  MAX_VIDEO_SEC,
+  MONITOR_PLATFORM_LABEL,
+  MONITOR_PLATFORMS,
+  validateVideo,
+  VIDEO_EXTENSIONS,
+} from './mock/safety';

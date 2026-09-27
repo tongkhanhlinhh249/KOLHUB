@@ -122,6 +122,33 @@ function phase2Message(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4304':
       return 'Doanh nghiệp đang tạm ngừng hoạt động, giải thể hoặc bị thu hồi giấy phép.';
     default:
+      return safetyMessage(code, meta);
+  }
+}
+
+// --- KOL Safety ---
+function safetyMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
+  const platform = meta?.platformLabel ?? 'mạng xã hội';
+  switch (code) {
+    case 'KOLHUB-4501':
+      return 'Chỉ nhận video MP4, MOV hoặc WebM.';
+    case 'KOLHUB-4502':
+      return 'Video tối đa 500 MB.';
+    case 'KOLHUB-4503':
+      return 'Video tối đa 10 phút.';
+    case 'KOLHUB-4504':
+      return 'Video vi phạm chính sách nên không thể đăng. Hãy sửa theo các vấn đề đã nêu rồi kiểm tra lại.';
+    case 'KOLHUB-4505':
+      return `Vui lòng nhập @username hoặc link kênh ${platform} hợp lệ.`;
+    case 'KOLHUB-4506':
+      return `Link này không phải kênh ${platform}.`;
+    case 'KOLHUB-4507':
+      return 'Kênh này đã được kết nối.';
+    case 'KOLHUB-4508':
+      return 'Không tìm thấy video hoặc kênh. Có thể mục này đã bị xoá.';
+    case 'KOLHUB-4509':
+      return 'Video đang được kiểm tra, vui lòng đợi kết quả.';
+    default:
       return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }
 }

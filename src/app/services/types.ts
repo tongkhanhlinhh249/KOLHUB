@@ -59,7 +59,17 @@ export type ErrorCode =
   | 'KOLHUB-4301'
   | 'KOLHUB-4302'
   | 'KOLHUB-4303'
-  | 'KOLHUB-4304';
+  | 'KOLHUB-4304'
+  // --- KOL Safety ---
+  | 'KOLHUB-4501'
+  | 'KOLHUB-4502'
+  | 'KOLHUB-4503'
+  | 'KOLHUB-4504'
+  | 'KOLHUB-4505'
+  | 'KOLHUB-4506'
+  | 'KOLHUB-4507'
+  | 'KOLHUB-4508'
+  | 'KOLHUB-4509';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;
@@ -68,6 +78,9 @@ export interface KolhubErrorMeta {
   // --- phase 2 ---
   lockedUntil?: number;
   ownedByOther?: boolean;
+  // --- KOL Safety ---
+  /** Display name of a platform, e.g. "TikTok" (KOLHUB-4505/4506). */
+  platformLabel?: string;
 }
 
 /** Business error carrying a KOLHUB-xxxx code; message is the Vietnamese text from errorMessage(). */
