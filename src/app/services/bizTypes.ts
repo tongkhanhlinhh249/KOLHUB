@@ -41,30 +41,6 @@ export const KOL_SCALES: { key: KolScale; label: string; min: number; max: numbe
 
 export type ChannelStatus = 'PENDING_REVIEW' | 'VERIFIED' | 'NEEDS_FIX' | 'EXPIRED';
 
-export interface DirectoryChannel {
-  id: string;
-  platform: Platform;
-  url: string;
-  handle: string;
-  followers: number;
-  status: ChannelStatus;
-  active: boolean;
-  /** ISO date */
-  badgeExpiresAt: string | null;
-  /** ISO date */
-  verifiedAt: string | null;
-}
-
-/** Data a Brand must never see (BR-58). Kept in the directory only to prove it is filtered out. */
-export interface KolPrivateData {
-  phone: string;
-  address: string;
-  zalo: string;
-  idNoMasked: string;
-  violations: number;
-  bookingPrice: string;
-}
-
 export type FieldMedal = 'gold' | 'silver' | 'none';
 
 /**
@@ -98,25 +74,6 @@ export const SEARCH_VIDEO_LIMIT = 2;
 export const PROFILE_VIDEO_LIMIT = 6;
 /** Max "Lĩnh vực hoạt động" per KOL. */
 export const FIELD_LIMIT = 3;
-
-export interface DirectoryKol {
-  kolId: string;
-  displayName: string;
-  nickname: string;
-  avatar?: string;
-  bio: string;
-  category?: KolCategory;
-  /** 1–3 fields, `fields[0].name === category` when a category is set. */
-  fields: KolField[];
-  /** Newest first. */
-  latestVideos: KolVideo[];
-  region?: KolRegion;
-  collabEmail: string | null;
-  /** ISO date */
-  verifiedAt: string;
-  channels: DirectoryChannel[];
-  private?: KolPrivateData;
-}
 
 export type BadgeState = 'VERIFIED' | 'EXPIRED';
 export type KolListingStatus = 'VISIBLE' | 'BADGE_EXPIRED' | 'INACTIVE' | 'UNAVAILABLE';

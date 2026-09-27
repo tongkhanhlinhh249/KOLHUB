@@ -1,34 +1,17 @@
 import {
-  FIELD_LIMIT,
-  PLATFORMS,
   PROFILE_VIDEO_LIMIT,
   SEARCH_PAGE_SIZE,
   SEARCH_VIDEO_LIMIT,
-  type DirectoryKol,
-  type KolField,
-  type KolVideo,
   type KolPublicProfile,
   type KolSearchItem,
   type KolSearchQuery,
   type KolSearchResult,
-  type Platform,
-  type PublicChannel,
 } from '../bizTypes';
 import { KolhubError } from '../types';
 import type { Db } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
-import {
-  channelBadge,
-  isLinkKeyword,
-  listingStatus,
-  normalizeText,
-  normalizeUrl,
-  readDirectory,
-  scaleOf,
-  searchableChannels,
-  totalFollowers,
-} from './directory';
+import { findPublicKol, isLinkKeyword, isSearchableChannel, normalizeText, normalizeUrl, toPublicKol, type PublicKol } from './directory';
 
 export interface SearchServiceDeps {
   db: Db;
@@ -37,45 +20,13 @@ export interface SearchServiceDeps {
   delay?: false;
 }
 
-function uniquePlatforms(k: DirectoryKol, now: number): Platform[] {
-  const out: Platform[] = [];
-  for (const c of searchableChannels(k, now)) if (!out.includes(c.platform)) out.push(c.platform);
-  return out;
-}
-
-/** Whitelisted copy of the KOL's fields (max 3). Older stored data without `fields` falls back to the category. */
-function publicFields(k: DirectoryKol): KolField[] {
-  const src = Array.isArray(k.fields) ? k.fields : k.category ? [{ name: k.category, medal: 'none' as const }] : [];
-  return src.slice(0, FIELD_LIMIT).map((f) => ({
-    name: f.name,
-    medal: f.medal === 'gold' || f.medal === 'silver' ? f.medal : 'none',
-  }));
-}
-
-const KNOWN_PLATFORMS = new Set<string>(PLATFORMS.map((p) => p.key));
-
-/** Whitelisted videos on `allowed` platforms only (never Instagram, BR-20), newest first as stored. */
-function publicVideos(k: DirectoryKol, allowed: Platform[], limit: number): KolVideo[] {
-  const out: KolVideo[] = [];
-  for (const v of k.latestVideos ?? []) {
-    if (out.length >= limit) break;
-    if (!KNOWN_PLATFORMS.has(v.platform) || !allowed.includes(v.platform) || !v.thumbnail) continue;
-    const video: KolVideo = { platform: v.platform, thumbnail: v.thumbnail };
-    if (v.url) video.url = v.url;
-    if (v.title) video.title = v.title;
-    if (v.publishedAt) video.publishedAt = v.publishedAt;
-    out.push(video);
-  }
-  return out;
-}
-
 /** Relevance score of one KOL for a normalised keyword; null = no match. */
-function score(k: DirectoryKol, kw: string, now: number): number | null {
+function score(k: PublicKol, kw: string, urls: string[]): number | null {
   if (!kw) return 0;
   if (isLinkKeyword(kw)) {
     const needle = normalizeUrl(kw);
     if (!needle) return null;
-    return searchableChannels(k, now).some((c) => normalizeUrl(c.url).includes(needle)) ? 80 : null;
+    return urls.some((u) => normalizeUrl(u).includes(needle)) ? 80 : null;
   }
   const id = normalizeText(k.kolId);
   const name = normalizeText(k.displayName);
@@ -93,25 +44,45 @@ function score(k: DirectoryKol, kw: string, now: number): number | null {
   return best;
 }
 
-function toItem(k: DirectoryKol, now: number): KolSearchItem {
-  const followers = totalFollowers(k, now);
+function toItem(k: PublicKol): KolSearchItem {
   const item: KolSearchItem = {
     kolId: k.kolId,
     displayName: k.displayName,
     nickname: k.nickname,
     bio: k.bio,
-    totalFollowers: followers,
-    scale: scaleOf(followers),
-    platforms: uniquePlatforms(k, now),
-    channels: searchableChannels(k, now).map((c) => ({ platform: c.platform, followers: c.followers, badge: 'VERIFIED' as const })),
-    fields: publicFields(k),
-    latestVideos: publicVideos(k, uniquePlatforms(k, now), SEARCH_VIDEO_LIMIT),
+    totalFollowers: k.totalFollowers,
+    scale: k.scale,
+    platforms: [...k.platforms],
+    channels: k.searchChannels.map((c) => ({ ...c })),
+    fields: k.fields.map((f) => ({ ...f })),
+    latestVideos: k.latestVideos.filter((v) => k.platforms.includes(v.platform)).slice(0, SEARCH_VIDEO_LIMIT),
     verifiedAt: k.verifiedAt,
   };
   if (k.avatar) item.avatar = k.avatar;
   if (k.category) item.category = k.category;
   if (k.region) item.region = k.region;
   return item;
+}
+
+function toProfile(k: PublicKol): KolPublicProfile {
+  const profile: KolPublicProfile = {
+    kolId: k.kolId,
+    displayName: k.displayName,
+    nickname: k.nickname,
+    bio: k.bio,
+    collabEmail: k.collabEmail,
+    totalFollowers: k.totalFollowers,
+    scale: k.scale,
+    listingStatus: k.listingStatus,
+    verifiedAt: k.verifiedAt,
+    channels: k.channels.map((c) => ({ ...c })),
+    fields: k.fields.map((f) => ({ ...f })),
+    latestVideos: k.latestVideos.slice(0, PROFILE_VIDEO_LIMIT),
+  };
+  if (k.avatar) profile.avatar = k.avatar;
+  if (k.category) profile.category = k.category;
+  if (k.region) profile.region = k.region;
+  return profile;
 }
 
 /** Mock KOL search for Brand/Agency accounts (FR-15, BR-53..57). */
@@ -127,23 +98,21 @@ export function createSearchService(deps: SearchServiceDeps) {
     const kw = normalizeText(q.keyword ?? '');
     const sort = q.sort ?? 'relevance';
 
-    const scored: { k: DirectoryKol; score: number; followers: number }[] = [];
-    for (const k of readDirectory(state)) {
-      if (listingStatus(k, t) !== 'VISIBLE') continue;
+    const scored: { k: PublicKol; score: number; followers: number }[] = [];
+    for (const p of state.kolProfiles) {
+      const k = toPublicKol(p, state.channels, t);
+      if (!k) continue;
       if (q.category && k.category !== q.category) continue;
       if (q.region && k.region !== q.region) continue;
-      const followers = totalFollowers(k, t);
-      if (q.scale && scaleOf(followers) !== q.scale) continue;
-      if (q.platforms && q.platforms.length > 0) {
-        const own = uniquePlatforms(k, t);
-        if (!q.platforms.some((p) => own.includes(p))) continue;
-      }
-      const s = score(k, kw, t);
+      if (q.scale && k.scale !== q.scale) continue;
+      if (q.platforms && q.platforms.length > 0 && !q.platforms.some((pl) => k.platforms.includes(pl))) continue;
+      const urls = state.channels.filter((c) => c.ownerId === p.accountId && isSearchableChannel(c, t)).map((c) => c.url);
+      const s = score(k, kw, urls);
       if (s === null) continue;
-      scored.push({ k, score: s, followers });
+      scored.push({ k, score: s, followers: k.totalFollowers });
     }
 
-    const byId = (a: { k: DirectoryKol }, b: { k: DirectoryKol }) => (a.k.kolId < b.k.kolId ? -1 : a.k.kolId > b.k.kolId ? 1 : 0);
+    const byId = (a: { k: PublicKol }, b: { k: PublicKol }) => (a.k.kolId < b.k.kolId ? -1 : a.k.kolId > b.k.kolId ? 1 : 0);
     scored.sort((a, b) => {
       if (sort === 'newest') {
         const d = Date.parse(b.k.verifiedAt) - Date.parse(a.k.verifiedAt);
@@ -161,7 +130,7 @@ export function createSearchService(deps: SearchServiceDeps) {
     const start = (page - 1) * SEARCH_PAGE_SIZE;
 
     return {
-      items: scored.slice(start, start + SEARCH_PAGE_SIZE).map((x) => toItem(x.k, t)),
+      items: scored.slice(start, start + SEARCH_PAGE_SIZE).map((x) => toItem(x.k)),
       total,
       page,
       pageCount,
@@ -174,49 +143,9 @@ export function createSearchService(deps: SearchServiceDeps) {
     await wait();
     const state = db.read();
     currentBizAccount(state);
-    const t = now();
-    const k = readDirectory(state).find((x) => x.kolId === kolId);
-    if (!k || !k.channels.some((c) => c.status === 'VERIFIED' || c.status === 'EXPIRED')) {
-      throw new KolhubError('KOLHUB-4404');
-    }
-
-    const channels: PublicChannel[] = [];
-    for (const c of k.channels) {
-      const badge = channelBadge(c, t);
-      if (!c.active || badge === null) continue;
-      channels.push({
-        platform: c.platform,
-        url: c.url,
-        handle: c.handle,
-        followers: c.followers,
-        badge,
-        badgeExpiresAt: c.badgeExpiresAt ?? '',
-      });
-    }
-
-    const followers = totalFollowers(k, t);
-    const profile: KolPublicProfile = {
-      kolId: k.kolId,
-      displayName: k.displayName,
-      nickname: k.nickname,
-      bio: k.bio,
-      collabEmail: k.collabEmail,
-      totalFollowers: followers,
-      scale: scaleOf(followers),
-      listingStatus: listingStatus(k, t),
-      verifiedAt: k.verifiedAt,
-      channels,
-      fields: publicFields(k),
-      latestVideos: publicVideos(
-        k,
-        channels.map((c) => c.platform),
-        PROFILE_VIDEO_LIMIT,
-      ),
-    };
-    if (k.avatar) profile.avatar = k.avatar;
-    if (k.category) profile.category = k.category;
-    if (k.region) profile.region = k.region;
-    return profile;
+    const k = findPublicKol(state, kolId, now());
+    if (!k) throw new KolhubError('KOLHUB-4404');
+    return toProfile(k);
   }
 
   return { search, getKolPublicProfile };

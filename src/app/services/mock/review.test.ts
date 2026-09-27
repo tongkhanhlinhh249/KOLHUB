@@ -4,7 +4,8 @@ import { createChannelService } from './channel';
 import { createEkycService } from './ekyc';
 import { createProfileService } from './profile';
 import { findProfile } from './profileRules';
-import { createReviewService, listApprovedKols, pendingChannelsOf } from './review';
+import { toPublicKol } from './directory';
+import { createReviewService, pendingChannelsOf } from './review';
 import { syncChannelStats } from './socialListening';
 import { makeHarness, type Harness } from './testHarness';
 
@@ -127,7 +128,7 @@ describe('approve / requestFix / reject', () => {
       review.approve(h.kolId, { [c1]: { verdict: 'PASS' }, [c2]: { verdict: 'NEEDS_FIX', reason: '  ' } }),
     ).rejects.toThrow('REASON_REQUIRED');
     expect(status()).toBe('SUBMITTED');
-    expect(h.db.read().channels.every((c) => c.status === 'PENDING_REVIEW')).toBe(true);
+    expect(h.db.read().channels.filter((c) => c.ownerId === h.kolId).every((c) => c.status === 'PENDING_REVIEW')).toBe(true);
   });
 
   test('thiếu verdict cho một kênh chờ → VERDICT_MISSING', async () => {
@@ -214,41 +215,49 @@ describe('approve / requestFix / reject', () => {
   });
 });
 
-describe('listApprovedKols', () => {
-  test('chỉ kênh VERIFIED, active, còn hạn; không lộ SĐT/CCCD', async () => {
+describe('KOL được duyệt → phép chiếu công khai (toPublicKol)', () => {
+  const pub = (t = h.now()) => {
+    const st = h.db.read();
+    return toPublicKol(findProfile(st, h.kolId) as KolProfile, st.channels, t);
+  };
+
+  test('chỉ kênh VERIFIED, active, còn hạn; số liệu từ social listening; không lộ SĐT/CCCD', async () => {
     await approvedKol(h);
-    const list = listApprovedKols(h.db.read(), h.now());
-    expect(list).toEqual([
+    const k = pub()!;
+    expect(k).toMatchObject({
+      kolId: 'KH900001',
+      displayName: 'Khánh Vy',
+      category: 'Giáo dục',
+      region: 'Hà Nội',
+      collabEmail: 'kol@demo.kolhub.vn',
+      verifiedAt: new Date(h.clock.t).toISOString(),
+      platforms: ['facebook'],
+    });
+    expect(k.channels).toEqual([
       {
-        kolId: 'KH900001',
-        displayName: 'Khánh Vy',
-        avatar: undefined,
-        category: 'Giáo dục',
-        region: 'Hà Nội',
-        collabEmail: 'kol@demo.kolhub.vn',
-        verifiedAt: new Date(h.clock.t).toISOString(),
-        channels: [
-          {
-            platform: 'facebook',
-            url: expect.any(String),
-            followers: expect.any(Number),
-            badgeExpiresAt: new Date(2027, 8, 27, 9, 0).toISOString(),
-          },
-        ],
+        platform: 'facebook',
+        url: 'facebook.com/khanhvy',
+        handle: 'khanhvy',
+        followers: expect.any(Number),
+        badge: 'VERIFIED',
+        badgeExpiresAt: new Date(2027, 8, 27, 9, 0).toISOString(),
       },
     ]);
-    expect(JSON.stringify(list)).not.toMatch(/0912000001|\*{7}/);
+    expect(k.totalFollowers).toBeGreaterThanOrEqual(10_000);
+    expect(k.latestVideos.length).toBeGreaterThanOrEqual(2);
+    expect(k.latestVideos.every((v) => v.platform === 'facebook')).toBe(true);
+    expect(JSON.stringify(k)).not.toMatch(/0912000001|\*{7}|Tràng Tiền/);
   });
 
   test('badgeExpiresAt === now → loại', async () => {
     await approvedKol(h);
-    expect(listApprovedKols(h.db.read(), new Date(2027, 8, 27, 9, 0).getTime())).toEqual([]);
+    expect(pub(new Date(2027, 8, 27, 9, 0).getTime())).toBeNull();
   });
 
   test('tắt kênh → loại', async () => {
     await approvedKol(h);
     await channels.setActive(h.kolId, 'c1', false);
-    expect(listApprovedKols(h.db.read(), h.now())).toEqual([]);
+    expect(pub()).toBeNull();
   });
 
   test('hồ sơ không APPROVED → loại', async () => {
@@ -256,14 +265,14 @@ describe('listApprovedKols', () => {
     h.db.update((s) => {
       findProfile(s, h.kolId)!.status = 'NEEDS_FIX';
     });
-    expect(listApprovedKols(h.db.read(), h.now())).toEqual([]);
+    expect(pub()).toBeNull();
   });
 
-  test('expireChannelNow → EXPIRED, KOL rời listApprovedKols', async () => {
+  test('expireChannelNow → EXPIRED, KOL rời tìm kiếm', async () => {
     await approvedKol(h);
     await review.expireChannelNow('c1');
     expect(h.db.read().channels.find((c) => c.id === 'c1')).toMatchObject({ status: 'EXPIRED', badgeExpiresAt: h.clock.t });
-    expect(listApprovedKols(h.db.read(), h.now())).toEqual([]);
+    expect(pub()).toBeNull();
   });
 });
 
@@ -357,6 +366,9 @@ describe('admin queue', () => {
   test('verifiedChannels liệt kê kênh có dấu để đẩy hết hạn', async () => {
     await approvedKol(h);
     const q = await review.listAdminQueue();
-    expect(q.verifiedChannels.map((c) => [c.id, c.displayName])).toEqual([['c1', 'Khánh Vy']]);
+    const own = q.verifiedChannels.filter((c) => c.ownerId === h.kolId);
+    expect(own.map((c) => [c.id, c.displayName])).toEqual([['c1', 'Khánh Vy']]);
+    // Seeded sample KOLs are real verified channels too.
+    expect(q.verifiedChannels.some((c) => c.id === 'KOL-2026-0001-youtube')).toBe(true);
   });
 });

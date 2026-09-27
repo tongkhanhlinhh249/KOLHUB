@@ -203,19 +203,6 @@ export class ValidationError extends Error {
   }
 }
 
-/** Public, search-safe summary of an approved KOL (phase 3 merges these into search). */
-export interface ApprovedKolSummary {
-  kolId: string;
-  displayName: string;
-  avatar?: string;
-  category?: string;
-  region?: string;
-  /** Collaboration email shown to brands (profile contact email). Never phone/address/Zalo (BR-58). */
-  collabEmail?: string;
-  channels: { platform: Platform; url: string; followers?: number; badgeExpiresAt: string }[];
-  verifiedAt: string;
-}
-
 // Single category list shared with brand search filters (bizTypes).
 export { KOL_CATEGORIES } from './bizTypes';
 

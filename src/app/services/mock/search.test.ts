@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import type { KolSearchResult } from '../bizTypes';
 import { createSearchService } from './search';
+import { createDb } from './db';
+import { seedState } from './seed';
 import { bizState, fixtureDirectory, makeVideo, NOW } from './testing/bizFixtures';
 
 const svc = createSearchService({ db: bizState(), now: () => NOW, delay: false });
@@ -188,7 +190,7 @@ describe('getKolPublicProfile', () => {
     const k = many.find((x) => x.kolId === 'KOL-T-0002')!;
     k.latestVideos = Array.from({ length: 9 }, (_, n) => makeVideo('youtube', n + 1));
     k.fields = ['A', 'B', 'C', 'D'].map((name) => ({ name, medal: 'none' as const }));
-    const s = createSearchService({ db: bizState({ directory: many }), now: () => NOW, delay: false });
+    const s = createSearchService({ db: bizState({ kols: many }), now: () => NOW, delay: false });
     const p = await s.getKolPublicProfile('KOL-T-0002');
     expect(p.latestVideos).toHaveLength(6);
     expect(p.fields).toHaveLength(3);
@@ -211,5 +213,24 @@ describe('getKolPublicProfile', () => {
   test('phiên KOL → 4016', async () => {
     const s = createSearchService({ db: bizState({ session: 'kol' }), now: () => NOW, delay: false });
     await expect(s.getKolPublicProfile('KOL-T-0001')).rejects.toMatchObject({ code: 'KOLHUB-4016' });
+  });
+});
+
+describe('dữ liệu mẫu v2 (KOL đăng ký thật)', () => {
+  test('35 KOL mẫu tìm được; Khánh Vy có bio, lĩnh vực, video; hồ sơ KOL mất dấu vẫn mở được', async () => {
+    const db = createDb(null, seedState);
+    db.update((s) => {
+      s.sessionAccountId = 'acc-biz-demo';
+    });
+    const s = createSearchService({ db, now: Date.now, delay: false });
+    expect((await s.search({})).total).toBe(35);
+    const vy = (await s.search({ keyword: 'khanh vy' })).items[0];
+    expect(vy).toMatchObject({ kolId: 'KOL-2026-0001', displayName: 'Khánh Vy', category: 'Giáo dục' });
+    expect(vy.bio).toContain('MC VTV');
+    expect(vy.fields.map((f) => f.name)).toEqual(['Giáo dục', 'MC', 'Tiếng Anh']);
+    expect(vy.latestVideos).toHaveLength(2);
+    expect((await s.getKolPublicProfile('KOL-2026-0038')).listingStatus).toBe('BADGE_EXPIRED');
+    const json = JSON.stringify(await s.getKolPublicProfile('KOL-2026-0001'));
+    for (const v of ['0909000001', 'Đường Demo', '*******', 'khanhvy@demo.kolhub.vn']) expect(json).not.toContain(v);
   });
 });

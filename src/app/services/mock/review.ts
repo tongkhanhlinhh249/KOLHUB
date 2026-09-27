@@ -1,6 +1,5 @@
 import { addMonths, format } from 'date-fns';
 import type {
-  ApprovedKolSummary,
   ChangeRequest,
   Channel,
   KolProfile,
@@ -28,44 +27,6 @@ const ALL_CHANNELS_NEED_FIX = 'Tất cả kênh cần bổ sung';
 /** Active channels waiting for review. */
 export function pendingChannelsOf(state: DemoState, ownerId: string): Channel[] {
   return state.channels.filter((c) => c.ownerId === ownerId && c.active && c.status === 'PENDING_REVIEW');
-}
-
-const emptyToUndef = (s: string) => (s.trim() ? s : undefined);
-
-/**
- * Public summaries of approved KOLs with at least one verified, active, unexpired channel
- * (BR-16, BR-54, BR-58). No identity, phone, address or Zalo data. Phase 3 merges these into search.
- */
-export function listApprovedKols(state: DemoState, now: number = Date.now()): ApprovedKolSummary[] {
-  const out: ApprovedKolSummary[] = [];
-  for (const p of state.kolProfiles) {
-    if (p.status !== 'APPROVED' || !p.kolId) continue;
-    const chs = state.channels.filter(
-      (c) =>
-        c.ownerId === p.accountId &&
-        c.status === 'VERIFIED' &&
-        c.active &&
-        c.badgeExpiresAt !== undefined &&
-        c.badgeExpiresAt > now,
-    );
-    if (!chs.length) continue;
-    out.push({
-      kolId: p.kolId,
-      displayName: p.contact.displayName,
-      avatar: p.avatar?.thumbnail,
-      category: emptyToUndef(p.contact.category),
-      region: emptyToUndef(p.contact.province),
-      collabEmail: emptyToUndef(p.contact.email.trim()),
-      channels: chs.map((c) => ({
-        platform: c.platform,
-        url: c.url,
-        followers: c.stats?.followers,
-        badgeExpiresAt: new Date(c.badgeExpiresAt!).toISOString(),
-      })),
-      verifiedAt: new Date(p.approvedAt ?? p.decidedAt ?? now).toISOString(),
-    });
-  }
-  return out;
 }
 
 export interface ReviewServiceDeps {

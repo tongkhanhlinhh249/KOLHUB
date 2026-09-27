@@ -1,45 +1,68 @@
 import { describe, expect, test } from 'vitest';
-import type { DirectoryChannel, DirectoryKol } from '../bizTypes';
-import type { ApprovedKolSummary } from '../profile-types';
-import { createSearchService } from './search';
-import { bizState, fixtureDirectory } from './testing/bizFixtures';
+import type { Channel, KolProfile } from '../profile-types';
 import {
-  approvedDirectoryKols,
   channelBadge,
-  fromApprovedSummary,
+  findPublicKol,
   isLinkKeyword,
   isSearchableChannel,
   listingStatus,
+  listPublicKols,
   normalizeText,
   normalizeUrl,
-  readDirectory,
+  publicKolOf,
   scaleOf,
-  totalFollowers,
+  toPublicKol,
 } from './directory';
+import { emptyKolProfile } from './profileRules';
 import { seedState } from './seed';
 
 const NOW = Date.UTC(2026, 8, 27, 3);
 const DAY = 86_400_000;
-const iso = (ms: number) => new Date(ms).toISOString();
 
-function ch(over: Partial<DirectoryChannel> = {}): DirectoryChannel {
+function ch(over: Partial<Channel> = {}): Channel {
   return {
     id: 'c',
+    ownerType: 'KOL',
+    ownerId: 'acc-1',
     platform: 'tiktok',
-    url: 'tiktok.com/@x',
+    url: 'https://www.tiktok.com/@x/',
     handle: '@x',
-    followers: 1000,
+    proofImage: { name: 'p.png', type: 'image/png', size: 1 },
     status: 'VERIFIED',
     active: true,
-    badgeExpiresAt: iso(NOW + DAY),
-    verifiedAt: iso(NOW - DAY),
+    badgeExpiresAt: NOW + DAY,
+    verifiedAt: NOW - DAY,
+    stats: { followers: 1000, latestVideos: [], syncedAt: NOW - DAY },
+    createdAt: 0,
+    updatedAt: 0,
     ...over,
   };
 }
 
-function kol(kolId: string, channels: DirectoryChannel[]): DirectoryKol {
-  return { kolId, displayName: kolId, nickname: '', bio: '', collabEmail: null, verifiedAt: iso(NOW), channels };
+function profile(over: Partial<KolProfile> = {}): KolProfile {
+  const p = emptyKolProfile({ id: 'acc-1', type: 'KOL', email: 'login@x.vn', phone: '0912345678', createdAt: '' }, 0);
+  Object.assign(p.contact, {
+    displayName: 'Mai Anh',
+    email: 'hoptac@x.vn',
+    zalo: '0912345678',
+    province: 'Hà Nội',
+    address: '1 Tràng Tiền',
+    category: 'Giáo dục',
+    bio: 'Giới thiệu',
+    fields: [
+      { name: 'Giáo dục', medal: 'gold' },
+      { name: 'MC', medal: 'none' },
+    ],
+  });
+  return { ...p, status: 'APPROVED', kolId: 'KH900001', ekycStatus: 'PASSED', approvedAt: NOW - 2 * DAY, ...over };
 }
+
+const video = (platform: Channel['platform'], n: number) => ({
+  platform,
+  thumbnail: `https://img/${n}.jpg`,
+  title: `V${n}`,
+  publishedAt: new Date(NOW - n * DAY).toISOString(),
+});
 
 test('normalizeText bỏ dấu, đ, hoa thường, khoảng trắng', () =>
   expect(normalizeText('  CHÂU   Bùi Đạt ')).toBe('chau bui dat'));
@@ -53,115 +76,103 @@ test('isLinkKeyword', () => {
 });
 
 test('channelBadge: hết hạn đúng thời điểm now là EXPIRED', () => {
-  expect(channelBadge(ch({ status: 'VERIFIED', badgeExpiresAt: iso(NOW) }), NOW)).toBe('EXPIRED');
-  expect(channelBadge(ch({ status: 'VERIFIED', badgeExpiresAt: iso(NOW + 1) }), NOW)).toBe('VERIFIED');
+  expect(channelBadge(ch({ badgeExpiresAt: NOW }), NOW)).toBe('EXPIRED');
+  expect(channelBadge(ch({ badgeExpiresAt: NOW + 1 }), NOW)).toBe('VERIFIED');
   expect(channelBadge(ch({ status: 'PENDING_REVIEW' }), NOW)).toBeNull();
   expect(channelBadge(ch({ status: 'EXPIRED' }), NOW)).toBe('EXPIRED');
 });
 
-test('kênh VERIFIED nhưng INACTIVE không tìm được', () =>
-  expect(isSearchableChannel(ch({ status: 'VERIFIED', active: false, badgeExpiresAt: iso(NOW + DAY) }), NOW)).toBe(false));
-
-test.each([
-  [9_999, 'nano'],
-  [10_000, 'micro'],
-  [99_999, 'micro'],
-  [100_000, 'mid'],
-  [500_000, 'macro'],
-  [1_000_000, 'mega'],
-])('scaleOf(%i) = %s', (n, s) => expect(scaleOf(n)).toBe(s));
-
-test('totalFollowers chỉ tính kênh tìm được', () =>
-  expect(totalFollowers(kol('K', [ch({ followers: 5 }), ch({ followers: 7, active: false })]), NOW)).toBe(5));
-
-test('listingStatus: VISIBLE / INACTIVE / BADGE_EXPIRED', () => {
-  expect(listingStatus(kol('A', [ch(), ch({ active: false })]), NOW)).toBe('VISIBLE');
-  expect(listingStatus(kol('B', [ch({ active: false })]), NOW)).toBe('INACTIVE');
-  expect(listingStatus(kol('C', [ch({ badgeExpiresAt: iso(NOW - 1) }), ch({ status: 'EXPIRED' })]), NOW)).toBe(
-    'BADGE_EXPIRED',
-  );
+test('isSearchableChannel: VERIFIED + còn hạn + ACTIVE', () => {
+  expect(isSearchableChannel(ch(), NOW)).toBe(true);
+  expect(isSearchableChannel(ch({ active: false }), NOW)).toBe(false);
+  expect(isSearchableChannel(ch({ badgeExpiresAt: NOW - 1 }), NOW)).toBe(false);
 });
 
-describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
-  const summary: ApprovedKolSummary = {
-    kolId: 'KOL-P2-0001',
-    displayName: 'KOL Đợt Hai',
-    category: 'Ẩm thực',
-    region: 'Miền Tây',
-    collabEmail: 'doihai@example.vn',
-    channels: [
-      { platform: 'youtube', url: 'https://www.youtube.com/@doihai', followers: 12_000, badgeExpiresAt: iso(NOW + 300 * DAY) },
-      { platform: 'tiktok', url: 'tiktok.com/@doihai2/', badgeExpiresAt: iso(NOW - DAY) },
-    ],
-    verifiedAt: iso(NOW - DAY),
-  };
+test('scaleOf: biên dưới thuộc bậc trên', () => {
+  expect(scaleOf(9_999)).toBe('nano');
+  expect(scaleOf(10_000)).toBe('micro');
+  expect(scaleOf(1_000_000)).toBe('mega');
+});
 
-  test('fromApprovedSummary ánh xạ đúng; khu vực ngoài danh mục bị bỏ; có email hợp tác, không private', () => {
-    const k = fromApprovedSummary(summary);
+test('listingStatus: VISIBLE / INACTIVE / BADGE_EXPIRED', () => {
+  expect(listingStatus([ch(), ch({ active: false })], NOW)).toBe('VISIBLE');
+  expect(listingStatus([ch({ active: false })], NOW)).toBe('INACTIVE');
+  expect(listingStatus([ch({ badgeExpiresAt: NOW - 1 }), ch({ status: 'EXPIRED' })], NOW)).toBe('BADGE_EXPIRED');
+});
+
+describe('toPublicKol / publicKolOf', () => {
+  test('chiếu hồ sơ + kênh: bio, fields, followers & video từ Channel.stats; không lộ dữ liệu riêng (BR-58)', () => {
+    const channels = [
+      ch({ id: 'a', stats: { followers: 3000, latestVideos: [video('tiktok', 3), video('tiktok', 1)], syncedAt: 0 } }),
+      ch({ id: 'b', platform: 'youtube', url: 'youtube.com/@x', stats: { followers: 7000, latestVideos: [video('youtube', 2)], syncedAt: 0 } }),
+      ch({ id: 'other', ownerId: 'acc-2', stats: { followers: 9_999_999, latestVideos: [], syncedAt: 0 } }),
+    ];
+    const k = toPublicKol(profile(), channels, NOW)!;
     expect(k).toMatchObject({
-      kolId: 'KOL-P2-0001',
-      displayName: 'KOL Đợt Hai',
-      nickname: 'doihai',
-      bio: '',
-      category: 'Ẩm thực',
-      collabEmail: 'doihai@example.vn',
-      verifiedAt: iso(NOW - DAY),
+      kolId: 'KH900001',
+      displayName: 'Mai Anh',
+      nickname: 'x',
+      bio: 'Giới thiệu',
+      category: 'Giáo dục',
+      region: 'Hà Nội',
+      collabEmail: 'hoptac@x.vn',
+      verifiedAt: new Date(NOW - 2 * DAY).toISOString(),
+      listingStatus: 'VISIBLE',
+      totalFollowers: 10_000,
+      scale: 'micro',
+      platforms: ['tiktok', 'youtube'],
+      fields: [
+        { name: 'Giáo dục', medal: 'gold' },
+        { name: 'MC', medal: 'none' },
+      ],
     });
-    expect(k).not.toHaveProperty('region');
-    expect(k).not.toHaveProperty('private');
     expect(k.channels[0]).toEqual({
-      id: 'KOL-P2-0001-youtube-0',
-      platform: 'youtube',
-      url: 'youtube.com/@doihai',
-      handle: '@doihai',
-      followers: 12_000,
-      status: 'VERIFIED',
-      active: true,
-      badgeExpiresAt: iso(NOW + 300 * DAY),
-      verifiedAt: iso(NOW - DAY),
+      platform: 'tiktok',
+      url: 'tiktok.com/@x',
+      handle: '@x',
+      followers: 3000,
+      badge: 'VERIFIED',
+      badgeExpiresAt: new Date(NOW + DAY).toISOString(),
     });
-    expect(k.channels[1]).toMatchObject({ url: 'tiktok.com/@doihai2', followers: 0 });
-    expect(k.fields).toEqual([{ name: 'Ẩm thực', medal: 'none' }]);
-    expect(k.latestVideos).toEqual([]);
+    expect(k.latestVideos.map((v) => v.title)).toEqual(['V1', 'V2', 'V3']);
+    const json = JSON.stringify(k);
+    for (const v of ['0912345678', '1 Tràng Tiền', 'login@x.vn', 'proof', 'p.png']) expect(json).not.toContain(v);
   });
 
-  test('fromApprovedSummary: không có lĩnh vực hợp lệ → fields rỗng', () => {
-    expect(fromApprovedSummary({ ...summary, category: 'Không rõ' }).fields).toEqual([]);
-    expect(fromApprovedSummary({ ...summary, category: undefined }).fields).toEqual([]);
+  test('BR-54: null khi không có kênh tìm được; publicKolOf vẫn trả để mở hồ sơ', () => {
+    const expired = [ch({ badgeExpiresAt: NOW - 1 })];
+    expect(toPublicKol(profile(), expired, NOW)).toBeNull();
+    expect(publicKolOf(profile(), expired, NOW)).toMatchObject({ listingStatus: 'BADGE_EXPIRED', totalFollowers: 0, platforms: [] });
+    const off = [ch({ active: false })];
+    expect(toPublicKol(profile(), off, NOW)).toBeNull();
+    expect(publicKolOf(profile(), off, NOW)).toMatchObject({ listingStatus: 'INACTIVE', channels: [] });
   });
 
-  test('kênh hết hạn theo badgeExpiresAt → không tìm được; KOL vẫn VISIBLE nhờ kênh còn hạn', () => {
-    const k = fromApprovedSummary(summary);
-    expect(isSearchableChannel(k.channels[1], NOW)).toBe(false);
-    expect(listingStatus(k, NOW)).toBe('VISIBLE');
-    expect(scaleOf(totalFollowers(k, NOW))).toBe('micro');
+  test('null khi hồ sơ chưa APPROVED / chưa có KOL ID / chưa từng có kênh được duyệt', () => {
+    expect(publicKolOf(profile({ status: 'NEEDS_FIX' }), [ch()], NOW)).toBeNull();
+    expect(publicKolOf(profile({ kolId: undefined }), [ch()], NOW)).toBeNull();
+    expect(publicKolOf(profile(), [ch({ status: 'PENDING_REVIEW' })], NOW)).toBeNull();
+    expect(publicKolOf(profile(), [], NOW)).toBeNull();
   });
 
-  test('không có email hợp tác → collabEmail null', () => {
-    const { collabEmail: _omit, ...noEmail } = summary;
-    expect(fromApprovedSummary(noEmail).collabEmail).toBeNull();
+  test('không có fields → dùng category; category ngoài danh mục → bỏ; email rỗng → null', () => {
+    const p = profile();
+    p.contact.fields = undefined;
+    expect(toPublicKol(p, [ch()], NOW)!.fields).toEqual([{ name: 'Giáo dục', medal: 'none' }]);
+    Object.assign(p.contact, { category: 'Không rõ', province: 'Huế', email: ' ' });
+    const k = toPublicKol(p, [ch()], NOW)!;
+    expect(k.fields).toEqual([]);
+    expect(k).not.toHaveProperty('category');
+    expect(k).not.toHaveProperty('region');
+    expect(k.collabEmail).toBeNull();
   });
 
-  test('hook Đợt 2 chưa nối → không thêm KOL', () => expect(approvedDirectoryKols(seedState())).toEqual([]));
-
-  test('KOL Đợt 2 xuất hiện trong tìm kiếm và mở được hồ sơ', async () => {
-    const db = bizState({ directory: [...fixtureDirectory(), fromApprovedSummary(summary)] });
-    const search = createSearchService({ db, now: () => NOW, delay: false });
-    expect((await search.search({ keyword: 'KOL-P2-0001' })).items).toMatchObject([
-      { kolId: 'KOL-P2-0001', platforms: ['youtube'], scale: 'micro' },
-    ]);
-    const p = await search.getKolPublicProfile('KOL-P2-0001');
-    expect(p).toMatchObject({ collabEmail: 'doihai@example.vn', category: 'Ẩm thực' });
-    expect(p.region).toBeUndefined();
-    expect((await search.search({ keyword: 'tiktok.com/@doihai2' })).total).toBe(0);
-  });
-
-  test('readDirectory nối thêm extra; trùng kolId với danh bạ mẫu → giữ bản mẫu', () => {
-    const state = seedState();
-    expect(readDirectory(state)).toHaveLength(40);
-    const dup = fromApprovedSummary({ ...summary, kolId: 'KOL-2026-0001', displayName: 'Khác' });
-    const out = readDirectory(state, [fromApprovedSummary(summary), dup]);
-    expect(out).toHaveLength(41);
-    expect(out.filter((k) => k.kolId === 'KOL-2026-0001').map((k) => k.displayName)).toEqual(['Khánh Vy']);
+  test('seed: 40 KOL công khai, 35 tìm được, Khánh Vy là KOL-2026-0001', () => {
+    const s = seedState();
+    const t = Date.now();
+    expect(listPublicKols(s, t)).toHaveLength(40);
+    expect(s.kolProfiles.filter((p) => toPublicKol(p, s.channels, t))).toHaveLength(35);
+    expect(findPublicKol(s, 'KOL-2026-0001', t)).toMatchObject({ displayName: 'Khánh Vy', nickname: 'khanhvy' });
+    expect(findPublicKol(s, 'KOL-2026-9999', t)).toBeNull();
   });
 });

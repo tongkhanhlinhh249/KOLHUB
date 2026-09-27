@@ -61,6 +61,9 @@ export type { ChannelFilter } from './mock/channelRules';
 export type { Completeness, Milestone, ChecklistItem, TimelineStep } from './mock/profileRules';
 export { detectPlatform, validateProofImage, validateGcnFile, countByFilter, matchesFilter } from './mock/channelRules';
 export { buildTimeline, PLEDGES_LABEL, REVIEW_SLA_NOTE } from './mock/profileRules';
-export { listApprovedKols } from './mock/review';
 export { FUNNEL_STEPS, formatDuration } from './mock/funnel';
+// --- unified KOL data (seed v2) ---
+export { toPublicKol, publicKolOf } from './mock/directory';
+export type { PublicKol } from './mock/directory';
+export { syncChannelStats } from './mock/socialListening';
 export { COUNTED_CODES, MAX_EKYC_ATTEMPTS } from './mock/ekyc';

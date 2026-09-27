@@ -158,6 +158,6 @@ describe('sweepExpired', () => {
     s.channels.push(channel(h.kolId, { id: 'a', status: 'VERIFIED', badgeExpiresAt: 5000 }));
     s.channels.push(channel(h.kolId, { id: 'b', status: 'VERIFIED', badgeExpiresAt: 5001 }));
     sweepExpired(s, 5000);
-    expect(s.channels.map((c) => c.status)).toEqual(['EXPIRED', 'VERIFIED']);
+    expect(s.channels.filter((c) => c.ownerId === h.kolId).map((c) => c.status)).toEqual(['EXPIRED', 'VERIFIED']);
   });
 });

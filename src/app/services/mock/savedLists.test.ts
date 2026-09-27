@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from 'vitest';
 import type { Db } from './db';
 import { createSavedListService, normalizeListName } from './savedLists';
-import { bizState, DAY, iso, NOW, switchSession } from './testing/bizFixtures';
+import { bizState, DAY, iso, kolChannels, NOW, switchSession } from './testing/bizFixtures';
 
 let clock: number;
 let db: Db;
@@ -79,10 +79,10 @@ test('BR-62: KOL mất dấu / ngừng hoạt động sau khi lưu vẫn ở tro
   await svc.setMembership('KOL-T-0001', [a.id]);
   await svc.setMembership('KOL-T-0002', [a.id]);
   db.update((s) => {
-    s.directory.find((k) => k.kolId === 'KOL-T-0001')!.channels.forEach((c) => {
-      c.badgeExpiresAt = iso(NOW - 1);
+    kolChannels(s, 'KOL-T-0001').forEach((c) => {
+      c.badgeExpiresAt = NOW - 1;
     });
-    s.directory.find((k) => k.kolId === 'KOL-T-0002')!.channels.forEach((c) => {
+    kolChannels(s, 'KOL-T-0002').forEach((c) => {
       c.active = false;
     });
   });
@@ -123,8 +123,8 @@ test('KOL đã lưu rồi mất dấu vẫn bỏ chọn / đổi danh sách đư
   const b = await svc.createList('B');
   await svc.setMembership('KOL-T-0001', [a.id]);
   db.update((s) => {
-    s.directory.find((k) => k.kolId === 'KOL-T-0001')!.channels.forEach((c) => {
-      c.badgeExpiresAt = iso(NOW - 1);
+    kolChannels(s, 'KOL-T-0001').forEach((c) => {
+      c.badgeExpiresAt = NOW - 1;
     });
   });
   await expect(svc.setMembership('KOL-T-0001', [b.id])).resolves.toEqual({ added: 1, removed: 1 });
@@ -135,7 +135,7 @@ test('KOL biến mất khỏi danh bạ → dòng UNAVAILABLE, không bị xoá'
   const a = await svc.createList('A');
   await svc.setMembership('KOL-T-0003', [a.id]);
   db.update((s) => {
-    s.directory = s.directory.filter((k) => k.kolId !== 'KOL-T-0003');
+    s.kolProfiles = s.kolProfiles.filter((k) => k.kolId !== 'KOL-T-0003');
   });
   const [row] = (await svc.getList(a.id)).rows;
   expect(row).toMatchObject({ kolId: 'KOL-T-0003', displayName: 'KOL-T-0003', platforms: [], status: 'UNAVAILABLE' });
@@ -189,8 +189,8 @@ test('BR-62: hoàn tác bỏ KOL đã mất dấu (không ở danh sách nào kh
   const removed = await svc.removeFromList(a.id, 'KOL-T-0001');
   expect(removed).toEqual({ listId: a.id, index: 1, item: { kolId: 'KOL-T-0001', note: 'Gọi lại thứ Hai', addedAt: iso(NOW + DAY) } });
   db.update((s) => {
-    s.directory.find((k) => k.kolId === 'KOL-T-0001')!.channels.forEach((c) => {
-      c.badgeExpiresAt = iso(NOW - 1);
+    kolChannels(s, 'KOL-T-0001').forEach((c) => {
+      c.badgeExpiresAt = NOW - 1;
     });
   });
   // Re-saving through the normal flow is still blocked for a KOL no longer visible.

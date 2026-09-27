@@ -1,21 +1,19 @@
+// Sample KOLs as fully registered, approved KOL accounts (profile + identity + verified channels with stats).
 import { creators } from '../../data/creators';
-import type {
-  DirectoryChannel,
-  DirectoryKol,
-  FieldMedal,
-  KolCategory,
-  KolField,
-  KolVideo,
-  KolRegion,
-  Platform,
-  SavedList,
-} from '../bizTypes';
+import type { ActivityField, FieldMedal, KolCategory, KolRegion, LatestVideo, Platform, SavedList } from '../bizTypes';
+import type { Channel, IdentityRecord, KolProfile, StoredFile } from '../profile-types';
 import type { StoredAccount } from './db';
-import { normalizeText } from './directory';
+import { channelBadge, normalizeText } from './directory';
+import { maskIdNo, normalizeName } from './profileRules';
+import { IMAGE_POOL, VIDEO_TITLES, videoUrl } from './socialListening';
 
 const DAY = 86_400_000;
 const iso = (ms: number) => new Date(ms).toISOString();
 const pad = (n: number, w: number) => String(n).padStart(w, '0');
+
+export const SEED_KOL_COUNT = 40;
+/** Login of the approved sample KOL "Khánh Vy" (KOL-2026-0001). */
+export const VERIFIED_KOL_EMAIL = 'khanhvy@demo.kolhub.vn';
 
 /** "1.2M" → 1 200 000, "890K" → 890 000, "4500" → 4 500. */
 export function parseFollowers(s: string): number {
@@ -95,8 +93,8 @@ function toMedal(m: string | undefined): FieldMedal {
 }
 
 /** 1–3 fields; the first is always the primary category (used by filters). */
-function buildFields(category: KolCategory, rest: { name: string; medal?: string }[], primaryMedal: FieldMedal): KolField[] {
-  const out: KolField[] = [{ name: category, medal: primaryMedal }];
+function buildFields(category: KolCategory, rest: { name: string; medal?: string }[], primaryMedal: FieldMedal): ActivityField[] {
+  const out: ActivityField[] = [{ name: category, medal: primaryMedal }];
   const seen = new Set([normalizeText(category)]);
   for (const f of rest) {
     if (out.length >= 3) break;
@@ -108,56 +106,57 @@ function buildFields(category: KolCategory, rest: { name: string; medal?: string
   return out;
 }
 
-/** Every distinct content image of creators.ts, used as thumbnails for generated KOLs. */
-const IMAGE_POOL: string[] = [...new Set(creators.flatMap((c) => c.contentImages as string[]))];
-
-const VIDEO_TITLES = ['Hậu trường buổi quay mới nhất', 'Chia sẻ kinh nghiệm thực tế', 'Review chân thật', 'Một ngày của mình', 'Hỏi đáp cùng người theo dõi', 'Thử thách tuần này'];
-
-function videoUrl(platform: Platform, channel: string, n: number): string {
-  if (platform === 'youtube') return `https://youtube.com/watch?v=${channel}${n}`;
-  if (platform === 'tiktok') return `https://${channel}/video/${n}`;
-  return `https://${channel}/videos/${n}`;
-}
-
-/** Newest-first videos, platforms rotated over the KOL's verified + active channels only (never Instagram, BR-20). */
-function buildVideos(images: string[], channels: DirectoryChannel[], now: number, seed: number): KolVideo[] {
-  const ok = channels.filter(
-    (c) => c.status === 'VERIFIED' && c.active && !!c.badgeExpiresAt && Date.parse(c.badgeExpiresAt) > now,
-  );
-  if (ok.length === 0) return [];
-  return images.map((thumbnail, n) => {
-    const ch = ok[n % ok.length];
-    return {
-      platform: ch.platform,
-      thumbnail,
-      url: videoUrl(ch.platform, ch.url, n + 1),
-      title: VIDEO_TITLES[(seed + n) % VIDEO_TITLES.length],
-      publishedAt: iso(now - (n * 3 + 1 + (seed % 3)) * DAY),
-    };
-  });
-}
-
 function channelUrl(platform: Platform, nick: string): string {
   if (platform === 'facebook') return `facebook.com/${nick}`;
   if (platform === 'youtube') return `youtube.com/@${nick}`;
   return `tiktok.com/@${nick}`;
 }
 
-/** Sample KOL directory: 40 KOLs, 35 searchable (see plan Task 1 Step 4). */
-export function seedDirectory(now: number): DirectoryKol[] {
-  const out: DirectoryKol[] = [];
+/** Newest-first videos, rotated over the KOL's verified + active channels only (never Instagram, BR-20). */
+function assignVideos(images: string[], channels: Channel[], now: number, seed: number): void {
+  const ok = channels.filter((c) => c.active && channelBadge(c, now) === 'VERIFIED');
+  if (ok.length === 0) return;
+  images.forEach((thumbnail, n) => {
+    const ch = ok[n % ok.length];
+    const video: LatestVideo = {
+      platform: ch.platform,
+      thumbnail,
+      url: videoUrl(ch.platform, ch.url, n + 1),
+      title: VIDEO_TITLES[(seed + n) % VIDEO_TITLES.length],
+      publishedAt: iso(now - (n * 3 + 1 + (seed % 3)) * DAY),
+    };
+    ch.stats!.latestVideos.push(video);
+  });
+}
 
-  for (let i = 1; i <= 40; i++) {
+const PROOF: StoredFile = { name: 'anh-kenh.png', type: 'image/png', size: 120_000 };
+
+export interface SeededKols {
+  accounts: StoredAccount[];
+  kolProfiles: KolProfile[];
+  identities: IdentityRecord[];
+  channels: Channel[];
+}
+
+/**
+ * 40 approved sample KOLs (KOL-2026-0001…0040), 35 searchable: 0036–0037 have every channel
+ * turned off (INACTIVE), 0038–0039 have EXPIRED channels, 0040's badges expired by date.
+ * 0002 has an EXPIRED Facebook channel and 0003 an inactive TikTok channel.
+ */
+export function seedKols(now: number, password: string): SeededKols {
+  const out: SeededKols = { accounts: [], kolProfiles: [], identities: [], channels: [] };
+
+  for (let i = 1; i <= SEED_KOL_COUNT; i++) {
     const kolId = 'KOL-2026-' + pad(i, 4);
-    const verifiedMs = now - (((i * 7) % 40) + 1) * DAY;
+    const accountId = 'acc-kol-2026-' + pad(i, 4);
+    let verifiedMs = now - (((i * 7) % 40) + 1) * DAY;
     let displayName: string;
     let nickname: string;
     let bio: string;
     let avatar: string | undefined;
     let category: KolCategory;
     let region: KolRegion;
-    let bookingPrice: string | undefined;
-    let fields: KolField[];
+    let fields: ActivityField[];
     let images: string[];
     let specs: { platform: Platform; url: string; followers: number }[];
 
@@ -169,7 +168,6 @@ export function seedDirectory(now: number): DirectoryKol[] {
       avatar = c.profileImage;
       category = CREATOR_CATEGORIES[i - 1];
       region = c.location as KolRegion;
-      bookingPrice = c.averageBookingPrice;
       const cats = c.categories as { name: string; medal: string }[];
       fields = buildFields(category, cats.slice(1), toMedal(cats[0]?.medal));
       // Own content images first, then two from the shared pool for a fuller "Video mới nhất" grid.
@@ -178,11 +176,7 @@ export function seedDirectory(now: number): DirectoryKol[] {
       const links = c.socialLinks as Record<string, string>;
       specs = c.stats
         .filter((s) => s.platform !== 'instagram')
-        .map((s) => ({
-          platform: s.platform as Platform,
-          url: links[s.platform],
-          followers: parseFollowers(s.followers),
-        }));
+        .map((s) => ({ platform: s.platform as Platform, url: links[s.platform], followers: parseFollowers(s.followers) }));
     } else {
       const j = i - 11;
       const [name, cat, reg] = GENERATED[j];
@@ -192,7 +186,7 @@ export function seedDirectory(now: number): DirectoryKol[] {
       category = cat;
       region = reg;
       const base = BASES[j % 6];
-      const extra = (SECONDARY_FIELDS[cat] ?? []).slice(0, j % 3).map((name, k) => ({ name, medal: k === 0 ? 'silver' : 'none' }));
+      const extra = (SECONDARY_FIELDS[cat] ?? []).slice(0, j % 3).map((n, k) => ({ name: n, medal: k === 0 ? 'silver' : 'none' }));
       fields = buildFields(cat, extra, j % 6 >= 4 ? 'gold' : j % 6 >= 2 ? 'silver' : 'none');
       const count = [3, 2, 0, 4, 6][j % 5];
       images = Array.from({ length: count }, (_, n) => IMAGE_POOL[(j * 3 + n) % IMAGE_POOL.length]);
@@ -203,73 +197,94 @@ export function seedDirectory(now: number): DirectoryKol[] {
       }));
     }
 
-    let kolVerifiedAt = iso(verifiedMs);
-    const channels: DirectoryChannel[] = specs.map((s) => ({
+    if (i === 38 || i === 39) verifiedMs = now - 400 * DAY;
+    if (i === 40) verifiedMs = now - 366 * DAY;
+
+    const channels: Channel[] = specs.map((s) => ({
       id: `${kolId}-${s.platform}`,
+      ownerType: 'KOL',
+      ownerId: accountId,
       platform: s.platform,
       url: s.url,
       handle: '@' + nickname,
-      followers: s.followers,
+      proofImage: PROOF,
       status: 'VERIFIED',
       active: true,
-      badgeExpiresAt: iso(verifiedMs + 365 * DAY),
-      verifiedAt: kolVerifiedAt,
+      verifiedAt: verifiedMs,
+      badgeExpiresAt: verifiedMs + 365 * DAY,
+      stats: { followers: s.followers, latestVideos: [], syncedAt: verifiedMs },
+      createdAt: verifiedMs - 3 * DAY,
+      updatedAt: verifiedMs,
     }));
 
     // Exceptions that exercise BR-54 / BR-62.
     if (i === 2) {
       for (const ch of channels.filter((c) => c.platform === 'facebook')) {
         ch.status = 'EXPIRED';
-        ch.badgeExpiresAt = iso(now - 20 * DAY);
+        ch.badgeExpiresAt = now - 20 * DAY;
       }
     }
-    if (i === 3) {
-      for (const ch of channels.filter((c) => c.platform === 'tiktok')) ch.active = false;
-    }
-    if (i === 36 || i === 37) {
-      for (const ch of channels) ch.active = false;
-    }
+    if (i === 3) for (const ch of channels.filter((c) => c.platform === 'tiktok')) ch.active = false;
+    if (i === 36 || i === 37) for (const ch of channels) ch.active = false;
     if (i === 38 || i === 39) {
-      kolVerifiedAt = iso(now - 400 * DAY);
       for (const ch of channels) {
         ch.status = 'EXPIRED';
-        ch.verifiedAt = kolVerifiedAt;
-        ch.badgeExpiresAt = iso(now - 35 * DAY);
+        ch.badgeExpiresAt = now - 35 * DAY;
       }
     }
-    if (i === 40) {
-      kolVerifiedAt = iso(now - 366 * DAY);
-      for (const ch of channels) {
-        ch.status = 'VERIFIED';
-        ch.verifiedAt = kolVerifiedAt;
-        ch.badgeExpiresAt = iso(now - DAY);
-      }
-    }
+    if (i === 40) for (const ch of channels) ch.badgeExpiresAt = now - DAY; // still VERIFIED, expired by date
+    assignVideos(images, channels, now, i);
 
     const phone = '0909' + pad(i, 6);
-    const latestVideos = buildVideos(images, channels, now, i);
-    out.push({
-      kolId,
-      displayName,
-      nickname,
-      ...(avatar ? { avatar } : {}),
-      bio,
-      category,
-      fields,
-      latestVideos,
-      region,
-      collabEmail: `hoptac.${nickname}@kolhub-demo.vn`,
-      verifiedAt: kolVerifiedAt,
-      channels,
-      private: {
-        phone,
-        address: `Số ${i} Đường Demo, ${region}`,
-        zalo: phone,
-        idNoMasked: '0010******' + pad(i, 2),
-        violations: 0,
-        bookingPrice: bookingPrice ?? '50,000,000 VNĐ',
-      },
+    const createdMs = verifiedMs - 7 * DAY;
+    out.accounts.push({
+      id: accountId,
+      type: 'KOL',
+      email: i === 1 ? VERIFIED_KOL_EMAIL : `${nickname}@kol.demo.kolhub.vn`,
+      phone,
+      createdAt: iso(createdMs),
+      password,
     });
+    out.kolProfiles.push({
+      accountId,
+      ownerType: 'KOL',
+      kolId,
+      ekycStatus: 'PASSED',
+      status: 'APPROVED',
+      contact: {
+        displayName,
+        phone,
+        email: `hoptac.${nickname}@kolhub-demo.vn`,
+        zalo: phone,
+        country: 'Việt Nam',
+        province: region,
+        address: `Số ${i} Đường Demo, ${region}`,
+        category,
+        bio,
+        fields,
+      },
+      staff: {
+        staffName: `Quản lý ${displayName}`,
+        staffPhone: '0908' + pad(i, 6),
+        staffEmail: `quanly.${nickname}@kolhub-demo.vn`,
+      },
+      ...(avatar ? { avatar: { name: `${nickname}.jpg`, type: 'image/jpeg', size: 0, thumbnail: avatar } } : {}),
+      submittedAt: verifiedMs - 2 * DAY,
+      decidedAt: verifiedMs,
+      approvedAt: verifiedMs,
+      createdAt: createdMs,
+      updatedAt: verifiedMs,
+    });
+    out.identities.push({
+      accountId,
+      fullName: normalizeName(displayName),
+      dob: `${pad((i % 28) + 1, 2)}/0${(i % 9) + 1}/199${i % 10}`,
+      idNoMasked: maskIdNo('0010960000' + pad(i, 2)),
+      issueDate: '10/08/2021',
+      ekycSessionId: `ekyc-seed-${pad(i, 4)}`,
+      verifiedAt: createdMs + DAY,
+    });
+    out.channels.push(...channels);
   }
   return out;
 }
@@ -286,11 +301,7 @@ export function seedSavedLists(accounts: StoredAccount[], now: number): SavedLis
       name: 'Chiến dịch Tết 2027',
       createdAt: iso(now - 10 * DAY),
       updatedAt: iso(now - 2 * DAY),
-      items: [
-        item('KOL-2026-0001', 4, 'Ưu tiên liên hệ tháng 11'),
-        item('KOL-2026-0005', 3),
-        item('KOL-2026-0038', 2),
-      ],
+      items: [item('KOL-2026-0001', 4, 'Ưu tiên liên hệ tháng 11'), item('KOL-2026-0005', 3), item('KOL-2026-0038', 2)],
     },
     {
       id: 'list-seed-2',

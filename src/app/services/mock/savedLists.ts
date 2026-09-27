@@ -1,7 +1,5 @@
 import type {
-  DirectoryKol,
   ListMembership,
-  Platform,
   SavedList,
   SavedListDetail,
   SavedListItem,
@@ -12,7 +10,7 @@ import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
-import { listingStatus, readDirectory, searchableChannels } from './directory';
+import { findPublicKol, listPublicKols } from './directory';
 
 export const LIST_NAME_MAX = 100;
 export const NOTE_MAX = 500;
@@ -42,12 +40,6 @@ export interface SavedListServiceDeps {
 
 function summary(l: SavedList): SavedListSummary {
   return { id: l.id, name: l.name, count: l.items.length, updatedAt: l.updatedAt };
-}
-
-function platformsOf(k: DirectoryKol, now: number): Platform[] {
-  const out: Platform[] = [];
-  for (const c of searchableChannels(k, now)) if (!out.includes(c.platform)) out.push(c.platform);
-  return out;
 }
 
 /** Mock saved lists of the signed-in Brand/Agency account (FR-17, BR-59..62). */
@@ -129,7 +121,7 @@ export function createSavedListService(deps: SavedListServiceDeps) {
     const state = db.read();
     const list = ownList(state, listId);
     const t = now();
-    const dir = readDirectory(state);
+    const dir = listPublicKols(state, t);
     const rows: SavedListRow[] = list.items
       .map((it) => {
         const k = dir.find((x) => x.kolId === it.kolId);
@@ -139,8 +131,8 @@ export function createSavedListService(deps: SavedListServiceDeps) {
         const row: SavedListRow = {
           kolId: k.kolId,
           displayName: k.displayName,
-          platforms: platformsOf(k, t),
-          status: listingStatus(k, t),
+          platforms: [...k.platforms],
+          status: k.listingStatus,
           note: it.note,
           addedAt: it.addedAt,
         };
@@ -172,8 +164,8 @@ export function createSavedListService(deps: SavedListServiceDeps) {
     const alreadySaved = lists.some((l) => l.items.some((i) => i.kolId === kolId));
     if (!alreadySaved) {
       // Only KOLs currently visible in search can be saved; once saved they may stay (BR-62).
-      const k = readDirectory(state).find((x) => x.kolId === kolId);
-      if (!k || listingStatus(k, now()) !== 'VISIBLE') throw new KolhubError('KOLHUB-4404');
+      const k = findPublicKol(state, kolId, now());
+      if (!k || k.listingStatus !== 'VISIBLE') throw new KolhubError('KOLHUB-4404');
     }
 
     const want = new Set(listIds);

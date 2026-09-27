@@ -16,7 +16,17 @@ test('KOL được duyệt ở Đợt 2 xuất hiện trong tìm kiếm của Nh
 
   h.db.update((s) => {
     const p = findProfile(s, h.kolId) as KolProfile;
-    Object.assign(p.contact, { displayName: 'Mai Anh Test', province: 'Hà Nội', address: '1 Tràng Tiền', category: 'Giáo dục' });
+    Object.assign(p.contact, {
+      displayName: 'Mai Anh Test',
+      province: 'Hà Nội',
+      address: '1 Tràng Tiền',
+      category: 'Giáo dục',
+      bio: 'Chia sẻ mẹo học tiếng Anh mỗi ngày',
+      fields: [
+        { name: 'Giáo dục', medal: 'none' },
+        { name: 'Lifestyle', medal: 'none' },
+      ],
+    });
     p.staff = { staffName: 'Lan', staffPhone: '0987654321', staffEmail: '' };
     p.ekycStatus = 'PASSED';
     s.identities.push({ accountId: h.kolId, fullName: 'MAI ANH TEST', dob: '01/01/1996', idNoMasked: '079*******45', issueDate: '10/08/2021', ekycSessionId: 'x', verifiedAt: h.clock.t });
@@ -30,10 +40,30 @@ test('KOL được duyệt ở Đợt 2 xuất hiện trong tìm kiếm của Nh
 
   const found = await search.search({ keyword: 'Mai Anh Test' });
   expect(found.items.map((k) => k.displayName)).toContain('Mai Anh Test');
+  // Same projection as the seeded KOLs: bio / fields from the profile, followers / videos from Channel.stats.
+  const item = found.items.find((k) => k.displayName === 'Mai Anh Test')!;
+  const stats = h.db.read().channels.find((c) => c.id === 'c1')!.stats!;
+  expect(item).toMatchObject({
+    nickname: 'maianhtest',
+    bio: 'Chia sẻ mẹo học tiếng Anh mỗi ngày',
+    category: 'Giáo dục',
+    region: 'Hà Nội',
+    fields: [
+      { name: 'Giáo dục', medal: 'none' },
+      { name: 'Lifestyle', medal: 'none' },
+    ],
+    platforms: ['tiktok'],
+    totalFollowers: stats.followers,
+    channels: [{ platform: 'tiktok', followers: stats.followers, badge: 'VERIFIED' }],
+  });
+  expect(item.latestVideos).toEqual(stats.latestVideos.slice(0, 2));
+  expect((await search.search({ category: 'Giáo dục', keyword: 'tiktok.com/@maianhtest' })).items.map((k) => k.kolId)).toEqual([item.kolId]);
 
   // Collaboration email is always shown (spec §6); phone/address/Zalo never are (BR-58).
   const kolId = found.items.find((k) => k.displayName === 'Mai Anh Test')!.kolId;
   const profile = await search.getKolPublicProfile(kolId);
+  expect(profile.latestVideos).toEqual(stats.latestVideos.slice(0, 6));
+  expect(profile.bio).toBe('Chia sẻ mẹo học tiếng Anh mỗi ngày');
   const contact = (findProfile(h.db.read(), h.kolId) as KolProfile).contact;
   expect(contact.email).not.toBe('');
   expect(profile.collabEmail).toBe(contact.email);

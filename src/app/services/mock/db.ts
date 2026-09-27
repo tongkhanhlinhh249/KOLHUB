@@ -1,7 +1,7 @@
 import type { Account, AccountType, OtpChannel, OtpPurpose } from '../types';
 import { seedState } from './seed';
 // --- phase 3 ---
-import type { DirectoryKol, SavedList } from '../bizTypes';
+import type { SavedList } from '../bizTypes';
 // --- phase 2 ---
 import type {
   ChangeRequest,
@@ -43,15 +43,17 @@ export interface PendingRegistration {
   createdAt: number;
 }
 
+/** Bump when the stored shape changes incompatibly; any other stored version is replaced by the seed. */
+export const DB_VERSION = 2;
+
 export interface DemoState {
-  version: 1;
+  version: 2;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
   loginFails: Record<string, { count: number; lockedUntil?: number }>;
   sessionAccountId: string | null;
   // --- phase 3 ---
-  directory: DirectoryKol[];
   savedLists: SavedList[];
   // --- phase 2 ---
   kolProfiles: KolProfile[];
@@ -77,7 +79,7 @@ function isValidState(v: unknown): v is DemoState {
   if (!v || typeof v !== 'object') return false;
   const s = v as Partial<DemoState>;
   return (
-    s.version === 1 &&
+    s.version === DB_VERSION &&
     Array.isArray(s.accounts) &&
     Array.isArray(s.otps) &&
     Array.isArray(s.registrations) &&
@@ -89,7 +91,8 @@ function isValidState(v: unknown): v is DemoState {
 
 /**
  * Demo data store persisted to storage under DB_KEY. Falls back to memory when
- * storage is null or throws; corrupt / wrong-version data is replaced by the seed.
+ * storage is null or throws; corrupt data or any version other than DB_VERSION (e.g. v1 with
+ * `directory`) is replaced by the seed.
  */
 export function createDb(storage: DemoStorage | null, seed: () => DemoState): Db {
   function load(): DemoState {
@@ -132,21 +135,12 @@ export function createDb(storage: DemoStorage | null, seed: () => DemoState): Db
 }
 
 // --- phase 3 ---
-/** Data saved by an earlier build may lack keys added later: fill them from the seed (version unchanged). */
+/** v2 data saved by an earlier build may lack keys added later: fill them from the seed (version unchanged). */
 function backfillMissingKeys(parsed: DemoState, seed: () => DemoState): DemoState {
   const fresh = seed() as unknown as Record<string, unknown>;
   const target = parsed as unknown as Record<string, unknown>;
   for (const key of Object.keys(fresh)) {
     if (!(key in target)) target[key] = fresh[key];
-  }
-  // Directory entries saved before "Lĩnh vực hoạt động" / "Video mới nhất" existed: fill those two keys by kolId.
-  if (Array.isArray(parsed.directory)) {
-    const seeded = new Map(((fresh.directory as DirectoryKol[] | undefined) ?? []).map((k) => [k.kolId, k]));
-    for (const k of parsed.directory as Partial<DirectoryKol>[]) {
-      const src = k.kolId ? seeded.get(k.kolId) : undefined;
-      if (!('fields' in k)) k.fields = src?.fields ?? (k.category ? [{ name: k.category, medal: 'none' }] : []);
-      if (!('latestVideos' in k)) k.latestVideos = src?.latestVideos ?? [];
-    }
   }
   return parsed;
 }
