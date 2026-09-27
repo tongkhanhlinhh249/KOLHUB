@@ -1,10 +1,11 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useMemo, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
-import { Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
 import { Skeleton } from '../components/ui/skeleton';
@@ -352,6 +353,77 @@ function VerifiedChannelItem({ c }: { c: AdminQueue['verifiedChannels'][number] 
   );
 }
 
+const CHANNEL_PREVIEW = 10;
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+
+/**
+ * "Kênh có dấu" — includes ~90 seeded channels, so it is collapsed by default, searchable by KOL name
+ * or handle, and lists at most CHANNEL_PREVIEW rows until "Xem tất cả".
+ */
+function VerifiedChannels({ channels }: { channels: AdminQueue['verifiedChannels'] }) {
+  const [open, setOpen] = useState(false);
+  const [all, setAll] = useState(false);
+  const [query, setQuery] = useState('');
+  const listId = useId();
+  const matches = useMemo(() => {
+    const q = fold(query);
+    return q ? channels.filter((c) => fold(`${c.displayName} ${c.handle}`).includes(q)) : channels;
+  }, [channels, query]);
+  const shown = all ? matches : matches.slice(0, CHANNEL_PREVIEW);
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        onClick={() => setOpen((o) => !o)}
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-8"
+      >
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Kênh có dấu <span className="font-normal normal-case">({channels.length})</span>
+        </span>
+        <ChevronDown className={`size-4 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+      </button>
+      {open && (
+        <div id={listId} className="space-y-2">
+          {channels.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Không có mục nào</p>
+          ) : (
+            <>
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <Input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Tìm theo tên KOL hoặc tên kênh"
+                  aria-label="Tìm kênh có dấu"
+                  className="h-11 pl-9 md:h-9"
+                />
+              </div>
+              {matches.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Không tìm thấy kênh phù hợp</p>
+              ) : (
+                <div className="space-y-2">
+                  {shown.map((c) => (
+                    <VerifiedChannelItem key={c.id} c={c} />
+                  ))}
+                </div>
+              )}
+              {matches.length > CHANNEL_PREVIEW && (
+                <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setAll((a) => !a)}>
+                  {all ? 'Thu gọn' : `Xem tất cả (${matches.length})`}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Demo Panel block "Giả lập Admin": review profiles, channels, changes and eKYC cases. */
 export function AdminSimulator() {
   const q = useLiveQuery(() => reviewService.listAdminQueue(), []);
@@ -387,13 +459,7 @@ export function AdminSimulator() {
               ))}
             </div>
           </Group>
-          <Group title="Kênh có dấu" empty={!data.verifiedChannels.length}>
-            <div className="space-y-2">
-              {data.verifiedChannels.map((c) => (
-                <VerifiedChannelItem key={c.id} c={c} />
-              ))}
-            </div>
-          </Group>
+          <VerifiedChannels channels={data.verifiedChannels} />
         </div>
       )}
     </DemoPanelSection>
