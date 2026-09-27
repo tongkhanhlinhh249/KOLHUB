@@ -1,6 +1,7 @@
-node_modules/
+node_modules
 dist/
 .vite/
 .DS_Store
 *.log
 package.json.bak
+.claude/worktrees/
