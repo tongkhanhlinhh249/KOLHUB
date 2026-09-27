@@ -31,6 +31,17 @@ test('KOL được duyệt ở Đợt 2 xuất hiện trong tìm kiếm của Nh
   const found = await search.search({ keyword: 'Mai Anh Test' });
   expect(found.items.map((k) => k.displayName)).toContain('Mai Anh Test');
 
+  // Collaboration email is always shown (spec §6); phone/address/Zalo never are (BR-58).
+  const kolId = found.items.find((k) => k.displayName === 'Mai Anh Test')!.kolId;
+  const profile = await search.getKolPublicProfile(kolId);
+  const contact = (findProfile(h.db.read(), h.kolId) as KolProfile).contact;
+  expect(contact.email).not.toBe('');
+  expect(profile.collabEmail).toBe(contact.email);
+  const json = JSON.stringify(profile);
+  expect(json).not.toContain('1 Tràng Tiền');
+  if (contact.phone) expect(json).not.toContain(contact.phone);
+  if (contact.zalo) expect(json).not.toContain(contact.zalo);
+
   h.clock.t += 366 * 86_400_000;
   const later = await search.search({ keyword: 'Mai Anh Test' });
   expect(later.items.map((k) => k.displayName)).not.toContain('Mai Anh Test');

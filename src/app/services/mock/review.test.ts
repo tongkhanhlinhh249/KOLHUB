@@ -219,6 +219,7 @@ describe('listApprovedKols', () => {
         avatar: undefined,
         category: 'Giáo dục',
         region: 'Hà Nội',
+        collabEmail: 'kol@demo.kolhub.vn',
         verifiedAt: new Date(h.clock.t).toISOString(),
         channels: [
           {

@@ -88,6 +88,7 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
     displayName: 'KOL Đợt Hai',
     category: 'Ẩm thực',
     region: 'Miền Tây',
+    collabEmail: 'doihai@example.vn',
     channels: [
       { platform: 'youtube', url: 'https://www.youtube.com/@doihai', followers: 12_000, badgeExpiresAt: iso(NOW + 300 * DAY) },
       { platform: 'tiktok', url: 'tiktok.com/@doihai2/', badgeExpiresAt: iso(NOW - DAY) },
@@ -95,7 +96,7 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
     verifiedAt: iso(NOW - DAY),
   };
 
-  test('fromApprovedSummary ánh xạ đúng; khu vực ngoài danh mục bị bỏ; không có email/private', () => {
+  test('fromApprovedSummary ánh xạ đúng; khu vực ngoài danh mục bị bỏ; có email hợp tác, không private', () => {
     const k = fromApprovedSummary(summary);
     expect(k).toMatchObject({
       kolId: 'KOL-P2-0001',
@@ -103,7 +104,7 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
       nickname: 'doihai',
       bio: '',
       category: 'Ẩm thực',
-      collabEmail: null,
+      collabEmail: 'doihai@example.vn',
       verifiedAt: iso(NOW - DAY),
     });
     expect(k).not.toHaveProperty('region');
@@ -129,6 +130,11 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
     expect(scaleOf(totalFollowers(k, NOW))).toBe('micro');
   });
 
+  test('không có email hợp tác → collabEmail null', () => {
+    const { collabEmail: _omit, ...noEmail } = summary;
+    expect(fromApprovedSummary(noEmail).collabEmail).toBeNull();
+  });
+
   test('hook Đợt 2 chưa nối → không thêm KOL', () => expect(approvedDirectoryKols(seedState())).toEqual([]));
 
   test('KOL Đợt 2 xuất hiện trong tìm kiếm và mở được hồ sơ', async () => {
@@ -138,7 +144,7 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
       { kolId: 'KOL-P2-0001', platforms: ['youtube'], scale: 'micro' },
     ]);
     const p = await search.getKolPublicProfile('KOL-P2-0001');
-    expect(p).toMatchObject({ collabEmail: null, category: 'Ẩm thực' });
+    expect(p).toMatchObject({ collabEmail: 'doihai@example.vn', category: 'Ẩm thực' });
     expect(p.region).toBeUndefined();
     expect((await search.search({ keyword: 'tiktok.com/@doihai2' })).total).toBe(0);
   });

@@ -74,7 +74,7 @@ function handleFromUrl(url: string): string {
   return last.replace(/^@/, '');
 }
 
-/** Map a KOL approved in phase 2 to a directory entry (no collab email, no private data). */
+/** Map a KOL approved in phase 2 to a directory entry (collab email always shown; no private data, BR-58). */
 export function fromApprovedSummary(s: ApprovedKolSummary): DirectoryKol {
   const nickname = s.channels[0] ? handleFromUrl(s.channels[0].url) : '';
   const category = (KOL_CATEGORIES as readonly string[]).includes(s.category ?? '')
@@ -89,7 +89,7 @@ export function fromApprovedSummary(s: ApprovedKolSummary): DirectoryKol {
     bio: '',
     ...(category ? { category } : {}),
     ...(region ? { region } : {}),
-    collabEmail: null,
+    collabEmail: s.collabEmail ?? null,
     verifiedAt: s.verifiedAt,
     channels: s.channels.map((c, i) => {
       const handle = handleFromUrl(c.url);

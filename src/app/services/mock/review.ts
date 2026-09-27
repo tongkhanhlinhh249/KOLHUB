@@ -60,6 +60,7 @@ export function listApprovedKols(state: DemoState, now: number = Date.now()): Ap
       avatar: p.avatar?.thumbnail,
       category: emptyToUndef(p.contact.category),
       region: emptyToUndef(p.contact.province),
+      collabEmail: emptyToUndef(p.contact.email.trim()),
       channels: chs.map((c) => ({
         platform: c.platform,
         url: c.url,

@@ -195,6 +195,8 @@ export interface ApprovedKolSummary {
   avatar?: string;
   category?: string;
   region?: string;
+  /** Collaboration email shown to brands (profile contact email). Never phone/address/Zalo (BR-58). */
+  collabEmail?: string;
   channels: { platform: Platform; url: string; followers?: number; badgeExpiresAt: string }[];
   verifiedAt: string;
 }
