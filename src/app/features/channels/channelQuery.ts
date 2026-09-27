@@ -4,8 +4,6 @@ import { channelBadge, normalizeText, normalizeUrl, PLATFORMS, type Channel, typ
 export type ChannelStatusFilter = 'verified' | 'pending' | 'needs_fix' | 'expired';
 export type ChannelActiveFilter = 'on' | 'off';
 export type ChannelSort = 'updated' | 'followers' | 'expiry';
-export type ChannelView = 'grid' | 'list';
-
 export const CHANNEL_STATUS_OPTIONS: { key: ChannelStatusFilter; label: string }[] = [
   { key: 'verified', label: 'Đã xác thực' },
   { key: 'pending', label: 'Chờ duyệt' },
@@ -30,17 +28,16 @@ export interface ChannelQuery {
   platforms?: Platform[];
   active?: ChannelActiveFilter;
   sort?: ChannelSort;
-  view?: ChannelView;
 }
 
-/** URL keys owned by the channels page; anything else in the URL (e.g. `them=1`) is left alone. */
+/** URL keys owned by the channels page (`view` is kept only so stale links get cleaned); anything else (e.g. `them=1`) is left alone. */
 export const CHANNEL_KEYS = ['q', 'trangThai', 'nenTang', 'hoatDong', 'sapXep', 'view'] as const;
 
 function oneOf<T extends string>(v: string | null, list: readonly T[]): T | undefined {
   return v !== null && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 }
 
-/** URL → query. Unknown values are dropped; missing/unknown sort → updated; missing/unknown view → grid. */
+/** URL → query. Unknown values are dropped; missing/unknown sort → updated. */
 export function parseChannelParams(sp: URLSearchParams): ChannelQuery {
   const q: ChannelQuery = {};
   const keyword = sp.get('q');
@@ -66,11 +63,10 @@ export function parseChannelParams(sp: URLSearchParams): ChannelQuery {
       sp.get('sapXep'),
       CHANNEL_SORT_OPTIONS.map((o) => o.key),
     ) ?? 'updated';
-  q.view = oneOf<ChannelView>(sp.get('view'), ['grid', 'list']) ?? 'grid';
   return q;
 }
 
-/** Query → URL params, leaving out defaults (updated sort, grid view, empty values). */
+/** Query → URL params, leaving out defaults (updated sort, empty values). */
 export function toChannelParams(q: ChannelQuery): URLSearchParams {
   const sp = new URLSearchParams();
   if (q.keyword && q.keyword.trim()) sp.set('q', q.keyword);
@@ -78,7 +74,6 @@ export function toChannelParams(q: ChannelQuery): URLSearchParams {
   if (q.platforms && q.platforms.length > 0) sp.set('nenTang', q.platforms.join(','));
   if (q.active) sp.set('hoatDong', q.active);
   if (q.sort && q.sort !== 'updated') sp.set('sapXep', q.sort);
-  if (q.view === 'list') sp.set('view', 'list');
   return sp;
 }
 
@@ -96,12 +91,12 @@ export function applyChannelPatch(q: ChannelQuery, patch: Partial<ChannelQuery>)
   return { ...q, ...patch };
 }
 
-/** Clearing keeps sort and view. */
+/** Clearing keeps the sort. */
 export function clearChannelFilters(q: ChannelQuery): ChannelQuery {
-  return { sort: q.sort, view: q.view };
+  return { sort: q.sort };
 }
 
-/** Keyword or any filter set (sort and view do not count). */
+/** Keyword or any filter set (sort does not count). */
 export function hasChannelFilters(q: ChannelQuery): boolean {
   return !!((q.keyword && q.keyword.trim()) || q.status || q.active || (q.platforms && q.platforms.length > 0));
 }

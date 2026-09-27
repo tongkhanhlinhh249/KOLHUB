@@ -2,7 +2,6 @@ import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { ChannelStatusBadge } from '../shared/StatusBadges';
-import type { ChannelItemProps } from './ChannelCard';
 import {
   ActiveSwitch,
   ChannelFollowers,
@@ -11,6 +10,7 @@ import {
   EditChannelButton,
   NeedsFixCallout,
   shortUrl,
+  type ChannelItemProps,
 } from './ChannelParts';
 
 /**

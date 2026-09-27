@@ -9,9 +9,7 @@ import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { PlatformSelect } from '../filters/PlatformSelect';
 import { SortSelect } from '../filters/SortSelect';
-import { ViewToggle } from '../filters/ViewToggle';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { ChannelCard, ChannelCardSkeleton } from './ChannelCard';
 import { ChannelFormSheet } from './ChannelFormSheet';
 import { ChannelListRow, ChannelListRowSkeleton } from './ChannelListRow';
 import {
@@ -30,10 +28,8 @@ import {
   type ChannelActiveFilter,
   type ChannelQuery,
   type ChannelStatusFilter,
-  type ChannelView,
 } from './channelQuery';
 
-const GRID = 'grid grid-cols-1 gap-4 @xl:grid-cols-2 @4xl:grid-cols-3';
 
 function chipsOf(q: ChannelQuery, onChange: (patch: Partial<ChannelQuery>) => void): FilterChip[] {
   const chips: FilterChip[] = [];
@@ -75,7 +71,6 @@ export function ChannelsTab({
   const [searchParams, setSearchParams] = useSearchParams();
   const paramsKey = searchParams.toString();
   const query = useMemo(() => parseChannelParams(new URLSearchParams(paramsKey)), [paramsKey]);
-  const view: ChannelView = query.view ?? 'grid';
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
 
   const channels = data.data;
@@ -93,9 +88,6 @@ export function ChannelsTab({
   );
   const onChange = (patch: Partial<ChannelQuery>) => writeQuery(applyChannelPatch(query, patch));
   const onClear = () => writeQuery(clearChannelFilters(query));
-  const onView = (next: ChannelView) => {
-    if (next !== view) writeQuery(applyChannelPatch(query, { view: next }), true);
-  };
 
   const openAdd = () => setSheet({ open: true });
   useEffect(() => {
@@ -146,20 +138,13 @@ export function ChannelsTab({
 
   let body: ReactNode;
   if (loading) {
-    body =
-      view === 'list' ? (
-        <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải kênh">
-          {[0, 1, 2].map((i) => (
-            <ChannelListRowSkeleton key={i} />
-          ))}
-        </div>
-      ) : (
-        <div className={GRID} aria-busy="true" aria-label="Đang tải kênh">
-          {[0, 1, 2].map((i) => (
-            <ChannelCardSkeleton key={i} />
-          ))}
-        </div>
-      );
+    body = (
+      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải kênh">
+        {[0, 1, 2].map((i) => (
+          <ChannelListRowSkeleton key={i} />
+        ))}
+      </div>
+    );
   } else if (data.error && !channels) {
     body = (
       <Alert variant="destructive">
@@ -196,22 +181,12 @@ export function ChannelsTab({
         </Button>
       </div>
     );
-  } else if (view === 'list') {
+  } else {
     body = (
       <ul className="flex flex-col gap-3" aria-label="Danh sách kênh">
         {shown.map((c) => (
           <li key={c.id}>
             <ChannelListRow {...item(c)} />
-          </li>
-        ))}
-      </ul>
-    );
-  } else {
-    body = (
-      <ul className={GRID} aria-label="Danh sách kênh">
-        {shown.map((c) => (
-          <li key={c.id} className="min-w-0">
-            <ChannelCard {...item(c)} />
           </li>
         ))}
       </ul>
@@ -254,7 +229,6 @@ export function ChannelsTab({
               )}
             </p>
             <div className="ml-auto flex items-center gap-2">
-              <ViewToggle value={view} onChange={onView} />
               <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
                 <Plus aria-hidden />
                 Thêm kênh

@@ -44,27 +44,27 @@ const channels: Channel[] = [
 const ids = (list: Channel[]) => list.map((c) => c.id);
 
 describe('parse / serialize', () => {
-  test('mặc định', () => expect(parseChannelParams(new URLSearchParams(''))).toEqual({ sort: 'updated', view: 'grid' }));
+  test('mặc định', () => expect(parseChannelParams(new URLSearchParams(''))).toEqual({ sort: 'updated' }));
 
   test('đọc đủ khoá', () =>
     expect(
       parseChannelParams(new URLSearchParams('q=vy&trangThai=pending&nenTang=youtube,tiktok&hoatDong=off&sapXep=expiry&view=list')),
-    ).toEqual({ keyword: 'vy', status: 'pending', platforms: ['youtube', 'tiktok'], active: 'off', sort: 'expiry', view: 'list' }));
+    ).toEqual({ keyword: 'vy', status: 'pending', platforms: ['youtube', 'tiktok'], active: 'off', sort: 'expiry' }));
 
   test('giá trị lạ → mặc định / bị bỏ', () =>
     expect(
       parseChannelParams(new URLSearchParams('q=%20&trangThai=VERIFIED&nenTang=instagram,tiktok,tiktok&hoatDong=yes&sapXep=x&view=table')),
-    ).toEqual({ platforms: ['tiktok'], sort: 'updated', view: 'grid' }));
+    ).toEqual({ platforms: ['tiktok'], sort: 'updated' }));
 
   test('toChannelParams bỏ mặc định; round-trip', () => {
-    expect(toChannelParams({ sort: 'updated', view: 'grid', platforms: [] }).toString()).toBe('');
-    const q = { keyword: 'vy', status: 'expired', platforms: ['facebook'], active: 'on', sort: 'followers', view: 'list' } as const;
+    expect(toChannelParams({ sort: 'updated', platforms: [] }).toString()).toBe('');
+    const q = { keyword: 'vy', status: 'expired', platforms: ['facebook'], active: 'on', sort: 'followers' } as const;
     expect(parseChannelParams(toChannelParams(q))).toEqual(q);
   });
 
   test('merge giữ tham số khác (them=1), thay khoá của trang', () => {
     const prev = new URLSearchParams('them=1&trangThai=pending&view=list');
-    const next = mergeChannelParams(prev, { status: 'verified', view: 'grid' });
+    const next = mergeChannelParams(prev, { status: 'verified' });
     expect(next.get('them')).toBe('1');
     expect(next.get('trangThai')).toBe('verified');
     expect(next.has('view')).toBe(false);
@@ -72,12 +72,12 @@ describe('parse / serialize', () => {
   });
 
   test('xoá bộ lọc giữ sắp xếp và kiểu xem', () => {
-    const q = applyChannelPatch({ keyword: 'a', status: 'pending', sort: 'expiry', view: 'list' }, { active: 'off' });
-    expect(clearChannelFilters(q)).toEqual({ sort: 'expiry', view: 'list' });
+    const q = applyChannelPatch({ keyword: 'a', status: 'pending', sort: 'expiry' }, { active: 'off' });
+    expect(clearChannelFilters(q)).toEqual({ sort: 'expiry' });
   });
 
   test('hasChannelFilters / channelFilterCount', () => {
-    expect(hasChannelFilters({ sort: 'followers', view: 'list' })).toBe(false);
+    expect(hasChannelFilters({ sort: 'followers' })).toBe(false);
     expect(hasChannelFilters({ keyword: '  ' })).toBe(false);
     expect(hasChannelFilters({ keyword: 'a' })).toBe(true);
     expect(channelFilterCount({ keyword: 'a', status: 'pending', platforms: ['tiktok', 'youtube'] })).toBe(2);

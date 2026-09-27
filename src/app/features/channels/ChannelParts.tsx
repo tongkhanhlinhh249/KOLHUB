@@ -9,7 +9,17 @@ import { channelService, type Channel } from '../../services';
 import { formatFollowers } from '../biz-search/format';
 import { NoVideoTile, VideoThumb } from '../biz-search/KolMedia';
 
-/** Pieces shared by ChannelCard (grid) and ChannelListRow (list). */
+/** Props of one channel entry in the list (ChannelListRow). */
+export interface ChannelItemProps {
+  channel: Channel;
+  accountId: string;
+  /** Edit disabled (profile in review and channel pending). */
+  locked: boolean;
+  now: number;
+  onEdit(): void;
+}
+
+/** Pieces used by ChannelListRow. */
 
 export function shortUrl(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '');
