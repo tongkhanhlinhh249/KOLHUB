@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
-import { useSearchParams } from 'react-router';
+import { Navigate, useSearchParams } from 'react-router';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { useAuth } from '../../auth/AuthContext';
 import { channelService, ekycService, profileService, type OwnerType } from '../../services';
 import { ChannelsTab } from '../channels/ChannelsTab';
@@ -13,15 +12,18 @@ import { McnIdentityTab } from '../mcn-profile/McnIdentityTab';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
 import { ProfileHeader } from './ProfileHeader';
-import type { ProfileTab } from './primaryAction';
+import { isProfileSection, profilePath, type ProfileSection } from './primaryAction';
 
-const TABS: { value: ProfileTab; label: string; short: string }[] = [
-  { value: 'lien-he', label: 'Thông tin liên hệ', short: 'Liên hệ' },
-  { value: 'dinh-danh', label: 'Thông tin định danh', short: 'Định danh' },
-  { value: 'kenh', label: 'Quản lý kênh', short: 'Kênh' },
-];
-
-const isTab = (v: string | null): v is ProfileTab => TABS.some((t) => t.value === v);
+/**
+ * /ho-so-kol and /ho-so-mcn: send to the first section, translating legacy ?tab=… links
+ * (and ?them=1 for the channels page) to the matching sub-route.
+ */
+export function ProfileIndexRedirect({ ownerType }: { ownerType: OwnerType }) {
+  const [params] = useSearchParams();
+  const raw = params.get('tab');
+  const section: ProfileSection = isProfileSection(raw) ? raw : 'lien-he';
+  return <Navigate to={profilePath(ownerType, section, { openAddChannel: params.get('them') === '1' })} replace />;
+}
 
 function PageSkeleton() {
   return (
@@ -34,19 +36,16 @@ function PageSkeleton() {
           <Skeleton className="h-4 w-24" />
         </div>
       </div>
-      <Skeleton className="h-10 w-full" />
       <Skeleton className="h-48 w-full" />
     </div>
   );
 }
 
-/** Shared KOL/MCN profile page: header (SCR-03) + 3 tabs driven by ?tab=. */
-export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
+/** Shared KOL/MCN profile section page (sidebar item): header (SCR-03) + one section. */
+export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; section: ProfileSection }) {
   const { account } = useAuth();
   const accountId = account?.id ?? '';
   const [params, setParams] = useSearchParams();
-  const raw = params.get('tab');
-  const tab: ProfileTab = isTab(raw) ? raw : 'lien-he';
 
   const q = useLiveQuery(
     async () => {
@@ -60,16 +59,8 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
     [accountId, ownerType],
   );
 
-  // ?them=1 asks the channels tab to open its add sheet once (header "Thêm kênh").
-  const openAddChannel = tab === 'kenh' && params.get('them') === '1';
-
-  const setTab = (t: ProfileTab, opts?: { openAddChannel?: boolean }) => {
-    const next = new URLSearchParams(params);
-    next.set('tab', t);
-    if (opts?.openAddChannel && t === 'kenh') next.set('them', '1');
-    else next.delete('them');
-    setParams(next, { replace: true });
-  };
+  // ?them=1 asks the channels page to open its add sheet once (header "Thêm kênh").
+  const openAddChannel = section === 'kenh' && params.get('them') === '1';
 
   const consumeOpenAddChannel = useCallback(
     () =>
@@ -106,42 +97,24 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
             view={q.data.view}
             ekyc={q.data.ekyc}
             hasNeedsFixChannel={q.data.channels.some((c) => c.status === 'NEEDS_FIX')}
-            onNavigate={setTab}
           />
-          <Tabs value={tab} onValueChange={(v) => isTab(v) && setTab(v)}>
-            <TabsList className="grid h-11 w-full grid-cols-3 md:inline-flex md:h-10 md:w-auto">
-              {TABS.map((t) => (
-                // Only one of the two spans is displayed per breakpoint; the explicit name (which contains
-                // both visible texts) keeps the tab named regardless.
-                <TabsTrigger key={t.value} value={t.value} aria-label={t.label} className="h-9 md:h-8">
-                  <span className="sm:hidden" aria-hidden>
-                    {t.short}
-                  </span>
-                  <span className="hidden sm:inline" aria-hidden>
-                    {t.label}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="lien-he" className="mt-4">
-              <ContactTab view={q.data.view} />
-            </TabsContent>
-            <TabsContent value="dinh-danh" className="mt-4">
-              {q.data.view.profile.ownerType === 'KOL' && q.data.ekyc ? (
+          <div>
+            {section === 'lien-he' && <ContactTab view={q.data.view} />}
+            {section === 'dinh-danh' &&
+              (q.data.view.profile.ownerType === 'KOL' && q.data.ekyc ? (
                 <KolIdentityTab accountId={accountId} view={q.data.view} ekyc={q.data.ekyc} />
               ) : (
                 <McnIdentityTab accountId={accountId} view={q.data.view} />
-              )}
-            </TabsContent>
-            <TabsContent value="kenh" className="mt-4">
+              ))}
+            {section === 'kenh' && (
               <ChannelsTab
                 accountId={accountId}
                 profileStatus={q.data.view.profile.status}
                 openAddRequest={openAddChannel}
                 onOpenAddConsumed={consumeOpenAddChannel}
               />
-            </TabsContent>
-          </Tabs>
+            )}
+          </div>
         </>
       )}
     </div>

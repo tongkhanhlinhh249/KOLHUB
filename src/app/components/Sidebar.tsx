@@ -42,9 +42,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">{label}</p>
         )}
-        <div className="space-y-0.5">
-          {menu.map((item) => (
-            <SidebarLink key={item.path} item={item} active={isActive(item.path)} collapsed={collapsed} />
+        <div className="space-y-3">
+          {sections(menu).map((section, i) => (
+            <div key={section.group ?? `section-${i}`} role={section.group ? 'group' : undefined} aria-label={section.group}>
+              {section.group && !collapsed && (
+                <p className="mb-1 px-2 pt-1 text-xs font-medium text-muted-foreground">{section.group}</p>
+              )}
+              {collapsed && i > 0 && <div className="mx-2 mb-3 h-px bg-border" aria-hidden />}
+              <div className="space-y-0.5">
+                {section.items.map((item) => (
+                  <SidebarLink key={item.path} item={item} active={isActive(item.path)} collapsed={collapsed} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </nav>
@@ -68,6 +78,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
     </aside>
   );
+}
+
+/** Consecutive menu items sharing a `group` form one section (ungrouped runs form their own). */
+function sections(menu: MenuItem[]): { group?: string; items: MenuItem[] }[] {
+  const out: { group?: string; items: MenuItem[] }[] = [];
+  for (const item of menu) {
+    const last = out[out.length - 1];
+    if (last && last.group === item.group) last.items.push(item);
+    else out.push({ group: item.group, items: [item] });
+  }
+  return out;
 }
 
 function SidebarLink({ item, active, collapsed }: { item: MenuItem; active: boolean; collapsed: boolean }) {

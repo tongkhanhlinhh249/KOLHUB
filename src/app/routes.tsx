@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AccessGuard } from './auth/AccessGuard';
@@ -12,10 +12,26 @@ import { SearchPage } from './features/biz-search/SearchPage';
 import { SavedListsPage } from './features/saved-lists/SavedListsPage';
 import { BizAccountPage } from './features/biz-account/BizAccountPage';
 // --- phase 2 ---
-import { ProfilePage } from './features/profile/ProfilePage';
+import { ProfileIndexRedirect, ProfilePage } from './features/profile/ProfilePage';
+import { PROFILE_SECTIONS } from './features/profile/primaryAction';
+import type { OwnerType } from './services';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
+
+/** /ho-so-kol|mcn → first section (legacy ?tab= honoured); one route per section (sidebar item). */
+function profileRoutes(path: string, ownerType: OwnerType): RouteObject {
+  return {
+    path,
+    children: [
+      { index: true, element: <ProfileIndexRedirect ownerType={ownerType} /> },
+      ...PROFILE_SECTIONS.map((section) => ({
+        path: section,
+        element: <ProfilePage ownerType={ownerType} section={section} />,
+      })),
+    ],
+  };
+}
 
 export const router = createBrowserRouter([
   {
@@ -34,8 +50,8 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
-          { path: 'ho-so-kol', element: <ProfilePage ownerType="KOL" /> },
-          { path: 'ho-so-mcn', element: <ProfilePage ownerType="MCN" /> },
+          profileRoutes('ho-so-kol', 'KOL'),
+          profileRoutes('ho-so-mcn', 'MCN'),
           { path: 'kol-safety', element: <ComingSoon title="KOL Safety" note="Tính năng sắp ra mắt." /> },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },

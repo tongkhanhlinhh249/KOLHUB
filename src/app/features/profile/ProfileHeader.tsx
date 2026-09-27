@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Camera, CheckCircle2, ChevronDown, Circle, Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
@@ -12,14 +13,13 @@ import { cn } from '../../components/ui/utils';
 import { profileService, validateProofImage, type EkycView, type ProfileView } from '../../services';
 import { toStoredFile } from '../shared/files';
 import { ProfileStatusBadge } from '../shared/StatusBadges';
-import { primaryAction, type ProfileTab } from './primaryAction';
+import { primaryAction } from './primaryAction';
 
 interface ProfileHeaderProps {
   view: ProfileView;
   ekyc?: EkycView;
   /** Whether any channel is NEEDS_FIX (decides where "Xem yêu cầu bổ sung" goes). */
   hasNeedsFixChannel?: boolean;
-  onNavigate(tab: ProfileTab, opts?: { openAddChannel?: boolean }): void;
 }
 
 function errorText(e: unknown): string {
@@ -66,7 +66,8 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
 }
 
 /** SCR-03 — profile header: cover, avatar, name + shield, status, main action, completeness. */
-export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false, onNavigate }: ProfileHeaderProps) {
+export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: ProfileHeaderProps) {
+  const navigate = useNavigate();
   const { profile, completeness } = view;
   const [open, setOpen] = useState(false);
   const name = profile.contact.displayName.trim();
@@ -137,7 +138,7 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false, onNaviga
                 type="button"
                 className="h-11 w-full md:h-9 md:w-auto"
                 disabled={action.disabled}
-                onClick={() => action.tab && onNavigate(action.tab, { openAddChannel: action.openAddChannel })}
+                onClick={() => action.to && navigate(action.to)}
               >
                 {action.label}
               </Button>
