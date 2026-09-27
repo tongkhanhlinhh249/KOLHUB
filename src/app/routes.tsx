@@ -18,6 +18,9 @@ import type { OwnerType } from './services';
 import { VideoCheckPage } from './features/safety/VideoCheckPage';
 import { ChannelMonitorPage } from './features/safety/ChannelMonitorPage';
 import { ChannelMonitorDetail } from './features/safety/ChannelMonitorDetail';
+// --- violations ---
+import { OwnerViolationsPage } from './features/violations/OwnerViolationsPage';
+import { BrandViolationsPage } from './features/violations/BrandViolationsPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
@@ -61,12 +64,14 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="/kiem-duyet/video" replace /> },
               { path: 'video', element: <VideoCheckPage /> },
+              { path: 'vi-pham', element: <OwnerViolationsPage /> },
               { path: ':platform', element: <ChannelMonitorPage /> },
               { path: ':platform/:monitorId', element: <ChannelMonitorDetail /> },
             ],
           },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },
+          { path: 'vi-pham-kol', element: <BrandViolationsPage /> },
           { path: 'tai-khoan-doanh-nghiep', element: <BizAccountPage /> },
         ],
       },

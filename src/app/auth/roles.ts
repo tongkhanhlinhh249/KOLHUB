@@ -6,6 +6,7 @@ import {
   LogIn,
   MonitorPlay,
   Search,
+  ShieldAlert,
   ShieldCheck,
   UserPlus,
   UserRound,
@@ -54,12 +55,16 @@ export const SAFETY_GROUP = 'Kiểm duyệt (KOL Safety)';
 export const SAFETY_BASE = '/kiem-duyet';
 /** Legacy path of the old "KOL Safety" placeholder; redirects to the video pre-check. */
 export const LEGACY_SAFETY_PATH = '/kol-safety';
+/** Violations of the signed-in KOL/MCN (manage) and of all approved KOLs for Brands (read-only). */
+export const VIOLATIONS_PATH = `${SAFETY_BASE}/vi-pham`;
+export const BRAND_VIOLATIONS_PATH = '/vi-pham-kol';
 
 const SAFETY_MENU: MenuItem[] = [
   { icon: Clapperboard, label: 'Kiểm tra video trước khi đăng', shortLabel: 'Video', path: `${SAFETY_BASE}/video`, group: SAFETY_GROUP },
   { icon: TikTokGlyph, label: 'Kiểm duyệt kênh TikTok', shortLabel: 'TikTok', path: `${SAFETY_BASE}/tiktok`, group: SAFETY_GROUP },
   { icon: FacebookGlyph, label: 'Kiểm duyệt kênh Facebook', shortLabel: 'Facebook', path: `${SAFETY_BASE}/facebook`, group: SAFETY_GROUP },
   { icon: YouTubeGlyph, label: 'Kiểm duyệt kênh YouTube', shortLabel: 'YouTube', path: `${SAFETY_BASE}/youtube`, group: SAFETY_GROUP },
+  { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
 ];
 
 /** Profile sections + channel management (group "Hồ sơ KOL/MCN"). */
@@ -71,7 +76,7 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
   ];
 }
 
-/** 7 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest). */
+/** 8 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest). */
 function creatorBottomNav(base: string): BottomNavConfig {
   return {
     items: [
@@ -85,7 +90,7 @@ function creatorBottomNav(base: string): BottomNavConfig {
         match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
       },
     ],
-    more: [`${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
+    more: [`${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
   };
 }
 
@@ -120,6 +125,7 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
     menu: [
       { icon: Search, label: 'Tìm kiếm KOL', shortLabel: 'Tìm KOL', path: '/tim-kiem-kol' },
       { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu' },
+      { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
       { icon: Building2, label: 'Tài khoản doanh nghiệp', shortLabel: 'Doanh nghiệp', path: '/tai-khoan-doanh-nghiep' },
     ],
   },
@@ -205,6 +211,8 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
+  '/kiem-duyet/vi-pham': 'Vi phạm nội dung trên các kênh của bạn: xem chi tiết, khắc phục hoặc khiếu nại',
+  '/vi-pham-kol': 'Vi phạm đã được xác nhận của các KOL có kênh xác thực',
   '/kiem-duyet/video': 'Tải video lên để phát hiện vi phạm trước khi đăng',
   '/kiem-duyet/tiktok': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',
   '/kiem-duyet/facebook': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',

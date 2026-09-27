@@ -11,6 +11,8 @@ import { AdminSimulator } from './AdminSimulator';
 import { EkycScenarioPicker } from './EkycScenarioPicker';
 import { FunnelView } from './FunnelView';
 import { AssumptionsList } from './AssumptionsList';
+// --- violations ---
+import { ViolationReviewBlock } from './ViolationReviewBlock';
 
 export { DemoPanelSection } from './DemoPanelSection';
 
@@ -43,6 +45,7 @@ export function DemoPanel() {
           <DemoRoleBlock onDone={close} />
           {/* --- phase 2 --- */}
           <AdminSimulator />
+          <ViolationReviewBlock />
           <EkycScenarioPicker />
           <FunnelView />
           {/* --- end phase 2 --- */}

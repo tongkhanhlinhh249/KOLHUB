@@ -43,10 +43,18 @@ describe('resolveAccess', () => {
     }
   });
   test('Nhãn hàng không vào được Kiểm duyệt → forbidden; khách → Đăng nhập', () => {
-    for (const p of ['/kiem-duyet/video', '/kiem-duyet/youtube/mon-1', '/kol-safety']) {
+    for (const p of ['/kiem-duyet/video', '/kiem-duyet/youtube/mon-1', '/kol-safety', '/kiem-duyet/vi-pham']) {
       expect(resolveAccess('kolhub.user.biz', p)).toEqual({ allow: false, redirect: '/tim-kiem-kol', reason: 'forbidden' });
       expect(resolveAccess('kolhub.guest', p)).toMatchObject({ allow: false, reason: 'login' });
     }
+  });
+  test('Danh sách vi phạm: KOL/MCN ở /kiem-duyet/vi-pham, Nhãn hàng ở /vi-pham-kol (không vào trang của nhau)', () => {
+    for (const r of ['kolhub.user.kol', 'kolhub.user.mcn'] as const) {
+      expect(resolveAccess(r, '/kiem-duyet/vi-pham')).toEqual({ allow: true });
+      expect(resolveAccess(r, '/vi-pham-kol')).toMatchObject({ allow: false, reason: 'forbidden' });
+    }
+    expect(resolveAccess('kolhub.user.biz', '/vi-pham-kol')).toEqual({ allow: true });
+    expect(resolveAccess('kolhub.guest', '/vi-pham-kol')).toMatchObject({ allow: false, reason: 'login' });
   });
   test('guest vào được các trang khách', () => {
     for (const p of GUEST_PATHS) expect(resolveAccess('kolhub.guest', p)).toEqual({ allow: true });
@@ -89,10 +97,11 @@ const SAFETY_ROWS = [
   ['Kiểm duyệt kênh TikTok', 'TikTok', '/kiem-duyet/tiktok', 'Kiểm duyệt (KOL Safety)'],
   ['Kiểm duyệt kênh Facebook', 'Facebook', '/kiem-duyet/facebook', 'Kiểm duyệt (KOL Safety)'],
   ['Kiểm duyệt kênh YouTube', 'YouTube', '/kiem-duyet/youtube', 'Kiểm duyệt (KOL Safety)'],
+  ['Danh sách vi phạm', 'Vi phạm', '/kiem-duyet/vi-pham', 'Kiểm duyệt (KOL Safety)'],
 ];
 
 describe('bottomNavOf', () => {
-  test('KOL/MCN: 4 tab + "Thêm" (định danh, Facebook, YouTube)', () => {
+  test('KOL/MCN: 4 tab + "Thêm" (định danh, Facebook, YouTube, vi phạm)', () => {
     for (const [role, base] of [
       ['kolhub.user.kol', '/ho-so-kol'],
       ['kolhub.user.mcn', '/ho-so-mcn'],
@@ -108,6 +117,7 @@ describe('bottomNavOf', () => {
         'Thông tin định danh',
         'Kiểm duyệt kênh Facebook',
         'Kiểm duyệt kênh YouTube',
+        'Danh sách vi phạm',
       ]);
       // Every tab / "Thêm" item is a menu page the role may open.
       for (const p of [...nav.items.map((i) => i.path), ...nav.more.map((m) => m.path)])
@@ -115,7 +125,7 @@ describe('bottomNavOf', () => {
     }
   });
   test('Nhãn hàng / khách: mọi mục menu là tab, không có "Thêm"', () => {
-    expect(bottomNavOf('kolhub.user.biz').items.map((i) => i.label)).toEqual(['Tìm KOL', 'Đã lưu', 'Doanh nghiệp']);
+    expect(bottomNavOf('kolhub.user.biz').items.map((i) => i.label)).toEqual(['Tìm KOL', 'Đã lưu', 'Vi phạm', 'Doanh nghiệp']);
     expect(bottomNavOf('kolhub.user.biz').more).toEqual([]);
     expect(bottomNavOf('kolhub.guest').items).toHaveLength(2);
   });
@@ -155,6 +165,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => m.path)).toEqual([
       '/tim-kiem-kol',
       '/danh-sach-da-luu',
+      '/vi-pham-kol',
       '/tai-khoan-doanh-nghiep',
     ]);
   });
@@ -194,6 +205,8 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       group: 'Cá nhân/KOL',
       description: 'Sức khoẻ kênh và kết quả quét video gần nhất',
     });
+    expect(getPageMeta('/kiem-duyet/vi-pham', 'kolhub.user.mcn')).toMatchObject({ title: 'Danh sách vi phạm', group: 'Tổ chức/MCN' });
+    expect(getPageMeta('/vi-pham-kol')).toMatchObject({ title: 'Danh sách vi phạm', group: 'Nhãn hàng/Agency' });
     expect(getPageMeta('/quen-mat-khau')).toMatchObject({ title: 'Quên mật khẩu', group: 'Khách' });
   });
 });

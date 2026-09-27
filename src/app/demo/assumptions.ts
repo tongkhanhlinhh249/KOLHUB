@@ -14,5 +14,15 @@ export const ASSUMPTIONS: { question: string; decision: string }[] = [
     question: 'KOL Safety trong menu',
     decision: 'Nhóm "Kiểm duyệt (KOL Safety)": kiểm tra video trước khi đăng + kiểm duyệt kênh TikTok/Facebook/YouTube (kết quả mô phỏng)',
   },
+  {
+    question: 'Danh sách vi phạm cho Nhãn hàng',
+    decision:
+      'Nhãn hàng xem được vi phạm đã xác nhận — ngoại lệ BR-58, cần khách xác nhận. Chỉ hiện vi phạm Đã xác nhận/Đã khắc phục của KOL đã duyệt; không hiện ghi chú, khiếu nại, báo cáo đang chờ hay đã bác bỏ',
+  },
+  {
+    question: 'Vòng đời vi phạm',
+    decision:
+      'Báo cáo/KOL Safety → Chờ xác minh → Admin xác nhận hoặc bác bỏ (có lý do); chủ kênh khắc phục hoặc khiếu nại 1 lần (≥ 20 ký tự); Admin chấp nhận (bác bỏ vi phạm) hoặc từ chối (chỉ còn khắc phục)',
+  },
   { question: '2, 3, 4, 8, 10', decision: 'Không ảnh hưởng prototype (nhà cung cấp, API, đa tài khoản)' },
 ];
