@@ -100,3 +100,9 @@ import { createChannelDirectoryService } from './mock/channelDirectory';
 export const channelDirectoryService = createChannelDirectoryService({ db, now: Date.now });
 export * from './channel-directory-types';
 export type { ChannelDirectoryService } from './mock/channelDirectory';
+// --- MCN ↔ KOL ---
+import { createMcnKolService } from './mock/mcnKol';
+
+export const mcnKolService = createMcnKolService({ db, now: Date.now });
+export * from './mcn-kol-types';
+export type { McnKolService } from './mock/mcnKol';

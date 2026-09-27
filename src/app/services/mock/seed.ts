@@ -5,6 +5,7 @@ import { seedVerifiedMcn } from './mcnSeed';
 import { emptyKolProfile, emptyMcnProfile } from './profileRules';
 import { seedSafety } from './safetySeed';
 import { seedViolations } from './violationSeed';
+import { seedMcnKolLinks } from './mcnKolSeed';
 
 const SEED_CREATED_AT = '2026-09-01T08:00:00.000Z';
 const SEED_T = Date.parse(SEED_CREATED_AT);
@@ -41,6 +42,7 @@ const SEED_BIZ_NEW: Account = {
  * then 40 approved sample KOLs registered like any other KOL (Khánh Vy logs in as khanhvy@demo.kolhub.vn).
  * v4 adds KOL Safety data (videos + monitored channels) for the two verified demo accounts; v5 adds violations;
  * v6: monitors of profile channels (any status) keep that channel's follower count.
+ * v7: Sao Việt Media manages KOL-2026-0011…0016 (half its channels assigned to them) and has invited Khánh Vy.
  */
 export function seedState(): DemoState {
   const now = Date.now();
@@ -56,9 +58,10 @@ export function seedState(): DemoState {
     ...kols.accounts,
   ];
   const channels = [...kols.channels, ...mcn.channels];
+  const mcnKolLinks = seedMcnKolLinks(channels, now);
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 6,
+    version: 7,
     accounts,
     otps: [],
     registrations: [],
@@ -78,5 +81,7 @@ export function seedState(): DemoState {
     ...seedSafety(channels, now),
     // v5: violations (Khánh Vy, Sao Việt Media and a few sample KOLs).
     violations: seedViolations(kolProfiles, channels, now),
+    // v7: MCN ↔ KOL management.
+    mcnKolLinks,
   };
 }

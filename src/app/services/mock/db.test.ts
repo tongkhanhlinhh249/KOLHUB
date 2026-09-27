@@ -22,27 +22,27 @@ describe('createDb', () => {
 
   test('reset về seed khi sai version', () => {
     const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify({ version: 0 }) });
-    expect(createDb(mem, seedState).read().version).toBe(6);
+    expect(createDb(mem, seedState).read().version).toBe(7);
   });
 
   test('dữ liệu v2 cũ → thay bằng seed v4 (có MCN đã xác thực), ghi đè storage', () => {
     const v2 = { ...seedState(), version: 2, sessionAccountId: 'acc-kol-demo' };
     const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(v2) });
     const s = createDb(mem, seedState).read();
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.sessionAccountId).toBeNull();
     expect(s.accounts.some((a) => a.email === 'saoviet@demo.kolhub.vn')).toBe(true);
-    expect(JSON.parse(mem.getItem('kolhub-demo-v1')!).version).toBe(6);
+    expect(JSON.parse(mem.getItem('kolhub-demo-v1')!).version).toBe(7);
   });
 
   test('dữ liệu v1 hợp lệ (có directory) → thay bằng seed v4, ghi đè storage', () => {
     const v1 = { ...seedState(), version: 1, directory: [{ kolId: 'KOL-2026-0001' }], sessionAccountId: 'acc-kol-demo' };
     const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(v1) });
     const s = createDb(mem, seedState).read();
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s).not.toHaveProperty('directory');
     expect(s.sessionAccountId).toBeNull();
-    expect(JSON.parse(mem.getItem('kolhub-demo-v1')!).version).toBe(6);
+    expect(JSON.parse(mem.getItem('kolhub-demo-v1')!).version).toBe(7);
   });
 
   test('dữ liệu v3 cũ (chưa có KOL Safety) → seed v4 có safetyVideos/safetyMonitors', () => {
@@ -50,7 +50,7 @@ describe('createDb', () => {
     const v3 = { ...rest, version: 3, sessionAccountId: 'acc-kol-demo' };
     const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(v3) });
     const s = createDb(mem, seedState).read();
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.sessionAccountId).toBeNull();
     expect(s.safetyVideos.length).toBeGreaterThan(0);
     expect(s.safetyMonitors.length).toBeGreaterThan(0);
@@ -61,7 +61,7 @@ describe('createDb', () => {
     const v4 = { ...rest, version: 4, sessionAccountId: 'acc-kol-demo' };
     const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(v4) });
     const s = createDb(mem, seedState).read();
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.sessionAccountId).toBeNull();
     expect(s.violations.length).toBeGreaterThan(0);
   });
@@ -70,8 +70,18 @@ describe('createDb', () => {
     const v5 = { ...seedState(), version: 5, sessionAccountId: 'acc-kol-demo' };
     const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(v5) });
     const s = createDb(mem, seedState).read();
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.sessionAccountId).toBeNull();
+  });
+
+  test('dữ liệu v6 cũ (chưa có liên kết MCN ↔ KOL) → seed v7 có mcnKolLinks', () => {
+    const { mcnKolLinks: _l, ...rest } = seedState();
+    const v6 = { ...rest, version: 6, sessionAccountId: 'acc-kol-demo' };
+    const mem = memoryStorage({ 'kolhub-demo-v1': JSON.stringify(v6) });
+    const s = createDb(mem, seedState).read();
+    expect(s.version).toBe(7);
+    expect(s.sessionAccountId).toBeNull();
+    expect(s.mcnKolLinks.length).toBeGreaterThan(0);
   });
 
   test('update ghi lại storage', () => {
@@ -141,7 +151,7 @@ describe('createDb', () => {
 describe('seedState', () => {
   test('5 tài khoản demo + 40 KOL mẫu đã duyệt, mật khẩu demo1234, email/SĐT không trùng', () => {
     const s = seedState();
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
     expect(s.accounts.slice(0, 5).map((a) => [a.type, a.email, a.phone])).toEqual([
       ['KOL', 'kol@demo.kolhub.vn', '0912000001'],
       ['MCN', 'mcn@demo.kolhub.vn', '0912000002'],

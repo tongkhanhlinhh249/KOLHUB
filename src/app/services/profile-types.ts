@@ -131,6 +131,11 @@ export interface Channel {
   verifiedAt?: number;
   badgeSuspended?: boolean;
   note?: string;
+  /**
+   * MCN-owned channels only: the ACTIVE linked KOL this channel is assigned to.
+   * Unset = "Kênh riêng MCN" (developed by the MCN itself).
+   */
+  assignedKolAccountId?: string;
   /** Mock social-listening data, set when the channel is verified (see mock/socialListening). */
   stats?: ChannelStats;
   createdAt: number;
