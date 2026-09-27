@@ -61,6 +61,8 @@ export function errorMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Không tìm thấy KOL hoặc hồ sơ không còn hiển thị.';
     case 'KOLHUB-4405':
       return 'Ghi chú tối đa 500 ký tự.';
+    case 'KOLHUB-4406':
+      return 'Không tìm thấy kênh hoặc kênh không còn hiển thị.';
     // --- phase 2 ---
     default:
       return phase2Message(code, meta);

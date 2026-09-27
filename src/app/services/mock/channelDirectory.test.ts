@@ -6,6 +6,9 @@ import { createSearchService } from './search';
 import { seedState } from './seed';
 import { bizState, NOW, switchSession } from './testing/bizFixtures';
 import { KolhubError } from '../types';
+import { PROFILE_VIDEO_LIMIT } from '../bizTypes';
+import { normalizeUrl } from './directory';
+import { channelTotals } from './socialListening';
 
 const db = bizState();
 const svc = createChannelDirectoryService({ db, now: () => NOW, delay: false });
@@ -108,5 +111,68 @@ describe('channelDirectory (seed)', () => {
     // KOL-2026-0002's Facebook is EXPIRED, 0003's TikTok is inactive
     expect((await s.list({ keyword: 'KOL-2026-0002' })).items.some((i) => i.platform === 'facebook')).toBe(false);
     expect((await s.list({ keyword: 'KOL-2026-0003' })).items.some((i) => i.platform === 'tiktok')).toBe(false);
+  });
+});
+
+describe('channelDirectory.getChannel (Chi tiết kênh)', () => {
+  const idOf = (url: string) => {
+    const c = db.read().channels.find((x) => normalizeUrl(x.url) === url);
+    if (!c) throw new Error(`no channel ${url}`);
+    return c.id;
+  };
+
+  test('trả về đúng kênh, số liệu tổng và video mới nhất của riêng kênh đó', async () => {
+    const [row] = (await svc.list({ keyword: 'https://www.tiktok.com/@chaubui' })).items;
+    const d = await svc.getChannel(row.channelId);
+    expect(d).toMatchObject({ channelId: row.channelId, url: row.url, handle: row.handle, followers: row.followers, kolId: 'KOL-T-0001', displayName: 'Châu Bùi', badgeExpiresAt: row.badgeExpiresAt });
+    expect(d.fields).toEqual(row.fields);
+    expect(d.region).toBe('TP. Hồ Chí Minh');
+    const totals = channelTotals(db.read().channels.find((c) => c.id === row.channelId)!.url, row.followers);
+    expect(d.views).toBe(totals.views);
+    expect(d.videoCount).toBe(totals.videoCount);
+    expect(d.latestVideos.length).toBeGreaterThan(0);
+    expect(d.latestVideos.length).toBeLessThanOrEqual(PROFILE_VIDEO_LIMIT);
+    expect(d.latestVideos.every((v) => v.platform === 'tiktok')).toBe(true);
+    for (let i = 1; i < d.latestVideos.length; i++) {
+      expect(Date.parse(d.latestVideos[i - 1].publishedAt!)).toBeGreaterThanOrEqual(Date.parse(d.latestVideos[i].publishedAt!));
+    }
+  });
+
+  test('BR-58: chỉ trường công khai', async () => {
+    const d = await svc.getChannel(idOf('tiktok.com/@chaubui'));
+    const json = JSON.stringify(d);
+    for (const secret of ['0909000001', 'Bí Mật', '0010******01', 'phone', 'zalo', 'address', 'idNo', 'violation', 'ownerId', 'proofImage', 'staff', 'note']) {
+      expect(json).not.toContain(secret);
+    }
+  });
+
+  test('chỉ Nhãn hàng: khách / KOL → 4016', async () => {
+    const d = bizState({ session: null });
+    const s = createChannelDirectoryService({ db: d, now: () => NOW, delay: false });
+    const id = d.read().channels[0].id;
+    await expect(s.getChannel(id)).rejects.toMatchObject({ code: 'KOLHUB-4016' });
+    switchSession(d, 'kol');
+    await expect(s.getChannel(id)).rejects.toMatchObject({ code: 'KOLHUB-4016' });
+  });
+
+  test('kênh không tồn tại, hết hạn dấu, tắt hoạt động, chờ duyệt → 4406', async () => {
+    await expect(svc.getChannel('khong-co')).rejects.toMatchObject({ code: 'KOLHUB-4406' });
+    for (const url of ['tiktok.com/@hethan', 'youtube.com/@tathd', 'tiktok.com/@kenhtron']) {
+      await expect(svc.getChannel(idOf(url))).rejects.toMatchObject({ code: 'KOLHUB-4406' });
+    }
+    const pending = db.read().channels.find((c) => c.status === 'PENDING_REVIEW')!;
+    await expect(svc.getChannel(pending.id)).rejects.toMatchObject({ code: 'KOLHUB-4406' });
+  });
+
+  test('seed: kênh MCN không mở được', async () => {
+    const d = createDb(null, seedState);
+    d.update((s) => {
+      s.sessionAccountId = 'acc-biz-demo';
+    });
+    const s = createChannelDirectoryService({ db: d, now: Date.now, delay: false });
+    const mcn = d.read().channels.find((c) => c.ownerType === 'MCN')!;
+    await expect(s.getChannel(mcn.id)).rejects.toMatchObject({ code: 'KOLHUB-4406' });
+    const [first] = (await s.list({ keyword: 'KOL-2026-0001' })).items;
+    expect((await s.getChannel(first.channelId)).kolId).toBe('KOL-2026-0001');
   });
 });

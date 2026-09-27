@@ -43,6 +43,7 @@ export type ErrorCode =
   | 'KOLHUB-4403'
   | 'KOLHUB-4404'
   | 'KOLHUB-4405'
+  | 'KOLHUB-4406'
   // --- phase 2 ---
   | 'KOLHUB-4101'
   | 'KOLHUB-4102'

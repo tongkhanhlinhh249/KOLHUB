@@ -2,11 +2,13 @@
 import type { LatestVideo } from '../bizTypes';
 import {
   CHANNEL_PAGE_SIZE,
+  type ChannelDirectoryDetail,
   type ChannelDirectoryItem,
   type ChannelDirectoryQuery,
   type ChannelDirectoryResult,
 } from '../channel-directory-types';
 import type { Channel } from '../profile-types';
+import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
@@ -33,6 +35,30 @@ function newestVideo(c: Channel): LatestVideo | undefined {
   return out;
 }
 
+/** One directory row, built field by field from the channel and its owner's public projection. */
+function itemOf(c: Channel, k: PublicKol): ChannelDirectoryItem {
+  const followers = c.stats?.followers ?? 0;
+  const item: ChannelDirectoryItem = {
+    channelId: c.id,
+    platform: c.platform,
+    handle: (c.handle || displayUrl(c.url).split('/')[1] || '').replace(/^@/, ''),
+    url: displayUrl(c.url),
+    followers,
+    scale: scaleOf(followers),
+    verifiedAt: new Date(c.verifiedAt ?? c.updatedAt).toISOString(),
+    badgeExpiresAt: new Date(c.badgeExpiresAt!).toISOString(),
+    kolId: k.kolId,
+    displayName: k.displayName,
+    fields: k.fields.map((f) => ({ ...f })),
+  };
+  const video = newestVideo(c);
+  if (video) item.latestVideo = video;
+  if (k.avatar) item.avatar = k.avatar;
+  if (k.category) item.category = k.category;
+  if (k.region) item.region = k.region;
+  return item;
+}
+
 /** One row per searchable KOL channel, built field by field from the public projection. */
 export function listDirectoryChannels(state: DemoState, now: number): ChannelDirectoryItem[] {
   const kols = new Map<string, PublicKol>();
@@ -44,29 +70,26 @@ export function listDirectoryChannels(state: DemoState, now: number): ChannelDir
   for (const c of state.channels) {
     if (c.ownerType !== 'KOL' || !isSearchableChannel(c, now)) continue;
     const k = kols.get(c.ownerId);
-    if (!k) continue;
-    const followers = c.stats?.followers ?? 0;
-    const item: ChannelDirectoryItem = {
-      channelId: c.id,
-      platform: c.platform,
-      handle: (c.handle || displayUrl(c.url).split('/')[1] || '').replace(/^@/, ''),
-      url: displayUrl(c.url),
-      followers,
-      scale: scaleOf(followers),
-      verifiedAt: new Date(c.verifiedAt ?? c.updatedAt).toISOString(),
-      badgeExpiresAt: new Date(c.badgeExpiresAt!).toISOString(),
-      kolId: k.kolId,
-      displayName: k.displayName,
-      fields: k.fields.map((f) => ({ ...f })),
-    };
-    const video = newestVideo(c);
-    if (video) item.latestVideo = video;
-    if (k.avatar) item.avatar = k.avatar;
-    if (k.category) item.category = k.category;
-    if (k.region) item.region = k.region;
-    out.push(item);
+    if (k) out.push(itemOf(c, k));
   }
   return out;
+}
+
+/** "Chi tiết kênh" of one searchable KOL channel (BR-54), public fields only (BR-58); null otherwise. */
+export function findDirectoryChannel(state: DemoState, channelId: string, now: number): ChannelDirectoryDetail | null {
+  const c = state.channels.find((x) => x.id === channelId);
+  if (!c || c.ownerType !== 'KOL' || !isSearchableChannel(c, now)) return null;
+  const profile = state.kolProfiles.find((p) => p.accountId === c.ownerId);
+  const k = profile ? publicKolOf(profile, state.channels, now) : null;
+  if (!k) return null;
+  const item = itemOf(c, k);
+  const pub = k.channels.find((pc) => pc.platform === c.platform && pc.url === item.url);
+  return {
+    ...item,
+    views: pub?.views ?? 0,
+    videoCount: pub?.videoCount ?? 0,
+    latestVideos: (pub?.latestVideos ?? []).map((v) => ({ ...v })),
+  };
 }
 
 function matchesKeyword(item: ChannelDirectoryItem, kw: string): boolean {
@@ -115,7 +138,17 @@ export function createChannelDirectoryService(deps: ChannelDirectoryDeps) {
     return { items: rows.slice(start, start + CHANNEL_PAGE_SIZE), total, page, pageCount, pageSize: CHANNEL_PAGE_SIZE };
   }
 
-  return { list };
+  /** "Chi tiết kênh" for Brand/Agency (KOLHUB-4016 otherwise); KOLHUB-4406 when the channel is not listed. */
+  async function getChannel(channelId: string): Promise<ChannelDirectoryDetail> {
+    await wait();
+    const state = db.read();
+    currentBizAccount(state);
+    const d = findDirectoryChannel(state, channelId, now());
+    if (!d) throw new KolhubError('KOLHUB-4406');
+    return d;
+  }
+
+  return { list, getChannel };
 }
 
 export type ChannelDirectoryService = ReturnType<typeof createChannelDirectoryService>;

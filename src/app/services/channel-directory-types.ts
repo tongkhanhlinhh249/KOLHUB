@@ -1,5 +1,5 @@
 // Brand "Danh sách kênh": one row per searchable channel (BR-54), public fields only (BR-58).
-import type { ActivityField, KolCategory, KolRegion, KolScale, LatestVideo, Platform } from './bizTypes';
+import type { ActivityField, KolCategory, KolRegion, KolScale, KolVideo, LatestVideo, Platform } from './bizTypes';
 
 /** followers = most followers first · newest = most recently verified · expiring = badge expires soonest. */
 export type ChannelDirectorySort = 'followers' | 'newest' | 'expiring';
@@ -46,4 +46,14 @@ export interface ChannelDirectoryResult {
   page: number;
   pageCount: number;
   pageSize: typeof CHANNEL_PAGE_SIZE;
+}
+
+/** "Chi tiết kênh": the row plus the channel's own totals and newest videos (public projection only). */
+export interface ChannelDirectoryDetail extends ChannelDirectoryItem {
+  /** Total views of the channel (mock social listening). */
+  views: number;
+  /** Number of videos on the channel (mock social listening). */
+  videoCount: number;
+  /** 0–6 newest videos of this channel, newest first. */
+  latestVideos: KolVideo[];
 }
