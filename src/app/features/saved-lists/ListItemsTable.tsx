@@ -315,11 +315,11 @@ export function ListItemsTable({ rows, otherLists, selected, onToggle, onToggleA
         </table>
       </Card>
 
-      <ul className="grid gap-3 @min-[36rem]:grid-cols-2 @min-[50rem]:hidden" aria-label="KOL trong danh sách">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-3 @min-[36rem]:grid-cols-2 @min-[50rem]:hidden" aria-label="KOL trong danh sách">
         {rows.map((r) => {
           const checked = selected.has(r.kolId);
           return (
-            <li key={r.kolId}>
+            <li key={r.kolId} className="min-w-0">
               <Card className={cn('h-full gap-3 p-4', checked && 'border-primary/50 bg-primary/5')}>
                 <div className="flex items-start gap-1">
                   <RowCheckbox row={r} checked={checked} onToggle={onToggle} className="-mt-2 -ml-3 size-11 shrink-0" />
