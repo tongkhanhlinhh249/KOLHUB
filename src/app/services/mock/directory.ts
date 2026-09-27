@@ -88,6 +88,8 @@ export function fromApprovedSummary(s: ApprovedKolSummary): DirectoryKol {
     ...(s.avatar ? { avatar: s.avatar } : {}),
     bio: '',
     ...(category ? { category } : {}),
+    fields: category ? [{ name: category, medal: 'none' as const }] : [],
+    latestVideos: [],
     ...(region ? { region } : {}),
     collabEmail: s.collabEmail ?? null,
     verifiedAt: s.verifiedAt,

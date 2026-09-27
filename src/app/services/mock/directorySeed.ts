@@ -2,7 +2,10 @@ import { creators } from '../../data/creators';
 import type {
   DirectoryChannel,
   DirectoryKol,
+  FieldMedal,
   KolCategory,
+  KolField,
+  KolVideo,
   KolRegion,
   Platform,
   SavedList,
@@ -73,6 +76,67 @@ const BASES = [4_500, 38_000, 72_000, 260_000, 640_000, 1_900_000];
 const PLATFORM_SETS: Platform[][] = [['tiktok'], ['facebook', 'tiktok'], ['youtube'], ['facebook', 'youtube', 'tiktok']];
 const SHARES = [1, 0.6, 0.3];
 
+/** Secondary "Lĩnh vực hoạt động" of generated KOLs, by primary category. */
+const SECONDARY_FIELDS: Partial<Record<KolCategory, [string, string]>> = {
+  Lifestyle: ['Vlog', 'Review'],
+  'Làm đẹp': ['Skincare', 'Makeup'],
+  'Du lịch': ['Phượt', 'Ẩm thực'],
+  'Ẩm thực': ['Nấu ăn', 'Food Review'],
+  'Công nghệ': ['Review', 'Điện thoại'],
+  Gaming: ['Esports', 'Livestream'],
+  'Thể thao': ['Fitness', 'Sức khỏe'],
+  'Giải trí': ['Hài hước', 'Âm nhạc'],
+  'Giáo dục': ['Tiếng Anh', 'Kỹ năng'],
+  'Thời trang': ['Phối đồ', 'Lifestyle'],
+};
+
+function toMedal(m: string | undefined): FieldMedal {
+  return m === 'gold' || m === 'silver' ? m : 'none';
+}
+
+/** 1–3 fields; the first is always the primary category (used by filters). */
+function buildFields(category: KolCategory, rest: { name: string; medal?: string }[], primaryMedal: FieldMedal): KolField[] {
+  const out: KolField[] = [{ name: category, medal: primaryMedal }];
+  const seen = new Set([normalizeText(category)]);
+  for (const f of rest) {
+    if (out.length >= 3) break;
+    const key = normalizeText(f.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name: f.name, medal: toMedal(f.medal) });
+  }
+  return out;
+}
+
+/** Every distinct content image of creators.ts, used as thumbnails for generated KOLs. */
+const IMAGE_POOL: string[] = [...new Set(creators.flatMap((c) => c.contentImages as string[]))];
+
+const VIDEO_TITLES = ['Hậu trường buổi quay mới nhất', 'Chia sẻ kinh nghiệm thực tế', 'Review chân thật', 'Một ngày của mình', 'Hỏi đáp cùng người theo dõi', 'Thử thách tuần này'];
+
+function videoUrl(platform: Platform, channel: string, n: number): string {
+  if (platform === 'youtube') return `https://youtube.com/watch?v=${channel}${n}`;
+  if (platform === 'tiktok') return `https://${channel}/video/${n}`;
+  return `https://${channel}/videos/${n}`;
+}
+
+/** Newest-first videos, platforms rotated over the KOL's verified + active channels only (never Instagram, BR-20). */
+function buildVideos(images: string[], channels: DirectoryChannel[], now: number, seed: number): KolVideo[] {
+  const ok = channels.filter(
+    (c) => c.status === 'VERIFIED' && c.active && !!c.badgeExpiresAt && Date.parse(c.badgeExpiresAt) > now,
+  );
+  if (ok.length === 0) return [];
+  return images.map((thumbnail, n) => {
+    const ch = ok[n % ok.length];
+    return {
+      platform: ch.platform,
+      thumbnail,
+      url: videoUrl(ch.platform, ch.url, n + 1),
+      title: VIDEO_TITLES[(seed + n) % VIDEO_TITLES.length],
+      publishedAt: iso(now - (n * 3 + 1 + (seed % 3)) * DAY),
+    };
+  });
+}
+
 function channelUrl(platform: Platform, nick: string): string {
   if (platform === 'facebook') return `facebook.com/${nick}`;
   if (platform === 'youtube') return `youtube.com/@${nick}`;
@@ -93,6 +157,8 @@ export function seedDirectory(now: number): DirectoryKol[] {
     let category: KolCategory;
     let region: KolRegion;
     let bookingPrice: string | undefined;
+    let fields: KolField[];
+    let images: string[];
     let specs: { platform: Platform; url: string; followers: number }[];
 
     if (i <= 10) {
@@ -104,6 +170,11 @@ export function seedDirectory(now: number): DirectoryKol[] {
       category = CREATOR_CATEGORIES[i - 1];
       region = c.location as KolRegion;
       bookingPrice = c.averageBookingPrice;
+      const cats = c.categories as { name: string; medal: string }[];
+      fields = buildFields(category, cats.slice(1), toMedal(cats[0]?.medal));
+      // Own content images first, then two from the shared pool for a fuller "Video mới nhất" grid.
+      const own = c.contentImages as string[];
+      images = [...own, ...IMAGE_POOL.filter((u) => !own.includes(u)).slice(i % 5, (i % 5) + 2)];
       const links = c.socialLinks as Record<string, string>;
       specs = c.stats
         .filter((s) => s.platform !== 'instagram')
@@ -121,6 +192,10 @@ export function seedDirectory(now: number): DirectoryKol[] {
       category = cat;
       region = reg;
       const base = BASES[j % 6];
+      const extra = (SECONDARY_FIELDS[cat] ?? []).slice(0, j % 3).map((name, k) => ({ name, medal: k === 0 ? 'silver' : 'none' }));
+      fields = buildFields(cat, extra, j % 6 >= 4 ? 'gold' : j % 6 >= 2 ? 'silver' : 'none');
+      const count = [3, 2, 0, 4, 6][j % 5];
+      images = Array.from({ length: count }, (_, n) => IMAGE_POOL[(j * 3 + n) % IMAGE_POOL.length]);
       specs = PLATFORM_SETS[j % 4].map((platform, k) => ({
         platform,
         url: channelUrl(platform, nickname),
@@ -172,6 +247,7 @@ export function seedDirectory(now: number): DirectoryKol[] {
     }
 
     const phone = '0909' + pad(i, 6);
+    const latestVideos = buildVideos(images, channels, now, i);
     out.push({
       kolId,
       displayName,
@@ -179,6 +255,8 @@ export function seedDirectory(now: number): DirectoryKol[] {
       ...(avatar ? { avatar } : {}),
       bio,
       category,
+      fields,
+      latestVideos,
       region,
       collabEmail: `hoptac.${nickname}@kolhub-demo.vn`,
       verifiedAt: kolVerifiedAt,

@@ -65,6 +65,31 @@ export interface KolPrivateData {
   bookingPrice: string;
 }
 
+export type FieldMedal = 'gold' | 'silver' | 'none';
+
+/** One "Lĩnh vực hoạt động" of a KOL. The first field is the primary one (= `category`, used by filters). */
+export interface KolField {
+  name: string;
+  medal: FieldMedal;
+}
+
+/** A recent video of a KOL, only ever on Facebook / YouTube / TikTok (BR-20). */
+export interface KolVideo {
+  platform: Platform;
+  thumbnail: string;
+  url?: string;
+  title?: string;
+  /** ISO date */
+  publishedAt?: string;
+}
+
+/** Max "Video mới nhất" shown per KOL in a search result (list row). */
+export const SEARCH_VIDEO_LIMIT = 2;
+/** Max "Video mới nhất" shown on the public profile. */
+export const PROFILE_VIDEO_LIMIT = 6;
+/** Max "Lĩnh vực hoạt động" per KOL. */
+export const FIELD_LIMIT = 3;
+
 export interface DirectoryKol {
   kolId: string;
   displayName: string;
@@ -72,6 +97,10 @@ export interface DirectoryKol {
   avatar?: string;
   bio: string;
   category?: KolCategory;
+  /** 1–3 fields, `fields[0].name === category` when a category is set. */
+  fields: KolField[];
+  /** Newest first. */
+  latestVideos: KolVideo[];
   region?: KolRegion;
   collabEmail: string | null;
   /** ISO date */
@@ -134,6 +163,10 @@ export interface KolSearchItem {
   platforms: Platform[];
   /** Only the channels that make the KOL searchable. */
   channels: KolSearchChannel[];
+  /** 0–3 "Lĩnh vực hoạt động". */
+  fields: KolField[];
+  /** 0–2 newest videos, only on the KOL's searchable platforms. */
+  latestVideos: KolVideo[];
   verifiedAt: string;
 }
 
@@ -170,6 +203,10 @@ export interface KolPublicProfile {
   listingStatus: Exclude<KolListingStatus, 'UNAVAILABLE'>;
   verifiedAt: string;
   channels: PublicChannel[];
+  /** 0–3 "Lĩnh vực hoạt động". */
+  fields: KolField[];
+  /** 0–6 newest videos, only on the KOL's public (active, badged) platforms. */
+  latestVideos: KolVideo[];
 }
 
 // --- Saved lists (Task 4) ---

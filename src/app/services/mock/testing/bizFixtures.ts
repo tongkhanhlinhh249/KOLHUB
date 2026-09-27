@@ -1,5 +1,5 @@
 // Shared fixtures for phase-3 service tests (not imported by app code).
-import type { DirectoryChannel, DirectoryKol, KolPrivateData } from '../../bizTypes';
+import type { DirectoryChannel, DirectoryKol, KolPrivateData, KolVideo, Platform } from '../../bizTypes';
 import { createDb, type Db, type StoredAccount } from '../db';
 import { seedState } from '../seed';
 
@@ -48,8 +48,21 @@ export function makeChannel(over: Partial<DirectoryChannel> = {}): DirectoryChan
   };
 }
 
-export function makeKol(id: string, over: Partial<DirectoryKol> = {}): DirectoryKol {
+export function makeVideo(platform: Platform | 'instagram', n: number): KolVideo {
   return {
+    platform: platform as Platform,
+    thumbnail: `https://img.example/${platform}-${n}.jpg`,
+    url: `https://${platform}.com/v/${n}`,
+    title: `Video ${n}`,
+    publishedAt: iso(NOW - n * DAY),
+  };
+}
+
+export function makeKol(id: string, over: Partial<DirectoryKol> = {}): DirectoryKol {
+  const category = 'category' in over ? over.category : 'Gaming';
+  return {
+    fields: category ? [{ name: category, medal: 'none' }] : [],
+    latestVideos: [],
     kolId: id,
     displayName: id,
     nickname: id.toLowerCase(),
@@ -73,6 +86,13 @@ export function fixtureDirectory(): DirectoryKol[] {
       category: 'Thời trang',
       region: 'TP. Hồ Chí Minh',
       verifiedAt: d(5),
+      fields: [
+        { name: 'Thời trang', medal: 'gold' },
+        { name: 'Làm đẹp', medal: 'silver' },
+        { name: 'Lifestyle', medal: 'none' },
+      ],
+      // Instagram and YouTube (no channel) videos must never surface (BR-20).
+      latestVideos: [makeVideo('instagram', 1), makeVideo('tiktok', 2), makeVideo('youtube', 3), makeVideo('facebook', 4), makeVideo('tiktok', 5)],
       channels: [
         makeChannel({ platform: 'tiktok', url: 'tiktok.com/@chaubui', handle: '@chaubui', followers: 3_200_000 }),
         makeChannel({ platform: 'facebook', url: 'facebook.com/chaubui', handle: '@chaubui', followers: 1_000_000 }),
@@ -113,6 +133,7 @@ export function fixtureDirectory(): DirectoryKol[] {
       nickname: 'kenhtron',
       region: 'Hải Phòng',
       verifiedAt: d(4),
+      latestVideos: [makeVideo('tiktok', 1), makeVideo('facebook', 2)],
       channels: [
         makeChannel({ platform: 'tiktok', url: 'tiktok.com/@kenhtron', active: false }),
         makeChannel({ platform: 'facebook', url: 'facebook.com/kenhtron', followers: 20_000 }),

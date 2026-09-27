@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { KolSearchResult } from '../bizTypes';
 import { createSearchService } from './search';
-import { bizState, NOW } from './testing/bizFixtures';
+import { bizState, fixtureDirectory, makeVideo, NOW } from './testing/bizFixtures';
 
 const svc = createSearchService({ db: bizState(), now: () => NOW, delay: false });
 const ids = (r: KolSearchResult) => r.items.map((i) => i.kolId);
@@ -77,7 +77,9 @@ describe('search', () => {
       'category',
       'channels',
       'displayName',
+      'fields',
       'kolId',
+      'latestVideos',
       'nickname',
       'platforms',
       'region',
@@ -89,6 +91,37 @@ describe('search', () => {
     expect(f.platforms).toEqual(['facebook']);
     expect(f.totalFollowers).toBe(20_000);
     expect(f.channels).toEqual([{ platform: 'facebook', followers: 20_000, badge: 'VERIFIED' }]);
+    // Video on the inactive TikTok channel is dropped.
+    expect(f.latestVideos.map((v) => v.platform)).toEqual(['facebook']);
+  });
+
+  test('lĩnh vực hoạt động: 1–3 mục, mục đầu = category, medal hợp lệ', async () => {
+    const r = await svc.search({});
+    for (const it of r.items) {
+      expect(it.fields.length).toBeGreaterThanOrEqual(1);
+      expect(it.fields.length).toBeLessThanOrEqual(3);
+      expect(it.fields[0].name).toBe(it.category);
+      for (const f of it.fields) expect(['gold', 'silver', 'none']).toContain(f.medal);
+    }
+    const a = r.items.find((i) => i.kolId === 'KOL-T-0001')!;
+    expect(a.fields).toEqual([
+      { name: 'Thời trang', medal: 'gold' },
+      { name: 'Làm đẹp', medal: 'silver' },
+      { name: 'Lifestyle', medal: 'none' },
+    ]);
+  });
+
+  test('BR-20: video mới nhất tối đa 2, chỉ nền tảng tìm được, không Instagram', async () => {
+    const r = await svc.search({});
+    for (const it of r.items) {
+      expect(it.latestVideos.length).toBeLessThanOrEqual(2);
+      for (const v of it.latestVideos) expect(it.platforms).toContain(v.platform);
+    }
+    const a = r.items.find((i) => i.kolId === 'KOL-T-0001')!;
+    expect(a.latestVideos.map((v) => v.title)).toEqual(['Video 2', 'Video 4']);
+    expect(Object.keys(a.latestVideos[0]).sort()).toEqual(['platform', 'publishedAt', 'thumbnail', 'title', 'url']);
+    expect(JSON.stringify(r.items)).not.toMatch(/instagram/i);
+    expect(r.items.find((i) => i.kolId === 'KOL-T-0002')!.latestVideos).toEqual([]);
   });
 
   test('BR-58: kết quả có bio + kênh theo nền tảng, không lộ dữ liệu private', async () => {
@@ -120,7 +153,9 @@ describe('getKolPublicProfile', () => {
       'channels',
       'collabEmail',
       'displayName',
+      'fields',
       'kolId',
+      'latestVideos',
       'listingStatus',
       'nickname',
       'region',
@@ -132,6 +167,32 @@ describe('getKolPublicProfile', () => {
     for (const v of ['0909000001', 'Đường Bí Mật', '0010******01', '99,000,000']) expect(json).not.toContain(v);
     expect(Object.keys(p.channels[0]).sort()).toEqual(['badge', 'badgeExpiresAt', 'followers', 'handle', 'platform', 'url']);
     expect(p).toMatchObject({ totalFollowers: 4_200_000, scale: 'mega', listingStatus: 'VISIBLE' });
+    for (const v of p.latestVideos) expect(Object.keys(v).sort()).toEqual(['platform', 'publishedAt', 'thumbnail', 'title', 'url']);
+  });
+
+  test('hồ sơ: lĩnh vực có huy chương; video tối đa 6, chỉ kênh công khai, không Instagram (BR-20)', async () => {
+    const p = await svc.getKolPublicProfile('KOL-T-0001');
+    expect(p.fields.map((f) => f.medal)).toEqual(['gold', 'silver', 'none']);
+    expect(p.latestVideos.map((v) => [v.platform, v.title])).toEqual([
+      ['tiktok', 'Video 2'],
+      ['facebook', 'Video 4'],
+      ['tiktok', 'Video 5'],
+    ]);
+    expect(JSON.stringify(p)).not.toMatch(/instagram/i);
+    expect((await svc.getKolPublicProfile('KOL-T-0006')).latestVideos.map((v) => v.platform)).toEqual(['facebook']);
+    expect((await svc.getKolPublicProfile('KOL-T-0002')).fields).toEqual([{ name: 'Du lịch', medal: 'none' }]);
+  });
+
+  test('hồ sơ: tối đa 6 video, tối đa 3 lĩnh vực dù dữ liệu gốc nhiều hơn', async () => {
+    const many = fixtureDirectory();
+    const k = many.find((x) => x.kolId === 'KOL-T-0002')!;
+    k.latestVideos = Array.from({ length: 9 }, (_, n) => makeVideo('youtube', n + 1));
+    k.fields = ['A', 'B', 'C', 'D'].map((name) => ({ name, medal: 'none' as const }));
+    const s = createSearchService({ db: bizState({ directory: many }), now: () => NOW, delay: false });
+    const p = await s.getKolPublicProfile('KOL-T-0002');
+    expect(p.latestVideos).toHaveLength(6);
+    expect(p.fields).toHaveLength(3);
+    expect((await s.search({ keyword: 'KOL-T-0002' })).items[0].latestVideos).toHaveLength(2);
   });
 
   test('kênh: bỏ kênh INACTIVE và kênh chưa từng có dấu; kênh hết hạn theo ngày hiện EXPIRED', async () => {

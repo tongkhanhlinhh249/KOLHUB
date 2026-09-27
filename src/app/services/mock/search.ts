@@ -1,6 +1,12 @@
 import {
+  FIELD_LIMIT,
+  PLATFORMS,
+  PROFILE_VIDEO_LIMIT,
   SEARCH_PAGE_SIZE,
+  SEARCH_VIDEO_LIMIT,
   type DirectoryKol,
+  type KolField,
+  type KolVideo,
   type KolPublicProfile,
   type KolSearchItem,
   type KolSearchQuery,
@@ -34,6 +40,32 @@ export interface SearchServiceDeps {
 function uniquePlatforms(k: DirectoryKol, now: number): Platform[] {
   const out: Platform[] = [];
   for (const c of searchableChannels(k, now)) if (!out.includes(c.platform)) out.push(c.platform);
+  return out;
+}
+
+/** Whitelisted copy of the KOL's fields (max 3). Older stored data without `fields` falls back to the category. */
+function publicFields(k: DirectoryKol): KolField[] {
+  const src = Array.isArray(k.fields) ? k.fields : k.category ? [{ name: k.category, medal: 'none' as const }] : [];
+  return src.slice(0, FIELD_LIMIT).map((f) => ({
+    name: f.name,
+    medal: f.medal === 'gold' || f.medal === 'silver' ? f.medal : 'none',
+  }));
+}
+
+const KNOWN_PLATFORMS = new Set<string>(PLATFORMS.map((p) => p.key));
+
+/** Whitelisted videos on `allowed` platforms only (never Instagram, BR-20), newest first as stored. */
+function publicVideos(k: DirectoryKol, allowed: Platform[], limit: number): KolVideo[] {
+  const out: KolVideo[] = [];
+  for (const v of k.latestVideos ?? []) {
+    if (out.length >= limit) break;
+    if (!KNOWN_PLATFORMS.has(v.platform) || !allowed.includes(v.platform) || !v.thumbnail) continue;
+    const video: KolVideo = { platform: v.platform, thumbnail: v.thumbnail };
+    if (v.url) video.url = v.url;
+    if (v.title) video.title = v.title;
+    if (v.publishedAt) video.publishedAt = v.publishedAt;
+    out.push(video);
+  }
   return out;
 }
 
@@ -72,6 +104,8 @@ function toItem(k: DirectoryKol, now: number): KolSearchItem {
     scale: scaleOf(followers),
     platforms: uniquePlatforms(k, now),
     channels: searchableChannels(k, now).map((c) => ({ platform: c.platform, followers: c.followers, badge: 'VERIFIED' as const })),
+    fields: publicFields(k),
+    latestVideos: publicVideos(k, uniquePlatforms(k, now), SEARCH_VIDEO_LIMIT),
     verifiedAt: k.verifiedAt,
   };
   if (k.avatar) item.avatar = k.avatar;
@@ -172,6 +206,12 @@ export function createSearchService(deps: SearchServiceDeps) {
       listingStatus: listingStatus(k, t),
       verifiedAt: k.verifiedAt,
       channels,
+      fields: publicFields(k),
+      latestVideos: publicVideos(
+        k,
+        channels.map((c) => c.platform),
+        PROFILE_VIDEO_LIMIT,
+      ),
     };
     if (k.avatar) profile.avatar = k.avatar;
     if (k.category) profile.category = k.category;

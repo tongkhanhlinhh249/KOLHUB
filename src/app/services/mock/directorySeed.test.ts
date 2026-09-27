@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { KOL_CATEGORIES, KOL_REGIONS } from '../bizTypes';
-import { listingStatus } from './directory';
+import { listingStatus, searchableChannels } from './directory';
 import { parseFollowers, seedDirectory, seedSavedLists } from './directorySeed';
 import { seedState } from './seed';
 
@@ -72,4 +72,45 @@ test('seedSavedLists: 2 danh sách của brand@vinamilk-demo.vn', () => {
   ]);
   expect(lists.every((l) => l.accountId === 'acc-biz-demo')).toBe(true);
   expect(lists[0].items[0].note).toBe('Ưu tiên liên hệ tháng 11');
+});
+
+test('lĩnh vực hoạt động: 1–3 mục, mục đầu = category, medal gold/silver/none, không trùng', () => {
+  for (const k of dir) {
+    expect(k.fields.length).toBeGreaterThanOrEqual(1);
+    expect(k.fields.length).toBeLessThanOrEqual(3);
+    expect(k.fields[0].name).toBe(k.category);
+    for (const f of k.fields) expect(['gold', 'silver', 'none']).toContain(f.medal);
+    expect(new Set(k.fields.map((f) => f.name.toLowerCase())).size).toBe(k.fields.length);
+  }
+  // creators.ts: "Du Lịch"/gold, "Văn Hóa"/silver, "Phượt"/bronze → none
+  expect(byId('KOL-2026-0003').fields).toEqual([
+    { name: 'Du lịch', medal: 'gold' },
+    { name: 'Văn Hóa', medal: 'silver' },
+    { name: 'Phượt', medal: 'none' },
+  ]);
+  expect(new Set(dir.map((k) => k.fields.length))).toEqual(new Set([1, 2, 3]));
+});
+
+test('video mới nhất: chỉ FB/YT/TikTok của kênh đã xác thực + đang hoạt động; mới nhất trước', () => {
+  const t = NOW;
+  for (const k of dir) {
+    const ok = new Set(searchableChannels(k, t).map((c) => c.platform));
+    for (const v of k.latestVideos) {
+      expect(['facebook', 'youtube', 'tiktok']).toContain(v.platform);
+      expect(ok.has(v.platform)).toBe(true);
+      expect(v.thumbnail).toMatch(/^https:\/\//);
+    }
+    const dates = k.latestVideos.map((v) => Date.parse(v.publishedAt!));
+    expect([...dates].sort((a, b) => b - a)).toEqual(dates);
+    expect(k.latestVideos.length).toBeLessThanOrEqual(6);
+  }
+  expect(JSON.stringify(dir.map((k) => k.latestVideos))).not.toMatch(/instagram/i);
+  // Khánh Vy: ảnh nội dung lấy từ creators.ts
+  expect(byId('KOL-2026-0001').latestVideos[0].thumbnail).toContain('photo-1758521540376');
+  // 0003 có TikTok ngừng hoạt động → không có video TikTok
+  expect(byId('KOL-2026-0003').latestVideos.some((v) => v.platform === 'tiktok')).toBe(false);
+  // Có KOL chưa có video (ô "Chưa có video") và KOL mất dấu không có video
+  expect(dir.slice(0, 35).some((k) => k.latestVideos.length === 0)).toBe(true);
+  expect(byId('KOL-2026-0038').latestVideos).toEqual([]);
+  expect(dir.some((k) => k.latestVideos.length >= 4)).toBe(true);
 });

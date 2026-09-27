@@ -122,6 +122,20 @@ describe('phase 3 keys', () => {
     const db = createDb(memoryStorage({ 'kolhub-demo-v1': JSON.stringify(old) }), seedState);
     expect(db.read().savedLists).toEqual([]);
   });
+
+  test('directory cũ thiếu fields/latestVideos → bù theo kolId từ seed, giữ phần còn lại', () => {
+    const old = seedState() as unknown as { directory: Record<string, unknown>[] };
+    for (const k of old.directory) {
+      delete k.fields;
+      delete k.latestVideos;
+    }
+    old.directory[0].displayName = 'Tên đã sửa';
+    const db = createDb(memoryStorage({ 'kolhub-demo-v1': JSON.stringify(old) }), seedState);
+    const k = db.read().directory[0];
+    expect(k.displayName).toBe('Tên đã sửa');
+    expect(k.fields.length).toBeGreaterThan(0);
+    expect(k.latestVideos.length).toBeGreaterThan(0);
+  });
 });
 
 // --- phase 2 ---

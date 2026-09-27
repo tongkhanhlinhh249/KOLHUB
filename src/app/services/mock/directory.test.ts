@@ -121,6 +121,13 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
       verifiedAt: iso(NOW - DAY),
     });
     expect(k.channels[1]).toMatchObject({ url: 'tiktok.com/@doihai2', followers: 0 });
+    expect(k.fields).toEqual([{ name: 'Ẩm thực', medal: 'none' }]);
+    expect(k.latestVideos).toEqual([]);
+  });
+
+  test('fromApprovedSummary: không có lĩnh vực hợp lệ → fields rỗng', () => {
+    expect(fromApprovedSummary({ ...summary, category: 'Không rõ' }).fields).toEqual([]);
+    expect(fromApprovedSummary({ ...summary, category: undefined }).fields).toEqual([]);
   });
 
   test('kênh hết hạn theo badgeExpiresAt → không tìm được; KOL vẫn VISIBLE nhờ kênh còn hạn', () => {

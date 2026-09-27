@@ -139,6 +139,15 @@ function backfillMissingKeys(parsed: DemoState, seed: () => DemoState): DemoStat
   for (const key of Object.keys(fresh)) {
     if (!(key in target)) target[key] = fresh[key];
   }
+  // Directory entries saved before "Lĩnh vực hoạt động" / "Video mới nhất" existed: fill those two keys by kolId.
+  if (Array.isArray(parsed.directory)) {
+    const seeded = new Map(((fresh.directory as DirectoryKol[] | undefined) ?? []).map((k) => [k.kolId, k]));
+    for (const k of parsed.directory as Partial<DirectoryKol>[]) {
+      const src = k.kolId ? seeded.get(k.kolId) : undefined;
+      if (!('fields' in k)) k.fields = src?.fields ?? (k.category ? [{ name: k.category, medal: 'none' }] : []);
+      if (!('latestVideos' in k)) k.latestVideos = src?.latestVideos ?? [];
+    }
+  }
   return parsed;
 }
 
