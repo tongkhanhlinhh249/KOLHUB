@@ -174,3 +174,56 @@ test('phiên KOL → 4016', async () => {
   await expect(svc.listLists()).rejects.toMatchObject({ code: 'KOLHUB-4016' });
   await expect(svc.createList('A')).rejects.toMatchObject({ code: 'KOLHUB-4016' });
 });
+
+test('BR-62: hoàn tác bỏ KOL đã mất dấu (không ở danh sách nào khác) khôi phục đúng mục cũ', async () => {
+  const a = await svc.createList('A');
+  await svc.setMembership('KOL-T-0006', [a.id]);
+  clock += DAY;
+  await svc.setMembership('KOL-T-0001', [a.id]);
+  clock += DAY;
+  await svc.setMembership('KOL-T-0002', [a.id]);
+  await svc.updateNote(a.id, 'KOL-T-0001', 'Gọi lại thứ Hai');
+  const before = (await svc.getList(a.id)).rows;
+  const itemsBefore = db.read().savedLists.find((l) => l.id === a.id)!.items.map((i) => ({ ...i }));
+
+  const removed = await svc.removeFromList(a.id, 'KOL-T-0001');
+  expect(removed).toEqual({ listId: a.id, index: 1, item: { kolId: 'KOL-T-0001', note: 'Gọi lại thứ Hai', addedAt: iso(NOW + DAY) } });
+  db.update((s) => {
+    s.directory.find((k) => k.kolId === 'KOL-T-0001')!.channels.forEach((c) => {
+      c.badgeExpiresAt = iso(NOW - 1);
+    });
+  });
+  // Re-saving through the normal flow is still blocked for a KOL no longer visible.
+  await expect(svc.setMembership('KOL-T-0001', [a.id])).rejects.toMatchObject({ code: 'KOLHUB-4404' });
+
+  clock += DAY;
+  await svc.restoreItem(removed!);
+  expect(db.read().savedLists.find((l) => l.id === a.id)!.items).toEqual(itemsBefore);
+  const after = (await svc.getList(a.id)).rows;
+  expect(after.map((r) => r.kolId)).toEqual(before.map((r) => r.kolId));
+  expect(after.find((r) => r.kolId === 'KOL-T-0001')).toMatchObject({
+    note: 'Gọi lại thứ Hai',
+    addedAt: iso(NOW + DAY),
+    status: 'BADGE_EXPIRED',
+  });
+
+  // Idempotent: restoring twice does not duplicate.
+  await svc.restoreItem(removed!);
+  expect((await svc.listLists())[0].count).toBe(3);
+});
+
+test('restoreItem: danh sách của tài khoản khác → 4403; danh sách đã xoá → 4403', async () => {
+  const a = await svc.createList('A');
+  await svc.setMembership('KOL-T-0001', [a.id]);
+  const removed = (await svc.removeFromList(a.id, 'KOL-T-0001'))!;
+  switchSession(db, 'biz2');
+  await expect(svc.restoreItem(removed)).rejects.toMatchObject({ code: 'KOLHUB-4403' });
+  switchSession(db, 'biz');
+  await svc.deleteList(a.id);
+  await expect(svc.restoreItem(removed)).rejects.toMatchObject({ code: 'KOLHUB-4403' });
+});
+
+test('removeFromList KOL không có trong danh sách → null', async () => {
+  const a = await svc.createList('A');
+  await expect(svc.removeFromList(a.id, 'KOL-T-0001')).resolves.toBeNull();
+});

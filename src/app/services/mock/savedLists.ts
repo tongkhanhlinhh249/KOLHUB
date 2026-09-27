@@ -4,6 +4,7 @@ import type {
   Platform,
   SavedList,
   SavedListDetail,
+  SavedListItem,
   SavedListRow,
   SavedListSummary,
 } from '../bizTypes';
@@ -22,6 +23,14 @@ export function normalizeListName(name: string): string {
 }
 
 const nameKey = (name: string) => normalizeListName(name).toLocaleLowerCase('vi');
+
+/** Snapshot of an item removed from a list, used to undo the removal exactly. */
+export interface RemovedListItem {
+  listId: string;
+  /** Position of the item in the list's stored items at removal time. */
+  index: number;
+  item: SavedListItem;
+}
 
 export interface SavedListServiceDeps {
   db: Db;
@@ -189,14 +198,36 @@ export function createSavedListService(deps: SavedListServiceDeps) {
     return { added, removed };
   }
 
-  async function removeFromList(listId: string, kolId: string): Promise<void> {
+  async function removeFromList(listId: string, kolId: string): Promise<RemovedListItem | null> {
     await wait();
+    ownList(db.read(), listId);
+    const at = new Date(now()).toISOString();
+    let removed: RemovedListItem | null = null;
+    db.update((s) => {
+      const l = s.savedLists.find((x) => x.id === listId)!;
+      const index = l.items.findIndex((i) => i.kolId === kolId);
+      if (index < 0) return;
+      removed = { listId, index, item: { ...l.items[index] } };
+      l.items.splice(index, 1);
+      l.updatedAt = at;
+    });
+    return removed;
+  }
+
+  /**
+   * Undo of removeFromList: puts back the exact previous item (note, addedAt, position).
+   * Skips the "only visible KOLs can be newly saved" rule on purpose — a KOL that lost its
+   * badge after being saved stays in lists with its new status (BR-62). No-op if already present.
+   */
+  async function restoreItem(removed: RemovedListItem): Promise<void> {
+    await wait();
+    const { listId, index, item } = removed;
     ownList(db.read(), listId);
     const at = new Date(now()).toISOString();
     db.update((s) => {
       const l = s.savedLists.find((x) => x.id === listId)!;
-      if (!l.items.some((i) => i.kolId === kolId)) return;
-      l.items = l.items.filter((i) => i.kolId !== kolId);
+      if (l.items.some((i) => i.kolId === item.kolId)) return;
+      l.items.splice(Math.min(Math.max(index, 0), l.items.length), 0, { ...item });
       l.updatedAt = at;
     });
   }
@@ -232,6 +263,7 @@ export function createSavedListService(deps: SavedListServiceDeps) {
     getMembership,
     setMembership,
     removeFromList,
+    restoreItem,
     updateNote,
     getSavedKolIds,
   };

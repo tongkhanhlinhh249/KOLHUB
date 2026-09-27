@@ -196,17 +196,16 @@ export function SavedListsPage() {
     const row = detail.rows.find((r) => r.kolId === kolId);
     const name = row?.displayName ?? kolId;
     try {
-      await savedListService.removeFromList(listId, kolId);
+      const removed = await savedListService.removeFromList(listId, kolId);
       await refresh();
+      if (!removed) return;
       toast.success(`Đã bỏ ${name} khỏi danh sách`, {
-        description: row?.note ? 'Ghi chú sẽ không được khôi phục' : undefined,
         action: {
           label: 'Hoàn tác',
           onClick: async () => {
             try {
-              const m = await savedListService.getMembership(kolId);
-              const ids = m.filter((x) => x.checked).map((x) => x.listId);
-              await savedListService.setMembership(kolId, [...ids, listId]);
+              // Restores the exact item (note, addedAt, position), even if the badge expired meanwhile (BR-62).
+              await savedListService.restoreItem(removed);
               await refresh();
             } catch (e) {
               toast.error(messageOf(e));
