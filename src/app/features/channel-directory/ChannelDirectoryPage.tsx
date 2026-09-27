@@ -24,6 +24,7 @@ import { createLatestOnly } from '../biz-search/latestOnly';
 import { SearchPagination } from '../biz-search/SearchPagination';
 import { useBrandKolSheet } from '../shared/BrandKolSheet';
 import { brandLockedView } from '../shared/BrandLocked';
+import { ReportViolationDialog, type ReportTarget } from '../violations/ReportViolationDialog';
 import { ChannelDirectoryRow, ChannelDirectoryRowSkeleton } from './ChannelDirectoryRow';
 
 const SORT_OPTIONS: FilterOption<ChannelDirectorySort>[] = [
@@ -60,6 +61,7 @@ export function ChannelDirectoryPage() {
   const [reload, setReload] = useState(0);
   const latest = useRef(createLatestOnly()).current;
   const kol = useBrandKolSheet();
+  const [report, setReport] = useState<ReportTarget | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -193,6 +195,7 @@ export function ChannelDirectoryPage() {
                   saved={kol.savedIds.has(c.kolId)}
                   onOpenKol={() => kol.openKol(c.kolId)}
                   onSave={() => kol.openSave(c.kolId, c.displayName)}
+                  onReport={() => setReport({ channelId: c.channelId, handle: c.handle, platform: c.platform })}
                 />
               </li>
             ))}
@@ -202,6 +205,7 @@ export function ChannelDirectoryPage() {
       ) : null}
 
       {kol.elements}
+      <ReportViolationDialog target={report} onOpenChange={(o) => !o && setReport(null)} />
     </div>
   );
 }
