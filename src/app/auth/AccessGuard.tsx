@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { GUEST_PATHS, ROLE_CONFIG, resolveAccess, safeReturnTo } from './roles';
 import type { RoleKey } from '../services';
+import { DemoPanel } from '../demo/DemoPanel';
 
 function isGuestPage(pathname: string): boolean {
   return GUEST_PATHS.includes(pathname.replace(/\/+$/, '') || '/');
@@ -51,5 +52,10 @@ export function AccessGuard() {
         : access.redirect;
     return <Navigate to={to} replace />;
   }
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <DemoPanel />
+    </>
+  );
 }
