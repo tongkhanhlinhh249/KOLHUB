@@ -110,6 +110,8 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
               <ChannelsTab
                 accountId={accountId}
                 profileStatus={q.data.view.profile.status}
+                fields={q.data.view.profile.contact.fields}
+                region={q.data.view.profile.contact.province || undefined}
                 openAddRequest={openAddChannel}
                 onOpenAddConsumed={consumeOpenAddChannel}
                 filterMode={q.data.view.profile.ownerType === 'MCN' ? 'status' : 'full'}

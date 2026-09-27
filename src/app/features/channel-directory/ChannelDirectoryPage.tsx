@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { RotateCcw, SearchX } from 'lucide-react';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Button } from '../../components/ui/button';
+import { useSearchParams } from 'react-router';
+import { Bookmark, BookmarkCheck, Eye, Flag } from 'lucide-react';
+import { DropdownMenuItem, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
 import {
   channelDirectoryService,
   KOL_CATEGORIES,
   KOL_REGIONS,
   KOL_SCALES,
   PLATFORMS,
+  type ChannelDirectoryItem,
   type ChannelDirectoryQuery,
   type ChannelDirectoryResult,
   type ChannelDirectorySort,
@@ -21,11 +22,21 @@ import { FilterSelect, type FilterOption } from '../filters/FilterSelect';
 import { PlatformSelect } from '../filters/PlatformSelect';
 import { SortSelect } from '../filters/SortSelect';
 import { createLatestOnly } from '../biz-search/latestOnly';
-import { SearchPagination } from '../biz-search/SearchPagination';
+import { CHANNEL_PARAM, useChannelParam } from '../channels/ChannelDetailSheet';
+import {
+  ChannelCountLine,
+  ChannelList,
+  ChannelListEmpty,
+  ChannelListError,
+  ChannelListSkeleton,
+  ClearFiltersButton,
+} from '../channels/ChannelListStates';
+import { ChannelRow, ROW_MENU_ITEM } from '../channels/ChannelRow';
+import { KolAvatar } from '../biz-search/KolCard';
 import { useBrandKolSheet } from '../shared/BrandKolSheet';
 import { brandLockedView } from '../shared/BrandLocked';
 import { ReportViolationDialog, type ReportTarget } from '../violations/ReportViolationDialog';
-import { ChannelDirectoryRow, ChannelDirectoryRowSkeleton } from './ChannelDirectoryRow';
+import { BrandChannelSheet } from './BrandChannelSheet';
 
 const SORT_OPTIONS: FilterOption<ChannelDirectorySort>[] = [
   { key: 'followers', label: 'Người theo dõi cao nhất' },
@@ -52,7 +63,22 @@ function chipsOf(q: ChannelDirectoryQuery, onChange: (p: Partial<ChannelDirector
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-/** /danh-sach-kenh — every verified channel (one row per channel) for Brand/Agency accounts. */
+/** Owner line under the channel link: avatar, KOL name, KOL ID. */
+function OwnerLine({ item }: { item: ChannelDirectoryItem }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <KolAvatar name={item.displayName} src={item.avatar} className="size-6 text-[10px]" />
+      <span className="truncate text-sm font-medium text-foreground">{item.displayName}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{item.kolId}</span>
+    </span>
+  );
+}
+
+/**
+ * /danh-sach-kenh — every verified channel (one row per channel) for Brand/Agency accounts. Same
+ * row, filters and states as the owner's "Quản lý kênh", but read-only; a row opens "Chi tiết kênh"
+ * (`?kenh=`), from which "Xem hồ sơ KOL" opens the KOL sheet (`?kol=`).
+ */
 export function ChannelDirectoryPage() {
   const [query, setQuery] = useState<ChannelDirectoryQuery>({ sort: 'followers', page: 1 });
   const [result, setResult] = useState<ChannelDirectoryResult | null>(null);
@@ -62,6 +88,16 @@ export function ChannelDirectoryPage() {
   const latest = useRef(createLatestOnly()).current;
   const kol = useBrandKolSheet();
   const [report, setReport] = useState<ReportTarget | null>(null);
+  const channel = useChannelParam();
+  const [, setSearchParams] = useSearchParams();
+  // Channel sheet → KOL sheet in one history entry, so Back returns to the channel.
+  const openKolFromChannel = (kolId: string) =>
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev);
+      sp.delete(CHANNEL_PARAM);
+      sp.set('kol', kolId);
+      return sp;
+    });
 
   useEffect(() => {
     setLoading(true);
@@ -143,67 +179,71 @@ export function ChannelDirectoryPage() {
         sheetDescription="Chỉ hiện kênh có dấu xác thực còn hiệu lực."
       />
 
-      <div className="flex min-h-11 flex-wrap items-baseline gap-x-4 gap-y-1 text-sm" aria-live="polite">
-        {result && (
-          <>
-            <p className="font-medium text-foreground">{result.total} kênh</p>
-            {result.total > 0 && (
-              <p className="text-muted-foreground">
-                Hiển thị {from}–{to}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+      <ChannelCountLine count={result?.total} extra={result && result.total > 0 ? `Hiển thị ${from}–${to}` : undefined} />
 
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>{errText(error)}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => setReload((n) => n + 1)}>
-              <RotateCcw aria-hidden />
-              Thử lại
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <ChannelListError message={errText(error)} onRetry={() => setReload((n) => n + 1)} />
       ) : loading && !result ? (
-        <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải">
-          {Array.from({ length: 6 }, (_, i) => (
-            <ChannelDirectoryRowSkeleton key={i} />
-          ))}
-        </div>
+        <ChannelListSkeleton count={6} />
       ) : result && result.items.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <SearchX className="size-6" aria-hidden />
-          </div>
-          <p className="font-semibold text-foreground">Không tìm thấy kênh phù hợp</p>
-          <p className="text-sm text-muted-foreground">Thử bỏ bớt bộ lọc hoặc đổi từ khoá.</p>
-          {active && (
-            <Button type="button" variant="outline" className="h-11" onClick={onClear}>
-              Xoá bộ lọc
-            </Button>
-          )}
-        </div>
+        <ChannelListEmpty
+          title="Không tìm thấy kênh phù hợp"
+          description="Thử bỏ bớt bộ lọc hoặc đổi từ khoá."
+          action={active ? <ClearFiltersButton onClear={onClear} /> : undefined}
+        />
       ) : result ? (
-        <>
-          <ul className={`flex flex-col gap-3 transition-opacity ${loading ? 'opacity-60' : ''}`} aria-label="Danh sách kênh đã xác thực">
-            {result.items.map((c) => (
+        <ChannelList label="Danh sách kênh đã xác thực" busy={loading} page={result.page} pageCount={result.pageCount} onPage={onPage}>
+          {result.items.map((c) => {
+            const saved = kol.savedIds.has(c.kolId);
+            return (
               <li key={c.channelId}>
-                <ChannelDirectoryRow
-                  item={c}
-                  saved={kol.savedIds.has(c.kolId)}
-                  onOpenKol={() => kol.openKol(c.kolId)}
-                  onSave={() => kol.openSave(c.kolId, c.displayName)}
-                  onReport={() => setReport({ channelId: c.channelId, handle: c.handle, platform: c.platform })}
+                <ChannelRow
+                  platform={c.platform}
+                  handle={c.handle}
+                  url={c.url}
+                  verifiedUntil={c.badgeExpiresAt}
+                  subline={<OwnerLine item={c} />}
+                  fields={c.fields}
+                  region={c.region}
+                  followers={c.followers}
+                  onOpen={() => channel.openChannel(c.channelId)}
+                  menu={
+                    <>
+                      <DropdownMenuItem className={ROW_MENU_ITEM} onSelect={() => channel.openChannel(c.channelId)}>
+                        <Eye aria-hidden />
+                        Xem chi tiết kênh
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className={ROW_MENU_ITEM} onSelect={() => kol.openSave(c.kolId, c.displayName)}>
+                        {saved ? <BookmarkCheck className="text-primary" aria-hidden /> : <Bookmark aria-hidden />}
+                        Lưu KOL vào danh sách
+                        {saved && <span className="ml-auto text-xs text-muted-foreground">Đã lưu</span>}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className={ROW_MENU_ITEM}
+                        variant="destructive"
+                        onSelect={() => setReport({ channelId: c.channelId, handle: c.handle, platform: c.platform })}
+                      >
+                        <Flag aria-hidden />
+                        Báo cáo vi phạm
+                      </DropdownMenuItem>
+                    </>
+                  }
                 />
               </li>
-            ))}
-          </ul>
-          <SearchPagination page={result.page} pageCount={result.pageCount} onPage={onPage} />
-        </>
+            );
+          })}
+        </ChannelList>
       ) : null}
 
+      <BrandChannelSheet
+        channelId={channel.channelId}
+        onClose={channel.closeChannel}
+        saved={(id) => kol.savedIds.has(id)}
+        onOpenKol={openKolFromChannel}
+        onSave={kol.openSave}
+        onReport={(d) => setReport({ channelId: d.channelId, handle: d.handle, platform: d.platform })}
+      />
       {kol.elements}
       <ReportViolationDialog target={report} onOpenChange={(o) => !o && setReport(null)} />
     </div>

@@ -1,18 +1,38 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { AlertCircle, Plus, RotateCcw, SearchX } from 'lucide-react';
-import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Eye, Link2, Pencil, Plus } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { channelService, PLATFORMS, type Channel, type ProfileStatus } from '../../services';
+import {
+  CHANNEL_PAGE_SIZE,
+  channelBadge,
+  channelService,
+  PLATFORMS,
+  type ActivityField,
+  type Channel,
+  type ProfileStatus,
+} from '../../services';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { PlatformSelect } from '../filters/PlatformSelect';
 import { SortSelect } from '../filters/SortSelect';
+import { ChannelStatusBadge } from '../shared/StatusBadges';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { useChannelParam } from './ChannelDetailSheet';
 import { ChannelFormSheet } from './ChannelFormSheet';
-import { ChannelListRow, ChannelListRowSkeleton } from './ChannelListRow';
+import {
+  ChannelCountLine,
+  ChannelList,
+  ChannelListEmpty,
+  ChannelListError,
+  ChannelListSkeleton,
+  ClearFiltersButton,
+} from './ChannelListStates';
+import { ActiveSwitch, NeedsFixCallout } from './ChannelParts';
+import { ChannelRow, ROW_MENU_ITEM } from './ChannelRow';
+import { OwnerChannelSheet } from './OwnerChannelSheet';
 import {
   applyChannelPatch,
   CHANNEL_ACTIVE_OPTIONS,
@@ -59,12 +79,15 @@ function chipsOf(q: ChannelQuery, onChange: (patch: Partial<ChannelQuery>) => vo
 export type ChannelFilterMode = 'full' | 'status';
 
 /**
- * SCR-06 — "Quản lý kênh" for KOL and MCN: filters with state in the URL (full filter bar, or
- * status tabs only), list rows, active switch and add/edit sheet. There is no delete (BR-23).
+ * SCR-06 — "Quản lý kênh" for KOL and MCN: same rows, filters, states and "Chi tiết kênh" sheet as
+ * the Brand "Danh sách kênh", plus the owner actions: add/edit sheet, active switch, review status
+ * (full filter bar, or status tabs only for MCN). There is no delete (BR-23).
  */
 export function ChannelsTab({
   accountId,
   profileStatus,
+  fields = [],
+  region,
   openAddRequest = false,
   onOpenAddConsumed,
   filterMode = 'full',
@@ -72,6 +95,9 @@ export function ChannelsTab({
   accountId: string;
   filterMode?: ChannelFilterMode;
   profileStatus: ProfileStatus;
+  /** Owner's public "Lĩnh vực hoạt động" and region, shown on every row like on the Brand side. */
+  fields?: ActivityField[];
+  region?: string;
   /** When true, open the add-channel sheet once, then call onOpenAddConsumed (e.g. header "Thêm kênh"). */
   openAddRequest?: boolean;
   onOpenAddConsumed?(): void;
@@ -85,6 +111,11 @@ export function ChannelsTab({
     return statusMode ? statusOnlyQuery(parsed) : parsed;
   }, [paramsKey, statusMode]);
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
+  const detail = useChannelParam();
+  const [page, setPage] = useState(1);
+  // Back to page 1 when filters change (not when only `?kenh=` changes).
+  const queryKey = JSON.stringify(query);
+  useEffect(() => setPage(1), [queryKey]);
 
   const channels = data.data;
   // Re-read the clock whenever the list changes, so "Hết hạn dấu" follows the data.
@@ -139,77 +170,109 @@ export function ChannelsTab({
     </>
   );
 
-  const item = (c: Channel) => ({
-    channel: c,
-    accountId,
-    now,
-    locked: profileStatus === 'SUBMITTED' && c.status === 'PENDING_REVIEW',
-    onEdit: () => setSheet({ open: true, channel: c }),
-  });
+  const isLocked = (c: Channel) => profileStatus === 'SUBMITTED' && c.status === 'PENDING_REVIEW';
+  const openEdit = (c: Channel) => setSheet({ open: true, channel: c });
+  const editFromDetail = (c: Channel) => {
+    detail.closeChannel();
+    openEdit(c);
+  };
+
+  const pageCount = Math.max(1, Math.ceil(shown.length / CHANNEL_PAGE_SIZE));
+  const current = Math.min(page, pageCount);
+  const paged = shown.slice((current - 1) * CHANNEL_PAGE_SIZE, current * CHANNEL_PAGE_SIZE);
+  const onPage = (p: number) => {
+    setPage(p);
+    document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const row = (c: Channel) => {
+    const locked = isLocked(c);
+    return (
+      <ChannelRow
+        platform={c.platform}
+        handle={c.handle}
+        url={c.url}
+        verifiedUntil={channelBadge(c, now) === 'VERIFIED' ? c.badgeExpiresAt : undefined}
+        subline={<ChannelStatusBadge channel={c} now={now} />}
+        fields={fields}
+        region={region}
+        followers={c.stats?.followers}
+        trailing={<ActiveSwitch channel={c} accountId={accountId} />}
+        onOpen={() => detail.openChannel(c.id)}
+        footer={
+          c.status === 'NEEDS_FIX' && (
+            <NeedsFixCallout
+              channel={c}
+              action={
+                <Button type="button" size="sm" className="h-11 md:h-8" onClick={() => openEdit(c)}>
+                  Sửa
+                </Button>
+              }
+            />
+          )
+        }
+        menu={
+          <>
+            <DropdownMenuItem className={ROW_MENU_ITEM} onSelect={() => detail.openChannel(c.id)}>
+              <Eye aria-hidden />
+              Xem chi tiết kênh
+            </DropdownMenuItem>
+            <DropdownMenuItem className={ROW_MENU_ITEM} disabled={locked} onSelect={() => openEdit(c)}>
+              <Pencil aria-hidden />
+              Sửa kênh
+              {locked && <span className="ml-auto text-xs text-muted-foreground">Đang xét duyệt</span>}
+            </DropdownMenuItem>
+          </>
+        }
+      />
+    );
+  };
 
   const loading = data.loading && !channels;
   const empty = !!channels && channels.length === 0;
+  const addButton = (
+    <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
+      <Plus aria-hidden />
+      Thêm kênh
+    </Button>
+  );
 
   let body: ReactNode;
   if (loading) {
-    body = (
-      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải kênh">
-        {[0, 1, 2].map((i) => (
-          <ChannelListRowSkeleton key={i} />
-        ))}
-      </div>
-    );
+    body = <ChannelListSkeleton />;
   } else if (data.error && !channels) {
-    body = (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" aria-hidden />
-        <AlertDescription className="space-y-2">
-          <p>Không tải được danh sách kênh.</p>
-          <Button type="button" size="sm" variant="outline" onClick={data.reload}>
-            <RotateCcw aria-hidden />
-            Thử lại
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
+    body = <ChannelListError message="Không tải được danh sách kênh." onRetry={data.reload} />;
   } else if (empty) {
     body = (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-4 py-10 text-center">
-        <p className="text-sm text-muted-foreground">Bạn chưa khai báo kênh nào.</p>
-        <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
-          <Plus aria-hidden />
-          Thêm kênh đầu tiên
-        </Button>
-      </div>
+      <ChannelListEmpty
+        icon={Link2}
+        title="Bạn chưa khai báo kênh nào"
+        description="Thêm kênh để gửi xét duyệt và nhận dấu xác thực."
+        action={
+          <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
+            <Plus aria-hidden />
+            Thêm kênh đầu tiên
+          </Button>
+        }
+      />
     );
   } else if (shown.length === 0 && statusMode) {
-    body = (
-      <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-        Không có kênh ở trạng thái này
-      </p>
-    );
+    body = <ChannelListEmpty title="Không có kênh ở trạng thái này" />;
   } else if (shown.length === 0) {
     body = (
-      <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <SearchX className="size-6" aria-hidden />
-        </div>
-        <p className="font-semibold text-foreground">Không có kênh phù hợp</p>
-        <p className="text-sm text-muted-foreground">Thử bỏ bớt bộ lọc hoặc đổi từ khoá.</p>
-        <Button type="button" variant="outline" className="h-11" onClick={onClear}>
-          Xoá bộ lọc
-        </Button>
-      </div>
+      <ChannelListEmpty
+        title="Không có kênh phù hợp"
+        description="Thử bỏ bớt bộ lọc hoặc đổi từ khoá."
+        action={<ClearFiltersButton onClear={onClear} />}
+      />
     );
   } else {
     body = (
-      <ul className="flex flex-col gap-3" aria-label="Danh sách kênh">
-        {shown.map((c) => (
-          <li key={c.id}>
-            <ChannelListRow {...item(c)} />
-          </li>
+      <ChannelList label="Danh sách kênh" page={current} pageCount={pageCount} onPage={onPage}>
+        {paged.map((c) => (
+          <li key={c.id}>{row(c)}</li>
         ))}
-      </ul>
+      </ChannelList>
     );
   }
 
@@ -228,14 +291,8 @@ export function ChannelsTab({
               </TabsList>
             </Tabs>
           </div>
-          <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-            <p className="text-sm font-medium text-foreground" aria-live="polite">
-              {shown.length} kênh
-            </p>
-            <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
-              <Plus aria-hidden />
-              Thêm kênh
-            </Button>
+          <div className="shrink-0">
+            <ChannelCountLine count={shown.length} actions={addButton} />
           </div>
         </div>
       )}
@@ -264,27 +321,26 @@ export function ChannelsTab({
             onClear={onClear}
           />
 
-          <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-            <p className="font-medium text-foreground" aria-live="polite">
-              {channels && (
-                <>
-                  {shown.length} kênh
-                  {active && <span className="font-normal text-muted-foreground"> / {total} kênh đã khai báo</span>}
-                </>
-              )}
-            </p>
-            <div className="ml-auto flex items-center gap-2">
-              <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
-                <Plus aria-hidden />
-                Thêm kênh
-              </Button>
-            </div>
-          </div>
+          <ChannelCountLine
+            count={channels ? shown.length : undefined}
+            extra={active ? `/ ${total} kênh đã khai báo` : undefined}
+            actions={addButton}
+          />
         </>
       )}
 
       {body}
 
+      <OwnerChannelSheet
+        channelId={detail.channelId}
+        channels={channels}
+        loading={data.loading}
+        accountId={accountId}
+        now={now}
+        isLocked={isLocked}
+        onClose={detail.closeChannel}
+        onEdit={editFromDetail}
+      />
       <ChannelFormSheet
         open={sheet.open}
         onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
