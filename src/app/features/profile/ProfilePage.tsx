@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { useAuth } from '../../auth/AuthContext';
 import { channelService, ekycService, profileService, type OwnerType } from '../../services';
 import { ComingSoon } from '../placeholder/ComingSoon';
+import { ChannelsTab } from '../channels/ChannelsTab';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
 import { ProfileHeader } from './ProfileHeader';
@@ -103,7 +104,7 @@ export function ProfilePage({ ownerType }: { ownerType: OwnerType }) {
               <ComingSoon title="Thông tin định danh" note="Đang hoàn thiện." />
             </TabsContent>
             <TabsContent value="kenh" className="mt-4">
-              <ComingSoon title="Quản lý kênh" note="Đang hoàn thiện." />
+              <ChannelsTab accountId={accountId} profileStatus={q.data.view.profile.status} />
             </TabsContent>
           </Tabs>
         </>
