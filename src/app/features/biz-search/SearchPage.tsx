@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { LayoutGrid, List, Lock, RotateCcw, SearchX } from 'lucide-react';
+import { Lock, RotateCcw, SearchX } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import {
@@ -10,6 +10,7 @@ import {
   type KolSearchQuery,
   type KolSearchResult,
 } from '../../services';
+import { ViewToggle } from '../filters/ViewToggle';
 import { KolCard, KolCardSkeleton } from './KolCard';
 import { KolListRow, KolListRowSkeleton } from './KolListRow';
 import { KolProfileSheet } from './KolProfileSheet';
@@ -169,29 +170,7 @@ export function SearchPage() {
             </>
           )}
         </div>
-        <div role="group" aria-label="Kiểu hiển thị" className="ml-auto flex items-center gap-1 rounded-md border border-border p-0.5">
-          {(
-            [
-              { key: 'grid', label: 'Lưới', Icon: LayoutGrid },
-              { key: 'list', label: 'Danh sách', Icon: List },
-            ] as const
-          ).map(({ key, label, Icon }) => (
-            <Button
-              key={key}
-              type="button"
-              variant={view === key ? 'secondary' : 'ghost'}
-              size="sm"
-              className="h-11 md:h-8"
-              aria-pressed={view === key}
-              aria-label={`Xem dạng ${label.toLowerCase()}`}
-              title={label}
-              onClick={() => onView(key)}
-            >
-              <Icon aria-hidden />
-              <span className="hidden sm:inline">{label}</span>
-            </Button>
-          ))}
-        </div>
+        <ViewToggle value={view} onChange={onView} className="ml-auto" />
       </div>
 
       {error ? (
