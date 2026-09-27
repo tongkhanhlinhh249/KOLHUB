@@ -50,6 +50,15 @@ export function ProfileStatusBadge({ status, className }: { status: ProfileStatu
   );
 }
 
+/** Brand/Agency account header status: the login email is OTP-verified (styled like "Đã duyệt"). */
+export function EmailVerifiedBadge({ className }: { className?: string }) {
+  return (
+    <ToneBadge tone="success" className={className}>
+      Email đã xác thực
+    </ToneBadge>
+  );
+}
+
 /**
  * Verification state of one of the owner's channels. A VERIFIED channel whose badge date has passed
  * shows "Hết hạn dấu" even before the service sweep flips its status.

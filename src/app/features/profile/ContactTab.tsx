@@ -1,9 +1,8 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { Loader2, Pencil } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import {
   BIO_MAX,
@@ -20,6 +19,7 @@ import {
 import { Field, type FieldErrors } from '../form/Field';
 import { SelectField } from '../shared/SelectField';
 import { FieldBadges } from '../biz-search/KolMedia';
+import { InfoRow, SectionCard } from './ProfileSection';
 import { ActivityFieldsEditor, BioField, bioLength, followCategory, initialFields } from './ContactExtras';
 
 /** Plain text contact fields (bio and activity fields have their own editors). */
@@ -55,42 +55,6 @@ const STAFF_LABELS: Record<StaffKey, string> = {
 
 function errorText(e: unknown): string {
   return e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.';
-}
-
-function InfoRow({ label, value, required, extra }: { label: string; value: string; required?: boolean; extra?: ReactNode }) {
-  const empty = !value.trim();
-  return (
-    <div className="space-y-0.5">
-      <dt className="text-xs text-muted-foreground">
-        {label}
-        {required && empty && (
-          <span className="ml-0.5 text-destructive" aria-label="bắt buộc">
-            *
-          </span>
-        )}
-      </dt>
-      <dd className={empty ? 'text-sm text-muted-foreground' : 'break-words text-sm text-foreground'}>
-        {empty ? 'Chưa cập nhật' : value}
-      </dd>
-      {extra}
-    </div>
-  );
-}
-
-function SectionCard({ title, onEdit, children }: { title: string; onEdit(): void; children: ReactNode }) {
-  return (
-    <Card className="gap-4 py-4 md:py-5">
-      <CardHeader className="flex flex-row items-center justify-between px-4 md:px-6">
-        <CardTitle className="text-base">{title}</CardTitle>
-        <Button type="button" variant="ghost" size="icon" className="size-11 md:size-9" aria-label={`Sửa ${title}`} onClick={onEdit}>
-          <Pencil aria-hidden />
-        </Button>
-      </CardHeader>
-      <CardContent className="px-4 md:px-6">
-        <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</dl>
-      </CardContent>
-    </Card>
-  );
 }
 
 function ContactDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange(o: boolean): void }) {

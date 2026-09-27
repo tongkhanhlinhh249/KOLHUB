@@ -1,75 +1,70 @@
 import { useState } from 'react';
-import { Building2, MailCheck, Pencil } from 'lucide-react';
-import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card } from '../../components/ui/card';
 import { useAuth } from '../../auth/AuthContext';
+import { useIdentity } from '../../auth/useIdentity';
+import { InfoRow, SectionCard } from '../profile/ProfileSection';
+import { ProfileAvatar } from '../profile/ProfileAvatar';
+import { EmailVerifiedBadge } from '../shared/StatusBadges';
 import { ChangeEmailDialog } from './ChangeEmailDialog';
 import { EditBizProfileDialog } from './EditBizProfileDialog';
 
-/** SCR-08 — Brand/Agency account settings. */
+/** Account header, laid out like the KOL/MCN ProfileHeader (without cover): same name + initials as the topbar. */
+function BizAccountHeader() {
+  const identity = useIdentity();
+  return (
+    <Card className="gap-0 py-0">
+      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between md:p-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <ProfileAvatar name={identity.name} src={identity.avatar} className="shrink-0 border-0" />
+          <div className="min-w-0 space-y-1">
+            <h2 className="truncate text-lg font-semibold text-foreground">{identity.name}</h2>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              {identity.subtitle && <span className="min-w-0 break-words font-medium text-foreground">{identity.subtitle}</span>}
+              {identity.subtitle && <span aria-hidden>·</span>}
+              <span>{identity.roleLabel}</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          <EmailVerifiedBadge />
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/** SCR-08 — Brand/Agency account: header card + section cards, same pattern and width as the KOL/MCN profile. */
 export function BizAccountPage() {
   const { account } = useAuth();
   const [editOpen, setEditOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4 md:p-6">
-      <Card className="gap-4">
-        <CardHeader>
-          <CardTitle>Thông tin doanh nghiệp</CardTitle>
-          <CardAction>
-            <Button type="button" variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-              <Pencil aria-hidden />
-              Sửa
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-3 sm:grid-cols-[160px_1fr] sm:gap-x-6">
-            <dt className="text-sm text-muted-foreground">Họ tên</dt>
-            <dd className="-mt-2 font-medium break-words text-foreground sm:mt-0">{account?.fullName || '—'}</dd>
-            <dt className="text-sm text-muted-foreground">Tên công ty</dt>
-            <dd className="-mt-2 font-medium break-words text-foreground sm:mt-0">{account?.company || '—'}</dd>
-          </dl>
-        </CardContent>
-      </Card>
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
+      <BizAccountHeader />
 
-      <Card className="gap-4">
-        <CardHeader>
-          <CardTitle>Email công ty</CardTitle>
-          <CardDescription>Email dùng để đăng nhập và nhận thông báo.</CardDescription>
-          <CardAction>
-            <Button type="button" variant="outline" size="sm" onClick={() => setEmailOpen(true)}>
-              Đổi email
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          <span className="min-w-0 font-medium break-all text-foreground">{account?.email}</span>
-          <Badge className="gap-1">
-            <MailCheck className="size-3" aria-hidden />
-            Đã xác thực
-          </Badge>
-        </CardContent>
-      </Card>
+      <SectionCard title="Thông tin doanh nghiệp" onEdit={() => setEditOpen(true)}>
+        <InfoRow label="Họ tên" value={account?.fullName ?? ''} />
+        <InfoRow label="Tên công ty" value={account?.company ?? ''} />
+      </SectionCard>
 
-      <Card className="gap-4">
-        <CardHeader>
-          <CardTitle>Loại tài khoản</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-start gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Building2 className="size-5" aria-hidden />
-          </div>
-          <div className="space-y-1">
-            <p className="font-medium text-foreground">Nhãn hàng/Agency</p>
-            <p className="text-sm text-muted-foreground">
-              Dùng Tìm kiếm KOL, Xem hồ sơ KOL và Danh sách đã lưu. Không cần eKYC hay giấy chứng nhận.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <SectionCard
+        title="Email đăng nhập"
+        action={
+          <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => setEmailOpen(true)}>
+            Đổi email
+          </Button>
+        }
+      >
+        <div className="space-y-0.5 md:col-span-2">
+          <dt className="text-xs text-muted-foreground">Email</dt>
+          <dd className="space-y-0.5">
+            <span className="block break-all text-sm text-foreground">{account?.email}</span>
+            <span className="block text-xs text-muted-foreground">Dùng để đăng nhập và nhận thông báo.</span>
+          </dd>
+        </div>
+      </SectionCard>
 
       <EditBizProfileDialog open={editOpen} onOpenChange={setEditOpen} />
       <ChangeEmailDialog open={emailOpen} onOpenChange={setEmailOpen} />
