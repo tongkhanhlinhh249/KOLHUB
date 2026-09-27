@@ -7,6 +7,7 @@ import { findProfile } from './profileRules';
 import { toPublicKol } from './directory';
 import { createReviewService, pendingChannelsOf } from './review';
 import { syncChannelStats } from './socialListening';
+import { VERIFIED_MCN_ACCOUNT_ID } from './mcnSeed';
 import { makeHarness, type Harness } from './testHarness';
 
 const png: StoredFile = { name: 'p.png', type: 'image/png', size: 100 };
@@ -276,23 +277,44 @@ describe('KOL được duyệt → phép chiếu công khai (toPublicKol)', () =
   });
 });
 
+/** Queue entries other than the seeded approved MCN (which always has 2 new channels waiting). */
+const notSeedMcn = <T extends { ownerId: string }>(list: T[]) => list.filter((p) => p.ownerId !== VERIFIED_MCN_ACCOUNT_ID);
+
 describe('admin queue', () => {
   const org = { orgName: 'Công ty Sao', regNo: '0312345678', regDate: '2020-01-01', regBy: 'Sở KH&ĐT', legalRep: 'Nguyễn A' };
 
   test('hàng chờ có hồ sơ SUBMITTED kèm kênh chờ; DRAFT không vào', async () => {
     readyKol(h);
     await review.submit(h.kolId, ALL);
-    const q = await review.listAdminQueue();
-    expect(q.profiles.map((p) => p.ownerId)).toEqual([h.kolId]);
-    expect(q.profiles[0]).toMatchObject({ ownerType: 'KOL', displayName: 'Khánh Vy', status: 'SUBMITTED' });
-    expect(q.profiles[0].pendingChannels.map((c) => c.id)).toEqual(['c1', 'c2']);
+    const q = notSeedMcn((await review.listAdminQueue()).profiles);
+    expect(q.map((p) => p.ownerId)).toEqual([h.kolId]);
+    expect(q[0]).toMatchObject({ ownerType: 'KOL', displayName: 'Khánh Vy', status: 'SUBMITTED' });
+    expect(q[0].pendingChannels.map((c) => c.id)).toEqual(['c1', 'c2']);
   });
 
   test('hồ sơ APPROVED có kênh mới vào hàng chờ', async () => {
     await approvedKol(h);
-    expect((await review.listAdminQueue()).profiles).toEqual([]);
+    expect(notSeedMcn((await review.listAdminQueue()).profiles)).toEqual([]);
     await channels.add(h.kolId, { url: 'youtube.com/@vytest', proofImage: png });
-    expect((await review.listAdminQueue()).profiles.map((p) => p.status)).toEqual(['APPROVED']);
+    expect(notSeedMcn((await review.listAdminQueue()).profiles).map((p) => p.status)).toEqual(['APPROVED']);
+  });
+
+  test('MCN mẫu đã duyệt (Sao Việt Media): 2 kênh mới chờ duyệt vào hàng chờ, duyệt như KOL đã duyệt', async () => {
+    const entry = (await review.listAdminQueue()).profiles.find((p) => p.ownerId === VERIFIED_MCN_ACCOUNT_ID)!;
+    expect(entry).toMatchObject({ ownerType: 'MCN', displayName: 'Sao Việt Media', status: 'APPROVED' });
+    expect(entry.org?.orgName).toBe('Công ty TNHH Truyền thông Sao Việt Media');
+    const [a, b] = entry.pendingChannels;
+    expect(entry.pendingChannels).toHaveLength(2);
+    await review.approve(VERIFIED_MCN_ACCOUNT_ID, { [a.id]: { verdict: 'PASS' }, [b.id]: { verdict: 'NEEDS_FIX', reason: 'Ảnh mờ' } });
+    const s = h.db.read();
+    const p = findProfile(s, VERIFIED_MCN_ACCOUNT_ID) as McnProfile;
+    expect(p).toMatchObject({ status: 'APPROVED', mcnId: 'MCN-2026-0001' });
+    expect(s.channels.find((c) => c.id === a.id)).toMatchObject({ status: 'VERIFIED', verifiedAt: h.clock.t });
+    expect(s.channels.find((c) => c.id === a.id)!.stats).toBeDefined();
+    expect(s.channels.find((c) => c.id === b.id)).toMatchObject({ status: 'NEEDS_FIX', note: 'Ảnh mờ' });
+    expect(pendingChannelsOf(s, VERIFIED_MCN_ACCOUNT_ID)).toEqual([]);
+    expect(notSeedMcn((await review.listAdminQueue()).profiles)).toEqual([]);
+    expect((await review.listAdminQueue()).profiles.some((x) => x.ownerId === VERIFIED_MCN_ACCOUNT_ID)).toBe(false);
   });
 
   test('duyệt đổi Họ tên → hồ sơ hiển thị tên mới', async () => {

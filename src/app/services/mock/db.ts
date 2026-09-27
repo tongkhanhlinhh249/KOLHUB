@@ -44,10 +44,10 @@ export interface PendingRegistration {
 }
 
 /** Bump when the stored shape changes incompatibly; any other stored version is replaced by the seed. */
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export interface DemoState {
-  version: 2;
+  version: 3;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];

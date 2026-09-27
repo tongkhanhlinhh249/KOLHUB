@@ -3,6 +3,7 @@ import type { Account, AccountType } from '../types';
 import type { DemoState } from './db';
 import { findProfile } from './profileRules';
 import { VERIFIED_KOL_EMAIL } from './kolSeed';
+import { VERIFIED_MCN_EMAIL } from './mcnSeed';
 
 export interface DisplayIdentity {
   name: string;
@@ -48,7 +49,20 @@ export function identityOf(state: DemoState, account: Account | null): DisplayId
   return build(clean(p.org.orgName) || clean(p.contact.displayName) || email, label, clean(p.org.regNo), avatar);
 }
 
-export type DemoAccountKey = 'guest' | 'kol-new' | 'kol-verified' | 'mcn' | 'biz';
+export type DemoAccountKey =
+  | 'guest'
+  | 'kol-new'
+  | 'kol-verified'
+  | 'mcn-new'
+  | 'mcn-verified'
+  | 'biz-new'
+  | 'biz-verified';
+
+/** Older role-switcher keys still accepted by `authService.quickLogin`. */
+export const DEMO_ACCOUNT_ALIASES: Record<'mcn' | 'biz', DemoAccountKey> = {
+  mcn: 'mcn-new',
+  biz: 'biz-verified',
+};
 
 export interface DemoAccount {
   key: DemoAccountKey;
@@ -57,11 +71,13 @@ export interface DemoAccount {
   email?: string;
 }
 
-/** Options of the prototype role switcher (NS-KOLHUB-001 §2.3), in display order. */
+/** Options of the prototype role switcher (NS-KOLHUB-001 §2.3), in display order: a new and a verified account per role. */
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   { key: 'guest', label: 'Khách' },
   { key: 'kol-new', label: 'Cá nhân/KOL (hồ sơ mới)', email: 'kol@demo.kolhub.vn' },
   { key: 'kol-verified', label: 'Cá nhân/KOL (đã xác thực)', email: VERIFIED_KOL_EMAIL },
-  { key: 'mcn', label: 'Tổ chức/MCN', email: 'mcn@demo.kolhub.vn' },
-  { key: 'biz', label: 'Nhãn hàng/Agency', email: 'brand@vinamilk-demo.vn' },
+  { key: 'mcn-new', label: 'Tổ chức/MCN (hồ sơ mới)', email: 'mcn@demo.kolhub.vn' },
+  { key: 'mcn-verified', label: 'Tổ chức/MCN (đã xác thực)', email: VERIFIED_MCN_EMAIL },
+  { key: 'biz-new', label: 'Nhãn hàng/Agency (tài khoản mới)', email: 'agency@newbrand-demo.vn' },
+  { key: 'biz-verified', label: 'Nhãn hàng/Agency (đã xác thực)', email: 'brand@vinamilk-demo.vn' },
 ];

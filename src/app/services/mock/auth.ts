@@ -3,10 +3,10 @@ import type { Db, DemoState, PendingRegistration, StoredAccount } from './db';
 import { delay as fakeDelay } from './delay';
 import { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from './normalize';
 import type { OtpService } from './otp';
-import { DEMO_ACCOUNTS, type DemoAccountKey } from './identity';
+import { DEMO_ACCOUNT_ALIASES, DEMO_ACCOUNTS, type DemoAccountKey } from './identity';
 
-/** Role-switcher keys accepted by quickLogin (the guest signs out instead). */
-export type QuickLoginKey = Exclude<DemoAccountKey, 'guest'>;
+/** Role-switcher keys accepted by quickLogin (the guest signs out instead), plus the older aliases. */
+export type QuickLoginKey = Exclude<DemoAccountKey, 'guest'> | keyof typeof DEMO_ACCOUNT_ALIASES;
 
 export type { PendingRegistration };
 
@@ -263,13 +263,15 @@ export function createAuthService(deps: AuthServiceDeps) {
 
   /**
    * Demo sign-in without password: by account type (first seed account of that type) or by a
-   * DEMO_ACCOUNTS key ('kol-verified' = khanhvy@demo.kolhub.vn). The guest has no account: use logout().
+   * DEMO_ACCOUNTS key ('kol-verified' = khanhvy@demo.kolhub.vn; aliases 'mcn' → 'mcn-new',
+   * 'biz' → 'biz-verified'). The guest has no account: use logout().
    */
   async function quickLogin(target: AccountType | QuickLoginKey): Promise<Account> {
     await wait();
     const state = db.read();
-    const email = DEMO_ACCOUNTS.find((d) => d.key === target)?.email;
-    const byKey = DEMO_ACCOUNTS.some((d) => d.key === target);
+    const key: string = (DEMO_ACCOUNT_ALIASES as Record<string, DemoAccountKey>)[target] ?? target;
+    const email = DEMO_ACCOUNTS.find((d) => d.key === key)?.email;
+    const byKey = DEMO_ACCOUNTS.some((d) => d.key === key);
     const account = byKey
       ? email
         ? findByEmail(state, email)

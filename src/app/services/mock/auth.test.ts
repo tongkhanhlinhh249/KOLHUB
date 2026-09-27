@@ -221,8 +221,15 @@ describe('login', () => {
     await expect(auth.quickLogin('kol-new')).resolves.toMatchObject({ email: 'kol@demo.kolhub.vn' });
     await expect(auth.quickLogin('kol-verified')).resolves.toMatchObject({ type: 'KOL', email: 'khanhvy@demo.kolhub.vn' });
     expect(auth.currentAccount()?.email).toBe('khanhvy@demo.kolhub.vn');
+    await expect(auth.quickLogin('mcn-new')).resolves.toMatchObject({ type: 'MCN', email: 'mcn@demo.kolhub.vn' });
+    await expect(auth.quickLogin('mcn-verified')).resolves.toMatchObject({ type: 'MCN', email: 'saoviet@demo.kolhub.vn' });
+    expect(auth.currentAccount()?.email).toBe('saoviet@demo.kolhub.vn');
+    await expect(auth.quickLogin('biz-new')).resolves.toMatchObject({ type: 'BIZ', email: 'agency@newbrand-demo.vn' });
+    await expect(auth.quickLogin('biz-verified')).resolves.toMatchObject({ type: 'BIZ', email: 'brand@vinamilk-demo.vn' });
+    // Older keys still work.
     await expect(auth.quickLogin('mcn')).resolves.toMatchObject({ email: 'mcn@demo.kolhub.vn' });
     await expect(auth.quickLogin('biz')).resolves.toMatchObject({ email: 'brand@vinamilk-demo.vn' });
+    await expect(auth.quickLogin('MCN')).resolves.toMatchObject({ email: 'mcn@demo.kolhub.vn' });
     expect(auth.currentAccount()).not.toHaveProperty('password');
     await expect(auth.quickLogin('guest' as never)).rejects.toMatchObject({ code: 'KOLHUB-4012' });
   });

@@ -68,5 +68,5 @@ export type { PublicKol } from './mock/directory';
 export { syncChannelStats } from './mock/socialListening';
 export { identityOf, DEMO_ACCOUNTS, ROLE_LABELS } from './mock/identity';
 export type { DisplayIdentity, DemoAccount, DemoAccountKey } from './mock/identity';
-export { VERIFIED_KOL_EMAIL } from './mock/seed';
+export { VERIFIED_KOL_EMAIL, VERIFIED_MCN_EMAIL } from './mock/seed';
 export { COUNTED_CODES, MAX_EKYC_ATTEMPTS } from './mock/ekyc';

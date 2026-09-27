@@ -8,12 +8,15 @@ import type { DemoAccountKey } from '../services';
 import { DemoPanelSection } from './DemoPanelSection';
 import { useRoleSwitch } from './RoleSwitcher';
 
+/** Role icon for a new account, a check badge for every verified one. */
 const ICONS: Record<DemoAccountKey, LucideIcon> = {
   guest: UserX,
   'kol-new': UserRound,
   'kol-verified': BadgeCheck,
-  mcn: Users,
-  biz: Building2,
+  'mcn-new': Users,
+  'mcn-verified': BadgeCheck,
+  'biz-new': Building2,
+  'biz-verified': BadgeCheck,
 };
 
 /** Who is signed in + quick switch between the guest and the sample accounts (the only role switcher in the app). */
@@ -47,6 +50,7 @@ export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
               onClick={() => void switchTo(o.key)}
               className={cn(
                 'h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left',
+                o.key === 'guest' && 'col-span-2',
                 !active && 'border-primary/30 text-primary hover:border-primary hover:bg-primary/10 hover:text-primary',
               )}
             >
