@@ -8,6 +8,7 @@ import { ROLE_CONFIG, roleOf } from '../../auth/roles';
 import {
   authService,
   errorMessage,
+  funnelService,
   isFreeEmail,
   isStrongPassword,
   isValidEmail,
@@ -92,6 +93,7 @@ export function RegisterPage() {
         isBiz ? { type: 'BIZ', ...biz } : { type: type as 'KOL' | 'MCN', ...kolMcn },
       );
       setRegistrationId(registrationId);
+      funnelService.track(email, 'register_started');
       setStep('otp-email');
     } catch (e) {
       const { field, message } = splitError(e, FIELDS);
@@ -118,6 +120,7 @@ export function RegisterPage() {
 
   const onEmailVerified = (requestId: string) => {
     setEmailRequestId(requestId);
+    funnelService.track(email, 'otp_email_verified');
     if (isBiz) void complete(requestId);
     else setStep('otp-sms');
   };
@@ -134,7 +137,10 @@ export function RegisterPage() {
         channel="sms"
         target={kolMcn.phone}
         purpose="register"
-        onVerified={(smsId) => void complete(emailRequestId, smsId)}
+        onVerified={(smsId) => {
+          funnelService.track(email, 'otp_sms_verified');
+          void complete(emailRequestId, smsId);
+        }}
         onBack={backToForm}
       />
     );
