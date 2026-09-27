@@ -63,7 +63,7 @@ export { detectPlatform, validateProofImage, validateGcnFile, countByFilter, mat
 export { buildTimeline, PLEDGES_LABEL, REVIEW_SLA_NOTE } from './mock/profileRules';
 export { FUNNEL_STEPS, formatDuration } from './mock/funnel';
 // --- unified KOL data (seed v2) ---
-export { toPublicKol, publicKolOf } from './mock/directory';
+export { toPublicKol, publicKolOf, normalizeText, normalizeUrl, channelBadge } from './mock/directory';
 export type { PublicKol } from './mock/directory';
 export { syncChannelStats } from './mock/socialListening';
 export { identityOf, DEMO_ACCOUNTS, ROLE_LABELS } from './mock/identity';

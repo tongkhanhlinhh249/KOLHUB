@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { Facebook, Music2, Youtube, type LucideProps } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { cn } from '../../components/ui/utils';
-import type { Channel, Platform, ProfileStatus } from '../../services';
+import { channelBadge, type Channel, type Platform, type ProfileStatus } from '../../services';
 
 // The kit has no success/warning tokens: chart-4 (green) and chart-5 (amber) stand in for them.
 const TONE = {
@@ -50,30 +50,32 @@ export function ProfileStatusBadge({ status, className }: { status: ProfileStatu
   );
 }
 
-export function ChannelStatusBadge({ channel }: { channel: Channel }) {
+/**
+ * Verification state of one of the owner's channels. A VERIFIED channel whose badge date has passed
+ * shows "Hết hạn dấu" even before the service sweep flips its status.
+ */
+export function ChannelStatusBadge({ channel, now = Date.now() }: { channel: Channel; now?: number }) {
   let main: ReactNode;
   switch (channel.status) {
     case 'PENDING_REVIEW':
       main = <ToneBadge tone="info">Chờ duyệt</ToneBadge>;
       break;
-    case 'VERIFIED':
-      main = (
-        <ToneBadge tone="success">
-          Kênh xác thực{channel.badgeExpiresAt ? ` · đến ${format(channel.badgeExpiresAt, 'dd/MM/yyyy')}` : ''}
-        </ToneBadge>
-      );
-      break;
     case 'NEEDS_FIX':
       main = <ToneBadge tone="warning">Cần bổ sung</ToneBadge>;
       break;
-    case 'EXPIRED':
-      main = <ToneBadge tone="error">Hết hạn</ToneBadge>;
-      break;
+    default:
+      main =
+        channelBadge(channel, now) === 'VERIFIED' ? (
+          <ToneBadge tone="success">
+            Đã xác thực{channel.badgeExpiresAt ? ` · đến ${format(channel.badgeExpiresAt, 'dd/MM/yyyy')}` : ''}
+          </ToneBadge>
+        ) : (
+          <ToneBadge tone="error">Hết hạn dấu</ToneBadge>
+        );
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       {main}
-      {!channel.active && <ToneBadge tone="neutral">Tạm tắt</ToneBadge>}
       {channel.badgeSuspended && <ToneBadge tone="warning">Dấu tạm ngừng</ToneBadge>}
     </span>
   );
