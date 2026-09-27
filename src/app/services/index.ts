@@ -17,3 +17,10 @@ export { DEMO_PASSWORD } from './mock/seed';
 // Pure validators, re-exported so forms can check input client-side before calling services.
 export { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from './mock/normalize';
 export { isFreeEmail, isStrongPassword } from './mock/auth';
+
+// --- phase 3 ---
+import { createSearchService } from './mock/search';
+
+export const searchService = createSearchService({ db, now: Date.now });
+export * from './bizTypes';
+export type { SearchService } from './mock/search';
