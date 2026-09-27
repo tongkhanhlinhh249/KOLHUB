@@ -12,6 +12,7 @@ import {
 } from '../../services';
 import { KolCard, KolCardSkeleton } from './KolCard';
 import { KolProfileSheet } from './KolProfileSheet';
+import { SaveToListsDialog } from './SaveToListsDialog';
 import { createLatestOnly } from './latestOnly';
 import { SearchFilters } from './SearchFilters';
 import { SearchPagination } from './SearchPagination';
@@ -106,9 +107,16 @@ export function SearchPage() {
       sp.delete('kol');
       return sp;
     });
-  const openSave = (_kolId: string) => {
-    // Wired to SaveToListsDialog in Task 8.
-  };
+  const [saveTarget, setSaveTarget] = useState<{ kolId: string; name: string } | null>(null);
+  const openSave = (kolId: string, name?: string) =>
+    setSaveTarget({ kolId, name: name ?? result?.items.find((k) => k.kolId === kolId)?.displayName ?? kolId });
+  const onSaved = (kolId: string, inAnyList: boolean) =>
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (inAnyList) next.add(kolId);
+      else next.delete(kolId);
+      return next;
+    });
 
   const active = hasActiveFilters(query);
 
@@ -184,7 +192,7 @@ export function SearchPage() {
                 kol={k}
                 saved={savedIds.has(k.kolId)}
                 onView={() => openProfile(k.kolId)}
-                onSave={() => openSave(k.kolId)}
+                onSave={() => openSave(k.kolId, k.displayName)}
               />
             ))}
           </div>
@@ -197,6 +205,12 @@ export function SearchPage() {
         saved={profileId !== null && savedIds.has(profileId)}
         onOpenChange={(open) => !open && closeProfile()}
         onSave={openSave}
+      />
+      <SaveToListsDialog
+        kolId={saveTarget?.kolId ?? null}
+        kolName={saveTarget?.name ?? ''}
+        onOpenChange={(open) => !open && setSaveTarget(null)}
+        onSaved={onSaved}
       />
     </div>
   );

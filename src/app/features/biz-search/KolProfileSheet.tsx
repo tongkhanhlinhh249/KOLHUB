@@ -16,7 +16,8 @@ interface KolProfileSheetProps {
   kolId: string | null;
   saved: boolean;
   onOpenChange(open: boolean): void;
-  onSave(kolId: string): void;
+  /** `name` is passed along so callers can title the save dialog without looking the KOL up. */
+  onSave(kolId: string, name?: string): void;
 }
 
 async function copy(text: string, done: string) {
@@ -227,7 +228,7 @@ export function KolProfileSheet({ kolId, saved, onOpenChange, onSave }: KolProfi
               type="button"
               className="h-11 w-full"
               disabled={!profile || loading}
-              onClick={() => onSave(kolId)}
+              onClick={() => onSave(kolId, profile?.displayName)}
             >
               {saved ? <BookmarkCheck aria-hidden /> : <Bookmark aria-hidden />}
               {saved ? 'Đã lưu · Sửa danh sách' : 'Lưu vào danh sách'}
