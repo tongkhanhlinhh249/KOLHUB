@@ -93,3 +93,45 @@ describe('search', () => {
     await expect(s.search({})).rejects.toMatchObject({ code: 'KOLHUB-4016' });
   });
 });
+
+describe('getKolPublicProfile', () => {
+  test('BR-58: chỉ có trường công khai, không lộ dữ liệu private', async () => {
+    const p = await svc.getKolPublicProfile('KOL-T-0001');
+    expect(Object.keys(p).sort()).toEqual([
+      'bio',
+      'category',
+      'channels',
+      'collabEmail',
+      'displayName',
+      'kolId',
+      'listingStatus',
+      'nickname',
+      'region',
+      'scale',
+      'totalFollowers',
+      'verifiedAt',
+    ]);
+    const json = JSON.stringify(p);
+    for (const v of ['0909000001', 'Đường Bí Mật', '0010******01', '99,000,000']) expect(json).not.toContain(v);
+    expect(Object.keys(p.channels[0]).sort()).toEqual(['badge', 'badgeExpiresAt', 'followers', 'handle', 'platform', 'url']);
+    expect(p).toMatchObject({ totalFollowers: 4_200_000, scale: 'mega', listingStatus: 'VISIBLE' });
+  });
+
+  test('kênh: bỏ kênh INACTIVE và kênh chưa từng có dấu; kênh hết hạn theo ngày hiện EXPIRED', async () => {
+    expect((await svc.getKolPublicProfile('KOL-T-0006')).channels.map((c) => c.platform)).toEqual(['facebook']);
+    expect((await svc.getKolPublicProfile('KOL-T-0004')).channels).toMatchObject([{ platform: 'tiktok', badge: 'EXPIRED' }]);
+  });
+
+  test('KOL mất dấu / ngừng hoạt động vẫn mở được hồ sơ, kèm listingStatus', async () => {
+    expect((await svc.getKolPublicProfile('KOL-T-0004')).listingStatus).toBe('BADGE_EXPIRED');
+    expect((await svc.getKolPublicProfile('KOL-T-0005')).listingStatus).toBe('INACTIVE');
+  });
+
+  test.each(['KOL-T-9999', 'KOL-T-0007'])('%s (không tồn tại / chưa từng có dấu) → 4404', async (id) =>
+    await expect(svc.getKolPublicProfile(id)).rejects.toMatchObject({ code: 'KOLHUB-4404' }));
+
+  test('phiên KOL → 4016', async () => {
+    const s = createSearchService({ db: bizState({ session: 'kol' }), now: () => NOW, delay: false });
+    await expect(s.getKolPublicProfile('KOL-T-0001')).rejects.toMatchObject({ code: 'KOLHUB-4016' });
+  });
+});

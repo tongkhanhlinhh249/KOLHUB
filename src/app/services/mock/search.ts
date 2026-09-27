@@ -1,15 +1,19 @@
 import {
   SEARCH_PAGE_SIZE,
   type DirectoryKol,
+  type KolPublicProfile,
   type KolSearchItem,
   type KolSearchQuery,
   type KolSearchResult,
   type Platform,
+  type PublicChannel,
 } from '../bizTypes';
+import { KolhubError } from '../types';
 import type { Db } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
 import {
+  channelBadge,
   isLinkKeyword,
   listingStatus,
   normalizeText,
@@ -129,7 +133,51 @@ export function createSearchService(deps: SearchServiceDeps) {
     };
   }
 
-  return { search };
+  /** Public profile, built field by field from a whitelist so private data can never leak (BR-58). */
+  async function getKolPublicProfile(kolId: string): Promise<KolPublicProfile> {
+    await wait();
+    const state = db.read();
+    currentBizAccount(state);
+    const t = now();
+    const k = readDirectory(state).find((x) => x.kolId === kolId);
+    if (!k || !k.channels.some((c) => c.status === 'VERIFIED' || c.status === 'EXPIRED')) {
+      throw new KolhubError('KOLHUB-4404');
+    }
+
+    const channels: PublicChannel[] = [];
+    for (const c of k.channels) {
+      const badge = channelBadge(c, t);
+      if (!c.active || badge === null) continue;
+      channels.push({
+        platform: c.platform,
+        url: c.url,
+        handle: c.handle,
+        followers: c.followers,
+        badge,
+        badgeExpiresAt: c.badgeExpiresAt ?? '',
+      });
+    }
+
+    const followers = totalFollowers(k, t);
+    const profile: KolPublicProfile = {
+      kolId: k.kolId,
+      displayName: k.displayName,
+      nickname: k.nickname,
+      bio: k.bio,
+      collabEmail: k.collabEmail,
+      totalFollowers: followers,
+      scale: scaleOf(followers),
+      listingStatus: listingStatus(k, t),
+      verifiedAt: k.verifiedAt,
+      channels,
+    };
+    if (k.avatar) profile.avatar = k.avatar;
+    if (k.category) profile.category = k.category;
+    if (k.region) profile.region = k.region;
+    return profile;
+  }
+
+  return { search, getKolPublicProfile };
 }
 
 export type SearchService = ReturnType<typeof createSearchService>;
