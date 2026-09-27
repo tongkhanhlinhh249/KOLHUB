@@ -230,8 +230,8 @@ export function SafetyVideoCard({ name, thumbnail, durationSec, processing, resu
   );
 }
 
-/** Card grid by container width: 1 → 2 → 3 → 4 columns. */
-export const VIDEO_GRID = 'grid grid-cols-1 gap-4 @md:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4';
+/** Card grid by container width: 2 → 3 → 4 → 5 columns. */
+export const VIDEO_GRID = 'grid grid-cols-2 gap-3 @2xl:grid-cols-3 @3xl:grid-cols-4 @5xl:grid-cols-5 @md:gap-4';
 
 export function VideoGridSkeleton({ count = 4 }: { count?: number }) {
   return (
