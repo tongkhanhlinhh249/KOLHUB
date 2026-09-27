@@ -1,34 +1,28 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { AlertCircle, ArrowLeft, Loader2, Mail, MessageSquare } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
-import { Label } from '../../components/ui/label';
-import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
-import { cn } from '../../components/ui/utils';
 import { authService, errorMessage, isStrongPassword, isValidEmail, isValidPhone, KolhubError, type OtpChannel } from '../../services';
 import { AuthPageHeader } from '../auth-shell/AuthPageHeader';
 import { accountTypeFromQuery, withAccountType } from '../auth-shell/accountTypeQuery';
 import { Field, PASSWORD_HINT, splitError, type FieldErrors } from '../form/Field';
 import { OtpStep } from '../otp/OtpStep';
+import { looksLikePhone } from '../auth-shell/identifier';
 
 type Step = 'target' | 'otp' | 'password';
 const REQUIRED = 'Vui lòng nhập thông tin này.';
 
-const CHANNELS: { value: OtpChannel; icon: typeof Mail; label: string }[] = [
-  { value: 'email', icon: Mail, label: 'Qua email' },
-  { value: 'sms', icon: MessageSquare, label: 'Qua SMS' },
-];
-
-/** SCR-02 — password recovery by email or SMS OTP (BR-09, BR-10). */
+/** SCR-02 — password recovery: one "Email hoặc số điện thoại" field; the OTP goes by email or SMS accordingly (BR-10). */
 export function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const loginPath = withAccountType('/dang-nhap', accountTypeFromQuery(params.get('loai')));
   const [step, setStep] = useState<Step>('target');
-  const [channel, setChannel] = useState<OtpChannel>('email');
   const [target, setTarget] = useState('');
+  // Channel follows what was typed: phone → SMS, otherwise email.
+  const channel: OtpChannel = looksLikePhone(target) ? 'sms' : 'email';
   const [requestId, setRequestId] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,9 +35,9 @@ export function ForgotPasswordPage() {
     setFormError(null);
     const value = target.trim();
     if (!value) return setErrors({ target: REQUIRED });
-    if (channel === 'email' && !isValidEmail(value)) return setErrors({ target: 'Email không hợp lệ.' });
     if (channel === 'sms' && !isValidPhone(value))
       return setErrors({ target: 'Số điện thoại không hợp lệ (ví dụ: 0912345678).' });
+    if (channel === 'email' && !isValidEmail(value)) return setErrors({ target: 'Email hoặc số điện thoại không hợp lệ.' });
     setErrors({});
     setStep('otp');
   };
@@ -99,66 +93,33 @@ export function ForgotPasswordPage() {
         subtitle={
           step === 'password'
             ? 'Mã xác thực hợp lệ. Hãy tạo mật khẩu mới cho tài khoản.'
-            : 'Chọn cách nhận mã xác thực để đặt lại mật khẩu.'
+            : 'Nhập email hoặc số điện thoại đã đăng ký để nhận mã xác thực.'
         }
       />
 
       {step === 'target' ? (
         <form onSubmit={submitTarget} noValidate className="space-y-4">
-          <RadioGroup
-            value={channel}
-            onValueChange={(v) => {
-              setChannel(v as OtpChannel);
-              setTarget('');
-              setErrors({});
+          <Field
+            label="Email hoặc số điện thoại"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="ban@email.com hoặc 0912 345 678"
+            value={target}
+            onChange={(e) => {
+              setTarget(e.target.value);
+              if (errors.target) setErrors({});
             }}
-            aria-label="Cách nhận mã"
-            className="grid grid-cols-2 gap-3"
-          >
-            {CHANNELS.map((c) => {
-              const selected = channel === c.value;
-              const id = `reset-channel-${c.value}`;
-              return (
-                <Label
-                  key={c.value}
-                  htmlFor={id}
-                  className={cn(
-                    'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 font-normal transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
-                    selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40',
-                  )}
-                >
-                  <RadioGroupItem value={c.value} id={id} aria-label={c.label} />
-                  <c.icon className={cn('size-4', selected ? 'text-primary' : 'text-muted-foreground')} aria-hidden />
-                  <span className="text-sm font-medium text-foreground">{c.label}</span>
-                </Label>
-              );
-            })}
-          </RadioGroup>
-
-          {channel === 'email' ? (
-            <Field
-              key="email"
-              label="Email đã đăng ký"
-              type="email"
-              autoComplete="email"
-              placeholder="ban@email.com"
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              error={errors.target}
-            />
-          ) : (
-            <Field
-              key="sms"
-              label="Số điện thoại đã đăng ký"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="0912 345 678"
-              value={target}
-              onChange={(e) => setTarget(e.target.value)}
-              error={errors.target}
-            />
-          )}
+            error={errors.target}
+            hint={
+              target.trim()
+                ? channel === 'sms'
+                  ? 'Mã xác thực sẽ được gửi qua SMS.'
+                  : 'Mã xác thực sẽ được gửi qua email.'
+                : undefined
+            }
+          />
           <Button type="submit" className="h-11 w-full">
             Gửi mã xác thực
           </Button>
@@ -167,6 +128,7 @@ export function ForgotPasswordPage() {
         <form onSubmit={submitPassword} noValidate className="space-y-4">
           <Field
             label="Mật khẩu mới"
+            placeholder="Tối thiểu 8 ký tự, có chữ và số"
             password
             autoComplete="new-password"
             value={password}
@@ -176,6 +138,7 @@ export function ForgotPasswordPage() {
           />
           <Field
             label="Nhập lại mật khẩu mới"
+            placeholder="Nhập lại mật khẩu mới"
             password
             autoComplete="new-password"
             value={confirmPassword}

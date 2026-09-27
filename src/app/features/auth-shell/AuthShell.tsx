@@ -54,13 +54,6 @@ function BrandPanel({ type }: { type: AccountType }) {
             </li>
           ))}
         </ul>
-        <div className="space-y-2 border-t border-border pt-8">
-          <h3 className="text-sm font-semibold text-foreground">Sẵn sàng cho Luật Quảng cáo 2025</h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Luật Quảng cáo sửa đổi 75/2025/QH15 có hiệu lực từ 01/01/2026 yêu cầu người có ảnh hưởng minh bạch thông tin.
-            Dấu Kênh xác thực giúp bạn chứng minh điều đó.
-          </p>
-        </div>
       </div>
     </aside>
   );
