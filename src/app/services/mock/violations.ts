@@ -4,6 +4,10 @@ import type { KolProfile } from '../profile-types';
 import type { SafetyMonitor } from '../safety-types';
 import {
   APPEAL_MIN,
+  REPORT_NOTE_MAX,
+  REPORT_NOTE_MIN,
+  VIOLATION_CATEGORIES,
+  type BrandReportInput,
   type BrandViolation,
   type OwnerViolation,
   type Violation,
@@ -16,6 +20,7 @@ import {
 import type { DemoState, Db } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
+import { channelHandle as handleOfUrl, detectPlatform, normalizeChannelUrl } from './channelRules';
 
 export interface ViolationServiceDeps {
   db: Db;
@@ -57,6 +62,12 @@ function toBrand(state: DemoState, v: Violation): BrandViolation | null {
   if (v.contentUrl) out.contentUrl = v.contentUrl;
   if (v.thumbnail) out.thumbnail = v.thumbnail;
   return out;
+}
+
+/** Owner projection: never carries the reporter's identity. */
+function toOwner(v: Violation): OwnerViolation {
+  const { reporter: _reporter, ...rest } = structuredClone(v);
+  return rest;
 }
 
 /** Category of a scan issue title (KOL Safety wording → violation category). */
@@ -171,14 +182,17 @@ export function createViolationService(deps: ViolationServiceDeps) {
   /** Every violation of the owner account, newest first. */
   async function listForOwner(accountId: string): Promise<OwnerViolation[]> {
     await wait();
-    return (db.read().violations ?? []).filter((v) => v.ownerId === accountId).sort(byNewest);
+    return (db.read().violations ?? [])
+      .filter((v) => v.ownerId === accountId)
+      .sort(byNewest)
+      .map(toOwner);
   }
 
   /** CONFIRMED → RESOLVED with the owner's note (content removed / fixed). */
   async function markResolved(accountId: string, id: string, note: string): Promise<OwnerViolation> {
     const n = (note ?? '').trim();
     await wait();
-    return transition(
+    return toOwner(transition(
       id,
       (v) => {
         requireOwner(v, accountId);
@@ -189,14 +203,14 @@ export function createViolationService(deps: ViolationServiceDeps) {
         v.ownerNote = n;
         return { actor: 'owner', action: 'RESOLVED', note: n, status: 'RESOLVED' };
       },
-    );
+    ));
   }
 
   /** CONFIRMED → APPEALED, once per violation, reason ≥ 20 characters. */
   async function appeal(accountId: string, id: string, reason: string): Promise<OwnerViolation> {
     const r = (reason ?? '').trim();
     await wait();
-    return transition(
+    return toOwner(transition(
       id,
       (v) => {
         requireOwner(v, accountId);
@@ -209,7 +223,7 @@ export function createViolationService(deps: ViolationServiceDeps) {
         v.appealed = true;
         return { actor: 'owner', action: 'APPEALED', note: r, status: 'APPEALED' };
       },
-    );
+    ));
   }
 
   // --- Brand (read-only) ---
@@ -224,6 +238,65 @@ export function createViolationService(deps: ViolationServiceDeps) {
       .sort(byNewest)
       .map((v) => toBrand(s, v))
       .filter((v): v is BrandViolation => v !== null);
+  }
+
+  /**
+   * Brand/Agency reports a channel (optionally one piece of content) → PENDING_REVIEW, source REPORT.
+   * Brand accounts only (4016). One pending report per reporter + channel + content link (4608).
+   */
+  async function reportByBrand(input: BrandReportInput): Promise<Violation> {
+    await wait();
+    const t = now();
+    const note = (input.note ?? '').trim();
+    const rawUrl = (input.contentUrl ?? '').trim();
+    let out!: Violation;
+    db.update((s) => {
+      const acc = currentBizAccount(s);
+      const ch = s.channels.find((c) => c.id === input.channelId);
+      if (!ch) throw new KolhubError('KOLHUB-4611');
+      if (!VIOLATION_CATEGORIES.includes(input.category)) throw new KolhubError('KOLHUB-4612', { field: 'category' });
+      if (rawUrl && detectPlatform(rawUrl) !== ch.platform) throw new KolhubError('KOLHUB-4610', { field: 'contentUrl' });
+      if (note.length < REPORT_NOTE_MIN || note.length > REPORT_NOTE_MAX) throw new KolhubError('KOLHUB-4609', { field: 'note' });
+      const key = rawUrl ? normalizeChannelUrl(rawUrl) : '';
+      s.violations ??= [];
+      const dup = s.violations.some(
+        (v) =>
+          v.status === 'PENDING_REVIEW' &&
+          v.source === 'REPORT' &&
+          v.reporter?.accountId === acc.id &&
+          v.channelId === ch.id &&
+          (v.contentUrl ? normalizeChannelUrl(v.contentUrl) : '') === key,
+      );
+      if (dup) throw new KolhubError('KOLHUB-4608');
+      const handle = (ch.handle || handleOfUrl(ch.url)).replace(/^@/, '');
+      const v: Violation = {
+        id: `vio-rp-${t.toString(36)}-${s.violations.length}`,
+        ownerType: ch.ownerType,
+        ownerId: ch.ownerId,
+        channelId: ch.id,
+        platform: ch.platform,
+        channelHandle: handle,
+        channelUrl: ch.url.replace(/^https?:\/\//i, ''),
+        contentTitle: rawUrl ? 'Nội dung được báo cáo' : `Kênh @${handle}`,
+        category: input.category,
+        severity: input.severity ?? 'medium',
+        source: 'REPORT',
+        reporterNote: note,
+        reporter: { accountId: acc.id, ...(acc.company ? { company: acc.company } : {}) },
+        detectedAt: t,
+        status: 'PENDING_REVIEW',
+        history: [{ at: t, actor: 'reporter', action: 'REPORTED', note: 'Nhãn hàng gửi báo cáo' }],
+        updatedAt: t,
+      };
+      if (rawUrl) v.contentUrl = rawUrl;
+      if (ch.ownerType === 'KOL') {
+        const kolId = s.kolProfiles.find((p) => p.accountId === ch.ownerId && p.status === 'APPROVED')?.kolId;
+        if (kolId) v.kolId = kolId;
+      }
+      s.violations.push(v);
+      out = structuredClone(v);
+    });
+    return out;
   }
 
   // --- Admin (demo panel) ---
@@ -298,7 +371,7 @@ export function createViolationService(deps: ViolationServiceDeps) {
     );
   }
 
-  return { listForOwner, markResolved, appeal, listForBrand, adminQueue, listAll, confirm, dismiss, acceptAppeal, rejectAppeal };
+  return { listForOwner, markResolved, appeal, listForBrand, reportByBrand, adminQueue, listAll, confirm, dismiss, acceptAppeal, rejectAppeal };
 }
 
 export type ViolationService = ReturnType<typeof createViolationService>;

@@ -73,6 +73,11 @@ function Item({ v, children }: { v: Violation; children: ReactNode }) {
           <p className="truncate text-xs text-muted-foreground">
             @{v.channelHandle} · {v.ownerType === 'KOL' ? (v.kolId ?? 'KOL') : 'MCN'} · {VIOLATION_SOURCE_LABEL[v.source]} · {formatDay(v.detectedAt)}
           </p>
+          {v.reporter && (
+            <p className="truncate text-xs text-muted-foreground">
+              Báo cáo từ Nhãn hàng/Agency{v.reporter.company ? ` · ${v.reporter.company}` : ''}
+            </p>
+          )}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs">

@@ -170,6 +170,16 @@ function violationMessage(code: ErrorCode): string {
       return 'Vi phạm này đã khiếu nại một lần. Bạn chỉ có thể khắc phục nội dung.';
     case 'KOLHUB-4607':
       return 'Vui lòng mô tả cách bạn đã khắc phục.';
+    case 'KOLHUB-4608':
+      return 'Bạn đã báo cáo nội dung này, đang chờ xác minh.';
+    case 'KOLHUB-4609':
+      return 'Mô tả vi phạm cần từ 20 đến 1000 ký tự.';
+    case 'KOLHUB-4610':
+      return 'Link nội dung không hợp lệ hoặc không thuộc nền tảng của kênh.';
+    case 'KOLHUB-4611':
+      return 'Không tìm thấy kênh. Có thể kênh đã bị gỡ khỏi danh sách.';
+    case 'KOLHUB-4612':
+      return 'Vui lòng chọn loại vi phạm.';
     default:
       return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }

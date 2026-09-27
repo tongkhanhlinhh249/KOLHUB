@@ -252,3 +252,117 @@ describe('đồng bộ từ KOL Safety', () => {
     expect(found).toBe(true);
   });
 });
+
+describe('Nhãn hàng báo cáo vi phạm', () => {
+  const NOTE = 'Video quảng cáo sữa nhưng không gắn nhãn quảng cáo ở phút 0:45.';
+  const channelOf = (ownerId: string) => {
+    const c = h.db.read().channels.find((x) => x.ownerId === ownerId && x.status === 'VERIFIED');
+    if (!c) throw new Error(`no verified channel for ${ownerId}`);
+    return c;
+  };
+  const input = (channelId: string, extra: Record<string, unknown> = {}) => ({
+    channelId,
+    category: 'Quảng cáo không gắn nhãn' as const,
+    note: NOTE,
+    ...extra,
+  });
+
+  test('tạo vi phạm PENDING_REVIEW nguồn REPORT, chủ kênh lấy từ kênh', async () => {
+    signIn('acc-biz-demo');
+    const c = channelOf(KV);
+    const url = `https://${c.url.replace(/^https?:\/\//, '')}/video/123`;
+    const v = await svc.reportByBrand(input(c.id, { contentUrl: url, severity: 'high' }));
+    expect(v).toMatchObject({
+      source: 'REPORT',
+      status: 'PENDING_REVIEW',
+      ownerId: KV,
+      ownerType: 'KOL',
+      kolId: 'KOL-2026-0001',
+      platform: c.platform,
+      channelId: c.id,
+      contentUrl: url,
+      contentTitle: 'Nội dung được báo cáo',
+      severity: 'high',
+      reporterNote: NOTE,
+      detectedAt: h.now(),
+    });
+    expect(v.history).toEqual([{ at: h.now(), actor: 'reporter', action: 'REPORTED', note: 'Nhãn hàng gửi báo cáo' }]);
+    expect(v.reporter).toEqual({ accountId: 'acc-biz-demo', company: 'Công ty Demo Sữa' });
+  });
+
+  test('không có link nội dung → tiêu đề "Kênh @handle", mức độ mặc định Trung bình; kênh MCN', async () => {
+    signIn('acc-biz-demo');
+    const c = channelOf(SV);
+    const v = await svc.reportByBrand(input(c.id));
+    expect(v).toMatchObject({ ownerId: SV, ownerType: 'MCN', severity: 'medium', contentTitle: `Kênh @${v.channelHandle}` });
+    expect(v.kolId).toBeUndefined();
+    expect(v.contentUrl).toBeUndefined();
+  });
+
+  test('chỉ tài khoản Nhãn hàng/Agency (4016)', async () => {
+    const c = channelOf(KV);
+    signIn(null);
+    expect(await codeOf(svc.reportByBrand(input(c.id)))).toBe('KOLHUB-4016');
+    signIn(SV);
+    expect(await codeOf(svc.reportByBrand(input(c.id)))).toBe('KOLHUB-4016');
+  });
+
+  test('mô tả 20–1000 ký tự (4609); kênh không tồn tại (4611); loại vi phạm sai (4612); link khác nền tảng (4610)', async () => {
+    signIn('acc-biz-demo');
+    const c = channelOf(KV);
+    expect(await codeOf(svc.reportByBrand(input(c.id, { note: '   ngắn quá   ' })))).toBe('KOLHUB-4609');
+    expect(await codeOf(svc.reportByBrand(input(c.id, { note: 'x'.repeat(1001) })))).toBe('KOLHUB-4609');
+    expect(await codeOf(svc.reportByBrand(input('nope')))).toBe('KOLHUB-4611');
+    expect(await codeOf(svc.reportByBrand(input(c.id, { category: 'Khác' })))).toBe('KOLHUB-4612');
+    const other = c.platform === 'youtube' ? 'https://tiktok.com/@x/video/1' : 'https://youtube.com/watch?v=1';
+    expect(await codeOf(svc.reportByBrand(input(c.id, { contentUrl: other })))).toBe('KOLHUB-4610');
+    expect(await codeOf(svc.reportByBrand(input(c.id, { contentUrl: 'không phải link' })))).toBe('KOLHUB-4610');
+    expect(await codeOf(svc.reportByBrand(input(c.id, { note: 'x'.repeat(20) })))).toBe('OK');
+  });
+
+  test('trùng: cùng người báo cáo + kênh + link khi báo cáo trước còn chờ → 4608; sau khi Admin xử lý thì báo cáo lại được', async () => {
+    signIn('acc-biz-demo');
+    const c = channelOf(KV);
+    const first = await svc.reportByBrand(input(c.id));
+    expect(await codeOf(svc.reportByBrand(input(c.id)))).toBe('KOLHUB-4608');
+    const url = `https://${c.url.replace(/^https?:\/\//, '')}/video/9`;
+    expect(await codeOf(svc.reportByBrand(input(c.id, { contentUrl: url })))).toBe('OK');
+    expect(await codeOf(svc.reportByBrand(input(c.id, { contentUrl: `${url}/` })))).toBe('KOLHUB-4608');
+    await svc.dismiss(first.id, 'Không đủ căn cứ');
+    expect(await codeOf(svc.reportByBrand(input(c.id)))).toBe('OK');
+  });
+
+  test('hiện trong hàng chờ Admin kèm thông tin người báo cáo', async () => {
+    signIn('acc-biz-demo');
+    const v = await svc.reportByBrand(input(channelOf(KV).id));
+    const q = await svc.adminQueue();
+    expect(q.pending.find((x) => x.id === v.id)?.reporter?.company).toBe('Công ty Demo Sữa');
+  });
+
+  test('chủ kênh thấy báo cáo nhưng không thấy danh tính người báo cáo', async () => {
+    signIn('acc-biz-demo');
+    const v = await svc.reportByBrand(input(channelOf(KV).id));
+    const mine = (await svc.listForOwner(KV)).find((x) => x.id === v.id);
+    expect(mine).toMatchObject({ source: 'REPORT', status: 'PENDING_REVIEW', reporterNote: NOTE });
+    const json = JSON.stringify(mine);
+    expect(json).not.toContain('"reporter":');
+    expect(json).not.toContain('acc-biz-demo');
+    expect(json).not.toContain('Công ty Demo Sữa');
+    await svc.confirm(v.id);
+    const out = await svc.markResolved(KV, v.id, 'Đã gỡ video');
+    expect(JSON.stringify(out)).not.toContain('acc-biz-demo');
+  });
+
+  test('Nhãn hàng vẫn chỉ thấy CONFIRMED/RESOLVED; báo cáo chờ xác minh không hiện', async () => {
+    signIn('acc-biz-demo');
+    const v = await svc.reportByBrand(input(channelOf(KV).id));
+    let list = await svc.listForBrand();
+    expect(list.some((x) => x.id === v.id)).toBe(false);
+    expect(list.every((x) => x.status === 'CONFIRMED' || x.status === 'RESOLVED')).toBe(true);
+    await svc.confirm(v.id);
+    list = await svc.listForBrand();
+    const b = list.find((x) => x.id === v.id);
+    expect(b).toBeTruthy();
+    expect(JSON.stringify(b)).not.toContain('acc-biz-demo');
+  });
+});

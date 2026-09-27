@@ -77,7 +77,12 @@ export type ErrorCode =
   | 'KOLHUB-4604'
   | 'KOLHUB-4605'
   | 'KOLHUB-4606'
-  | 'KOLHUB-4607';
+  | 'KOLHUB-4607'
+  | 'KOLHUB-4608'
+  | 'KOLHUB-4609'
+  | 'KOLHUB-4610'
+  | 'KOLHUB-4611'
+  | 'KOLHUB-4612';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;

@@ -15,7 +15,7 @@ export interface DetailViolation extends ViolationRowBase {
   adminReason?: string;
 }
 
-const ACTOR_LABEL: Record<ViolationActor, string> = { system: 'Hệ thống', admin: 'Admin', owner: 'Chủ kênh' };
+const ACTOR_LABEL: Record<ViolationActor, string> = { system: 'Hệ thống', admin: 'Admin', owner: 'Chủ kênh', reporter: 'Người báo cáo' };
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (

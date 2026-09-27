@@ -39,7 +39,8 @@ export const VIOLATION_STATUS_LABEL: Record<ViolationStatus, string> = {
   DISMISSED: 'Đã bác bỏ',
 };
 
-export type ViolationActor = 'system' | 'admin' | 'owner';
+/** reporter = the Brand/Agency that sent a report (identity never shown to the owner). */
+export type ViolationActor = 'system' | 'admin' | 'owner' | 'reporter';
 export type ViolationAction = 'DETECTED' | 'REPORTED' | 'CONFIRMED' | 'DISMISSED' | 'APPEALED' | 'APPEAL_ACCEPTED' | 'APPEAL_REJECTED' | 'RESOLVED';
 
 export interface ViolationEvent {
@@ -56,6 +57,8 @@ export interface Violation {
   ownerType: OwnerType;
   /** Account id of the owner (KOL or MCN). */
   ownerId: string;
+  /** Channel record id, when known (reports). */
+  channelId?: string;
   platform: Platform;
   /** Without "@". */
   channelHandle: string;
@@ -69,6 +72,8 @@ export interface Violation {
   source: ViolationSource;
   /** What the reporter wrote (REPORT only). Admin/owner only. */
   reporterNote?: string;
+  /** Brand/Agency that reported it (REPORT by a brand). Admin only — stripped from owner views. */
+  reporter?: ViolationReporter;
   /** Scanned video id for KOL_SAFETY detections (dedupe key). */
   scanVideoId?: string;
   detectedAt: number;
@@ -84,8 +89,13 @@ export interface Violation {
   updatedAt: number;
 }
 
-/** Owner / Admin view: the full record. */
-export type OwnerViolation = Violation;
+export interface ViolationReporter {
+  accountId: string;
+  company?: string;
+}
+
+/** Owner view: the full record minus the reporter's identity. */
+export type OwnerViolation = Omit<Violation, 'reporter'>;
 
 /** What a Brand may see (CONFIRMED / RESOLVED of an approved KOL only; no notes, no reporter). */
 export interface BrandViolation {
@@ -115,3 +125,17 @@ export interface ViolationAdminQueue {
 
 /** Minimum length of an appeal reason. */
 export const APPEAL_MIN = 20;
+
+/** Brand report description length (characters, trimmed). */
+export const REPORT_NOTE_MIN = 20;
+export const REPORT_NOTE_MAX = 1000;
+
+export interface BrandReportInput {
+  channelId: string;
+  /** Link of the reported video/post; must be on the channel's platform. */
+  contentUrl?: string;
+  category: ViolationCategory;
+  /** Default 'medium'. */
+  severity?: ViolationSeverity;
+  note: string;
+}
