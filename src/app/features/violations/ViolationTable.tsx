@@ -45,7 +45,7 @@ function ViewButton({ onClick, label }: { onClick(): void; label: string }) {
       }}
     >
       <Eye aria-hidden />
-      Xem chi tiết
+      Xem
     </Button>
   );
 }
@@ -63,37 +63,38 @@ export function ViolationTable<T extends ViolationRowBase>({ rows, onView, onKol
         <Table aria-label={label}>
           <TableHeader>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-[32%]">Nội dung</TableHead>
-              {onKol && <TableHead>KOL</TableHead>}
-              <TableHead>Loại vi phạm</TableHead>
-              <TableHead>Mức độ</TableHead>
-              <TableHead>Nguồn</TableHead>
-              <TableHead>Ngày phát hiện</TableHead>
-              <TableHead>Trạng thái</TableHead>
+              <TableHead className="min-w-[14rem]">Nội dung</TableHead>
+              {onKol && <TableHead className="min-w-[8rem]">KOL</TableHead>}
+              <TableHead className="min-w-[9rem]">Loại vi phạm</TableHead>
+              <TableHead className="whitespace-nowrap">Mức độ</TableHead>
+              <TableHead className="whitespace-nowrap">Phát hiện</TableHead>
+              <TableHead className="whitespace-nowrap">Trạng thái</TableHead>
               <TableHead className="text-right">Thao tác</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((v) => (
               <TableRow key={v.id} className="cursor-pointer" onClick={() => onView(v)}>
-                <TableCell className="max-w-0 py-3">
+                <TableCell className="min-w-[14rem] py-3">
                   <ContentCell v={v} onTitle={() => onView(v)} />
                 </TableCell>
                 {onKol && (
-                  <TableCell className="max-w-40">
+                  <TableCell className="min-w-[8rem] max-w-44">
                     <KolName v={v} onKol={onKol} />
                     <p className="truncate text-xs text-muted-foreground">{v.kolId}</p>
                   </TableCell>
                 )}
-                <TableCell className="text-sm text-foreground">{v.category}</TableCell>
-                <TableCell>
+                <TableCell className="min-w-[9rem] text-sm text-foreground">{v.category}</TableCell>
+                <TableCell className="whitespace-nowrap">
                   <SeverityBadge severity={v.severity} />
                 </TableCell>
-                <TableCell>
-                  <SourceLabel source={v.source} />
+                <TableCell className="whitespace-nowrap">
+                  <span className="block text-sm text-foreground tabular-nums">{formatDay(v.detectedAt)}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                    <SourceLabel source={v.source} />
+                  </span>
                 </TableCell>
-                <TableCell className="text-sm whitespace-nowrap text-foreground tabular-nums">{formatDay(v.detectedAt)}</TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <ViolationStatusBadge status={v.status} />
                 </TableCell>
                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
