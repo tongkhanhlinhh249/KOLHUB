@@ -168,3 +168,36 @@ export function sortChannels(channels: Channel[], sort: ChannelSort = 'updated')
   };
   return [...channels].sort(cmp[sort]);
 }
+
+// --- MCN "status" mode: only the old approval-status tabs, same `trangThai` URL key as the KOL filter bar ---
+
+export type ChannelStatusTabKey = 'all' | ChannelStatusFilter;
+
+export interface ChannelStatusTab {
+  key: ChannelStatusTabKey;
+  label: string;
+  count: number;
+}
+
+/** "Tất cả" + every status option with its count, always all five (the old tabs never hid a 0). */
+export function channelStatusTabs(channels: Channel[], now: number): ChannelStatusTab[] {
+  const counts = countByStatus(channels, now);
+  return [
+    { key: 'all', label: 'Tất cả', count: channels.length },
+    ...CHANNEL_STATUS_OPTIONS.map((o) => ({ key: o.key, label: o.label, count: counts[o.key] })),
+  ];
+}
+
+/** Keep only the status of a parsed query (keyword, platforms, active and sort are ignored). */
+export function statusOnlyQuery(q: ChannelQuery): ChannelQuery {
+  return q.status ? { status: q.status } : {};
+}
+
+/** Tab key → query: 'all' (or an unknown key) clears the status. */
+export function statusTabQuery(key: string): ChannelQuery {
+  const status = oneOf(
+    key,
+    CHANNEL_STATUS_OPTIONS.map((o) => o.key),
+  );
+  return status ? { status } : {};
+}

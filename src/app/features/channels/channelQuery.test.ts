@@ -5,6 +5,7 @@ import {
   CHANNEL_KEYS,
   channelFilterCount,
   channelStatusOf,
+  channelStatusTabs,
   clearChannelFilters,
   countByStatus,
   filterChannels,
@@ -12,6 +13,8 @@ import {
   mergeChannelParams,
   parseChannelParams,
   sortChannels,
+  statusOnlyQuery,
+  statusTabQuery,
   toChannelParams,
 } from './channelQuery';
 
@@ -128,5 +131,42 @@ describe('sortChannels', () => {
     const copy = [...channels];
     sortChannels(channels, 'followers');
     expect(channels).toEqual(copy);
+  });
+});
+
+describe('status mode (MCN)', () => {
+  const list = [
+    ch({ id: 'v' }),
+    ch({ id: 'p', status: 'PENDING_REVIEW', badgeExpiresAt: undefined }),
+    ch({ id: 'n', status: 'NEEDS_FIX', badgeExpiresAt: undefined }),
+    ch({ id: 'e', status: 'EXPIRED', badgeExpiresAt: NOW - 1 }),
+    ch({ id: 'd', badgeExpiresAt: NOW - 1 }),
+  ];
+
+  test('channelStatusTabs: Tất cả + 4 trạng thái, luôn đủ 5 tab kể cả khi 0', () => {
+    expect(channelStatusTabs(list, NOW)).toEqual([
+      { key: 'all', label: 'Tất cả', count: 5 },
+      { key: 'verified', label: 'Đã xác thực', count: 1 },
+      { key: 'pending', label: 'Chờ duyệt', count: 1 },
+      { key: 'needs_fix', label: 'Cần bổ sung', count: 1 },
+      { key: 'expired', label: 'Hết hạn dấu', count: 2 },
+    ]);
+    expect(channelStatusTabs([], NOW).map((t) => t.count)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  test('statusOnlyQuery bỏ qua từ khoá, nền tảng, hoạt động, sắp xếp', () => {
+    const q = parseChannelParams(new URLSearchParams('q=abc&trangThai=pending&nenTang=youtube&hoatDong=off&sapXep=followers'));
+    expect(statusOnlyQuery(q)).toEqual({ status: 'pending' });
+    expect(statusOnlyQuery(parseChannelParams(new URLSearchParams('q=abc')))).toEqual({});
+    expect(filterChannels(list, statusOnlyQuery(q), NOW).map((c) => c.id)).toEqual(['p']);
+  });
+
+  test('statusTabQuery: all/không hợp lệ → xoá trạng thái; ghi URL bằng trangThai, xoá tham số lọc khác, giữ them', () => {
+    expect(statusTabQuery('all')).toEqual({});
+    expect(statusTabQuery('xyz')).toEqual({});
+    expect(statusTabQuery('needs_fix')).toEqual({ status: 'needs_fix' });
+    const prev = new URLSearchParams('q=abc&nenTang=youtube&them=1&trangThai=verified');
+    expect(mergeChannelParams(prev, statusTabQuery('expired')).toString()).toBe('them=1&trangThai=expired');
+    expect(mergeChannelParams(prev, statusTabQuery('all')).toString()).toBe('them=1');
   });
 });

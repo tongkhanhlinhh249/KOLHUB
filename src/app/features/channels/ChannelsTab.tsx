@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { AlertCircle, Plus, RotateCcw, SearchX } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { channelService, PLATFORMS, type Channel, type ProfileStatus } from '../../services';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
@@ -18,6 +19,7 @@ import {
   CHANNEL_SORT_OPTIONS,
   CHANNEL_STATUS_OPTIONS,
   channelFilterCount,
+  channelStatusTabs,
   clearChannelFilters,
   countByStatus,
   filterChannels,
@@ -25,6 +27,8 @@ import {
   mergeChannelParams,
   parseChannelParams,
   sortChannels,
+  statusOnlyQuery,
+  statusTabQuery,
   type ChannelActiveFilter,
   type ChannelQuery,
   type ChannelStatusFilter,
@@ -51,17 +55,22 @@ function chipsOf(q: ChannelQuery, onChange: (patch: Partial<ChannelQuery>) => vo
   return chips;
 }
 
+/** 'full' = search-style filter bar (KOL); 'status' = only the approval-status tabs (MCN). */
+export type ChannelFilterMode = 'full' | 'status';
+
 /**
- * SCR-06 — "Quản lý kênh" for KOL and MCN: search-style filter bar (state in the URL),
- * grid/list results, active switch and add/edit sheet. There is no delete (BR-23).
+ * SCR-06 — "Quản lý kênh" for KOL and MCN: filters with state in the URL (full filter bar, or
+ * status tabs only), list rows, active switch and add/edit sheet. There is no delete (BR-23).
  */
 export function ChannelsTab({
   accountId,
   profileStatus,
   openAddRequest = false,
   onOpenAddConsumed,
+  filterMode = 'full',
 }: {
   accountId: string;
+  filterMode?: ChannelFilterMode;
   profileStatus: ProfileStatus;
   /** When true, open the add-channel sheet once, then call onOpenAddConsumed (e.g. header "Thêm kênh"). */
   openAddRequest?: boolean;
@@ -70,13 +79,18 @@ export function ChannelsTab({
   const data = useLiveQuery(() => channelService.list(accountId), [accountId]);
   const [searchParams, setSearchParams] = useSearchParams();
   const paramsKey = searchParams.toString();
-  const query = useMemo(() => parseChannelParams(new URLSearchParams(paramsKey)), [paramsKey]);
+  const statusMode = filterMode === 'status';
+  const query = useMemo(() => {
+    const parsed = parseChannelParams(new URLSearchParams(paramsKey));
+    return statusMode ? statusOnlyQuery(parsed) : parsed;
+  }, [paramsKey, statusMode]);
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
 
   const channels = data.data;
   // Re-read the clock whenever the list changes, so "Hết hạn dấu" follows the data.
   const now = useMemo(() => Date.now(), [channels]);
   const counts = useMemo(() => countByStatus(channels ?? [], now), [channels, now]);
+  const statusTabs = useMemo(() => channelStatusTabs(channels ?? [], now), [channels, now]);
   const shown = useMemo(
     () => sortChannels(filterChannels(channels ?? [], query, now), query.sort),
     [channels, query, now],
@@ -168,6 +182,12 @@ export function ChannelsTab({
         </Button>
       </div>
     );
+  } else if (shown.length === 0 && statusMode) {
+    body = (
+      <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+        Không có kênh ở trạng thái này
+      </p>
+    );
   } else if (shown.length === 0) {
     body = (
       <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
@@ -195,7 +215,32 @@ export function ChannelsTab({
 
   return (
     <div className="@container space-y-4">
-      {!empty && (
+      {!empty && statusMode && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <Tabs value={query.status ?? 'all'} onValueChange={(key) => writeQuery(statusTabQuery(key))}>
+              <TabsList className="h-auto" aria-label="Lọc theo trạng thái duyệt">
+                {statusTabs.map((t) => (
+                  <TabsTrigger key={t.key} value={t.key} className="h-11 md:h-8">
+                    {t.label} ({t.count})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+            <p className="text-sm font-medium text-foreground" aria-live="polite">
+              {shown.length} kênh
+            </p>
+            <Button type="button" className="h-11 md:h-9" onClick={openAdd}>
+              <Plus aria-hidden />
+              Thêm kênh
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!empty && !statusMode && (
         <>
           <FilterBar
             keyword={query.keyword}

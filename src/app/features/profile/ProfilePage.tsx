@@ -112,6 +112,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
                 profileStatus={q.data.view.profile.status}
                 openAddRequest={openAddChannel}
                 onOpenAddConsumed={consumeOpenAddChannel}
+                filterMode={q.data.view.profile.ownerType === 'MCN' ? 'status' : 'full'}
               />
             )}
           </div>
