@@ -21,6 +21,8 @@ import { ChannelMonitorDetail } from './features/safety/ChannelMonitorDetail';
 // --- violations ---
 import { OwnerViolationsPage } from './features/violations/OwnerViolationsPage';
 import { BrandViolationsPage } from './features/violations/BrandViolationsPage';
+// --- channel directory ---
+import { ChannelDirectoryPage } from './features/channel-directory/ChannelDirectoryPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
@@ -70,6 +72,7 @@ export const router = createBrowserRouter([
             ],
           },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
+          { path: 'danh-sach-kenh', element: <ChannelDirectoryPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },
           { path: 'vi-pham-kol', element: <BrandViolationsPage /> },
           { path: 'tai-khoan-doanh-nghiep', element: <BizAccountPage /> },

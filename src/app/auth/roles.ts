@@ -58,6 +58,19 @@ export const LEGACY_SAFETY_PATH = '/kol-safety';
 /** Violations of the signed-in KOL/MCN (manage) and of all approved KOLs for Brands (read-only). */
 export const VIOLATIONS_PATH = `${SAFETY_BASE}/vi-pham`;
 export const BRAND_VIOLATIONS_PATH = '/vi-pham-kol';
+/** Brand list of verified channels (one row per channel). */
+export const CHANNEL_DIRECTORY_PATH = '/danh-sach-kenh';
+
+/** Brand: 5 menu items → 4 tabs + "Thêm" (Tài khoản doanh nghiệp). */
+const BRAND_BOTTOM_NAV: BottomNavConfig = {
+  items: [
+    { icon: Search, label: 'Tìm KOL', path: '/tim-kiem-kol' },
+    { icon: MonitorPlay, label: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
+    { icon: BookMarked, label: 'Đã lưu', path: '/danh-sach-da-luu' },
+    { icon: ShieldAlert, label: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
+  ],
+  more: ['/tai-khoan-doanh-nghiep'],
+};
 
 const SAFETY_MENU: MenuItem[] = [
   { icon: Clapperboard, label: 'Kiểm tra video trước khi đăng', shortLabel: 'Video', path: `${SAFETY_BASE}/video`, group: SAFETY_GROUP },
@@ -124,10 +137,12 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
     home: '/tim-kiem-kol',
     menu: [
       { icon: Search, label: 'Tìm kiếm KOL', shortLabel: 'Tìm KOL', path: '/tim-kiem-kol' },
+      { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
       { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu' },
       { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
       { icon: Building2, label: 'Tài khoản doanh nghiệp', shortLabel: 'Doanh nghiệp', path: '/tai-khoan-doanh-nghiep' },
     ],
+    bottomNav: BRAND_BOTTOM_NAV,
   },
 };
 
@@ -210,6 +225,7 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/dinh-danh': 'Xác thực tổ chức bằng Giấy chứng nhận ĐKDN',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
+  '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
   '/kiem-duyet/vi-pham': 'Vi phạm nội dung trên các kênh của bạn: xem chi tiết, khắc phục hoặc khiếu nại',
   '/vi-pham-kol': 'Vi phạm đã được xác nhận của các KOL có kênh xác thực',

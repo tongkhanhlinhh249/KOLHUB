@@ -56,6 +56,12 @@ describe('resolveAccess', () => {
     expect(resolveAccess('kolhub.user.biz', '/vi-pham-kol')).toEqual({ allow: true });
     expect(resolveAccess('kolhub.guest', '/vi-pham-kol')).toMatchObject({ allow: false, reason: 'login' });
   });
+  test('Danh sách kênh: chỉ Nhãn hàng', () => {
+    expect(resolveAccess('kolhub.user.biz', '/danh-sach-kenh')).toEqual({ allow: true });
+    for (const r of ['kolhub.user.kol', 'kolhub.user.mcn'] as const)
+      expect(resolveAccess(r, '/danh-sach-kenh')).toMatchObject({ allow: false, reason: 'forbidden' });
+    expect(resolveAccess('kolhub.guest', '/danh-sach-kenh?kol=KOL-2026-0001')).toMatchObject({ allow: false, reason: 'login' });
+  });
   test('guest vào được các trang khách', () => {
     for (const p of GUEST_PATHS) expect(resolveAccess('kolhub.guest', p)).toEqual({ allow: true });
   });
@@ -124,10 +130,19 @@ describe('bottomNavOf', () => {
         expect(resolveAccess(role, p)).toEqual({ allow: true });
     }
   });
-  test('Nhãn hàng / khách: mọi mục menu là tab, không có "Thêm"', () => {
-    expect(bottomNavOf('kolhub.user.biz').items.map((i) => i.label)).toEqual(['Tìm KOL', 'Đã lưu', 'Vi phạm', 'Doanh nghiệp']);
-    expect(bottomNavOf('kolhub.user.biz').more).toEqual([]);
+  test('Nhãn hàng: 4 tab + "Thêm" (Tài khoản doanh nghiệp); khách: mọi mục menu là tab', () => {
+    const nav = bottomNavOf('kolhub.user.biz');
+    expect(nav.items.map((i) => [i.label, i.path])).toEqual([
+      ['Tìm KOL', '/tim-kiem-kol'],
+      ['Kênh', '/danh-sach-kenh'],
+      ['Đã lưu', '/danh-sach-da-luu'],
+      ['Vi phạm', '/vi-pham-kol'],
+    ]);
+    expect(nav.more.map((m) => m.path)).toEqual(['/tai-khoan-doanh-nghiep']);
+    for (const p of [...nav.items.map((i) => i.path), ...nav.more.map((m) => m.path)])
+      expect(resolveAccess('kolhub.user.biz', p)).toEqual({ allow: true });
     expect(bottomNavOf('kolhub.guest').items).toHaveLength(2);
+    expect(bottomNavOf('kolhub.guest').more).toEqual([]);
   });
   test('tab "Kiểm duyệt" sáng ở trang kênh TikTok/Facebook/YouTube và chi tiết kênh, không ở trang Video', () => {
     const tab = bottomNavOf('kolhub.user.kol').items[3];
@@ -164,6 +179,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     ]);
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => m.path)).toEqual([
       '/tim-kiem-kol',
+      '/danh-sach-kenh',
       '/danh-sach-da-luu',
       '/vi-pham-kol',
       '/tai-khoan-doanh-nghiep',
@@ -206,6 +222,11 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       description: 'Sức khoẻ kênh và kết quả quét video gần nhất',
     });
     expect(getPageMeta('/kiem-duyet/vi-pham', 'kolhub.user.mcn')).toMatchObject({ title: 'Danh sách vi phạm', group: 'Tổ chức/MCN' });
+    expect(getPageMeta('/danh-sach-kenh')).toEqual({
+      title: 'Danh sách kênh',
+      group: 'Nhãn hàng/Agency',
+      description: 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
+    });
     expect(getPageMeta('/vi-pham-kol')).toMatchObject({ title: 'Danh sách vi phạm', group: 'Nhãn hàng/Agency' });
     expect(getPageMeta('/quen-mat-khau')).toMatchObject({ title: 'Quên mật khẩu', group: 'Khách' });
   });

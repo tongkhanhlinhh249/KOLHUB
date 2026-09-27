@@ -7,6 +7,7 @@ export const PHASE_3_ASSUMPTIONS = [
   'Tìm kiếm 20 KOL/trang; không giới hạn số danh sách và số KOL mỗi danh sách; không xuất Excel (câu hỏi 9).',
   'Bộ lọc “thuộc MCN” đang ẩn vì liên kết KOL–MCN ngoài phạm vi (BR-55).',
   'Quy mô tính theo tổng người theo dõi của các kênh còn dấu: Nano < 10K · Micro 10K–100K · Mid 100K–500K · Macro 500K–1M · Mega ≥ 1M.',
+  'Danh sách kênh: mỗi kênh đã xác thực (còn dấu, đang hoạt động, KOL đã duyệt) là một dòng; quy mô tính theo người theo dõi của chính kênh đó; kênh của MCN không hiện.',
   'Chỉ lưu được KOL đang hiện trong tìm kiếm; KOL đã lưu rồi mất dấu vẫn ở lại danh sách (BR-62).',
 ];
 

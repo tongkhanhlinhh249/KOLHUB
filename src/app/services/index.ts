@@ -94,3 +94,9 @@ export const violationService = createViolationService({ db, now: Date.now });
 export * from './violation-types';
 export type { ViolationService } from './mock/violations';
 export { countByStatus as countViolationsByStatus } from './mock/violations';
+// --- channel directory (Brand) ---
+import { createChannelDirectoryService } from './mock/channelDirectory';
+
+export const channelDirectoryService = createChannelDirectoryService({ db, now: Date.now });
+export * from './channel-directory-types';
+export type { ChannelDirectoryService } from './mock/channelDirectory';
