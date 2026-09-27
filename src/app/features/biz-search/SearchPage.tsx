@@ -36,7 +36,7 @@ function errorText(e: unknown): string {
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const pageQuery = parseSearchParams(searchParams);
-  const view: SearchView = pageQuery.view ?? 'grid';
+  const view: SearchView = pageQuery.view ?? 'list';
   // The service query leaves out `view`, so switching layout does not refetch.
   const queryKey = toSearchParams(toServiceQuery(pageQuery)).toString();
   const query = useMemo(() => toServiceQuery(parseSearchParams(new URLSearchParams(queryKey))), [queryKey]);

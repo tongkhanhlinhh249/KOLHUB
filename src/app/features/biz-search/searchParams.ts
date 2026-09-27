@@ -13,9 +13,9 @@ import {
 
 const SORTS: SearchSort[] = ['relevance', 'followers', 'newest'];
 
-/** Result layout: grid of cards (default) or full-width list rows. */
+/** Result layout: full-width list rows (default) or grid of cards. */
 export type SearchView = 'grid' | 'list';
-const VIEWS: SearchView[] = ['grid', 'list'];
+const VIEWS: SearchView[] = ['list', 'grid'];
 
 /** Page state kept in the URL: the service query plus the result layout (`view` is never sent to the service). */
 export interface SearchPageQuery extends KolSearchQuery {
@@ -29,7 +29,7 @@ function oneOf<T extends string>(v: string | null, list: readonly T[]): T | unde
   return v !== null && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 }
 
-/** URL → query. Unknown values are dropped; missing sort → relevance; missing/bad page → 1; missing/unknown view → grid. */
+/** URL → query. Unknown values are dropped; missing sort → relevance; missing/bad page → 1; missing/unknown view → list. */
 export function parseSearchParams(sp: URLSearchParams): SearchPageQuery {
   const q: SearchPageQuery = {};
   const keyword = sp.get('q');
@@ -53,11 +53,11 @@ export function parseSearchParams(sp: URLSearchParams): SearchPageQuery {
   const rawPage = sp.get('trang');
   const page = rawPage !== null && /^\d+$/.test(rawPage) ? Number(rawPage) : NaN;
   q.page = Number.isInteger(page) && page >= 1 ? page : 1;
-  q.view = oneOf<SearchView>(sp.get('view'), VIEWS) ?? 'grid';
+  q.view = oneOf<SearchView>(sp.get('view'), VIEWS) ?? 'list';
   return q;
 }
 
-/** Query → URL params, leaving out defaults (relevance, page 1, grid view, empty values). */
+/** Query → URL params, leaving out defaults (relevance, page 1, list view, empty values). */
 export function toSearchParams(q: SearchPageQuery): URLSearchParams {
   const sp = new URLSearchParams();
   if (q.keyword && q.keyword.trim()) sp.set('q', q.keyword);
@@ -67,7 +67,7 @@ export function toSearchParams(q: SearchPageQuery): URLSearchParams {
   if (q.platforms && q.platforms.length > 0) sp.set('nenTang', q.platforms.join(','));
   if (q.sort && q.sort !== 'relevance') sp.set('sapXep', q.sort);
   if (q.page && q.page > 1) sp.set('trang', String(q.page));
-  if (q.view === 'list') sp.set('view', 'list');
+  if (q.view === 'grid') sp.set('view', 'grid');
   return sp;
 }
 

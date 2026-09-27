@@ -2,15 +2,15 @@ import { LayoutGrid, List } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../components/ui/utils';
 
-/** Result layout: grid of cards (default) or full-width list rows. */
+/** Result layout: full-width list rows (default) or grid of cards. */
 export type ResultView = 'grid' | 'list';
 
 const OPTIONS = [
-  { key: 'grid', label: 'Lưới', Icon: LayoutGrid },
   { key: 'list', label: 'Danh sách', Icon: List },
+  { key: 'grid', label: 'Lưới', Icon: LayoutGrid },
 ] as const;
 
-/** "Lưới / Danh sách" switch shown above a result list. */
+/** "Danh sách / Lưới" switch shown above a result list. */
 export function ViewToggle({
   value,
   onChange,

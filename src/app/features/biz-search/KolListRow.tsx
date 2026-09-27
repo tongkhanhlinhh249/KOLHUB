@@ -85,9 +85,6 @@ export function KolListRow({ kol, saved, onView, onSave }: KolListRowProps) {
                 </li>
               ))}
             </ul>
-            <span className="text-muted-foreground">
-              Tổng <span className="font-semibold text-foreground">{formatFollowers(kol.totalFollowers)}</span> người theo dõi
-            </span>
           </div>
         </div>
 
