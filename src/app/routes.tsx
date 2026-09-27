@@ -5,6 +5,8 @@ import { AccessGuard } from './auth/AccessGuard';
 import { GuestLayout } from './layouts/GuestLayout';
 import { ComingSoon } from './features/placeholder/ComingSoon';
 import { RegisterPage } from './features/register/RegisterPage';
+import { LoginPage } from './features/login/LoginPage';
+import { ForgotPasswordPage } from './features/login/ForgotPasswordPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
@@ -19,8 +21,8 @@ export const router = createBrowserRouter([
         element: <GuestLayout />,
         children: [
           { path: 'dang-ky', element: <RegisterPage /> },
-          { path: 'dang-nhap', element: <ComingSoon title="Đăng nhập" note="Đang xây dựng." /> },
-          { path: 'quen-mat-khau', element: <ComingSoon title="Quên mật khẩu" note="Đang xây dựng." /> },
+          { path: 'dang-nhap', element: <LoginPage /> },
+          { path: 'quen-mat-khau', element: <ForgotPasswordPage /> },
         ],
       },
       {
