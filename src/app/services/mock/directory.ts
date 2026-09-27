@@ -2,7 +2,6 @@ import {
   KOL_CATEGORIES,
   KOL_REGIONS,
   KOL_SCALES,
-  type ApprovedKolSummary,
   type BadgeState,
   type DirectoryChannel,
   type DirectoryKol,
@@ -11,7 +10,9 @@ import {
   type KolRegion,
   type KolScale,
 } from '../bizTypes';
+import type { ApprovedKolSummary } from '../profile-types';
 import type { DemoState } from './db';
+import { listApprovedKols } from './review';
 
 /** Accent-, case- and whitespace-insensitive form used for keyword matching. */
 export function normalizeText(s: string): string {
@@ -112,8 +113,12 @@ export function fromApprovedSummary(s: ApprovedKolSummary): DirectoryKol {
  * After the merge, replace the `return []` line with (and import listApprovedKols):
  *   try { return listApprovedKols(state).map(fromApprovedSummary); } catch { return []; }
  */
-export function approvedDirectoryKols(_state: DemoState): DirectoryKol[] {
-  return [];
+export function approvedDirectoryKols(state: DemoState): DirectoryKol[] {
+  try {
+    return listApprovedKols(state).map(fromApprovedSummary);
+  } catch {
+    return [];
+  }
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import type { ApprovedKolSummary, DirectoryChannel, DirectoryKol } from '../bizTypes';
+import type { DirectoryChannel, DirectoryKol } from '../bizTypes';
+import type { ApprovedKolSummary } from '../profile-types';
 import { createSearchService } from './search';
 import { bizState, fixtureDirectory } from './testing/bizFixtures';
 import {

@@ -8,3 +8,15 @@ test('services/index nối sẵn db, otp, auth và inbox', () => {
   expect(db.read().accounts).toHaveLength(3);
   expect(new KolhubError('KOLHUB-4012').message).toBe(errorMessage('KOLHUB-4012'));
 });
+
+// --- phase 2 ---
+test('services/index nối dịch vụ Đợt 2 và subscribeData báo khi dữ liệu đổi', async () => {
+  const { ekycService, subscribeData, listApprovedKols } = await import('./index');
+  let calls = 0;
+  const off = subscribeData(() => calls++);
+  ekycService.setScenario('KOLHUB-4101');
+  off();
+  expect(calls).toBe(1);
+  expect(ekycService.getScenario()).toBe('KOLHUB-4101');
+  expect(listApprovedKols(db.read())).toEqual([]);
+});

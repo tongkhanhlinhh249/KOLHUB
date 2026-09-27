@@ -1,4 +1,6 @@
 import type { ErrorCode, KolhubErrorMeta } from './types';
+// --- phase 2 ---
+import { format } from 'date-fns';
 
 function attempts(meta?: KolhubErrorMeta): string {
   return meta?.attemptsLeft !== undefined ? ` Còn ${meta.attemptsLeft} lần thử.` : '';
@@ -59,6 +61,9 @@ export function errorMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Không tìm thấy KOL hoặc hồ sơ không còn hiển thị.';
     case 'KOLHUB-4405':
       return 'Ghi chú tối đa 500 ký tự.';
+    // --- phase 2 ---
+    default:
+      return phase2Message(code, meta);
   }
 }
 
@@ -73,5 +78,50 @@ function bizFieldLabel(field?: string): string {
       return 'Email công ty';
     default:
       return 'Thông tin';
+  }
+}
+
+// --- phase 2 ---
+function lockTime(ms?: number): string {
+  if (ms === undefined) return '';
+  return format(ms, 'HH:mm dd/MM/yyyy');
+}
+
+function phase2Message(code: ErrorCode, meta?: KolhubErrorMeta): string {
+  switch (code) {
+    case 'KOLHUB-4101':
+      return `Ảnh CCCD bị mờ hoặc lóa. Vui lòng chụp lại.${attempts(meta)}`;
+    case 'KOLHUB-4102':
+      return `CCCD đã hết hạn hoặc không gắn chip. Vui lòng dùng CCCD gắn chip còn hạn.${attempts(meta)}`;
+    case 'KOLHUB-4103':
+      return 'Họ tên trên CCCD khác với họ tên trong hồ sơ.';
+    case 'KOLHUB-4104':
+      return 'CCCD này đã được dùng cho một tài khoản khác.';
+    case 'KOLHUB-4105':
+      return `Khuôn mặt không khớp với ảnh trên CCCD. Vui lòng quay lại.${attempts(meta)}`;
+    case 'KOLHUB-4106':
+      return `Chưa xác nhận được người thật. Vui lòng quay lại theo hướng dẫn.${attempts(meta)}`;
+    case 'KOLHUB-4107':
+      return 'Trình duyệt chưa được cấp quyền camera.';
+    case 'KOLHUB-4108':
+      return `Bạn đã xác thực không thành công 5 lần trong 24 giờ. Vui lòng thử lại sau ${lockTime(meta?.lockedUntil)} hoặc liên hệ hỗ trợ.`;
+    case 'KOLHUB-5101':
+      return 'Dịch vụ xác thực đang bận. Vui lòng thử lại, lần này không bị tính.';
+    case 'KOLHUB-4201':
+      return `Link kênh này đã được đăng ký trên KOL Hub.${meta?.ownedByOther ? ' Chúng tôi đã ghi nhận để xử lý tranh chấp.' : ''}`;
+    case 'KOLHUB-4202':
+      return 'Chỉ hỗ trợ link kênh Facebook, YouTube hoặc TikTok.';
+    case 'KOLHUB-4203':
+      return 'Ảnh phải là JPG hoặc PNG, tối đa 10 MB.';
+    case 'KOLHUB-4301':
+      return 'File GCN phải là JPG, PNG hoặc PDF.';
+    case 'KOLHUB-4302':
+      return 'File GCN tối đa 10 MB.';
+    case 'KOLHUB-4303':
+      return 'Mã số doanh nghiệp này đã gắn với một MCN khác.';
+    case 'KOLHUB-4304':
+      return 'Doanh nghiệp đang tạm ngừng hoạt động, giải thể hoặc bị thu hồi giấy phép.';
+    default:
+      return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }
 }

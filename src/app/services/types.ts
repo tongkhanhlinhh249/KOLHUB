@@ -42,12 +42,32 @@ export type ErrorCode =
   | 'KOLHUB-4402'
   | 'KOLHUB-4403'
   | 'KOLHUB-4404'
-  | 'KOLHUB-4405';
+  | 'KOLHUB-4405'
+  // --- phase 2 ---
+  | 'KOLHUB-4101'
+  | 'KOLHUB-4102'
+  | 'KOLHUB-4103'
+  | 'KOLHUB-4104'
+  | 'KOLHUB-4105'
+  | 'KOLHUB-4106'
+  | 'KOLHUB-4107'
+  | 'KOLHUB-4108'
+  | 'KOLHUB-5101'
+  | 'KOLHUB-4201'
+  | 'KOLHUB-4202'
+  | 'KOLHUB-4203'
+  | 'KOLHUB-4301'
+  | 'KOLHUB-4302'
+  | 'KOLHUB-4303'
+  | 'KOLHUB-4304';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;
   retryAfterSec?: number;
   field?: string;
+  // --- phase 2 ---
+  lockedUntil?: number;
+  ownedByOther?: boolean;
 }
 
 /** Business error carrying a KOLHUB-xxxx code; message is the Vietnamese text from errorMessage(). */

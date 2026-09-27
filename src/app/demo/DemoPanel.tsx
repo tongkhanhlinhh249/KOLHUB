@@ -6,6 +6,11 @@ import { DemoDataBlock } from './DemoDataBlock';
 import { DemoRoleBlock } from './DemoRoleBlock';
 // --- phase 3 ---
 import { Phase3AssumptionsBlock } from './Phase3AssumptionsBlock';
+// --- phase 2 ---
+import { AdminSimulator } from './AdminSimulator';
+import { EkycScenarioPicker } from './EkycScenarioPicker';
+import { FunnelView } from './FunnelView';
+import { AssumptionsList } from './AssumptionsList';
 
 export { DemoPanelSection } from './DemoPanelSection';
 
@@ -29,16 +34,23 @@ export function DemoPanel() {
           <FlaskConical className="size-5" aria-hidden />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-sm">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
         <SheetHeader className="border-b border-border p-4 pr-12 text-left">
           <SheetTitle>Chế độ demo</SheetTitle>
           <SheetDescription>Công cụ dành cho buổi trình diễn, không có trong sản phẩm thật.</SheetDescription>
         </SheetHeader>
         <div className="space-y-4 p-4 pb-safe">
           <DemoRoleBlock onDone={close} />
+          {/* --- phase 2 --- */}
+          <AdminSimulator />
+          <EkycScenarioPicker />
+          <FunnelView />
+          {/* --- end phase 2 --- */}
           <DemoDataBlock onDone={close} />
           {/* --- phase 3 --- */}
           <Phase3AssumptionsBlock />
+          {/* --- phase 2 --- */}
+          <AssumptionsList />
         </div>
       </SheetContent>
     </Sheet>

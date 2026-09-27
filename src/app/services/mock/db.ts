@@ -2,6 +2,18 @@ import type { Account, AccountType, OtpChannel, OtpPurpose } from '../types';
 import { seedState } from './seed';
 // --- phase 3 ---
 import type { DirectoryKol, SavedList } from '../bizTypes';
+// --- phase 2 ---
+import type {
+  ChangeRequest,
+  Channel,
+  EkycScenario,
+  EkycSession,
+  FunnelEvent,
+  IdentityRecord,
+  KolProfile,
+  McnProfile,
+  ReviewRequest,
+} from '../profile-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -41,6 +53,16 @@ export interface DemoState {
   // --- phase 3 ---
   directory: DirectoryKol[];
   savedLists: SavedList[];
+  // --- phase 2 ---
+  kolProfiles: KolProfile[];
+  mcnProfiles: McnProfile[];
+  identities: IdentityRecord[];
+  ekycSessions: EkycSession[];
+  ekycScenario: EkycScenario;
+  channels: Channel[];
+  reviewRequests: ReviewRequest[];
+  changeRequests: ChangeRequest[];
+  funnel: FunnelEvent[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

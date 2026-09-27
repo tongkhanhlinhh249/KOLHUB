@@ -95,23 +95,6 @@ export interface SavedList {
   items: SavedListItem[];
 }
 
-// mirrors phase 2 profile-types.ts ApprovedKolSummary
-export interface ApprovedKolSummary {
-  kolId: string;
-  displayName: string;
-  avatar?: string;
-  category?: string;
-  region?: string;
-  channels: {
-    platform: 'facebook' | 'youtube' | 'tiktok';
-    url: string;
-    followers?: number;
-    /** ISO date */
-    badgeExpiresAt: string;
-  }[];
-  /** ISO date */
-  verifiedAt: string;
-}
 
 // --- Search (Task 2) ---
 
