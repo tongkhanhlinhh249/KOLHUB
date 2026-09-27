@@ -67,7 +67,7 @@ const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : '
 function OwnerLine({ item }: { item: ChannelDirectoryItem }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <KolAvatar name={item.displayName} src={item.avatar} className="size-6 text-[10px]" />
+      <KolAvatar name={item.displayName} src={item.avatar} className="size-6 [&_*]:text-[10px]" />
       <span className="truncate text-sm font-medium text-foreground">{item.displayName}</span>
       <span className="shrink-0 text-xs text-muted-foreground">{item.kolId}</span>
     </span>
