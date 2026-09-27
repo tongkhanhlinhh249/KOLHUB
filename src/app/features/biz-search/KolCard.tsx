@@ -1,12 +1,12 @@
 import { Bookmark, BookmarkCheck, MapPin, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
-import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import type { KolSearchItem } from '../../services';
 import { formatFollowers, initials } from './format';
+import { FieldBadges } from './KolMedia';
 import { PlatformIcon } from './PlatformIcon';
 
 /** Photo, or initials on a muted circle when the KOL has no avatar. */
@@ -26,7 +26,7 @@ interface KolCardProps {
   onSave(): void;
 }
 
-/** Compact search result card (trimmed from CreatorCard: no medals, actions menu, engagement, reports). */
+/** Compact search result card (trimmed from CreatorCard: field medals kept; no actions menu, engagement, reports). */
 export function KolCard({ kol, saved, onView, onSave }: KolCardProps) {
   return (
     <Card className="gap-4 p-4">
@@ -49,8 +49,8 @@ export function KolCard({ kol, saved, onView, onSave }: KolCardProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
-        {kol.category && <Badge variant="secondary">{kol.category}</Badge>}
+      <div className="space-y-2 text-sm">
+        <FieldBadges fields={kol.fields} size="sm" />
         {kol.region && (
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <MapPin className="size-3.5" aria-hidden />
@@ -100,7 +100,10 @@ export function KolCardSkeleton() {
           <Skeleton className="h-3 w-1/2" />
         </div>
       </div>
-      <Skeleton className="h-5 w-1/2" />
+      <div className="flex gap-1.5">
+        <Skeleton className="h-5 w-20 rounded-full" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
       <Skeleton className="h-6 w-full" />
       <div className="flex gap-2">
         <Skeleton className="h-10 flex-1" />
