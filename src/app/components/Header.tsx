@@ -1,5 +1,5 @@
 import { ChevronDown, LogOut, Briefcase, PanelLeft } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE_CONFIG, getPageMeta } from '../auth/roles';
 import logoMarkImg from '../../assets/logo-mark.svg';
@@ -23,17 +23,15 @@ interface HeaderProps {
 // Topbar row inside the content card (NetSpace pattern: h-[61px]).
 export function Header({ onToggleSidebar }: HeaderProps) {
   const { account, role, logout } = useAuth();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const meta = getPageMeta(pathname, role);
   const { home, label: roleLabel } = ROLE_CONFIG[role];
   const displayName = account?.fullName || account?.company || account?.email || 'Khách';
   const initial = displayName.charAt(0).toUpperCase();
+  const secondary = account ? (displayName !== account.email ? account.email : account.phone) : undefined;
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/dang-nhap', { replace: true });
-  };
+  // AccessGuard sends the user to /dang-nhap once the role becomes guest.
+  const handleLogout = () => void logout('/dang-nhap');
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-panel px-3 md:h-[61px] md:px-5">
@@ -90,9 +88,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
             </Avatar>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
-              {account?.email && displayName !== account.email && (
-                <p className="truncate text-xs text-muted-foreground">{account.email}</p>
-              )}
+              {secondary && <p className="truncate text-xs text-muted-foreground">{secondary}</p>}
               <Badge variant="secondary" className="mt-1 h-5 rounded-full bg-primary/10 px-1.5 text-[10px] text-primary md:hidden">
                 {roleLabel}
               </Badge>

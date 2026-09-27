@@ -14,3 +14,6 @@ export type { Db, DemoState } from './mock/db';
 export type { OtpMessage, OtpService } from './mock/otp';
 export type { AuthService, RegisterInput } from './mock/auth';
 export { DEMO_PASSWORD } from './mock/seed';
+// Pure validators, re-exported so forms can check input client-side before calling services.
+export { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from './mock/normalize';
+export { isFreeEmail, isStrongPassword } from './mock/auth';
