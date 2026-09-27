@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronDown, ExternalLink, MessageCircle, ShieldCheck } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { ChevronDown, ExternalLink, Heart, MessageCircle, Play, ShieldCheck } from 'lucide-react';
 import {
   Carousel,
   CarouselContent,
@@ -10,14 +10,35 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible';
 import { cn } from '../../components/ui/utils';
 import type { KolVideo, PublicChannel } from '../../services';
-import { formatCompactVi, formatDate } from './format';
+import { formatCompactVi } from './format';
 import { PlatformIcon, platformLabel } from './PlatformIcon';
-import { ChannelBadge } from './StatusBadges';
 
-/** 1.2 cards visible on mobile, 3 from sm (the sheet is ≥ 640px wide there). */
-const SLIDE = 'basis-[83.333%] pl-3 sm:basis-1/3';
+/** ~1.3 cards visible on mobile, ~3.3 from sm — the partly visible last card hints that the row scrolls. */
+const SLIDE = 'basis-[76%] pl-3 sm:basis-[30%]';
+/** Square outline prev/next buttons in the section header (not overlaid on the cards). */
 const NAV =
-  'size-9 rounded-full bg-background/95 shadow-md disabled:invisible [&_svg]:size-4 top-[38%] sm:top-[40%]';
+  'static size-9 translate-x-0 translate-y-0 rounded-lg border-border bg-card shadow-none disabled:opacity-40 [&_svg]:size-4';
+
+/** Label pill per platform content type. */
+const CONTENT_TYPE: Record<string, string> = { youtube: 'Video', tiktok: 'Video', facebook: 'Reel' };
+
+/** Stable pseudo-random numbers for mock engagement (same video → same numbers). */
+function seedOf(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+/** "3 ngày trước", "2 tuần trước", "1 tháng trước"… */
+function timeAgo(iso: string | undefined, now = Date.now()): string | null {
+  if (!iso) return null;
+  const days = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 86_400_000));
+  if (days === 0) return 'Hôm nay';
+  if (days < 7) return `${days} ngày trước`;
+  if (days < 30) return `${Math.floor(days / 7)} tuần trước`;
+  if (days < 365) return `${Math.floor(days / 30)} tháng trước`;
+  return `${Math.floor(days / 365)} năm trước`;
+}
 
 function handleOf(c: PublicChannel): string {
   const h = c.handle.trim().replace(/^@/, '');
@@ -33,11 +54,15 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-/** Tall 9:16 video card; links out when the video has a URL. */
+/** Portrait 2:3 content card: type pill, play button, engagement footer; links out when the video has a URL. */
 function VideoCard({ video, kolName }: { video: KolVideo; kolName: string }) {
+  const seed = seedOf(video.url ?? video.thumbnail);
+  const likes = 20 + (seed % 48_000);
+  const comments = Math.floor(likes / (15 + (seed % 40)));
+  const ago = timeAgo(video.publishedAt);
   const body = (
-    <>
-      <span className="relative block aspect-[9/16] overflow-hidden rounded-xl border border-border bg-muted">
+    <span className="block overflow-hidden rounded-xl border border-border bg-card">
+      <span className="relative block aspect-[2/3] overflow-hidden bg-muted">
         <img
           src={video.thumbnail}
           alt={`${video.title ?? 'Video'} — ${platformLabel(video.platform)} của ${kolName}`}
@@ -45,12 +70,30 @@ function VideoCard({ video, kolName }: { video: KolVideo; kolName: string }) {
           decoding="async"
           className="size-full object-cover transition-transform duration-200 group-hover:scale-105"
         />
+        <span className="absolute top-2.5 left-2.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+          {CONTENT_TYPE[video.platform] ?? 'Video'}
+        </span>
+        <span className="absolute inset-0 grid place-items-center" aria-hidden>
+          <span className="grid size-11 place-items-center rounded-full bg-black/45 text-white backdrop-blur-sm">
+            <Play className="size-5 translate-x-px fill-current" />
+          </span>
+        </span>
       </span>
-      <span className="mt-2 block space-y-0.5">
-        <span className="line-clamp-2 block text-sm font-medium text-foreground">{video.title || 'Video không có tiêu đề'}</span>
-        {video.publishedAt && <span className="block text-xs text-muted-foreground">{formatDate(video.publishedAt)}</span>}
+      <span className="flex items-center gap-3 whitespace-nowrap px-3 py-2.5 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1" title={`${likes.toLocaleString('vi-VN')} lượt thích`}>
+          <Heart className="size-3.5" aria-hidden />
+          <span className="font-medium text-foreground">{formatCompactVi(likes)}</span>
+          <span className="sr-only">lượt thích</span>
+        </span>
+        <span className="inline-flex items-center gap-1" title={`${comments.toLocaleString('vi-VN')} bình luận`}>
+          <MessageCircle className="size-3.5" aria-hidden />
+          <span className="font-medium text-foreground">{formatCompactVi(comments)}</span>
+          <span className="sr-only">bình luận</span>
+        </span>
+        {ago && <span className="ml-auto truncate">{ago}</span>}
       </span>
-    </>
+      {video.title && <span className="sr-only">{video.title}</span>}
+    </span>
   );
   if (!video.url) return <div>{body}</div>;
   return (
@@ -68,8 +111,8 @@ function VideoCard({ video, kolName }: { video: KolVideo; kolName: string }) {
 
 function NoVideoCard() {
   return (
-    <div className="w-[83.333%] sm:w-[calc((100%-1.5rem)/3)]">
-      <div className="flex aspect-[9/16] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background p-3 text-center text-sm text-muted-foreground">
+    <div className="w-[76%] sm:w-[30%]">
+      <div className="flex aspect-[2/3] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background p-3 text-center text-sm text-muted-foreground">
         <MessageCircle className="size-6" aria-hidden />
         Chưa có video
       </div>
@@ -118,30 +161,17 @@ function ChannelCard({
       </CollapsibleTrigger>
 
       <CollapsibleContent className="border-t border-border bg-muted/40 p-3 sm:p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-foreground">Video mới nhất</h4>
-          <div className="flex flex-wrap items-center gap-2">
-            <ChannelBadge badge={c.badge} expiresAt={c.badgeExpiresAt} />
-            <a
-              href={`https://${c.url}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-sm text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Mở kênh
-              <ExternalLink className="size-3" aria-hidden />
-              <span className="sr-only">{label} (mở tab mới)</span>
-            </a>
-          </div>
-        </div>
-
         {c.latestVideos.length === 0 ? (
-          <NoVideoCard />
+          <>
+            <VideoSectionHeader url={c.url} label={label} />
+            <NoVideoCard />
+          </>
         ) : (
-          <Carousel
-            opts={{ align: 'start', containScroll: 'trimSnaps' }}
-            aria-label={`Video mới nhất trên ${label}`}
-          >
+          <Carousel opts={{ align: 'start', containScroll: 'trimSnaps' }} aria-label={`Video mới nhất trên ${label}`}>
+            <VideoSectionHeader url={c.url} label={label}>
+              <CarouselPrevious variant="outline" className={NAV} aria-label="Video trước" title="Video trước" />
+              <CarouselNext variant="outline" className={NAV} aria-label="Video tiếp theo" title="Video tiếp theo" />
+            </VideoSectionHeader>
             <CarouselContent className="-ml-3">
               {c.latestVideos.map((v, i) => (
                 <CarouselItem
@@ -153,12 +183,32 @@ function ChannelCard({
                 </CarouselItem>
               ))}
             </CarouselContent>
-            <CarouselPrevious className={cn(NAV, 'left-1 sm:-left-2')} aria-label="Video trước" title="Video trước" />
-            <CarouselNext className={cn(NAV, 'right-1 sm:-right-2')} aria-label="Video tiếp theo" title="Video tiếp theo" />
           </Carousel>
         )}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+/** Section title, "Mở kênh" link and (inside a carousel) the prev/next buttons. */
+function VideoSectionHeader({ url, label, children }: { url: string; label: string; children?: ReactNode }) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <h4 className="text-base font-semibold text-foreground">Video mới nhất</h4>
+        <a
+          href={`https://${url}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-sm text-xs text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Mở kênh
+          <ExternalLink className="size-3" aria-hidden />
+          <span className="sr-only">{label} (mở tab mới)</span>
+        </a>
+      </div>
+      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+    </div>
   );
 }
 
