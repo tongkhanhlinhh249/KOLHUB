@@ -125,14 +125,14 @@ export function ChannelRow({
           </div>
 
           <div className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2 @lg:pl-15 @4xl:flex-nowrap @4xl:gap-6 @4xl:pl-0">
-            <div className="min-w-0 basis-full empty:hidden @4xl:block @4xl:w-56 @4xl:basis-auto @4xl:shrink-0">
+            <div className="min-w-0 basis-full empty:hidden @4xl:block @4xl:w-44 @4xl:basis-auto @4xl:shrink-0">
               <FieldBadges fields={fields} size="sm" />
             </div>
-            <p className="inline-flex min-w-0 items-center gap-1 text-sm text-muted-foreground @4xl:w-36 @4xl:shrink-0">
+            <p className="inline-flex min-w-0 items-center gap-1 text-sm text-muted-foreground @4xl:w-32 @4xl:shrink-0">
               <MapPin className="size-3.5 shrink-0" aria-hidden />
               <span className="truncate">{region || 'Chưa cập nhật'}</span>
             </p>
-            <ChannelFollowers followers={followers} className="@4xl:w-32 @4xl:shrink-0 @4xl:text-right" />
+            <ChannelFollowers followers={followers} className="whitespace-nowrap @4xl:w-36 @4xl:shrink-0 @4xl:text-right" />
             {trailing && <div className="ml-auto shrink-0 @4xl:ml-0">{trailing}</div>}
           </div>
         </div>
