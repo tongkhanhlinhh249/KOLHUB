@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import type { ApprovedKolSummary, DirectoryChannel, DirectoryKol } from '../bizTypes';
+import { createSearchService } from './search';
+import { bizState, fixtureDirectory } from './testing/bizFixtures';
 import {
+  approvedDirectoryKols,
   channelBadge,
   fromApprovedSummary,
   isLinkKeyword,
@@ -123,6 +126,20 @@ describe('readDirectory + fromApprovedSummary (phase 2 hook)', () => {
     expect(isSearchableChannel(k.channels[1], NOW)).toBe(false);
     expect(listingStatus(k, NOW)).toBe('VISIBLE');
     expect(scaleOf(totalFollowers(k, NOW))).toBe('micro');
+  });
+
+  test('hook Đợt 2 chưa nối → không thêm KOL', () => expect(approvedDirectoryKols(seedState())).toEqual([]));
+
+  test('KOL Đợt 2 xuất hiện trong tìm kiếm và mở được hồ sơ', async () => {
+    const db = bizState({ directory: [...fixtureDirectory(), fromApprovedSummary(summary)] });
+    const search = createSearchService({ db, now: () => NOW, delay: false });
+    expect((await search.search({ keyword: 'KOL-P2-0001' })).items).toMatchObject([
+      { kolId: 'KOL-P2-0001', platforms: ['youtube'], scale: 'micro' },
+    ]);
+    const p = await search.getKolPublicProfile('KOL-P2-0001');
+    expect(p).toMatchObject({ collabEmail: null, category: 'Ẩm thực' });
+    expect(p.region).toBeUndefined();
+    expect((await search.search({ keyword: 'tiktok.com/@doihai2' })).total).toBe(0);
   });
 
   test('readDirectory nối thêm extra; trùng kolId với danh bạ mẫu → giữ bản mẫu', () => {

@@ -108,10 +108,19 @@ export function fromApprovedSummary(s: ApprovedKolSummary): DirectoryKol {
 }
 
 /**
- * The single read point of the KOL directory for every phase-3 service.
- * `extra` entries (e.g. phase-2 approved KOLs) are appended unless their kolId is already in the seed directory.
+ * Phase-2 hook: KOLs approved in phase 2 as directory entries. Returns [] until phase 2 is merged.
+ * After the merge, replace the `return []` line with (and import listApprovedKols):
+ *   try { return listApprovedKols(state).map(fromApprovedSummary); } catch { return []; }
  */
-export function readDirectory(state: DemoState, extra: DirectoryKol[] = []): DirectoryKol[] {
+export function approvedDirectoryKols(_state: DemoState): DirectoryKol[] {
+  return [];
+}
+
+/**
+ * The single read point of the KOL directory for every phase-3 service.
+ * `extra` entries (default: phase-2 approved KOLs) are appended unless their kolId is already in the seed directory.
+ */
+export function readDirectory(state: DemoState, extra: DirectoryKol[] = approvedDirectoryKols(state)): DirectoryKol[] {
   const base = state.directory ?? [];
   if (extra.length === 0) return base;
   const ids = new Set(base.map((k) => k.kolId));
