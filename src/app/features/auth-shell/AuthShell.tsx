@@ -30,7 +30,7 @@ function BrandPanel({ type }: { type: AccountType }) {
   return (
     <aside
       aria-label="Giới thiệu KOLHUB"
-      className="hidden bg-gradient-to-br from-primary/10 via-page to-accent/40 lg:flex lg:w-[46%] lg:shrink-0 lg:flex-col lg:justify-center lg:px-12 lg:py-16 xl:w-1/2 xl:px-20"
+      className="hidden bg-gradient-to-br from-primary/10 via-page to-accent/40 lg:sticky lg:top-0 lg:flex lg:h-dvh lg:w-[46%] lg:shrink-0 lg:flex-col lg:justify-center lg:self-start lg:overflow-y-auto lg:px-12 lg:py-16 lg:[scrollbar-width:none] xl:w-1/2 xl:px-20 [&::-webkit-scrollbar]:hidden"
     >
       <div className="max-w-lg space-y-10">
         <img src={logoImg} alt="KOLHUB" className="h-9 w-auto object-contain object-left" />
@@ -84,8 +84,9 @@ function BrandBand({ type }: { type: AccountType }) {
  * `accountType` only drives the brand eyebrow; the page owns the h1.
  */
 export function AuthShell({ accountType, children }: { accountType: AccountType; children: ReactNode }) {
+  // overflow-x-clip (not hidden): hidden would make this a scroll container and break the sticky brand panel.
   return (
-    <div className="flex min-h-dvh w-full overflow-x-hidden bg-card">
+    <div className="flex min-h-dvh w-full overflow-x-clip bg-card">
       <BrandPanel type={accountType} />
       <div className="flex min-w-0 flex-1 flex-col">
         <BrandBand type={accountType} />
