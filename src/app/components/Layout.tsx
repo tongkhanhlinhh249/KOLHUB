@@ -34,7 +34,7 @@ export function Layout() {
     <TooltipProvider>
       <div className="flex h-dvh w-full overflow-hidden bg-page">
         <div className="hidden md:flex">
-          <Sidebar collapsed={collapsed} onToggle={toggleSidebar} />
+          <Sidebar collapsed={collapsed} />
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col md:py-4 md:pr-4">

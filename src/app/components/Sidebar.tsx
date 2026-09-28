@@ -1,7 +1,6 @@
 import logoImg from '../../assets/logo.svg';
 import logoMarkImg from '../../assets/logo-mark.svg';
 import { Link, useLocation } from 'react-router';
-import { ChevronLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from './ui/utils';
 import { AccountMenu } from './AccountMenu';
@@ -10,11 +9,10 @@ import { ROLE_CONFIG, type MenuItem } from '../auth/roles';
 
 interface SidebarProps {
   collapsed: boolean;
-  onToggle: () => void;
 }
 
 // NetSpace admin pattern: 256px rail, same tint as the page, 67px header.
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed }: SidebarProps) {
   const location = useLocation();
   const { role } = useAuth();
   const { home, label, menu } = ROLE_CONFIG[role];
@@ -63,23 +61,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Account + collapse */}
-      <div className="shrink-0 space-y-1 border-t border-panel-sidebar p-2">
+      {/* Account (collapse/expand lives in the topbar) */}
+      <div className="shrink-0 border-t border-panel-sidebar p-2">
         <AccountMenu variant="sidebar" collapsed={collapsed} />
-        <SidebarTip label={collapsed ? 'Mở rộng' : undefined}>
-          <button
-            type="button"
-            onClick={onToggle}
-            aria-label={collapsed ? 'Mở rộng sidebar' : 'Thu gọn sidebar'}
-            className={cn(
-              'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-sm font-normal text-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              collapsed && 'justify-center px-0'
-            )}
-          >
-            <ChevronLeft className={cn('size-4 shrink-0 transition-transform', collapsed && 'rotate-180')} />
-            {!collapsed && <span>Thu gọn</span>}
-          </button>
-        </SidebarTip>
       </div>
     </aside>
   );
