@@ -110,7 +110,10 @@ function SectionCard({ section, summary, actions }: { section: OverviewSection; 
         <SectionStateBadge section={section} />
       </div>
       {summary}
-      <ul className="space-y-0.5" aria-label={`Điều kiện: ${section.title}`}>
+      <ul
+        className="space-y-0.5 @xl/card:grid @xl/card:grid-cols-2 @xl/card:gap-x-6 @xl/card:space-y-0"
+        aria-label={`Điều kiện: ${section.title}`}
+      >
         {section.items.map((i) => (
           <ItemRow key={i.key} item={i} />
         ))}
@@ -197,7 +200,7 @@ function KolSummary({ channels, kols }: { channels: Channel[]; kols: McnKolRow[]
 
 /**
  * "Tình trạng hồ sơ": one card per tab of the profile area (Thông tin hồ sơ, Quản lý kênh, MCN: Quản lý KOL)
- * with its submit requirements (and recommended items). 1 column on narrow containers, 2 from @2xl, 3 (MCN) from @4xl.
+ * with its submit requirements (and recommended items), stacked in the page's 2/3 column; rows go 2-up on wide cards.
  */
 export function OverviewGrid({
   ownerType,
@@ -213,8 +216,6 @@ export function OverviewGrid({
   kols: McnKolRow[];
 }) {
   const now = Date.now();
-  const three = sections.length > 2;
-  const hasRecommended = sections.some((s) => s.items.some((i) => !i.required));
   const cards = sections.map((s) => {
     if (s.key === 'kenh') {
       return (
@@ -265,18 +266,8 @@ export function OverviewGrid({
   });
 
   return (
-    <section aria-labelledby="tong-quan-ho-so" className="space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 id="tong-quan-ho-so" className="text-base font-semibold text-foreground">
-          Tình trạng hồ sơ
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {hasRecommended
-            ? 'Đủ các mục bắt buộc để gửi hồ sơ xét duyệt; mục Khuyến nghị không bắt buộc.'
-            : 'Đủ tất cả mục bên dưới để gửi hồ sơ xét duyệt.'}
-        </p>
-      </div>
-      <div className={cn('grid items-stretch gap-4 @2xl:grid-cols-2', three && '@4xl:grid-cols-3')}>
+    <section aria-label="Tình trạng hồ sơ">
+      <div className="grid gap-4">
         {cards.map((c) => (
           <div key={c.key} className="@container/card flex min-w-0 [&>*]:min-w-0 [&>*]:flex-1">
             {c}

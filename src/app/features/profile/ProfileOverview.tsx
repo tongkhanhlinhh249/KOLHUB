@@ -10,6 +10,7 @@ import { OverviewGrid } from './OverviewGrid';
 import { overviewSections, type OverviewSection } from './overviewSections';
 import { ProfileHeader } from './ProfileHeader';
 import { profilePath } from './primaryAction';
+import { ServiceBanner } from './ServiceBanner';
 import { SubmitPanel } from './SubmitPanel';
 import { SUBMIT_ANCHOR } from './submitAnchor';
 
@@ -33,7 +34,7 @@ function SubmitCard({ view, sections }: { view: ProfileView; sections: OverviewS
           <CardDescription>
             {resubmit
               ? 'Cập nhật theo yêu cầu bổ sung, tick đủ cam đoan rồi gửi lại hồ sơ.'
-              : 'Hoàn thiện đủ các mục ở Tình trạng hồ sơ và tick 3 cam đoan để gửi hồ sơ xét duyệt.'}
+              : 'Hoàn thiện đủ các mục bắt buộc của hồ sơ và tick 3 cam đoan để gửi xét duyệt.'}
           </CardDescription>
         )}
       </CardHeader>
@@ -98,22 +99,25 @@ export function ProfileOverview({
   const submit = <SubmitCard view={view} sections={sections} />;
   const status = <ReviewStatusBox profile={view.profile} channels={channels} />;
 
+  // 2/3 left: cover + one card per tab; 1/3 right: service banner + review status (+ submit while it can be sent).
   return (
-    <div className="@container space-y-4">
-      <ProfileHeader view={view} hasNeedsFixChannel={channels.some((c) => c.status === 'NEEDS_FIX')} />
-      <OverviewGrid ownerType={view.profile.ownerType} sections={sections} status={view.profile.status} channels={channels} kols={kols} />
-      <div className="grid items-start gap-4 @3xl:grid-cols-[3fr_2fr]">
-        {canSubmit ? (
-          <>
-            {submit}
-            {status}
-          </>
-        ) : (
-          <>
-            {status}
-            {submit}
-          </>
-        )}
+    <div className="@container">
+      <div className="grid items-start gap-4 @5xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] @5xl:gap-6">
+        <div className="min-w-0 space-y-4">
+          <ProfileHeader view={view} hasNeedsFixChannel={channels.some((c) => c.status === 'NEEDS_FIX')} />
+          <OverviewGrid
+            ownerType={view.profile.ownerType}
+            sections={sections}
+            status={view.profile.status}
+            channels={channels}
+            kols={kols}
+          />
+        </div>
+        <aside className="min-w-0 space-y-4" aria-label="Dịch vụ và trạng thái xét duyệt">
+          <ServiceBanner ownerType={view.profile.ownerType} />
+          {status}
+          {canSubmit && submit}
+        </aside>
       </div>
     </div>
   );
