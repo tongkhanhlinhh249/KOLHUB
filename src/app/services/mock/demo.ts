@@ -44,7 +44,9 @@ function fillContact(p: KolProfile | McnProfile, accPhone: string | undefined) {
   }
 }
 
+/** MCN only: KOL profiles have no content staff. */
 function fillStaff(p: KolProfile | McnProfile) {
+  if (p.ownerType === 'KOL') return;
   if (filled(p.staff.staffName) && isValidPhone(p.staff.staffPhone)) return;
   p.staff = { staffName: 'Lê Thu Hà', staffPhone: '0987654321', staffEmail: 'thuha.noidung@example.com' };
 }
@@ -116,7 +118,7 @@ function assignSampleKol(state: DemoState, p: McnProfile, t: number) {
 
 /**
  * "Điền nhanh hồ sơ mẫu": fills every required AND recommended item of a DRAFT / NEEDS_FIX KOL or MCN
- * profile with sample data — contact (+ bio / fields for KOL), content staff, KOL eKYC PASSED with
+ * profile with sample data — contact (+ bio / fields for KOL), MCN content staff, KOL eKYC PASSED with
  * identity, MCN org fields + GCN file, 2 sample channels with proof (PENDING_REVIEW) when there is no
  * active one, MCN: one channel assigned to an approved KOL. Existing values are kept. Never submits.
  * Throws NOT_EDITABLE for any other profile status.

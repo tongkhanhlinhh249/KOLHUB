@@ -134,13 +134,16 @@ export interface Completeness {
   milestones: Milestone[];
 }
 
-/** Required steps only (BR-64/65 + submitted); recommendations such as MCN KOL assignment are not counted. */
+/**
+ * Required steps only (BR-64/65 + submitted); recommendations such as MCN KOL assignment are not counted.
+ * KOL profiles have no content staff, so KOL has 4 milestones (25% each) and MCN 5 (20% each).
+ */
 export function completeness(state: DemoState, accountId: string): Completeness {
   const p = findProfile(state, accountId);
   if (!p) return { percent: 0, milestones: [] };
   const milestones: Milestone[] = [
     { key: 'contact', label: 'Thông tin liên hệ đầy đủ', done: contactComplete(p.contact) },
-    { key: 'staff', label: 'Có nhân sự quản lý nội dung', done: hasStaff(p.staff) },
+    ...(p.ownerType === 'MCN' ? [{ key: 'staff' as const, label: 'Có nhân sự quản lý nội dung', done: hasStaff(p.staff) }] : []),
     {
       key: 'identity',
       label: p.ownerType === 'KOL' ? 'Xác thực danh tính (eKYC)' : 'Tải Giấy chứng nhận ĐKDN',
@@ -149,7 +152,7 @@ export function completeness(state: DemoState, accountId: string): Completeness 
     { key: 'channel', label: 'Có ít nhất 1 kênh hoạt động kèm ảnh', done: hasActiveChannel(state, accountId) },
     { key: 'submitted', label: 'Đã gửi xét duyệt', done: p.status !== 'DRAFT' },
   ];
-  return { percent: milestones.filter((m) => m.done).length * 20, milestones };
+  return { percent: Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100), milestones };
 }
 
 export interface ChecklistItem {
@@ -162,7 +165,7 @@ export const PLEDGES_LABEL = 'Đã tick đủ 3 cam đoan';
 
 /**
  * BR-64 (KOL) / BR-65 (MCN) submit conditions — the required items, also the submit guard of the review
- * service. KOL: eKYC, contact, staff, ≥ 1 active channel with proof. MCN: 5 org fields, GCN, contact
+ * service. KOL: eKYC, contact, ≥ 1 active channel with proof (no content staff). MCN: 5 org fields, GCN, contact
  * (staff, channels and KOL assignment are only recommended, see profileRecommendations).
  */
 export function submitChecklist(state: DemoState, accountId: string, pledges: boolean[]): ChecklistItem[] {
@@ -182,7 +185,6 @@ export function submitChecklist(state: DemoState, accountId: string, pledges: bo
     return [
       { key: 'ekyc', label: 'Đã xác thực danh tính (eKYC)', ok: p.ekycStatus === 'PASSED' },
       contact,
-      { key: 'staff', label: STAFF_LABEL, ok: hasStaff(p.staff) },
       { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) },
       pledgeItem,
     ];

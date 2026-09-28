@@ -48,25 +48,23 @@ const input = (s: DemoState, id: string, extra: { kols?: McnKolRow[] } = {}) => 
 });
 
 describe('overviewSections', () => {
-  test('KOL rỗng: 2 thẻ, thiếu eKYC/liên hệ/nhân sự và kênh, nêu tên trường còn thiếu', () => {
+  test('KOL rỗng: 2 thẻ, thiếu eKYC/liên hệ và kênh (KOL không có nhân sự), nêu tên trường còn thiếu', () => {
     const h = makeHarness();
     const s = h.db.read();
     const sections = overviewSections(input(s, h.kolId));
     expect(sections.map((x) => [x.key, x.missing, x.complete])).toEqual([
-      ['thong-tin', 3, false],
+      ['thong-tin', 2, false],
       ['kenh', 1, false],
     ]);
     const info = sections[0];
     expect(info.items.map((i) => [i.key, i.to, i.required])).toEqual([
       ['ekyc', '/ho-so-kol/thong-tin#dinh-danh', true],
       ['contact', '/ho-so-kol/thong-tin#lien-he', true],
-      ['staff', '/ho-so-kol/thong-tin#nhan-su', true],
     ]);
     expect(info.items[1].detail).toBe('Thiếu 4 trường');
     expect(info.items[1].hint).toBe('Còn thiếu: Họ tên KOL/KOC, Tỉnh/Thành phố, Địa chỉ, Lĩnh vực chính');
-    expect(info.items[2].detail).toBe('Chưa có');
     expect(sections[1].items[0]).toMatchObject({ key: 'channel', ok: false, detail: 'Chưa có', to: '/ho-so-kol/kenh' });
-    expect(overviewProgress(sections)).toMatchObject({ missing: 4, firstIncomplete: { key: 'thong-tin' } });
+    expect(overviewProgress(sections)).toMatchObject({ missing: 3, firstIncomplete: { key: 'thong-tin' } });
   });
 
   test('KOL đủ: mọi thẻ Đã đủ, eKYC hiện họ tên và số giấy tờ đã che', () => {
@@ -81,7 +79,6 @@ describe('overviewSections', () => {
     expect(sections[0].items.map((i) => i.detail)).toEqual([
       'KHÁNH VY · 079*******45',
       'Đã đủ',
-      'Lan · 0987654321',
     ]);
     expect(overviewProgress(sections)).toEqual({ missing: 0, firstIncomplete: undefined });
   });

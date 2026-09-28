@@ -40,7 +40,7 @@ describe('profile service', () => {
   });
 
   test('checklist trong view theo BR-64/BR-65, không có pledges', async () => {
-    expect((await profile.getProfile(h.kolId)).checklist.map((i) => i.key)).toEqual(['ekyc', 'contact', 'staff', 'channel']);
+    expect((await profile.getProfile(h.kolId)).checklist.map((i) => i.key)).toEqual(['ekyc', 'contact', 'channel']);
     const mcn = await profile.getProfile(h.mcnId);
     expect(mcn.checklist.map((i) => i.key)).toEqual(['org', 'gcn', 'contact']);
     expect(mcn.recommendations.map((i) => i.key)).toEqual(['staff', 'channel', 'kols']);

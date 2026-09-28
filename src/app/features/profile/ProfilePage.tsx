@@ -154,7 +154,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
           <div>
             {isInfo && (
               <div className="space-y-4">
-                <ProfileInfoNav />
+                <ProfileInfoNav ownerType={q.data.view.profile.ownerType} />
                 <ProfileInfoSection id="dinh-danh" label={q.data.view.profile.ownerType === 'KOL' ? 'Xác thực danh tính' : 'Xác thực tổ chức'}>
                   {q.data.view.profile.ownerType === 'KOL' && q.data.ekyc ? (
                     <KolIdentityTab accountId={accountId} view={q.data.view} ekyc={q.data.ekyc} />

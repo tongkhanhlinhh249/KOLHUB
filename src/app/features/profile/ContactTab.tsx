@@ -202,7 +202,7 @@ function StaffDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange(o
   );
 }
 
-/** SCR-04 — contact information (#lien-he) and content staff (#nhan-su) blocks of "Thông tin hồ sơ". */
+/** SCR-04 — contact information (#lien-he) and, for MCN, content staff (#nhan-su) blocks of "Thông tin hồ sơ". */
 export function ContactTab({ view }: { view: ProfileView }) {
   const { profile } = view;
   const isKol = profile.ownerType === 'KOL';
@@ -254,13 +254,16 @@ export function ContactTab({ view }: { view: ProfileView }) {
         </SectionCard>
       </ProfileInfoSection>
 
-      <ProfileInfoSection id="nhan-su" label="Nhân sự quản lý nội dung">
-        <SectionCard title="Nhân sự quản lý nội dung" onEdit={() => setEditing('staff')}>
-          {(Object.keys(STAFF_LABELS) as StaffKey[]).map((k) => (
-            <InfoRow key={k} label={STAFF_LABELS[k]} value={profile.staff[k]} required={REQUIRED_STAFF.includes(k)} />
-          ))}
-        </SectionCard>
-      </ProfileInfoSection>
+      {/* MCN only: KOL profiles have no content staff. */}
+      {!isKol && (
+        <ProfileInfoSection id="nhan-su" label="Nhân sự quản lý nội dung">
+          <SectionCard title="Nhân sự quản lý nội dung" onEdit={() => setEditing('staff')}>
+            {(Object.keys(STAFF_LABELS) as StaffKey[]).map((k) => (
+              <InfoRow key={k} label={STAFF_LABELS[k]} value={profile.staff[k]} required={REQUIRED_STAFF.includes(k)} />
+            ))}
+          </SectionCard>
+        </ProfileInfoSection>
+      )}
 
       <Dialog open={editing !== null} onOpenChange={close}>
         {editing === 'contact' && <ContactDialog view={view} onOpenChange={close} />}

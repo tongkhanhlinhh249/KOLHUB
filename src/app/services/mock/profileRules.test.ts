@@ -73,13 +73,13 @@ describe('completeness', () => {
     expect(completeness(s, h.kolId)).toMatchObject({ percent: 100 });
   });
 
-  test('mỗi mốc 20%: chỉ có liên hệ + nhân sự = 40%', () => {
+  test('KOL mỗi mốc 25%: chỉ có liên hệ = 25%; nhân sự không tính cho KOL', () => {
     const h = makeHarness();
     const s = withProfile(h.db.read(), h.kolId, (p) => {
       p.contact = { ...fullContact };
       p.staff = { ...staff };
     });
-    expect(completeness(s, h.kolId).percent).toBe(40);
+    expect(completeness(s, h.kolId).percent).toBe(25);
   });
 
   test('MCN: mốc định danh là có file GCN', () => {
@@ -91,12 +91,11 @@ describe('completeness', () => {
     expect(c.percent).toBe(20);
   });
 
-  test('KOL và MCN cùng 5 mốc bắt buộc (không tính gán KOL), mỗi mốc 20%', () => {
+  test('MCN 5 mốc (có nhân sự, không tính gán KOL, mỗi mốc 20%); KOL 4 mốc không có nhân sự', () => {
     const h = makeHarness();
     const s = h.db.read();
-    const keys = ['contact', 'staff', 'identity', 'channel', 'submitted'];
-    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(keys);
-    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(keys);
+    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'submitted']);
+    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(['contact', 'identity', 'channel', 'submitted']);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
     const c = completeness(s, h.mcnId);
     expect(c.milestones.filter((m) => m.done).map((m) => m.key)).toEqual(['channel']);
@@ -120,7 +119,7 @@ describe('submitChecklist', () => {
       p.status = 'DRAFT';
     });
     const items = submitChecklist(s, h.kolId, [true, true, false]);
-    expect(items.map((i) => i.key)).toEqual(['ekyc', 'contact', 'staff', 'channel', 'pledges']);
+    expect(items.map((i) => i.key)).toEqual(['ekyc', 'contact', 'channel', 'pledges']);
     expect(items.filter((i) => !i.ok).map((i) => i.key)).toEqual(['ekyc', 'pledges']);
   });
 

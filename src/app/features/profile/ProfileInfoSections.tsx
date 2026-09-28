@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import { cn } from '../../components/ui/utils';
+import type { OwnerType } from '../../services';
 import type { ProfileAnchor } from './primaryAction';
 
 /** Chips of the in-page nav of "Thông tin hồ sơ", in page order. */
@@ -22,14 +23,15 @@ export function ProfileInfoSection({ id, label, children }: { id: ProfileAnchor;
   );
 }
 
-/** Compact "Định danh · Liên hệ · Nhân sự" chips that jump to the blocks of "Thông tin hồ sơ". */
-export function ProfileInfoNav() {
+/** Compact "Định danh · Liên hệ (· Nhân sự for MCN)" chips that jump to the blocks of "Thông tin hồ sơ". */
+export function ProfileInfoNav({ ownerType }: { ownerType: OwnerType }) {
   const { hash } = useLocation();
   const current = hash.replace(/^#/, '');
+  const nav = ownerType === 'KOL' ? NAV.filter((n) => n.id !== 'nhan-su') : NAV;
   return (
     <nav aria-label="Mục trong trang" className="z-10 bg-background/95 backdrop-blur md:sticky md:top-0 md:py-2">
       <ul className="flex flex-wrap gap-2">
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <li key={n.id}>
             <Link
               to={{ hash: `#${n.id}` }}
