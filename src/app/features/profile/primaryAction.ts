@@ -1,8 +1,12 @@
-import type { EkycStatus, OwnerType, ProfileStatus } from '../../services';
+import type { ChecklistItem, EkycStatus, OwnerType, ProfileStatus } from '../../services';
 
-export type ProfileSection = 'lien-he' | 'dinh-danh' | 'kenh';
+export type ProfileSection = 'tong-quan' | 'lien-he' | 'dinh-danh' | 'kenh';
 
-export const PROFILE_SECTIONS: readonly ProfileSection[] = ['lien-he', 'dinh-danh', 'kenh'];
+/** Sidebar order; `tong-quan` ("Gửi hồ sơ xác thực") is the profile area's landing page. */
+export const PROFILE_SECTIONS: readonly ProfileSection[] = ['tong-quan', 'lien-he', 'dinh-danh', 'kenh'];
+
+/** Landing section of /ho-so-kol and /ho-so-mcn (and the KOL/MCN role home). */
+export const DEFAULT_PROFILE_SECTION: ProfileSection = 'tong-quan';
 
 export const isProfileSection = (v: string | null | undefined): v is ProfileSection =>
   PROFILE_SECTIONS.includes(v as ProfileSection);
@@ -45,9 +49,9 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
     case 'DRAFT':
       if (input.ownerType === 'KOL') {
         if (input.ekycStatus !== 'PASSED') return go('Xác thực danh tính', 'dinh-danh');
-        return input.eligible ? go('Gửi xét duyệt', 'dinh-danh') : go('Hoàn thiện hồ sơ', 'dinh-danh');
+        return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : go('Hoàn thiện hồ sơ', 'dinh-danh');
       }
-      return input.eligible ? go('Gửi xét duyệt', 'dinh-danh') : go('Xác thực tổ chức', 'dinh-danh');
+      return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : go('Xác thực tổ chức', 'dinh-danh');
     case 'SUBMITTED':
       return { label: 'Đang xét duyệt', to: null, disabled: true };
     case 'NEEDS_FIX':
@@ -66,7 +70,7 @@ const MILESTONE_SECTION: Record<MilestoneKey, ProfileSection> = {
   staff: 'lien-he',
   identity: 'dinh-danh',
   channel: 'kenh',
-  submitted: 'dinh-danh',
+  submitted: 'tong-quan',
 };
 
 /** Short badge label and the sub-route where a completeness milestone gets done. */
@@ -79,4 +83,21 @@ export function milestoneBadge(ownerType: OwnerType, key: MilestoneKey): { label
     submitted: 'Gửi xét duyệt',
   };
   return { label: labels[key], to: profilePath(ownerType, MILESTONE_SECTION[key]) };
+}
+
+export type ChecklistKey = ChecklistItem['key'];
+
+const CHECKLIST_SECTION: Partial<Record<ChecklistKey, ProfileSection>> = {
+  ekyc: 'dinh-danh',
+  org: 'dinh-danh',
+  gcn: 'dinh-danh',
+  contact: 'lien-he',
+  staff: 'lien-he',
+  channel: 'kenh',
+};
+
+/** Page where an unmet submit condition gets fixed (pledges are ticked in place → undefined). */
+export function checklistLink(ownerType: OwnerType, key: ChecklistKey): string | undefined {
+  const section = CHECKLIST_SECTION[key];
+  return section ? profilePath(ownerType, section) : undefined;
 }

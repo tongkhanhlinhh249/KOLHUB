@@ -1,4 +1,5 @@
 import {
+  BadgeCheck,
   BookMarked,
   Building2,
   Clapperboard,
@@ -81,9 +82,10 @@ const SAFETY_MENU: MenuItem[] = [
   { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
 ];
 
-/** Profile sections + channel management (group "Hồ sơ KOL/MCN"). */
+/** Profile overview ("Gửi hồ sơ xác thực") + sections + channel management (group "Hồ sơ KOL/MCN"). */
 function profileMenu(base: string, group: string, identityIcon: LucideIcon): MenuItem[] {
   return [
+    { icon: BadgeCheck, label: 'Gửi hồ sơ xác thực', shortLabel: 'Xác thực', path: `${base}/tong-quan`, group },
     { icon: UserRound, label: 'Thông tin liên hệ', shortLabel: 'Liên hệ', path: `${base}/lien-he`, group },
     { icon: identityIcon, label: 'Thông tin định danh', shortLabel: 'Định danh', path: `${base}/dinh-danh`, group },
     { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group },
@@ -94,11 +96,11 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
 export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
 const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
 
-/** 8–9 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` listed first). */
+/** 9–10 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` listed first). */
 function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
   return {
     items: [
-      { icon: UserRound, label: 'Liên hệ', path: `${base}/lien-he` },
+      { icon: BadgeCheck, label: 'Xác thực', path: `${base}/tong-quan` },
       { icon: MonitorPlay, label: 'Kênh', path: `${base}/kenh` },
       { icon: Clapperboard, label: 'Video', path: `${SAFETY_BASE}/video` },
       {
@@ -108,7 +110,7 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
         match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
       },
     ],
-    more: [...extraMore, `${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
+    more: [...extraMore, `${base}/lien-he`, `${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
   };
 }
 
@@ -125,14 +127,14 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   },
   'kolhub.user.kol': {
     label: 'Cá nhân/KOL',
-    home: '/ho-so-kol/lien-he',
+    home: '/ho-so-kol/tong-quan',
     menu: [...profileMenu('/ho-so-kol', 'Hồ sơ KOL', IdCard), ...SAFETY_MENU],
     areas: ['/ho-so-kol', ...CREATOR_AREAS],
     bottomNav: creatorBottomNav('/ho-so-kol'),
   },
   'kolhub.user.mcn': {
     label: 'Tổ chức/MCN',
-    home: '/ho-so-mcn/lien-he',
+    home: '/ho-so-mcn/tong-quan',
     menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), MCN_KOLS_ITEM, ...SAFETY_MENU],
     areas: ['/ho-so-mcn', ...CREATOR_AREAS],
     bottomNav: creatorBottomNav('/ho-so-mcn', [MCN_KOLS_PATH]),
@@ -223,9 +225,11 @@ export function safeReturnTo(role: RoleKey, returnTo: string | null): string {
 }
 
 const DESCRIPTIONS: Record<string, string> = {
+  '/ho-so-kol/tong-quan': 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
   '/ho-so-kol/lien-he': 'Thông tin liên hệ và nhân sự quản lý nội dung',
-  '/ho-so-kol/dinh-danh': 'Xác thực danh tính bằng CCCD và gửi hồ sơ xét duyệt',
+  '/ho-so-kol/dinh-danh': 'Xác thực danh tính bằng CCCD gắn chip (eKYC)',
   '/ho-so-kol/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
+  '/ho-so-mcn/tong-quan': 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
   '/ho-so-mcn/lien-he': 'Thông tin liên hệ và nhân sự quản lý nội dung',
   '/ho-so-mcn/dinh-danh': 'Xác thực tổ chức bằng Giấy chứng nhận ĐKDN',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',

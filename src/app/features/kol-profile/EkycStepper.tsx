@@ -20,11 +20,11 @@ import {
   type ProfileView,
   type StoredFile,
 } from '../../services';
-import { SubmitPanel } from '../profile/SubmitPanel';
+import { SubmitCallout } from '../profile/SubmitCallout';
 import { toStoredFile } from '../shared/files';
-import { EKYC_TIPS, KOL_PLEDGES } from './ekycCopy';
+import { EKYC_TIPS } from './ekycCopy';
 
-const STEPS = ['Chụp ảnh CCCD', 'Quay video', 'Gửi xét duyệt'];
+const STEPS = ['Chụp ảnh CCCD', 'Quay video', 'Hoàn tất'];
 
 interface StepError {
   code: ErrorCode;
@@ -257,7 +257,7 @@ interface EkycStepperProps {
   ekyc: EkycView;
 }
 
-/** Box 1 — "Xác thực danh tính & gửi hồ sơ" (SCR-05): CCCD → face video → submit. */
+/** "Xác thực danh tính" (SCR-05): CCCD → face video → done (submit happens on "Gửi hồ sơ xác thực"). */
 export function EkycStepper({ accountId, view, ekyc }: EkycStepperProps) {
   const isMobile = useIsMobile();
   const { logout } = useAuth();
@@ -285,7 +285,7 @@ export function EkycStepper({ accountId, view, ekyc }: EkycStepperProps) {
   const shell = (body: ReactNode) => (
     <Card className="gap-4 py-4 md:py-5">
       <CardHeader className="px-4 md:px-6">
-        <CardTitle className="text-base">Xác thực danh tính & gửi hồ sơ</CardTitle>
+        <CardTitle className="text-base">Xác thực danh tính</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 px-4 md:px-6">{body}</CardContent>
     </Card>
@@ -398,7 +398,7 @@ export function EkycStepper({ accountId, view, ekyc }: EkycStepperProps) {
       <>
         <StepBar current={3} />
         {ekyc.identity && <IdentityCard identity={ekyc.identity} />}
-        <SubmitPanel ownerType="KOL" accountId={accountId} view={view} pledges={KOL_PLEDGES} resubmit={profile.status === 'NEEDS_FIX'} />
+        <SubmitCallout ownerType="KOL" resubmit={profile.status === 'NEEDS_FIX'} />
       </>,
     );
   }

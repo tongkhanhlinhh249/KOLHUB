@@ -18,9 +18,7 @@ import {
   type StoredFile,
 } from '../../services';
 import { Field, type FieldErrors } from '../form/Field';
-import { MCN_PLEDGES } from '../kol-profile/ekycCopy';
-import { SubmitPanel } from '../profile/SubmitPanel';
-import { ReviewStatusBox } from '../review-status/ReviewStatusBox';
+import { SubmitCallout } from '../profile/SubmitCallout';
 import { formatFileSize, toStoredFile } from '../shared/files';
 
 type OrgKey = keyof OrgIdentity;
@@ -40,7 +38,7 @@ const ORG_PLACEHOLDERS: Record<OrgKey, string> = {
   regBy: 'Sở Kế hoạch và Đầu tư TP. Hà Nội',
   legalRep: 'Họ tên người đại diện',
 };
-const STEPS = ['Thông tin tổ chức', 'Giấy chứng nhận ĐKDN', 'Xem lại & gửi'];
+const STEPS = ['Thông tin tổ chức', 'Giấy chứng nhận ĐKDN', 'Xem lại'];
 
 const complete = (o: OrgIdentity) => ORG_KEYS.every((k) => o[k].trim() !== '');
 
@@ -167,7 +165,7 @@ function orgErrors(values: OrgIdentity): FieldErrors {
 }
 
 /** Steps 1–3 while the profile is editable (DRAFT / NEEDS_FIX). */
-function EditableFlow({ view, profile }: { view: ProfileView; profile: McnProfile }) {
+function EditableFlow({ profile }: { profile: McnProfile }) {
   const initial = !complete(profile.org) ? 1 : !profile.gcnFile ? 2 : 3;
   const [step, setStep] = useState(initial);
   const [values, setValues] = useState<OrgIdentity>(() => ({ ...profile.org }));
@@ -248,7 +246,7 @@ function EditableFlow({ view, profile }: { view: ProfileView; profile: McnProfil
           <Button type="button" variant="link" className="h-auto p-0" onClick={() => setStep(1)}>
             Sửa thông tin tổ chức
           </Button>
-          <SubmitPanel ownerType="MCN" accountId={profile.accountId} view={view} pledges={MCN_PLEDGES} resubmit={profile.status === 'NEEDS_FIX'} />
+          <SubmitCallout ownerType="MCN" resubmit={profile.status === 'NEEDS_FIX'} />
         </div>
       )}
     </>
@@ -344,7 +342,10 @@ function PendingAlert({ profile, pending }: { profile: McnProfile; pending: OrgC
   );
 }
 
-/** SCR-07 — MCN organisation identity: 5 fields + GCN, submit, change requests after submission. */
+/**
+ * SCR-07 — MCN organisation identity: 5 fields + GCN, change requests after submission. Submit and
+ * "Trạng thái xét duyệt" live on "Gửi hồ sơ xác thực" (tong-quan).
+ */
 export function McnIdentityTab({ accountId, view }: { accountId: string; view: ProfileView }) {
   const profile = view.profile as McnProfile;
   const [dialog, setDialog] = useState(false);
@@ -354,14 +355,14 @@ export function McnIdentityTab({ accountId, view }: { accountId: string; view: P
   const canRequestChange = profile.status === 'SUBMITTED' || profile.status === 'APPROVED';
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[3fr_2fr]" data-account={accountId}>
+    <div data-account={accountId}>
       <Card className="gap-4 py-4 md:py-5">
         <CardHeader className="px-4 md:px-6">
-          <CardTitle className="text-base">Xác thực tổ chức & gửi hồ sơ</CardTitle>
+          <CardTitle className="text-base">Xác thực tổ chức</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-4 md:px-6">
           {editable ? (
-            <EditableFlow key={profile.status} view={view} profile={profile} />
+            <EditableFlow key={profile.status} profile={profile} />
           ) : (
             <>
               {profile.submittedAt && (
@@ -381,7 +382,6 @@ export function McnIdentityTab({ accountId, view }: { accountId: string; view: P
           )}
         </CardContent>
       </Card>
-      <ReviewStatusBox profile={profile} />
       <Dialog open={dialog} onOpenChange={setDialog}>
         {dialog && <ChangeDialog profile={profile} pending={pending} onOpenChange={setDialog} />}
       </Dialog>

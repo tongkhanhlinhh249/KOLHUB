@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Camera, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '../../components/ui/badge';
@@ -12,6 +12,7 @@ import { profileDisplayName, profileService, validateProofImage, type EkycView, 
 import { toStoredFile } from '../shared/files';
 import { ProfileStatusBadge } from '../shared/StatusBadges';
 import { milestoneBadge, primaryAction } from './primaryAction';
+import { SUBMIT_ANCHOR } from './submitAnchor';
 import { ProfileAvatar } from './ProfileAvatar';
 
 interface ProfileHeaderProps {
@@ -64,9 +65,10 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
   );
 }
 
-/** SCR-03 — profile header: cover, avatar, name + shield, status, main action, completeness. */
+/** SCR-03 — profile header (on "Gửi hồ sơ xác thực" only): cover, avatar, name + shield, status, main action, completeness. */
 export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: ProfileHeaderProps) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { profile, completeness } = view;
   // Same name + initials as the topbar identity (identityOf), so both always match.
   const name = profileDisplayName(profile);
@@ -132,7 +134,13 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: Profil
                 type="button"
                 className="h-11 w-full md:h-9 md:w-auto"
                 disabled={action.disabled}
-                onClick={() => action.to && navigate(action.to)}
+                onClick={() => {
+                  if (!action.to) return;
+                  // Already on "Gửi hồ sơ xác thực" ("Gửi xét duyệt"): bring the submit card into view.
+                  const target = action.to === pathname ? document.getElementById(SUBMIT_ANCHOR) : null;
+                  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  else navigate(action.to);
+                }}
               >
                 {action.label}
               </Button>

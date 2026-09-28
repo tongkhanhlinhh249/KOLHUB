@@ -191,8 +191,8 @@ export function McnKolsPage() {
           <AlertDescription>
             <p>
               Bạn cần được duyệt hồ sơ trước khi gán kênh cho KOL.{' '}
-              <Link to="/ho-so-mcn/dinh-danh" className="font-medium text-primary underline-offset-4 hover:underline">
-                Xem thông tin định danh
+              <Link to="/ho-so-mcn/tong-quan" className="font-medium text-primary underline-offset-4 hover:underline">
+                Xem trạng thái hồ sơ
               </Link>
             </p>
           </AlertDescription>
