@@ -21,7 +21,7 @@ describe('fillSampleProfile', () => {
     const p = findProfile(s, h.kolId) as KolProfile;
     expect(p.status).toBe('DRAFT');
     expect(p.ekycStatus).toBe('PASSED');
-    expect(s.identities.find((x) => x.accountId === h.kolId)).toMatchObject({ fullName: 'NGUYỄN MINH ANH' });
+    expect(s.identities.find((x) => x.accountId === h.kolId)).toMatchObject({ fullName: 'TRẦN GIA HÂN' });
     expect(p.contact.bio).toBeTruthy();
     expect(p.contact.fields?.[0].name).toBe(p.contact.category);
     const own = s.channels.filter((c) => c.ownerId === h.kolId);

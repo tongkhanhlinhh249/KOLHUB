@@ -24,7 +24,7 @@ const filled = (v: string | undefined) => !!v && v.trim() !== '';
 function fillContact(p: KolProfile | McnProfile, accPhone: string | undefined) {
   const c = p.contact;
   const kol = p.ownerType === 'KOL';
-  if (!filled(c.displayName)) c.displayName = kol ? 'Nguyễn Minh Anh' : 'Mây Xanh Media';
+  if (!filled(c.displayName)) c.displayName = kol ? 'Trần Gia Hân' : 'Mây Xanh Media';
   if (!isValidPhone(c.phone ?? '')) c.phone = accPhone && isValidPhone(accPhone) ? accPhone : '0912345678';
   if (!filled(c.zalo)) c.zalo = c.phone;
   if (!filled(c.country)) c.country = 'Việt Nam';
