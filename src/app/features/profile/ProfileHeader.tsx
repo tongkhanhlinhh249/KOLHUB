@@ -150,7 +150,7 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: Profil
               return (
                 <li key={m.key}>
                   {m.done ? (
-                    <span className={cn(pill, 'border-chart-4 font-medium text-chart-4')} title={m.label}>
+                    <span className={cn(pill, 'border-primary/30 bg-primary/10 font-medium text-primary')} title={m.label}>
                       <Check className="size-4 shrink-0" aria-hidden />
                       {badge.label}
                       <span className="sr-only">, đã xong</span>
