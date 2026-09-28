@@ -141,8 +141,16 @@
     font-family: 'Be Vietnam Pro', sans-serif;
   }
 
+  /* Page tint behind everything + no page-level rubber-band: the app shell scrolls inside <main>,
+     so an elastic overscroll must never reveal a white strip below/above it. */
+  html,
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--page);
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply text-foreground;
     font-family: 'Be Vietnam Pro', sans-serif;
   }
 
