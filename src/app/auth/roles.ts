@@ -1,5 +1,5 @@
 import {
-  BadgeCheck,
+  LayoutDashboard,
   BookMarked,
   Building2,
   Clapperboard,
@@ -81,10 +81,10 @@ const SAFETY_MENU: MenuItem[] = [
   { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
 ];
 
-/** Profile overview ("Gửi hồ sơ xác thực") + "Thông tin hồ sơ" (identity + contact) + channel management (group "Hồ sơ KOL/MCN"). */
+/** Profile overview ("Tổng quan hồ sơ") + "Thông tin hồ sơ" (identity + contact) + channel management (group "Hồ sơ KOL/MCN"). */
 function profileMenu(base: string, group: string, identityIcon: LucideIcon): MenuItem[] {
   return [
-    { icon: BadgeCheck, label: 'Gửi hồ sơ xác thực', shortLabel: 'Xác thực', path: `${base}/tong-quan`, group },
+    { icon: LayoutDashboard, label: 'Tổng quan hồ sơ', shortLabel: 'Tổng quan', path: `${base}/tong-quan`, group },
     { icon: identityIcon, label: 'Thông tin hồ sơ', shortLabel: 'Hồ sơ', path: `${base}/thong-tin`, group },
     { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group },
   ];
@@ -98,7 +98,7 @@ const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLab
 function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
   return {
     items: [
-      { icon: BadgeCheck, label: 'Xác thực', path: `${base}/tong-quan` },
+      { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
       { icon: MonitorPlay, label: 'Kênh', path: `${base}/kenh` },
       { icon: Clapperboard, label: 'Video', path: `${SAFETY_BASE}/video` },
       {
@@ -223,10 +223,10 @@ export function safeReturnTo(role: RoleKey, returnTo: string | null): string {
 }
 
 const DESCRIPTIONS: Record<string, string> = {
-  '/ho-so-kol/tong-quan': 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
+  '/ho-so-kol/tong-quan': 'Tình trạng các mục hồ sơ, gửi xét duyệt và theo dõi kết quả',
   '/ho-so-kol/thong-tin': 'Định danh (eKYC), thông tin liên hệ và nhân sự quản lý nội dung',
   '/ho-so-kol/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
-  '/ho-so-mcn/tong-quan': 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
+  '/ho-so-mcn/tong-quan': 'Tình trạng các mục hồ sơ, gửi xét duyệt và theo dõi kết quả',
   '/ho-so-mcn/thong-tin': 'Thông tin tổ chức, Giấy chứng nhận ĐKDN, liên hệ và nhân sự quản lý',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/ho-so-mcn/kol': 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',

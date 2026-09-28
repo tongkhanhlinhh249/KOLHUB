@@ -196,7 +196,7 @@ function KolSummary({ channels, kols }: { channels: Channel[]; kols: McnKolRow[]
 }
 
 /**
- * "Tổng quan hồ sơ": one card per tab of the profile area (Thông tin hồ sơ, Quản lý kênh, MCN: Quản lý KOL)
+ * "Tình trạng hồ sơ": one card per tab of the profile area (Thông tin hồ sơ, Quản lý kênh, MCN: Quản lý KOL)
  * with its submit requirements (and recommended items). 1 column on narrow containers, 2 from @2xl, 3 (MCN) from @4xl.
  */
 export function OverviewGrid({
@@ -268,7 +268,7 @@ export function OverviewGrid({
     <section aria-labelledby="tong-quan-ho-so" className="space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 id="tong-quan-ho-so" className="text-base font-semibold text-foreground">
-          Tổng quan hồ sơ
+          Tình trạng hồ sơ
         </h2>
         <p className="text-sm text-muted-foreground">
           {hasRecommended

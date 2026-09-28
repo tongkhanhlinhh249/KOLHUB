@@ -1,4 +1,4 @@
-// "Tổng quan hồ sơ" on "Gửi hồ sơ xác thực": one summary card per tab of the profile area, built from the
+// "Tình trạng hồ sơ" on "Tổng quan hồ sơ": one summary card per tab of the profile area, built from the
 // same BR-64/65 checklist (ProfileView.checklist = submitChecklist) that guards submit, so the cards'
 // "Đã đủ / Còn thiếu N" and the submit button can never disagree. Recommended items
 // (ProfileView.recommendations, e.g. MCN staff / channels / KOL assignment) are listed too but never block.

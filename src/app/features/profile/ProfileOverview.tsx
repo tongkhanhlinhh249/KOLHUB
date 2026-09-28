@@ -33,7 +33,7 @@ function SubmitCard({ view, sections }: { view: ProfileView; sections: OverviewS
           <CardDescription>
             {resubmit
               ? 'Cập nhật theo yêu cầu bổ sung, tick đủ cam đoan rồi gửi lại hồ sơ.'
-              : 'Hoàn thiện đủ các mục ở Tổng quan hồ sơ và tick 3 cam đoan để gửi hồ sơ xét duyệt.'}
+              : 'Hoàn thiện đủ các mục ở Tình trạng hồ sơ và tick 3 cam đoan để gửi hồ sơ xét duyệt.'}
           </CardDescription>
         )}
       </CardHeader>
@@ -76,7 +76,7 @@ function SubmitCard({ view, sections }: { view: ProfileView; sections: OverviewS
 }
 
 /**
- * "Gửi hồ sơ xác thực" (/ho-so-kol|mcn/tong-quan): profile header (SCR-03), "Tổng quan hồ sơ" (one card per
+ * "Tổng quan hồ sơ" (/ho-so-kol|mcn/tong-quan): profile header (SCR-03), "Tình trạng hồ sơ" (one card per
  * tab with its submit requirements), then the submit card and "Trạng thái xét duyệt" side by side on wide
  * containers. The card that needs the user's attention comes first (submit while it can be sent, review
  * status afterwards). Overview cards and the submit button share the same checklist items.

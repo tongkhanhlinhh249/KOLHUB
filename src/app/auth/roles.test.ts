@@ -73,7 +73,7 @@ describe('resolveAccess', () => {
     for (const p of ['/ho-so-mcn', '/ho-so-mcn/thong-tin', '/ho-so-mcn/lien-he', '/ho-so-mcn/dinh-danh', '/ho-so-mcn/kenh'])
       expect(resolveAccess('kolhub.user.kol', p)).toEqual({ allow: false, redirect: '/ho-so-kol/tong-quan', reason: 'forbidden' });
   });
-  test('KOL/MCN vào được từng trang hồ sơ và đường dẫn gốc (chuyển hướng sang Gửi hồ sơ xác thực)', () => {
+  test('KOL/MCN vào được từng trang hồ sơ và đường dẫn gốc (chuyển hướng sang Tổng quan hồ sơ)', () => {
     for (const s of ['', '/tong-quan', '/thong-tin', '/thong-tin#nhan-su', '/lien-he', '/dinh-danh', '/kenh', '/kenh?them=1', '?tab=kenh']) {
       expect(resolveAccess('kolhub.user.kol', `/ho-so-kol${s}`)).toEqual({ allow: true });
       expect(resolveAccess('kolhub.user.mcn', `/ho-so-mcn${s}`)).toEqual({ allow: true });
@@ -114,7 +114,7 @@ describe('bottomNavOf', () => {
     ] as const) {
       const nav = bottomNavOf(role);
       expect(nav.items.map((i) => [i.label, i.path])).toEqual([
-        ['Xác thực', `${base}/tong-quan`],
+        ['Tổng quan', `${base}/tong-quan`],
         ['Kênh', `${base}/kenh`],
         ['Video', '/kiem-duyet/video'],
         ['Kiểm duyệt', '/kiem-duyet/tiktok'],
@@ -168,13 +168,13 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     expect(ROLE_CONFIG['kolhub.user.mcn']).toMatchObject({ label: 'Tổ chức/MCN', home: '/ho-so-mcn/tong-quan' });
     expect(ROLE_CONFIG['kolhub.user.biz']).toMatchObject({ label: 'Nhãn hàng/Agency', home: '/tim-kiem-kol' });
     expect(ROLE_CONFIG['kolhub.user.kol'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
-      ['Gửi hồ sơ xác thực', 'Xác thực', '/ho-so-kol/tong-quan', 'Hồ sơ KOL'],
+      ['Tổng quan hồ sơ', 'Tổng quan', '/ho-so-kol/tong-quan', 'Hồ sơ KOL'],
       ['Thông tin hồ sơ', 'Hồ sơ', '/ho-so-kol/thong-tin', 'Hồ sơ KOL'],
       ['Quản lý kênh', 'Kênh', '/ho-so-kol/kenh', 'Hồ sơ KOL'],
       ...SAFETY_ROWS,
     ]);
     expect(ROLE_CONFIG['kolhub.user.mcn'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
-      ['Gửi hồ sơ xác thực', 'Xác thực', '/ho-so-mcn/tong-quan', 'Hồ sơ MCN'],
+      ['Tổng quan hồ sơ', 'Tổng quan', '/ho-so-mcn/tong-quan', 'Hồ sơ MCN'],
       ['Thông tin hồ sơ', 'Hồ sơ', '/ho-so-mcn/thong-tin', 'Hồ sơ MCN'],
       ['Quản lý kênh', 'Kênh', '/ho-so-mcn/kenh', 'Hồ sơ MCN'],
       ['Quản lý KOL', 'KOL', '/ho-so-mcn/kol', 'Hồ sơ MCN'],
@@ -195,11 +195,11 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       description: 'Định danh (eKYC), thông tin liên hệ và nhân sự quản lý nội dung',
     });
     expect(getPageMeta('/ho-so-kol/tong-quan', 'kolhub.user.kol')).toEqual({
-      title: 'Gửi hồ sơ xác thực',
+      title: 'Tổng quan hồ sơ',
       group: 'Cá nhân/KOL',
-      description: 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
+      description: 'Tình trạng các mục hồ sơ, gửi xét duyệt và theo dõi kết quả',
     });
-    expect(getPageMeta('/ho-so-mcn/tong-quan', 'kolhub.user.mcn')).toMatchObject({ title: 'Gửi hồ sơ xác thực', group: 'Tổ chức/MCN' });
+    expect(getPageMeta('/ho-so-mcn/tong-quan', 'kolhub.user.mcn')).toMatchObject({ title: 'Tổng quan hồ sơ', group: 'Tổ chức/MCN' });
     expect(getPageMeta('/ho-so-mcn/thong-tin', 'kolhub.user.mcn')).toEqual({
       title: 'Thông tin hồ sơ',
       group: 'Tổ chức/MCN',

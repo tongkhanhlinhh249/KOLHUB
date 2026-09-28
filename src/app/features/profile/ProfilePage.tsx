@@ -16,7 +16,7 @@ import { ProfileInfoNav, ProfileInfoSection } from './ProfileInfoSections';
 import { infoPath, isProfileAnchor, legacySectionPath, profilePath, type ProfileAnchor, type ProfileSection } from './primaryAction';
 
 /**
- * /ho-so-kol and /ho-so-mcn: send to "Gửi hồ sơ xác thực" (tong-quan), translating legacy ?tab=… links
+ * /ho-so-kol and /ho-so-mcn: send to "Tổng quan hồ sơ" (tong-quan), translating legacy ?tab=… links
  * (and ?them=1 for the channels page) to the matching sub-route (lien-he/dinh-danh → "Thông tin hồ sơ").
  */
 export function ProfileIndexRedirect({ ownerType }: { ownerType: OwnerType }) {
@@ -65,7 +65,7 @@ function PageSkeleton({ withHeader }: { withHeader: boolean }) {
   );
 }
 
-/** Slim pointer on section pages while the review asked for fixes; details live on "Gửi hồ sơ xác thực". */
+/** Slim pointer on section pages while the review asked for fixes; details live on "Tổng quan hồ sơ". */
 function NeedsFixNotice({ ownerType }: { ownerType: OwnerType }) {
   return (
     <Alert className="border-chart-5/50 bg-chart-5/10">
@@ -85,7 +85,7 @@ function NeedsFixNotice({ ownerType }: { ownerType: OwnerType }) {
 }
 
 /**
- * Shared KOL/MCN profile section page (sidebar item). "Gửi hồ sơ xác thực" (tong-quan) shows the header
+ * Shared KOL/MCN profile section page (sidebar item). "Tổng quan hồ sơ" (tong-quan) shows the header
  * (SCR-03), submit and review status; the other sections start directly with their content.
  */
 export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; section: ProfileSection }) {

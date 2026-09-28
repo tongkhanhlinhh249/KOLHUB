@@ -3,7 +3,7 @@ import type { ChecklistItem, OwnerType, ProfileStatus } from '../../services';
 export type ProfileSection = 'tong-quan' | 'thong-tin' | 'kenh';
 
 /**
- * Sidebar order; `tong-quan` ("Gửi hồ sơ xác thực") is the profile area's landing page and `thong-tin`
+ * Sidebar order; `tong-quan` ("Tổng quan hồ sơ") is the profile area's landing page and `thong-tin`
  * ("Thông tin hồ sơ") holds identity, contact and content staff on one page.
  */
 export const PROFILE_SECTIONS: readonly ProfileSection[] = ['tong-quan', 'thong-tin', 'kenh'];

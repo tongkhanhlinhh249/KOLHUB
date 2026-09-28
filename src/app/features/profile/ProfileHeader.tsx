@@ -64,7 +64,7 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
   );
 }
 
-/** SCR-03 — profile header (on "Gửi hồ sơ xác thực" only): cover, avatar, name + shield, status, main action, completeness. */
+/** SCR-03 — profile header (on "Tổng quan hồ sơ" only): cover, avatar, name + shield, status, main action, completeness. */
 export function ProfileHeader({ view, hasNeedsFixChannel = false }: ProfileHeaderProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -133,7 +133,7 @@ export function ProfileHeader({ view, hasNeedsFixChannel = false }: ProfileHeade
                 disabled={action.disabled}
                 onClick={() => {
                   if (!action.to) return;
-                  // Already on "Gửi hồ sơ xác thực" ("Gửi xét duyệt"): bring the submit card into view.
+                  // Already on "Tổng quan hồ sơ" ("Gửi xét duyệt"): bring the submit card into view.
                   const target = action.to === pathname ? document.getElementById(SUBMIT_ANCHOR) : null;
                   if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   else navigate(action.to);

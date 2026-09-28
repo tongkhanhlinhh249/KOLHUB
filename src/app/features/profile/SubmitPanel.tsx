@@ -10,7 +10,7 @@ import { overviewProgress, type OverviewSection } from './overviewSections';
 interface SubmitPanelProps {
   ownerType: OwnerType;
   accountId: string;
-  /** "Tổng quan hồ sơ" sections (same checklist items as the submit guard). */
+  /** "Tình trạng hồ sơ" sections (same checklist items as the submit guard). */
   sections: OverviewSection[];
   pledges: string[];
   /** Re-submission after NEEDS_FIX. */
@@ -22,7 +22,7 @@ const SUBMIT_ERRORS: Record<string, string> = {
   NOT_SUBMITTABLE: 'Hồ sơ đã được gửi, vui lòng chờ kết quả.',
 };
 
-/** Bring a "Tổng quan hồ sơ" card into view and move focus to it. */
+/** Bring a "Tình trạng hồ sơ" card into view and move focus to it. */
 function focusSection(id: string) {
   const el = document.getElementById(id);
   if (!el) return;

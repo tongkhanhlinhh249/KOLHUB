@@ -344,7 +344,7 @@ function PendingAlert({ profile, pending }: { profile: McnProfile; pending: OrgC
 
 /**
  * SCR-07 — MCN organisation identity: 5 fields + GCN, change requests after submission. Submit and
- * "Trạng thái xét duyệt" live on "Gửi hồ sơ xác thực" (tong-quan).
+ * "Trạng thái xét duyệt" live on "Tổng quan hồ sơ" (tong-quan).
  */
 export function McnIdentityTab({ accountId, view }: { accountId: string; view: ProfileView }) {
   const profile = view.profile as McnProfile;

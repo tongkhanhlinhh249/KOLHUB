@@ -257,7 +257,7 @@ interface EkycStepperProps {
   ekyc: EkycView;
 }
 
-/** "Xác thực danh tính" (SCR-05): CCCD → face video → done (submit happens on "Gửi hồ sơ xác thực"). */
+/** "Xác thực danh tính" (SCR-05): CCCD → face video → done (submit happens on "Tổng quan hồ sơ"). */
 export function EkycStepper({ accountId, view, ekyc }: EkycStepperProps) {
   const isMobile = useIsMobile();
   const { logout } = useAuth();
