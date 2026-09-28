@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
 import type { ActivityField, KolVideo, Platform } from '../../services';
-import { ChannelVideoCarousel } from '../biz-search/ChannelVideos';
+import { ChannelContentGrid } from './ChannelContentGrid';
 import { formatCompactVi, formatFollowers } from '../biz-search/format';
 import { KolAvatar } from '../biz-search/KolCard';
 import { FieldBadges } from '../biz-search/KolMedia';
@@ -155,7 +155,7 @@ export function ChannelDetailSheet({
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl lg:max-w-[800px]">
         <SheetHeader className="sr-only">
           <SheetTitle>{data ? `Chi tiết kênh ${name}` : 'Chi tiết kênh'}</SheetTitle>
-          <SheetDescription>Thông tin, số liệu và video mới nhất của kênh.</SheetDescription>
+          <SheetDescription>Thông tin, số liệu và nội dung gần nhất của kênh.</SheetDescription>
         </SheetHeader>
 
         {loading && (
@@ -239,14 +239,12 @@ export function ChannelDetailSheet({
                 </dl>
               </section>
 
-              <section className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4">
-                <ChannelVideoCarousel
-                  videos={ready.videos}
-                  url={shortUrl(ready.url)}
-                  platform={ready.platform}
-                  kolName={ready.ownerName}
-                />
-              </section>
+              <ChannelContentGrid
+                videos={ready.videos}
+                url={shortUrl(ready.url)}
+                platform={ready.platform}
+                handle={ready.handle}
+              />
 
               {children}
             </div>

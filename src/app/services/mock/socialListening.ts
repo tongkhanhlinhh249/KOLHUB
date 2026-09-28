@@ -36,19 +36,51 @@ function hash(s: string): number {
  * Stats "pulled" from the platform for a verified channel: deterministic from the URL (stable
  * followers + 2–6 newest-first videos from the sample image pool). Only FB / YouTube / TikTok (BR-20).
  */
-export function syncChannelStats(channel: Pick<Channel, 'platform' | 'url'>, now: number): Channel['stats'] {
-  if (!LISTENED.includes(channel.platform)) return undefined;
-  const key = channel.url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^(www|m)\./, '').replace(/\/+$/, '');
+const keyOf = (url: string) =>
+  url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^(www|m)\./, '').replace(/\/+$/, '');
+
+/** `count` newest-first mock videos of a channel, deterministic from its URL. */
+function mockVideos(platform: Platform, key: string, count: number, now: number): LatestVideo[] {
   const h = hash(key);
-  const count = 2 + ((h >>> 8) % 5);
-  const latestVideos: LatestVideo[] = Array.from({ length: count }, (_, n) => ({
-    platform: channel.platform,
+  return Array.from({ length: count }, (_, n) => ({
+    platform,
     thumbnail: IMAGE_POOL[(h + n * 7) % IMAGE_POOL.length],
-    url: videoUrl(channel.platform, key, n + 1),
+    url: videoUrl(platform, key, n + 1),
     title: VIDEO_TITLES[(h + n) % VIDEO_TITLES.length],
     publishedAt: new Date(now - (n * 3 + 1 + (h % 3)) * DAY).toISOString(),
   }));
+}
+
+export function syncChannelStats(channel: Pick<Channel, 'platform' | 'url'>, now: number): Channel['stats'] {
+  if (!LISTENED.includes(channel.platform)) return undefined;
+  const key = keyOf(channel.url);
+  const h = hash(key);
+  const latestVideos = mockVideos(channel.platform, key, 2 + ((h >>> 8) % 5), now);
   return { followers: 10_000 + (h % 1_990_001), latestVideos, syncedAt: now };
+}
+
+/**
+ * "Nội dung gần nhất" of a synced channel for its detail view: the channel's own latest videos,
+ * topped up to `limit` with mock posts (deterministic from the URL and `syncedAt`), newest first.
+ * Nothing for unsynced channels or platforms that are not listened to (BR-20).
+ */
+export function channelContent(channel: Pick<Channel, 'platform' | 'url' | 'stats'>, limit: number): LatestVideo[] {
+  const stats = channel.stats;
+  if (!stats || !LISTENED.includes(channel.platform)) return [];
+  const own = stats.latestVideos.filter((v) => v.platform === channel.platform && v.thumbnail);
+  // No repeated post or picture: skip mock posts whose link or thumbnail is already shown.
+  const seen = new Set(own.flatMap((v) => [v.url ?? '', v.thumbnail]));
+  const extra: LatestVideo[] = [];
+  for (const v of mockVideos(channel.platform, keyOf(channel.url), limit * 4 + own.length, stats.syncedAt)) {
+    if (seen.has(v.url ?? '') || seen.has(v.thumbnail)) continue;
+    seen.add(v.url ?? '').add(v.thumbnail);
+    extra.push(v);
+  }
+  const at = (v: LatestVideo) => (v.publishedAt ? Date.parse(v.publishedAt) : 0);
+  return [...own, ...extra.slice(0, Math.max(0, limit - own.length))]
+    .map((v, i) => ({ v, i }))
+    .sort((a, b) => at(b.v) - at(a.v) || a.i - b.i)
+    .map((x) => ({ ...x.v }));
 }
 
 /**

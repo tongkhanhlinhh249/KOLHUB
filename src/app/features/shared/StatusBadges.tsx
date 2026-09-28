@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { format } from 'date-fns';
 import { Facebook, Music2, Youtube, type LucideProps } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { cn } from '../../components/ui/utils';
@@ -75,9 +74,8 @@ export function ChannelStatusBadge({ channel, now = Date.now() }: { channel: Cha
     default:
       main =
         channelBadge(channel, now) === 'VERIFIED' ? (
-          <ToneBadge tone="success">
-            Đã xác thực{channel.badgeExpiresAt ? ` · đến ${format(channel.badgeExpiresAt, 'dd/MM/yyyy')}` : ''}
-          </ToneBadge>
+          // Validity date lives in the shield tooltip / detail header — not repeated in the pill.
+          <ToneBadge tone="success">Đã xác thực</ToneBadge>
         ) : (
           <ToneBadge tone="error">Hết hạn dấu</ToneBadge>
         );

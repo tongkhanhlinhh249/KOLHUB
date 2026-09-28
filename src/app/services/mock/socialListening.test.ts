@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest';
-import { channelTotals, IMAGE_POOL, syncChannelStats } from './socialListening';
+import { describe, expect, test } from 'vitest';
+import { channelContent, channelTotals, IMAGE_POOL, syncChannelStats } from './socialListening';
 
 const NOW = Date.UTC(2026, 8, 27, 3);
 const ch = (platform: 'facebook' | 'youtube' | 'tiktok', url: string) => ({ platform, url });
@@ -49,4 +49,33 @@ test('channelTotals: xác định theo URL, lượt xem theo người theo dõi'
   expect(channelTotals('youtube.com/@kenh', 0).views).toBe(0);
   const counts = new Set(Array.from({ length: 20 }, (_, i) => channelTotals(`tiktok.com/@k${i}`, 1_000).videoCount));
   expect(counts.size).toBeGreaterThan(1);
+});
+
+describe('channelContent', () => {
+  const NOW = Date.UTC(2026, 8, 28);
+  const own = {
+    platform: 'tiktok' as const,
+    url: 'https://www.tiktok.com/@demo.channel',
+    stats: {
+      followers: 1000,
+      syncedAt: NOW,
+      latestVideos: [{ platform: 'tiktok' as const, thumbnail: IMAGE_POOL[0], url: 'u-own', title: 'Của kênh', publishedAt: new Date(NOW).toISOString() }],
+    },
+  };
+
+  test('giữ video thật của kênh, bổ sung đủ số lượng, mới nhất trước, ổn định', () => {
+    const a = channelContent(own, 6);
+    expect(a).toHaveLength(6);
+    expect(a[0].url).toBe('u-own');
+    expect(new Set(a.map((v) => v.url)).size).toBe(6);
+    expect(new Set(a.map((v) => v.thumbnail)).size).toBe(6);
+    for (let i = 1; i < a.length; i++) expect(Date.parse(a[i - 1].publishedAt!)).toBeGreaterThanOrEqual(Date.parse(a[i].publishedAt!));
+    expect(a.every((v) => v.platform === 'tiktok' && v.thumbnail)).toBe(true);
+    expect(channelContent(own, 6)).toEqual(a);
+  });
+
+  test('Instagram / kênh chưa đồng bộ: không có nội dung', () => {
+    expect(channelContent({ platform: 'instagram', url: 'instagram.com/x' }, 6)).toEqual([]);
+    expect(channelContent({ platform: 'tiktok', url: 'tiktok.com/@x' }, 6)).toEqual([]);
+  });
 });

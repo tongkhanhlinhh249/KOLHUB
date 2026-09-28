@@ -12,6 +12,8 @@ import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
+import { channelContent } from './socialListening';
+import { PROFILE_VIDEO_LIMIT } from '../bizTypes';
 import { isLinkKeyword, isSearchableChannel, normalizeText, normalizeUrl, publicKolOf, scaleOf, type PublicKol } from './directory';
 
 export interface ChannelDirectoryDeps {
@@ -88,7 +90,7 @@ export function findDirectoryChannel(state: DemoState, channelId: string, now: n
     ...item,
     views: pub?.views ?? 0,
     videoCount: pub?.videoCount ?? 0,
-    latestVideos: (pub?.latestVideos ?? []).map((v) => ({ ...v })),
+    latestVideos: channelContent(c, PROFILE_VIDEO_LIMIT),
   };
 }
 

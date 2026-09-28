@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { channelBadge, channelTotals, PROFILE_VIDEO_LIMIT, type Channel } from '../../services';
+import { channelBadge, channelContent, channelTotals, PROFILE_VIDEO_LIMIT, type Channel } from '../../services';
 import { ChannelStatusBadge } from '../shared/StatusBadges';
 import { ChannelDetailSheet } from './ChannelDetailSheet';
 import { ActiveSwitch, channelName, EditChannelButton, NeedsFixCallout } from './ChannelParts';
@@ -52,7 +52,7 @@ export function OwnerChannelSheet({
               followers,
               views: totals?.views,
               videoCount: totals?.videoCount,
-              videos: (channel.stats?.latestVideos ?? []).slice(0, PROFILE_VIDEO_LIMIT),
+              videos: channelContent(channel, PROFILE_VIDEO_LIMIT),
               ownerName: channelName(channel.handle, channel.url),
             }
           : null
