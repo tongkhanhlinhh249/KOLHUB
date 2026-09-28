@@ -1,5 +1,6 @@
 import { useId } from 'react';
-import { Lock, Trophy, X } from 'lucide-react';
+import { Lock, X } from 'lucide-react';
+import { fieldIcon } from '../shared/fieldIcons';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -76,13 +77,14 @@ export function BioField({
   );
 }
 
-function MedalIcon({ medal }: { medal: FieldMedal }) {
-  if (medal === 'none') return null;
-  const m = MEDAL[medal];
+/** Icon of the field (from the shared list), tinted by its medal. */
+function FieldIcon({ name, medal }: { name: string; medal: FieldMedal }) {
+  const Icon = fieldIcon(name);
+  const m = medal === 'none' ? null : MEDAL[medal];
   return (
     <>
-      <Trophy className={cn('size-3 shrink-0', m.icon)} aria-hidden />
-      <span className="sr-only">({m.label})</span>
+      <Icon className={cn('size-3 shrink-0', m?.icon)} aria-hidden />
+      {m && <span className="sr-only">({m.label})</span>}
     </>
   );
 }
@@ -118,7 +120,7 @@ export function ActivityFieldsEditor({
             )}
           >
             {i === 0 && <Lock className="size-3 shrink-0" aria-hidden />}
-            <MedalIcon medal={f.medal} />
+            <FieldIcon name={f.name} medal={f.medal} />
             <span className="truncate">{f.name}</span>
             {i === 0 ? (
               <span className="text-[10px] font-normal text-primary/80">Lĩnh vực chính</span>

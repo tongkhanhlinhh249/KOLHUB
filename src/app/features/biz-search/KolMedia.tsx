@@ -1,4 +1,5 @@
-import { Film, Trophy } from 'lucide-react';
+import { Film } from 'lucide-react';
+import { fieldIcon } from '../shared/fieldIcons';
 import { cn } from '../../components/ui/utils';
 import type { FieldMedal, KolField, KolVideo } from '../../services';
 import { formatDate } from './format';
@@ -50,6 +51,7 @@ export function FieldBadges({ fields, layout = 'wrap', size = 'md', className }:
     >
       {fields.map((f) => {
         const m = MEDAL[f.medal];
+        const Icon = fieldIcon(f.name);
         return (
           <li
             key={f.name}
@@ -60,7 +62,7 @@ export function FieldBadges({ fields, layout = 'wrap', size = 'md', className }:
               m.pill,
             )}
           >
-            <Trophy className={cn('size-3 shrink-0', m.icon)} aria-hidden />
+            <Icon className={cn('size-3 shrink-0', m.icon)} aria-hidden />
             <span className="truncate">{f.name}</span>
             {m.label && <span className="sr-only">({m.label})</span>}
           </li>
