@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { cn } from '../../components/ui/utils';
 import { buildTimeline, type Channel, type KolProfile, type McnProfile, type ProfileStatus, type TimelineStep } from '../../services';
 import { CHANNEL_PARAM } from '../channels/ChannelDetailSheet';
-import { profilePath } from '../profile/primaryAction';
+import { infoPath, profilePath } from '../profile/primaryAction';
 import { ProfileStatusBadge } from '../shared/StatusBadges';
 
 const ICON: Record<TimelineStep['state'], { icon: typeof Circle; className: string }> = {
@@ -82,11 +82,11 @@ export function ReviewStatusBox({ profile, channels }: { profile: KolProfile | M
             <p className="text-sm font-medium text-foreground">Yêu cầu bổ sung</p>
             {profile.decisionReason && <p className="text-sm break-words text-foreground">{profile.decisionReason}</p>}
             <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-              <Link to={profilePath(profile.ownerType, 'dinh-danh')} className={linkClass}>
+              <Link to={infoPath(profile.ownerType, 'dinh-danh')} className={linkClass}>
                 Thông tin định danh
                 <ChevronRight className="size-4" aria-hidden />
               </Link>
-              <Link to={profilePath(profile.ownerType, 'lien-he')} className={linkClass}>
+              <Link to={infoPath(profile.ownerType, 'lien-he')} className={linkClass}>
                 Thông tin liên hệ
                 <ChevronRight className="size-4" aria-hidden />
               </Link>

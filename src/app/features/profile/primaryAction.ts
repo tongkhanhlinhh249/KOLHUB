@@ -1,9 +1,25 @@
 import type { ChecklistItem, EkycStatus, OwnerType, ProfileStatus } from '../../services';
 
-export type ProfileSection = 'tong-quan' | 'lien-he' | 'dinh-danh' | 'kenh';
+export type ProfileSection = 'tong-quan' | 'thong-tin' | 'kenh';
 
-/** Sidebar order; `tong-quan` ("Gửi hồ sơ xác thực") is the profile area's landing page. */
-export const PROFILE_SECTIONS: readonly ProfileSection[] = ['tong-quan', 'lien-he', 'dinh-danh', 'kenh'];
+/**
+ * Sidebar order; `tong-quan` ("Gửi hồ sơ xác thực") is the profile area's landing page and `thong-tin`
+ * ("Thông tin hồ sơ") holds identity, contact and content staff on one page.
+ */
+export const PROFILE_SECTIONS: readonly ProfileSection[] = ['tong-quan', 'thong-tin', 'kenh'];
+
+/** Blocks of "Thông tin hồ sơ" (element ids, deep-linked as `${base}/thong-tin#…`), top to bottom. */
+export type ProfileAnchor = 'dinh-danh' | 'lien-he' | 'nhan-su';
+export const PROFILE_ANCHORS: readonly ProfileAnchor[] = ['dinh-danh', 'lien-he', 'nhan-su'];
+
+export const isProfileAnchor = (v: string | null | undefined): v is ProfileAnchor =>
+  PROFILE_ANCHORS.includes(v as ProfileAnchor);
+
+/** Former sections merged into "Thông tin hồ sơ": old routes and ?tab= values land on their block. */
+export const LEGACY_SECTION_ANCHOR: Readonly<Record<'lien-he' | 'dinh-danh', ProfileAnchor>> = {
+  'lien-he': 'lien-he',
+  'dinh-danh': 'dinh-danh',
+};
 
 /** Landing section of /ho-so-kol and /ho-so-mcn (and the KOL/MCN role home). */
 export const DEFAULT_PROFILE_SECTION: ProfileSection = 'tong-quan';
@@ -16,10 +32,33 @@ export function profileBase(ownerType: OwnerType): string {
   return ownerType === 'KOL' ? '/ho-so-kol' : '/ho-so-mcn';
 }
 
-/** Route of one profile section; `openAddChannel` adds ?them=1 so the channels page opens its add sheet. */
-export function profilePath(ownerType: OwnerType, section: ProfileSection, opts?: { openAddChannel?: boolean }): string {
+/**
+ * Route of one profile section; `openAddChannel` adds ?them=1 so the channels page opens its add sheet,
+ * `anchor` adds #… to scroll to one block of "Thông tin hồ sơ".
+ */
+export function profilePath(
+  ownerType: OwnerType,
+  section: ProfileSection,
+  opts?: { openAddChannel?: boolean; anchor?: ProfileAnchor },
+): string {
   const path = `${profileBase(ownerType)}/${section}`;
-  return opts?.openAddChannel && section === 'kenh' ? `${path}?them=1` : path;
+  if (opts?.openAddChannel && section === 'kenh') return `${path}?them=1`;
+  if (opts?.anchor && section === 'thong-tin') return `${path}#${opts.anchor}`;
+  return path;
+}
+
+/** "Thông tin hồ sơ" scrolled to one of its blocks. */
+export function infoPath(ownerType: OwnerType, anchor: ProfileAnchor): string {
+  return profilePath(ownerType, 'thong-tin', { anchor });
+}
+
+/**
+ * Target of a legacy `?tab=` value (or old sub-route name): current sections as is, `lien-he`/`dinh-danh`
+ * to their block of "Thông tin hồ sơ", anything else to the landing page.
+ */
+export function legacySectionPath(ownerType: OwnerType, tab: string | null | undefined, opts?: { openAddChannel?: boolean }): string {
+  if (tab === 'lien-he' || tab === 'dinh-danh') return infoPath(ownerType, LEGACY_SECTION_ANCHOR[tab]);
+  return profilePath(ownerType, isProfileSection(tab) ? tab : DEFAULT_PROFILE_SECTION, opts);
 }
 
 export interface PrimaryActionInput {
@@ -45,17 +84,18 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
     to: profilePath(input.ownerType, section, { openAddChannel }),
     disabled: false,
   });
+  const identity = (label: string): PrimaryAction => ({ label, to: infoPath(input.ownerType, 'dinh-danh'), disabled: false });
   switch (input.status) {
     case 'DRAFT':
       if (input.ownerType === 'KOL') {
-        if (input.ekycStatus !== 'PASSED') return go('Xác thực danh tính', 'dinh-danh');
-        return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : go('Hoàn thiện hồ sơ', 'dinh-danh');
+        if (input.ekycStatus !== 'PASSED') return identity('Xác thực danh tính');
+        return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : identity('Hoàn thiện hồ sơ');
       }
-      return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : go('Xác thực tổ chức', 'dinh-danh');
+      return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : identity('Xác thực tổ chức');
     case 'SUBMITTED':
       return { label: 'Đang xét duyệt', to: null, disabled: true };
     case 'NEEDS_FIX':
-      return go('Xem yêu cầu bổ sung', input.hasNeedsFixChannel ? 'kenh' : 'dinh-danh');
+      return input.hasNeedsFixChannel ? go('Xem yêu cầu bổ sung', 'kenh') : identity('Xem yêu cầu bổ sung');
     case 'APPROVED':
       return go('Thêm kênh', 'kenh', true);
     case 'REJECTED':
@@ -65,9 +105,16 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
 
 export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
 
-const MILESTONE_SECTION: Record<MilestoneKey, ProfileSection> = {
+/** Where each milestone / submit condition gets done: a block of "Thông tin hồ sơ" or a section. */
+type Target = ProfileAnchor | Exclude<ProfileSection, 'thong-tin'>;
+
+function targetPath(ownerType: OwnerType, t: Target): string {
+  return isProfileAnchor(t) ? infoPath(ownerType, t) : profilePath(ownerType, t);
+}
+
+const MILESTONE_TARGET: Record<MilestoneKey, Target> = {
   contact: 'lien-he',
-  staff: 'lien-he',
+  staff: 'nhan-su',
   identity: 'dinh-danh',
   channel: 'kenh',
   submitted: 'tong-quan',
@@ -82,22 +129,22 @@ export function milestoneBadge(ownerType: OwnerType, key: MilestoneKey): { label
     channel: 'Kênh & ảnh',
     submitted: 'Gửi xét duyệt',
   };
-  return { label: labels[key], to: profilePath(ownerType, MILESTONE_SECTION[key]) };
+  return { label: labels[key], to: targetPath(ownerType, MILESTONE_TARGET[key]) };
 }
 
 export type ChecklistKey = ChecklistItem['key'];
 
-const CHECKLIST_SECTION: Partial<Record<ChecklistKey, ProfileSection>> = {
+const CHECKLIST_TARGET: Partial<Record<ChecklistKey, Target>> = {
   ekyc: 'dinh-danh',
   org: 'dinh-danh',
   gcn: 'dinh-danh',
   contact: 'lien-he',
-  staff: 'lien-he',
+  staff: 'nhan-su',
   channel: 'kenh',
 };
 
 /** Page where an unmet submit condition gets fixed (pledges are ticked in place → undefined). */
 export function checklistLink(ownerType: OwnerType, key: ChecklistKey): string | undefined {
-  const section = CHECKLIST_SECTION[key];
-  return section ? profilePath(ownerType, section) : undefined;
+  const target = CHECKLIST_TARGET[key];
+  return target ? targetPath(ownerType, target) : undefined;
 }

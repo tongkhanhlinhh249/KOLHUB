@@ -66,15 +66,15 @@ describe('resolveAccess', () => {
     for (const p of GUEST_PATHS) expect(resolveAccess('kolhub.guest', p)).toEqual({ allow: true });
   });
   test('MCN vào Hồ sơ KOL → forbidden', () => {
-    for (const p of ['/ho-so-kol', '/ho-so-kol/lien-he', '/ho-so-kol/dinh-danh', '/ho-so-kol/kenh?them=1'])
+    for (const p of ['/ho-so-kol', '/ho-so-kol/thong-tin#lien-he', '/ho-so-kol/lien-he', '/ho-so-kol/dinh-danh', '/ho-so-kol/kenh?them=1'])
       expect(resolveAccess('kolhub.user.mcn', p)).toEqual({ allow: false, redirect: '/ho-so-mcn/tong-quan', reason: 'forbidden' });
   });
   test('KOL vào Hồ sơ MCN → forbidden', () => {
-    for (const p of ['/ho-so-mcn', '/ho-so-mcn/lien-he', '/ho-so-mcn/dinh-danh', '/ho-so-mcn/kenh'])
+    for (const p of ['/ho-so-mcn', '/ho-so-mcn/thong-tin', '/ho-so-mcn/lien-he', '/ho-so-mcn/dinh-danh', '/ho-so-mcn/kenh'])
       expect(resolveAccess('kolhub.user.kol', p)).toEqual({ allow: false, redirect: '/ho-so-kol/tong-quan', reason: 'forbidden' });
   });
   test('KOL/MCN vào được từng trang hồ sơ và đường dẫn gốc (chuyển hướng sang Gửi hồ sơ xác thực)', () => {
-    for (const s of ['', '/tong-quan', '/lien-he', '/dinh-danh', '/kenh', '/kenh?them=1', '?tab=kenh']) {
+    for (const s of ['', '/tong-quan', '/thong-tin', '/thong-tin#nhan-su', '/lien-he', '/dinh-danh', '/kenh', '/kenh?them=1', '?tab=kenh']) {
       expect(resolveAccess('kolhub.user.kol', `/ho-so-kol${s}`)).toEqual({ allow: true });
       expect(resolveAccess('kolhub.user.mcn', `/ho-so-mcn${s}`)).toEqual({ allow: true });
     }
@@ -91,7 +91,7 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('kolhub.user.biz', '/danh-sach-da-luu')).toBe('/danh-sach-da-luu'));
   test('safeReturnTo về trang con hồ sơ', () => {
     expect(safeReturnTo('kolhub.user.kol', '/ho-so-kol/kenh?them=1')).toBe('/ho-so-kol/kenh?them=1');
-    expect(safeReturnTo('kolhub.user.mcn', '/ho-so-mcn/dinh-danh')).toBe('/ho-so-mcn/dinh-danh');
+    expect(safeReturnTo('kolhub.user.mcn', '/ho-so-mcn/thong-tin#dinh-danh')).toBe('/ho-so-mcn/thong-tin#dinh-danh');
     expect(safeReturnTo('kolhub.user.kol', '/ho-so-mcn/kenh')).toBe('/ho-so-kol/tong-quan');
   });
   test('safeReturnTo giữ query của đường dẫn hợp quyền', () =>
@@ -107,7 +107,7 @@ const SAFETY_ROWS = [
 ];
 
 describe('bottomNavOf', () => {
-  test('KOL/MCN: 4 tab + "Thêm" (MCN: Quản lý KOL; liên hệ, định danh, Facebook, YouTube, vi phạm)', () => {
+  test('KOL/MCN: 4 tab + "Thêm" (MCN: Quản lý KOL; thông tin hồ sơ, Facebook, YouTube, vi phạm)', () => {
     for (const [role, base] of [
       ['kolhub.user.kol', '/ho-so-kol'],
       ['kolhub.user.mcn', '/ho-so-mcn'],
@@ -121,8 +121,7 @@ describe('bottomNavOf', () => {
       ]);
       expect(nav.more.map((m) => m.label)).toEqual([
         ...(role === 'kolhub.user.mcn' ? ['Quản lý KOL'] : []),
-        'Thông tin liên hệ',
-        'Thông tin định danh',
+        'Thông tin hồ sơ',
         'Kiểm duyệt kênh Facebook',
         'Kiểm duyệt kênh YouTube',
         'Danh sách vi phạm',
@@ -170,15 +169,13 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     expect(ROLE_CONFIG['kolhub.user.biz']).toMatchObject({ label: 'Nhãn hàng/Agency', home: '/tim-kiem-kol' });
     expect(ROLE_CONFIG['kolhub.user.kol'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
       ['Gửi hồ sơ xác thực', 'Xác thực', '/ho-so-kol/tong-quan', 'Hồ sơ KOL'],
-      ['Thông tin liên hệ', 'Liên hệ', '/ho-so-kol/lien-he', 'Hồ sơ KOL'],
-      ['Thông tin định danh', 'Định danh', '/ho-so-kol/dinh-danh', 'Hồ sơ KOL'],
+      ['Thông tin hồ sơ', 'Hồ sơ', '/ho-so-kol/thong-tin', 'Hồ sơ KOL'],
       ['Quản lý kênh', 'Kênh', '/ho-so-kol/kenh', 'Hồ sơ KOL'],
       ...SAFETY_ROWS,
     ]);
     expect(ROLE_CONFIG['kolhub.user.mcn'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
       ['Gửi hồ sơ xác thực', 'Xác thực', '/ho-so-mcn/tong-quan', 'Hồ sơ MCN'],
-      ['Thông tin liên hệ', 'Liên hệ', '/ho-so-mcn/lien-he', 'Hồ sơ MCN'],
-      ['Thông tin định danh', 'Định danh', '/ho-so-mcn/dinh-danh', 'Hồ sơ MCN'],
+      ['Thông tin hồ sơ', 'Hồ sơ', '/ho-so-mcn/thong-tin', 'Hồ sơ MCN'],
       ['Quản lý kênh', 'Kênh', '/ho-so-mcn/kenh', 'Hồ sơ MCN'],
       ['Quản lý KOL', 'KOL', '/ho-so-mcn/kol', 'Hồ sơ MCN'],
       ...SAFETY_ROWS,
@@ -192,14 +189,10 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     ]);
   });
   test('getPageMeta', () => {
-    expect(getPageMeta('/ho-so-kol/lien-he')).toEqual({
-      title: 'Thông tin liên hệ',
+    expect(getPageMeta('/ho-so-kol/thong-tin#lien-he')).toEqual({
+      title: 'Thông tin hồ sơ',
       group: 'Cá nhân/KOL',
-      description: 'Thông tin liên hệ và nhân sự quản lý nội dung',
-    });
-    expect(getPageMeta('/ho-so-kol/dinh-danh')).toMatchObject({
-      title: 'Thông tin định danh',
-      description: 'Xác thực danh tính bằng CCCD gắn chip (eKYC)',
+      description: 'Định danh (eKYC), thông tin liên hệ và nhân sự quản lý nội dung',
     });
     expect(getPageMeta('/ho-so-kol/tong-quan', 'kolhub.user.kol')).toEqual({
       title: 'Gửi hồ sơ xác thực',
@@ -207,10 +200,10 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       description: 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
     });
     expect(getPageMeta('/ho-so-mcn/tong-quan', 'kolhub.user.mcn')).toMatchObject({ title: 'Gửi hồ sơ xác thực', group: 'Tổ chức/MCN' });
-    expect(getPageMeta('/ho-so-mcn/dinh-danh', 'kolhub.user.mcn')).toEqual({
-      title: 'Thông tin định danh',
+    expect(getPageMeta('/ho-so-mcn/thong-tin', 'kolhub.user.mcn')).toEqual({
+      title: 'Thông tin hồ sơ',
       group: 'Tổ chức/MCN',
-      description: 'Xác thực tổ chức bằng Giấy chứng nhận ĐKDN',
+      description: 'Thông tin tổ chức, Giấy chứng nhận ĐKDN, liên hệ và nhân sự quản lý',
     });
     expect(getPageMeta('/ho-so-mcn/kenh?them=1')).toMatchObject({
       title: 'Quản lý kênh',

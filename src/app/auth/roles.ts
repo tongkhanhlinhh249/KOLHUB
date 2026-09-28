@@ -10,7 +10,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   UserPlus,
-  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -82,12 +81,11 @@ const SAFETY_MENU: MenuItem[] = [
   { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
 ];
 
-/** Profile overview ("Gửi hồ sơ xác thực") + sections + channel management (group "Hồ sơ KOL/MCN"). */
+/** Profile overview ("Gửi hồ sơ xác thực") + "Thông tin hồ sơ" (identity + contact) + channel management (group "Hồ sơ KOL/MCN"). */
 function profileMenu(base: string, group: string, identityIcon: LucideIcon): MenuItem[] {
   return [
     { icon: BadgeCheck, label: 'Gửi hồ sơ xác thực', shortLabel: 'Xác thực', path: `${base}/tong-quan`, group },
-    { icon: UserRound, label: 'Thông tin liên hệ', shortLabel: 'Liên hệ', path: `${base}/lien-he`, group },
-    { icon: identityIcon, label: 'Thông tin định danh', shortLabel: 'Định danh', path: `${base}/dinh-danh`, group },
+    { icon: identityIcon, label: 'Thông tin hồ sơ', shortLabel: 'Hồ sơ', path: `${base}/thong-tin`, group },
     { icon: MonitorPlay, label: 'Quản lý kênh', shortLabel: 'Kênh', path: `${base}/kenh`, group },
   ];
 }
@@ -110,7 +108,7 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
         match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
       },
     ],
-    more: [...extraMore, `${base}/lien-he`, `${base}/dinh-danh`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
+    more: [...extraMore, `${base}/thong-tin`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
   };
 }
 
@@ -226,12 +224,10 @@ export function safeReturnTo(role: RoleKey, returnTo: string | null): string {
 
 const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-kol/tong-quan': 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
-  '/ho-so-kol/lien-he': 'Thông tin liên hệ và nhân sự quản lý nội dung',
-  '/ho-so-kol/dinh-danh': 'Xác thực danh tính bằng CCCD gắn chip (eKYC)',
+  '/ho-so-kol/thong-tin': 'Định danh (eKYC), thông tin liên hệ và nhân sự quản lý nội dung',
   '/ho-so-kol/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/ho-so-mcn/tong-quan': 'Tổng quan hồ sơ, gửi xét duyệt và theo dõi trạng thái xét duyệt',
-  '/ho-so-mcn/lien-he': 'Thông tin liên hệ và nhân sự quản lý nội dung',
-  '/ho-so-mcn/dinh-danh': 'Xác thực tổ chức bằng Giấy chứng nhận ĐKDN',
+  '/ho-so-mcn/thong-tin': 'Thông tin tổ chức, Giấy chứng nhận ĐKDN, liên hệ và nhân sự quản lý',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/ho-so-mcn/kol': 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',

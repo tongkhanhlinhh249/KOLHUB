@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router';
+import { useCallback, useEffect } from 'react';
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router';
 import { AlertCircle, AlertTriangle, ChevronRight, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
@@ -12,17 +12,37 @@ import { McnIdentityTab } from '../mcn-profile/McnIdentityTab';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
 import { ProfileOverview } from './ProfileOverview';
-import { DEFAULT_PROFILE_SECTION, isProfileSection, profilePath, type ProfileSection } from './primaryAction';
+import { ProfileInfoNav, ProfileInfoSection } from './ProfileInfoSections';
+import { infoPath, isProfileAnchor, legacySectionPath, profilePath, type ProfileAnchor, type ProfileSection } from './primaryAction';
 
 /**
  * /ho-so-kol and /ho-so-mcn: send to "Gửi hồ sơ xác thực" (tong-quan), translating legacy ?tab=… links
- * (and ?them=1 for the channels page) to the matching sub-route.
+ * (and ?them=1 for the channels page) to the matching sub-route (lien-he/dinh-danh → "Thông tin hồ sơ").
  */
 export function ProfileIndexRedirect({ ownerType }: { ownerType: OwnerType }) {
   const [params] = useSearchParams();
-  const raw = params.get('tab');
-  const section: ProfileSection = isProfileSection(raw) ? raw : DEFAULT_PROFILE_SECTION;
-  return <Navigate to={profilePath(ownerType, section, { openAddChannel: params.get('them') === '1' })} replace />;
+  return <Navigate to={legacySectionPath(ownerType, params.get('tab'), { openAddChannel: params.get('them') === '1' })} replace />;
+}
+
+/** Old /lien-he and /dinh-danh routes (merged into "Thông tin hồ sơ"): land on their block. */
+export function LegacySectionRedirect({ ownerType, anchor }: { ownerType: OwnerType; anchor: ProfileAnchor }) {
+  return <Navigate to={infoPath(ownerType, anchor)} replace />;
+}
+
+/**
+ * Scroll to the #block of "Thông tin hồ sơ" once the page content is rendered and on every hash link
+ * (react-router does not scroll to hashes by itself). `location.key` re-runs it for a repeated link.
+ */
+function useScrollToHash(ready: boolean) {
+  const { hash, key } = useLocation();
+  useEffect(() => {
+    const id = hash.replace(/^#/, '');
+    if (!ready || !isProfileAnchor(id)) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  }, [hash, key, ready]);
 }
 
 function PageSkeleton({ withHeader }: { withHeader: boolean }) {
@@ -73,6 +93,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
   const accountId = account?.id ?? '';
   const [params, setParams] = useSearchParams();
   const isOverview = section === 'tong-quan';
+  const isInfo = section === 'thong-tin';
 
   // Profile (+ KOL eKYC state) for every section; channels only for the overview (the channels page
   // loads its own list). The page instance is reused across sections, so `withChannels` tells whether
@@ -89,6 +110,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
     [accountId, ownerType, isOverview],
   );
   const ready = !!q.data && (!isOverview || q.data.withChannels);
+  useScrollToHash(isInfo && ready);
 
   // ?them=1 asks the channels page to open its add sheet once (header "Thêm kênh").
   const openAddChannel = section === 'kenh' && params.get('them') === '1';
@@ -127,13 +149,19 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
           {isOverview && <ProfileOverview view={q.data.view} ekyc={q.data.ekyc} channels={q.data.channels} />}
           {!isOverview && q.data.view.profile.status === 'NEEDS_FIX' && <NeedsFixNotice ownerType={q.data.view.profile.ownerType} />}
           <div>
-            {section === 'lien-he' && <ContactTab view={q.data.view} />}
-            {section === 'dinh-danh' &&
-              (q.data.view.profile.ownerType === 'KOL' && q.data.ekyc ? (
-                <KolIdentityTab accountId={accountId} view={q.data.view} ekyc={q.data.ekyc} />
-              ) : (
-                <McnIdentityTab accountId={accountId} view={q.data.view} />
-              ))}
+            {isInfo && (
+              <div className="space-y-4">
+                <ProfileInfoNav />
+                <ProfileInfoSection id="dinh-danh" label={q.data.view.profile.ownerType === 'KOL' ? 'Xác thực danh tính' : 'Xác thực tổ chức'}>
+                  {q.data.view.profile.ownerType === 'KOL' && q.data.ekyc ? (
+                    <KolIdentityTab accountId={accountId} view={q.data.view} ekyc={q.data.ekyc} />
+                  ) : (
+                    <McnIdentityTab accountId={accountId} view={q.data.view} />
+                  )}
+                </ProfileInfoSection>
+                <ContactTab view={q.data.view} />
+              </div>
+            )}
             {section === 'kenh' && (
               <ChannelsTab
                 accountId={accountId}

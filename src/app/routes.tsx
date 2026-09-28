@@ -11,8 +11,8 @@ import { SearchPage } from './features/biz-search/SearchPage';
 import { SavedListsPage } from './features/saved-lists/SavedListsPage';
 import { BizAccountPage } from './features/biz-account/BizAccountPage';
 // --- phase 2 ---
-import { ProfileIndexRedirect, ProfilePage } from './features/profile/ProfilePage';
-import { PROFILE_SECTIONS } from './features/profile/primaryAction';
+import { LegacySectionRedirect, ProfileIndexRedirect, ProfilePage } from './features/profile/ProfilePage';
+import { LEGACY_SECTION_ANCHOR, PROFILE_SECTIONS } from './features/profile/primaryAction';
 import type { OwnerType } from './services';
 // --- KOL Safety ---
 import { VideoCheckPage } from './features/safety/VideoCheckPage';
@@ -29,7 +29,7 @@ import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
 
-/** /ho-so-kol|mcn → first section (legacy ?tab= honoured); one route per section (sidebar item). */
+/** /ho-so-kol|mcn → first section (legacy ?tab= honoured); one route per section (sidebar item) + old section redirects. */
 function profileRoutes(path: string, ownerType: OwnerType, extra: RouteObject[] = []): RouteObject {
   return {
     path,
@@ -38,6 +38,11 @@ function profileRoutes(path: string, ownerType: OwnerType, extra: RouteObject[] 
       ...PROFILE_SECTIONS.map((section) => ({
         path: section,
         element: <ProfilePage ownerType={ownerType} section={section} />,
+      })),
+      // Merged into "Thông tin hồ sơ" (thong-tin): keep old links and bookmarks working.
+      ...Object.entries(LEGACY_SECTION_ANCHOR).map(([path, anchor]) => ({
+        path,
+        element: <LegacySectionRedirect ownerType={ownerType} anchor={anchor} />,
       })),
       ...extra,
     ],

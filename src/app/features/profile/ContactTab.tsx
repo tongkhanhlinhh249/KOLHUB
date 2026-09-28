@@ -20,6 +20,7 @@ import { Field, type FieldErrors } from '../form/Field';
 import { SelectField } from '../shared/SelectField';
 import { FieldBadges } from '../biz-search/KolMedia';
 import { InfoRow, SectionCard } from './ProfileSection';
+import { ProfileInfoSection } from './ProfileInfoSections';
 import { ActivityFieldsEditor, BioField, bioLength, followCategory, initialFields } from './ContactExtras';
 
 /** Plain text contact fields (bio and activity fields have their own editors). */
@@ -201,7 +202,7 @@ function StaffDialog({ view, onOpenChange }: { view: ProfileView; onOpenChange(o
   );
 }
 
-/** SCR-04 — contact information and content staff. */
+/** SCR-04 — contact information (#lien-he) and content staff (#nhan-su) blocks of "Thông tin hồ sơ". */
 export function ContactTab({ view }: { view: ProfileView }) {
   const { profile } = view;
   const isKol = profile.ownerType === 'KOL';
@@ -212,50 +213,54 @@ export function ContactTab({ view }: { view: ProfileView }) {
 
   return (
     <div className="space-y-4">
-      <SectionCard title="Liên hệ" onEdit={() => setEditing('contact')}>
-        {(Object.keys(labels) as ContactKey[]).map((k) => (
-          <InfoRow
-            key={k}
-            label={labels[k]}
-            value={profile.contact[k]}
-            required={REQUIRED_CONTACT.includes(k)}
-            extra={
-              k === 'displayName' && typeof pendingName?.newValue === 'string' ? (
-                <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
-                  <Badge variant="outline" className="border-transparent bg-chart-5/20 font-medium text-foreground">
-                    Chờ duyệt
-                  </Badge>
-                  <span>Tên mới: {pendingName.newValue}</span>
-                </div>
-              ) : undefined
-            }
-          />
-        ))}
-        {isKol && (
-          <div className="space-y-1 md:col-span-2">
-            <dt className="text-xs text-muted-foreground">Lĩnh vực hoạt động</dt>
-            <dd>
-              {profile.contact.fields?.length ? (
-                <FieldBadges fields={profile.contact.fields} />
-              ) : (
-                <span className="text-sm text-muted-foreground">Chưa cập nhật</span>
-              )}
+      <ProfileInfoSection id="lien-he" label="Liên hệ">
+        <SectionCard title="Liên hệ" onEdit={() => setEditing('contact')}>
+          {(Object.keys(labels) as ContactKey[]).map((k) => (
+            <InfoRow
+              key={k}
+              label={labels[k]}
+              value={profile.contact[k]}
+              required={REQUIRED_CONTACT.includes(k)}
+              extra={
+                k === 'displayName' && typeof pendingName?.newValue === 'string' ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
+                    <Badge variant="outline" className="border-transparent bg-chart-5/20 font-medium text-foreground">
+                      Chờ duyệt
+                    </Badge>
+                    <span>Tên mới: {pendingName.newValue}</span>
+                  </div>
+                ) : undefined
+              }
+            />
+          ))}
+          {isKol && (
+            <div className="space-y-1 md:col-span-2">
+              <dt className="text-xs text-muted-foreground">Lĩnh vực hoạt động</dt>
+              <dd>
+                {profile.contact.fields?.length ? (
+                  <FieldBadges fields={profile.contact.fields} />
+                ) : (
+                  <span className="text-sm text-muted-foreground">Chưa cập nhật</span>
+                )}
+              </dd>
+            </div>
+          )}
+          <div className="space-y-0.5 md:col-span-2">
+            <dt className="text-xs text-muted-foreground">Giới thiệu</dt>
+            <dd className={profile.contact.bio?.trim() ? 'whitespace-pre-line break-words text-sm text-foreground' : 'text-sm text-muted-foreground'}>
+              {profile.contact.bio?.trim() || 'Chưa cập nhật'}
             </dd>
           </div>
-        )}
-        <div className="space-y-0.5 md:col-span-2">
-          <dt className="text-xs text-muted-foreground">Giới thiệu</dt>
-          <dd className={profile.contact.bio?.trim() ? 'whitespace-pre-line break-words text-sm text-foreground' : 'text-sm text-muted-foreground'}>
-            {profile.contact.bio?.trim() || 'Chưa cập nhật'}
-          </dd>
-        </div>
-      </SectionCard>
+        </SectionCard>
+      </ProfileInfoSection>
 
-      <SectionCard title="Nhân sự quản lý nội dung" onEdit={() => setEditing('staff')}>
-        {(Object.keys(STAFF_LABELS) as StaffKey[]).map((k) => (
-          <InfoRow key={k} label={STAFF_LABELS[k]} value={profile.staff[k]} required={REQUIRED_STAFF.includes(k)} />
-        ))}
-      </SectionCard>
+      <ProfileInfoSection id="nhan-su" label="Nhân sự quản lý nội dung">
+        <SectionCard title="Nhân sự quản lý nội dung" onEdit={() => setEditing('staff')}>
+          {(Object.keys(STAFF_LABELS) as StaffKey[]).map((k) => (
+            <InfoRow key={k} label={STAFF_LABELS[k]} value={profile.staff[k]} required={REQUIRED_STAFF.includes(k)} />
+          ))}
+        </SectionCard>
+      </ProfileInfoSection>
 
       <Dialog open={editing !== null} onOpenChange={close}>
         {editing === 'contact' && <ContactDialog view={view} onOpenChange={close} />}
