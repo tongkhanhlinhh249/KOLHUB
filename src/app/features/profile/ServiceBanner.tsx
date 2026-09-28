@@ -1,40 +1,86 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { cn } from '../../components/ui/utils';
 import { SAFETY_BASE } from '../../auth/roles';
-import type { OwnerType } from '../../services';
 
-/** "Tổng quan hồ sơ" side column: promotes KOL Safety (check videos before posting, monitor channels). */
-export function ServiceBanner({ ownerType }: { ownerType: OwnerType }) {
-  const whose = ownerType === 'MCN' ? 'các kênh MCN quản lý' : 'kênh của bạn';
+const HOTLINE = '0888138888';
+const HOTLINE_SHOWN = '0888 138 888';
+
+/** One compact service card of the "Tổng quan hồ sơ" side column (8px radius, short copy, one CTA). */
+function ServiceCard({
+  id,
+  eyebrow,
+  title,
+  text,
+  icon: Icon,
+  tone,
+  children,
+}: {
+  id: string;
+  eyebrow: string;
+  title: string;
+  text: string;
+  icon: LucideIcon;
+  tone: 'primary' | 'dark';
+  children: ReactNode;
+}) {
   return (
     <section
-      aria-labelledby="service-banner-title"
-      className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary to-primary/75 p-5 text-primary-foreground shadow-sm"
+      aria-labelledby={id}
+      className={cn(
+        'relative overflow-hidden rounded-[8px] p-4 shadow-sm',
+        tone === 'primary'
+          ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground'
+          : 'bg-foreground text-background',
+      )}
     >
-      <ShieldCheck className="pointer-events-none absolute -right-6 -bottom-6 size-36 opacity-15" aria-hidden />
-      <p className="text-xs font-semibold tracking-widest uppercase opacity-90">Dịch vụ KOL Safety</p>
-      <h2 id="service-banner-title" className="mt-1.5 text-lg leading-snug font-bold">
-        Kiểm duyệt nội dung trước khi đăng
+      <Icon className="pointer-events-none absolute -right-4 -bottom-4 size-24 opacity-15" aria-hidden />
+      <p className="text-[11px] font-semibold tracking-widest uppercase opacity-85">{eyebrow}</p>
+      <h2 id={id} className="mt-1 text-base leading-snug font-bold">
+        {title}
       </h2>
-      <p className="mt-2 text-sm opacity-90">
-        Phát hiện nội dung có rủi ro vi phạm và theo dõi {whose} để giữ dấu Kênh xác thực luôn an toàn.
-      </p>
-      <div className="relative mt-4 flex flex-wrap gap-2">
-        <Button asChild variant="secondary" className="h-11 bg-white text-primary hover:bg-white/90 md:h-9">
+      <p className="mt-1 text-sm opacity-90">{text}</p>
+      <div className="relative mt-3">{children}</div>
+    </section>
+  );
+}
+
+/** "Tổng quan hồ sơ" side column: KOL Safety (content checks) + Brand Safety (contact the team). */
+export function ServiceBanner() {
+  return (
+    <div className="space-y-3">
+      <ServiceCard
+        id="svc-kol-safety"
+        eyebrow="KOL Safety"
+        title="Kiểm duyệt trước khi đăng"
+        text="Phát hiện nội dung rủi ro, giữ dấu xác thực an toàn."
+        icon={ShieldCheck}
+        tone="primary"
+      >
+        <Button asChild variant="secondary" className="h-11 rounded-[8px] bg-white text-primary hover:bg-white/90 md:h-9">
           <Link to={`${SAFETY_BASE}/video`}>
             Kiểm tra video
             <ArrowRight aria-hidden />
           </Link>
         </Button>
-        <Button
-          asChild
-          variant="ghost"
-          className="h-11 text-primary-foreground hover:bg-white/15 hover:text-primary-foreground md:h-9"
-        >
-          <Link to={`${SAFETY_BASE}/tiktok`}>Kiểm duyệt kênh</Link>
+      </ServiceCard>
+      <ServiceCard
+        id="svc-brand-safety"
+        eyebrow="Brand Safety"
+        title="An toàn thương hiệu khi hợp tác"
+        text="Tư vấn giải pháp bảo vệ thương hiệu cùng KOL xác thực."
+        icon={BadgeCheck}
+        tone="dark"
+      >
+        <Button asChild className="h-11 rounded-[8px] md:h-9">
+          <a href={`tel:${HOTLINE}`}>
+            <Phone aria-hidden />
+            Liên hệ ngay {HOTLINE_SHOWN}
+          </a>
         </Button>
-      </div>
-    </section>
+      </ServiceCard>
+    </div>
   );
 }

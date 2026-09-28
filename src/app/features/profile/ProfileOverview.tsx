@@ -43,7 +43,7 @@ export function ProfileOverview({
           />
         </div>
         <aside className="min-w-0 space-y-4" aria-label="Dịch vụ và trạng thái xét duyệt">
-          <ServiceBanner ownerType={view.profile.ownerType} />
+          <ServiceBanner />
           <ReviewStatusBox profile={view.profile} channels={channels} />
         </aside>
       </div>
