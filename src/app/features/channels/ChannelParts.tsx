@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { AlertTriangle, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, ExternalLink, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Switch } from '../../components/ui/switch';
@@ -42,20 +42,46 @@ export function ChannelLink({ url, className }: { url: string; className?: strin
 }
 
 /** Admin's reason when the channel needs changes. */
-export function NeedsFixCallout({ channel, action, className }: { channel: Channel; action?: ReactNode; className?: string }) {
+/**
+ * Admin's "Cần bổ sung" note. `onAddImage` adds a "Thêm ảnh" button (opens the edit form to
+ * upload a new proof screenshot): beside the note from sm, full width below it on phones.
+ */
+export function NeedsFixCallout({
+  channel,
+  onAddImage,
+  className,
+}: {
+  channel: Channel;
+  onAddImage?(): void;
+  className?: string;
+}) {
   if (channel.status !== 'NEEDS_FIX') return null;
   return (
     <div
       className={cn(
-        'flex items-start gap-2 rounded-lg border border-chart-5/50 bg-chart-5/10 px-3 py-2 text-sm text-foreground',
+        'flex flex-col gap-3 rounded-lg border border-chart-5/50 bg-chart-5/10 p-3 text-sm text-foreground sm:flex-row sm:items-center',
         className,
       )}
+      onClick={(e) => e.stopPropagation()}
     >
-      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-hidden />
-      <p className="min-w-0 flex-1 break-words">
-        <span className="font-medium">Cần bổ sung:</span> {channel.note || 'Vui lòng cập nhật link hoặc ảnh quản lý kênh.'}
-      </p>
-      {action && <div className="ml-auto shrink-0">{action}</div>}
+      <div className="flex min-w-0 flex-1 items-start gap-2">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-hidden />
+        <p className="min-w-0 break-words">
+          <span className="font-medium">Cần bổ sung:</span> {channel.note || 'Vui lòng cập nhật link hoặc ảnh quản lý kênh.'}
+        </p>
+      </div>
+      {onAddImage && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-11 w-full shrink-0 bg-card sm:h-8 sm:w-auto"
+          onClick={onAddImage}
+        >
+          <ImagePlus aria-hidden />
+          Thêm ảnh
+        </Button>
+      )}
     </div>
   );
 }

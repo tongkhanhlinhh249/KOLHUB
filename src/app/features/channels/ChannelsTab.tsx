@@ -214,14 +214,7 @@ export function ChannelsTab({
         onOpen={() => detail.openChannel(c.id)}
         footer={
           c.status === 'NEEDS_FIX' && (
-            <NeedsFixCallout
-              channel={c}
-              action={
-                <Button type="button" size="sm" className="h-11 md:h-8" onClick={() => openEdit(c)}>
-                  Sửa
-                </Button>
-              }
-            />
+            <NeedsFixCallout channel={c} onAddImage={locked ? undefined : () => openEdit(c)} />
           )
         }
         menu={
