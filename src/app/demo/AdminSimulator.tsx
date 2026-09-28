@@ -128,11 +128,11 @@ function ProfileReview({ p }: { p: QueueProfile }) {
     return d?.verdict === 'PASS' || (d?.verdict === 'NEEDS_FIX' && d.reason.trim() !== '');
   });
 
-  const approve = async () => {
+  const approve = async (allPass = false) => {
     const verdicts: Record<string, ChannelVerdict> = {};
     for (const c of p.pendingChannels) {
       const d = draft[c.id];
-      verdicts[c.id] = d.verdict === 'PASS' ? { verdict: 'PASS' } : { verdict: 'NEEDS_FIX', reason: d.reason };
+      verdicts[c.id] = allPass || d.verdict === 'PASS' ? { verdict: 'PASS' } : { verdict: 'NEEDS_FIX', reason: d.reason };
     }
     setBusy(true);
     await act(() => reviewService.approve(p.ownerId, verdicts), p.status === 'APPROVED' ? 'Đã duyệt kênh mới' : 'Đã duyệt hồ sơ');
@@ -206,6 +206,12 @@ function ProfileReview({ p }: { p: QueueProfile }) {
           {busy && <Loader2 className="animate-spin" aria-hidden />}
           Duyệt hồ sơ
         </Button>
+        {/* Demo shortcut: approve in one click with every pending channel "Đạt". */}
+        {p.pendingChannels.length > 0 && (
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void approve(true)}>
+            Duyệt nhanh (tất cả kênh Đạt)
+          </Button>
+        )}
         {p.status === 'SUBMITTED' && (
           <>
             <Button type="button" size="sm" variant="outline" onClick={() => setDialog('fix')}>

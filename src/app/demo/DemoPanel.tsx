@@ -10,6 +10,7 @@ import { Phase3AssumptionsBlock } from './Phase3AssumptionsBlock';
 import { AdminSimulator } from './AdminSimulator';
 import { EkycScenarioPicker } from './EkycScenarioPicker';
 import { FunnelView } from './FunnelView';
+import { SampleProfileBlock } from './SampleProfileBlock';
 import { AssumptionsList } from './AssumptionsList';
 // --- violations ---
 import { ViolationReviewBlock } from './ViolationReviewBlock';
@@ -44,6 +45,7 @@ export function DemoPanel() {
         <div className="space-y-4 p-4 pb-safe">
           <DemoRoleBlock onDone={close} />
           {/* --- phase 2 --- */}
+          <SampleProfileBlock />
           <AdminSimulator />
           <ViolationReviewBlock />
           <EkycScenarioPicker />

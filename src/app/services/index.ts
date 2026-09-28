@@ -116,3 +116,8 @@ import { createMcnKolService } from './mock/mcnKol';
 export const mcnKolService = createMcnKolService({ db, now: Date.now });
 export * from './mcn-kol-types';
 export type { McnKolService } from './mock/mcnKol';
+// --- demo shortcuts (Demo Panel only) ---
+import { createDemoService } from './mock/demo';
+
+export const demoService = createDemoService({ db, now: Date.now });
+export type { DemoService } from './mock/demo';

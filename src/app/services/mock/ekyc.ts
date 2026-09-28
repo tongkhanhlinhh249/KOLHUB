@@ -72,6 +72,26 @@ function fakeOcr(p: KolProfile, scenario: EkycScenario): OcrData {
   };
 }
 
+/**
+ * Demo shortcut: record a successful OCR + face check (uncounted OK sessions) and the identity, exactly
+ * as the two successful steps would — status PASSED, identity named after the profile name.
+ */
+export function simulateEkycPassed(state: DemoState, accountId: string, t: number): void {
+  const p = kolOf(state, accountId, t);
+  if (p.ekycStatus === 'PASSED' && state.identities.some((x) => x.accountId === accountId)) return;
+  const ocr = fakeOcr(p, 'SUCCESS');
+  const ocrSession = { id: newId('ekyc', t), accountId, step: 'OCR' as const, resultCode: 'OK' as const, counted: false, createdAt: t };
+  const faceSession = { ...ocrSession, id: newId('ekyc', t + 1), step: 'FACE' as const };
+  state.ekycSessions.push(ocrSession, faceSession);
+  state.identities = state.identities.filter((x) => x.accountId !== accountId);
+  state.identities.push({ accountId, ...ocr, ekycSessionId: faceSession.id, verifiedAt: t });
+  delete p.ekycDraft;
+  p.ekycStatus = 'PASSED';
+  p.updatedAt = t;
+  trackFunnel(state, subjectOf(state, accountId), 'ekyc_ocr_passed', t);
+  trackFunnel(state, subjectOf(state, accountId), 'ekyc_face_passed', t);
+}
+
 function buildView(state: DemoState, accountId: string, now: number): EkycView {
   const p = findProfile(state, accountId);
   if (!p || p.ownerType !== 'KOL') throw new Error('NOT_KOL');
