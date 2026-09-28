@@ -78,10 +78,10 @@ export function ProfileHeader({ view, onSubmit }: ProfileHeaderProps) {
         <ImageButton label="Đổi ảnh bìa" kind="cover" accountId={profile.accountId} className="absolute right-3 bottom-3" />
       </div>
 
-      <div className="px-4 pb-4 md:px-6 md:pb-6">
+      <div className="px-4 pt-3 pb-4 md:px-6 md:pb-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="flex min-w-0 items-end gap-3">
-            <div className="relative -mt-10 shrink-0">
+            <div className="relative -mt-12 shrink-0">
               <ProfileAvatar name={name || profile.contact.email} src={profile.avatar?.thumbnail} />
               <ImageButton label="Đổi ảnh đại diện" kind="avatar" accountId={profile.accountId} className="absolute -right-1 -bottom-1 size-8" />
             </div>
