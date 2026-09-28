@@ -1,56 +1,54 @@
-# KOL Hub — MCN quản lý KOL và Kênh riêng MCN
+# KOL Hub — MCN gán kênh cho KOL và Kênh riêng MCN
 
-Ngày: 2026-09-28 · Trạng thái: đã làm Đợt 1 (dữ liệu, dịch vụ, màn MCN "Quản lý KOL", thẻ "MCN quản lý" của KOL) và Đợt 2 (chủ sở hữu kênh trong "Quản lý kênh" của MCN).
+Ngày: 2026-09-28 · Trạng thái: đã làm.
 
-Yêu cầu: "MCN sẽ phải quản lý cả Danh sách KOL + các Kênh riêng của MCN phát triển không gán KOL".
-Trước đây liên kết KOL–MCN nằm ngoài phạm vi (xem `2026-09-27-kolhub-user-prototype-design.md` §Không làm và `2026-09-28-kolhub-role-switch-unified-profile-design.md` §3); nay **đưa vào phạm vi**.
+Yêu cầu: "MCN sẽ phải quản lý cả Danh sách KOL + các Kênh riêng của MCN phát triển không gán KOL", sau đó chỉnh lại: "Không có mời KOL bỏ đi. Chỉ có gán nhiều kênh cho 1 KOL thôi".
+Trước đây quan hệ KOL–MCN nằm ngoài phạm vi (xem `2026-09-27-kolhub-user-prototype-design.md` §Không làm và `2026-09-28-kolhub-role-switch-unified-profile-design.md` §3). Nay chỉ **gán kênh MCN cho KOL** được đưa vào phạm vi; lời mời, chấp nhận hay liên kết MCN–KOL **không có**.
 
 ## 1. Dữ liệu
 
-- `McnKolLink { id, mcnAccountId, kolAccountId, status: PENDING | ACTIVE | DECLINED | ENDED, invitedAt, respondedAt?, endedAt?, endedBy?: 'MCN' | 'KOL' }` — `DemoState.mcnKolLinks` (`services/mcn-kol-types.ts`).
-- `Channel.assignedKolAccountId?` — chỉ dùng cho kênh của MCN. Không có giá trị = **Kênh riêng MCN**.
-- DB_VERSION 7 (dữ liệu cũ được thay bằng seed).
+- Quan hệ duy nhất: `Channel.assignedKolAccountId?` (+ `assignedAt?`), chỉ dùng cho kênh của MCN. Không có giá trị = **Kênh riêng MCN**.
+- Không có bảng liên kết. Bản đầu (v7) có `mcnKolLinks` với lời mời PENDING/ACTIVE/DECLINED/ENDED; đã bỏ ở **DB_VERSION 8** (dữ liệu cũ được thay bằng seed).
+- "Danh sách KOL" của MCN = các KOL đang giữ ≥ 1 kênh của MCN (suy ra từ kênh, không lưu riêng).
 
 ## 2. Quy tắc
 
 | # | Quy tắc | Mã lỗi |
 |---|---|---|
-| R1 | Chỉ MCN **đã duyệt** mới mời KOL. | KOLHUB-4701 |
-| R2 | Mời bằng KOL ID (không phân biệt hoa thường) hoặc email đăng nhập của KOL; ô trống bị chặn. | KOLHUB-4702 |
-| R3 | Chỉ mời KOL **đã duyệt, có KOL ID**; tài khoản không tồn tại / chưa duyệt / không phải KOL đều báo chung một lỗi. | KOLHUB-4703 |
-| R4 | Không trùng: đã có lời mời đang chờ từ MCN này / KOL đang do MCN này quản lý. | KOLHUB-4704 / 4705 |
-| R5 | Một KOL có **tối đa một MCN ACTIVE**: không mời được KOL đang thuộc MCN khác; KOL đang có MCN không chấp nhận được lời mời khác (phải rời trước). | KOLHUB-4706 / 4708 |
-| R6 | MCN huỷ lời mời PENDING (bản ghi bị **xoá** vì quan hệ chưa bắt đầu); MCN kết thúc liên kết ACTIVE → ENDED (endedBy MCN). | KOLHUB-4707 khi sai trạng thái / không phải của mình |
-| R7 | KOL chấp nhận / từ chối lời mời PENDING; rời MCN (ACTIVE → ENDED, endedBy KOL). | KOLHUB-4707 |
-| R8 | Khi KOL chấp nhận một lời mời, các lời mời PENDING khác của KOL tự chuyển **DECLINED**. | — |
-| R9 | Mời lại sau DECLINED/ENDED được: tạo bản ghi mới; danh sách của MCN chỉ hiện bản ghi mới nhất mỗi KOL. | — |
-| R10 | Chỉ gán kênh MCN cho KOL đang ACTIVE với chính MCN đó; kênh phải thuộc MCN. `null` = trả về Kênh riêng MCN. | KOLHUB-4709 / 4710 |
-| R11 | Kết thúc / rời liên kết → mọi kênh MCN đã gán cho KOL đó trở về Kênh riêng MCN. | — |
-| R12 | Kênh MCN vẫn thuộc MCN (xác thực, bật/tắt, KOL Safety…); gán chỉ là thông tin quản lý nội bộ, **không** cộng follower vào hồ sơ KOL và không hiện với Nhãn hàng. | — |
+| R1 | Chỉ MCN **đã duyệt** mới gán kênh. Bỏ gán thì không cần. | KOLHUB-4701 |
+| R2 | Gán cho **bất kỳ KOL đã duyệt (có KOL ID)**; tìm theo tên, KOL ID hoặc email đăng nhập (email không hiển thị trong kết quả). | KOLHUB-4702 |
+| R3 | Chỉ gán / bỏ gán kênh **của chính MCN**; một lần gán là tất cả hoặc không. | KOLHUB-4703 |
+| R4 | Phải chọn ít nhất một kênh. | KOLHUB-4704 |
+| R5 | Nhiều kênh → một KOL; mỗi kênh tối đa một KOL. Gán kênh đang thuộc KOL khác = **chuyển** sang KOL mới; gán lại cho chính KOL đó không đổi gì (giữ `assignedAt`). | — |
+| R6 | Bỏ gán → Kênh riêng MCN; dịch vụ trả về chủ cũ để giao diện "Hoàn tác". | — |
+| R7 | Không có bước KOL chấp nhận, không gửi thông báo; KOL không thấy gì trong hồ sơ của mình. | — |
+| R8 | Một KOL **có thể nhận kênh của nhiều MCN** (không giới hạn). | — |
+| R9 | Kênh vẫn thuộc MCN (xác thực, bật/tắt, KOL Safety…). Gán chỉ là thông tin quản lý nội bộ của MCN: **không** cộng follower vào hồ sơ KOL và không hiện với Nhãn hàng. Riêng trong "Quản lý kênh" của MCN, dòng kênh đã gán hiện lĩnh vực và khu vực của KOL đó. | — |
 
-## 3. Màn hình (Đợt 1)
+Mã 4701–4704 là mã mới trong danh mục lỗi; bản đầu dùng 4701–4710 cho lời mời, nay đã bỏ.
 
-- **MCN → "Quản lý KOL"** (`/ho-so-mcn/kol`, nhóm "Hồ sơ MCN", chỉ MCN; trên điện thoại nằm đầu mục "Thêm"). Trang riêng (không có đầu trang Hồ sơ).
-  Thanh lọc chung (tìm tên / KOL ID, Lĩnh vực, Sắp xếp) + tab Đang quản lý / Chờ xác nhận / Đã kết thúc (gồm Đã từ chối) có số đếm; trạng thái lọc ở URL (`?tab=cho-xac-nhan&q=&linh-vuc=&sap-xep=`).
-  Mỗi dòng: avatar, tên, KOL ID, lĩnh vực · khu vực, tổng follower các kênh xác thực của KOL, "N kênh MCN" (khi đang quản lý), trạng thái + ngày.
-  Menu ⋯: Xem kênh được gán (`/ho-so-mcn/kenh?kol=<KOL ID>`) · Kết thúc quản lý (xác nhận) — hoặc Huỷ lời mời (xác nhận).
-  "Mời KOL" mở hộp thoại nhập KOL ID/email; MCN chưa duyệt thấy thông báo và nút bị khoá.
-- **KOL → Thông tin liên hệ**: thẻ "MCN quản lý" phía trên nội dung: lời mời chờ (Chấp nhận / Từ chối) hoặc MCN hiện tại (Rời MCN, có xác nhận). Không có gì thì không hiện thẻ.
+## 3. Dịch vụ `mcnKolService`
 
-## 4. Seed
+`listKols(mcnAccountId)` (KOL đang giữ kênh: thông tin công khai, lĩnh vực, số kênh, danh sách kênh, `lastAssignedAt`) · `searchKols(query)` (KOL đã duyệt, A → Z, tối đa 20) · `assignChannels(mcnAccountId, channelIds[], kolAccountId)` · `unassignChannels(mcnAccountId, channelIds[])`.
 
-Sao Việt Media (saoviet@demo.kolhub.vn) quản lý KOL-2026-0011…0016; 6/12 kênh được gán (ch-01, 06 → 0011; 02 → 0012; 04 → 0013; 05 → 0014; 09 → 0015; 0016 chưa có kênh), 6 kênh còn lại là Kênh riêng MCN. Có một lời mời chờ gửi Khánh Vy (khanhvy@demo.kolhub.vn) để demo luồng Chấp nhận; Khánh Vy không thuộc MCN nào khi bắt đầu.
+## 4. Màn hình
 
-## 5. Quyết định khác
+- **MCN → "Quản lý KOL"** (`/ho-so-mcn/kol`, nhóm "Hồ sơ MCN", chỉ MCN; trên điện thoại nằm đầu mục "Thêm"). Không có tab, không có lời mời.
+  - Thanh lọc chung (tìm tên / KOL ID, Lĩnh vực, Sắp xếp: Gán gần nhất / Nhiều kênh nhất / Nhiều người theo dõi / Tên), trạng thái ở URL (`?q=&linh-vuc=&sap-xep=`). Dòng đếm: N KOL · x kênh đã gán · y Kênh riêng MCN.
+  - Nút **"Gán kênh cho KOL"** → hộp thoại: (1) chọn KOL (tìm tên / KOL ID / email; avatar, tên, KOL ID, lĩnh vực) → (2) chọn nhiều kênh của MCN (icon nền tảng, tên kênh, chủ hiện tại: "Kênh riêng MCN" hoặc "Đang gán: <KOL> — sẽ chuyển sang KOL mới"; kênh đã thuộc KOL đang chọn hiện sẵn và khoá), lối tắt "Chọn tất cả kênh riêng", xác nhận **"Gán N kênh"**.
+  - Mỗi dòng: avatar, tên, KOL ID · lĩnh vực · khu vực, follower, "N kênh" + icon nền tảng, ngày gán gần nhất. Menu ⋯: Xem kênh được gán (`/ho-so-mcn/kenh?kol=<KOL ID>`) · Gán thêm kênh (hộp thoại chọn sẵn KOL) · Bỏ gán tất cả kênh (xác nhận; toast có Hoàn tác).
+  - Trống: "Chưa gán kênh cho KOL nào" + nút gán. MCN chưa duyệt: thông báo và nút bị khoá.
+- **MCN → "Quản lý kênh"** (dùng chung ChannelRow / OwnerChannelSheet):
+  - Dưới link: trạng thái duyệt + chủ sở hữu ("KOL: <tên>" hoặc "Kênh riêng MCN").
+  - Bộ lọc "Chủ sở hữu" cạnh tab trạng thái: Tất cả / Kênh riêng MCN / từng KOL đang giữ kênh (kèm số kênh). URL `?kol=rieng` hoặc `?kol=<KOL ID>`, kết hợp với `?trangThai=`; số đếm tab theo chủ sở hữu đang chọn.
+  - Menu ⋯: Gán cho KOL / Đổi KOL được gán (cùng hộp thoại, tìm trong mọi KOL đã duyệt) · Chuyển về Kênh riêng MCN (toast Hoàn tác). "Chi tiết kênh" có mục "Chủ sở hữu" với cùng thao tác.
+  - **Không làm** chọn nhiều dòng + thanh thao tác hàng loạt ở đây: ChannelRow dùng chung (cả Nhãn hàng) chưa có ô chọn, thêm vào sẽ làm phức tạp dòng; gán hàng loạt đã có ở hộp thoại của "Quản lý KOL".
+- **KOL:** không có gì mới (không có thẻ "MCN quản lý").
 
-- Không gửi thông báo email/SMS cho lời mời (chỉ hiện trong hồ sơ KOL); có thể thêm sau qua noticeInbox.
-- Không cho KOL xem danh sách kênh MCN gán cho mình, chỉ hiện số kênh.
-- **Nhãn hàng:** bộ lọc BR-55 "thuộc MCN" và thông tin MCN trên hồ sơ KOL công khai **vẫn ẩn** ở đợt này.
+## 5. Seed
 
-## 6. Đợt 2 — chủ sở hữu kênh trong "Quản lý kênh" của MCN
+Sao Việt Media (saoviet@demo.kolhub.vn): 6/12 kênh đã gán — ch-01, ch-06 → KOL-2026-0011 (2 kênh); ch-02 → 0012; ch-04 → 0013; ch-05 → 0014; ch-09 → 0015. 6 kênh còn lại là Kênh riêng MCN. Khánh Vy (KOL-2026-0001) không nhận kênh nào.
 
-- Dòng kênh (ChannelRow dùng chung, không tách bản riêng): dưới link hiện trạng thái duyệt + chủ sở hữu — "KOL: <tên>" (avatar nhỏ) hoặc "Kênh riêng MCN".
-- Bộ lọc "Chủ sở hữu" cạnh các tab trạng thái: Tất cả / Kênh riêng MCN / từng KOL đang quản lý (A → Z, kèm số kênh). URL `?kol=rieng` hoặc `?kol=<KOL ID>`; kết hợp với `?trangThai=`; số đếm trên tab trạng thái tính theo chủ sở hữu đang chọn. KOL ID không còn được quản lý → danh sách rỗng + "Xem tất cả chủ sở hữu".
-- Menu ⋯ của dòng: "Gán cho KOL" / "Đổi KOL được gán" (hộp thoại chọn Kênh riêng MCN hoặc một KOL ACTIVE) và "Chuyển về Kênh riêng MCN" (thực hiện ngay, toast có Hoàn tác).
-- "Chi tiết kênh" (OwnerChannelSheet): mục "Chủ sở hữu" với cùng thông tin và nút Gán / Đổi KOL / Bỏ gán.
-- Kênh gán cho KOL đã kết thúc (dữ liệu cũ) được coi là Kênh riêng MCN. Màn "Quản lý kênh" của KOL không đổi.
+## 6. Ngoài phạm vi
+
+Thông báo cho KOL, KOL xem kênh được gán, bộ lọc BR-55 "thuộc MCN" phía Nhãn hàng (vẫn ẩn), thông tin MCN trên hồ sơ KOL công khai.
