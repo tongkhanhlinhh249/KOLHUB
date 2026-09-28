@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router';
 import { ChevronLeft } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from './ui/utils';
+import { AccountMenu } from './AccountMenu';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE_CONFIG, type MenuItem } from '../auth/roles';
 
@@ -62,8 +63,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </div>
       </nav>
 
-      {/* Collapse */}
-      <div className="shrink-0 space-y-0.5 border-t border-panel-sidebar p-2">
+      {/* Account + collapse */}
+      <div className="shrink-0 space-y-1 border-t border-panel-sidebar p-2">
+        <AccountMenu variant="sidebar" collapsed={collapsed} />
         <SidebarTip label={collapsed ? 'Mở rộng' : undefined}>
           <button
             type="button"
