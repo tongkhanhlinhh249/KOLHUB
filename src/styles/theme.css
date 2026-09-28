@@ -3,50 +3,50 @@
 :root {
   --font-size: 16px;
 
-  /* NetSpace preset — @make-kits/make-kit-netspace (netspace.vn brand system) */
+  /* NetSpace kit preset, orange brand (KOLHUB logo #f15a29 → #f7941d) with warm neutral surfaces */
   --background: #ffffff;
   --foreground: #131313;
   --card: #ffffff;
   --card-foreground: #131313;
   --popover: #ffffff;
   --popover-foreground: #131313;
-  --primary: #1eaaff;
+  --primary: #f15a29;
   --primary-foreground: #ffffff;
-  --secondary: #eef3fb;
+  --secondary: #f7f2ef;
   --secondary-foreground: #131313;
-  --muted: #eef3fb;
+  --muted: #f7f2ef;
   --muted-foreground: #595959;
-  --accent: #e8e2ff;
-  --accent-foreground: #5b2bc4;
+  --accent: #fff0e8;
+  --accent-foreground: #c2410c;
   --destructive: #f86880;
   --destructive-foreground: #ffffff;
-  --border: #e4e9f3;
-  --input: #e4e9f3;
-  --input-background: #f7faff;
-  --switch-background: #cbd5e6;
+  --border: #efe6e1;
+  --input: #efe6e1;
+  --input-background: #fdfaf8;
+  --switch-background: #dccfc8;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #1eaaff;
-  --chart-1: #1eaaff;
+  --ring: #f15a29;
+  --chart-1: #f15a29;
   --chart-2: #7c5cff;
   --chart-3: #f86880;
   --chart-4: #22c55e;
   --chart-5: #ffb020;
   --radius: 1rem;
-  --sidebar: #f7faff;
+  --sidebar: #fdfaf8;
   --sidebar-foreground: #131313;
-  --sidebar-primary: #1eaaff;
+  --sidebar-primary: #f15a29;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eef3fb;
+  --sidebar-accent: #fdeee6;
   --sidebar-accent-foreground: #131313;
-  --sidebar-border: #e4e9f3;
-  --sidebar-ring: #1eaaff;
+  --sidebar-border: #efe6e1;
+  --sidebar-ring: #f15a29;
 
   /* Admin dashboard shell — NetSpace kit pattern */
-  --page: #f7faff;
-  --panel-border: rgba(29, 73, 166, 0.1);
-  --panel-border-subtle: rgba(29, 73, 166, 0.05);
-  --panel-border-sidebar: rgba(29, 73, 166, 0.08);
+  --page: #fdfaf8;
+  --panel-border: rgba(150, 70, 30, 0.1);
+  --panel-border-subtle: rgba(150, 70, 30, 0.05);
+  --panel-border-sidebar: rgba(150, 70, 30, 0.08);
 }
 
 .dark {

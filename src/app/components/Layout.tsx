@@ -23,7 +23,7 @@ function useSidebarCollapsed() {
 
 /*
  * NetSpace admin dashboard shell:
- *   page bg (#f7faff) → sidebar (same tint) + 16px gutter → content card
+ *   page bg (--page) → sidebar (same tint) + 16px gutter → content card
  *   (rounded-[20px], panel border) → topbar (with page title) → scrollable content.
  * Mobile drops the gutter/card and uses the bottom tab bar instead of the sidebar.
  */
