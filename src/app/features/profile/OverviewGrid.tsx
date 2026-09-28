@@ -75,12 +75,13 @@ function SectionCard({ section, summary, actions }: { section: OverviewSection; 
         !section.complete && 'border-chart-5/50',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      {/* Title never truncates: the state badge wraps under it when the card is narrow. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
         <h3 id={titleId} className="flex min-w-0 items-center gap-2 font-semibold text-foreground">
           <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
             <Icon className="size-4" aria-hidden />
           </span>
-          <span className="truncate">{section.title}</span>
+          <span className="whitespace-nowrap">{section.title}</span>
         </h3>
         <SectionStateBadge section={section} />
       </div>
