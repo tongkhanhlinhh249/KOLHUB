@@ -67,6 +67,7 @@ test('milestoneBadge: nhãn ngắn và trang con tương ứng', () => {
     { label: 'Gửi xét duyệt', to: '/ho-so-kol/tong-quan' },
   ]);
   expect(milestoneBadge('MCN', 'identity')).toEqual({ label: 'GCN ĐKDN', to: '/ho-so-mcn/thong-tin#dinh-danh' });
+  expect(milestoneBadge('MCN', 'kols')).toEqual({ label: 'KOL', to: '/ho-so-mcn/kol' });
 });
 
 test('checklistLink: điều kiện chưa đạt dẫn tới trang cần sửa', () => {
@@ -76,5 +77,6 @@ test('checklistLink: điều kiện chưa đạt dẫn tới trang cần sửa',
   expect(checklistLink('KOL', 'contact')).toBe('/ho-so-kol/thong-tin#lien-he');
   expect(checklistLink('KOL', 'staff')).toBe('/ho-so-kol/thong-tin#nhan-su');
   expect(checklistLink('MCN', 'channel')).toBe('/ho-so-mcn/kenh');
+  expect(checklistLink('MCN', 'kols')).toBe('/ho-so-mcn/kol');
   expect(checklistLink('KOL', 'pledges')).toBeUndefined();
 });

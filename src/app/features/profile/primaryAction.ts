@@ -103,12 +103,18 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
   }
 }
 
-export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
+export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'kols' | 'submitted';
 
-/** Where each milestone / submit condition gets done: a block of "Thông tin hồ sơ" or a section. */
-type Target = ProfileAnchor | Exclude<ProfileSection, 'thong-tin'>;
+/** MCN "Quản lý KOL" (assign channels to KOLs); `openAssign` adds ?gan=1 so the page opens its assign dialog. */
+export function mcnKolsPath(opts?: { openAssign?: boolean }): string {
+  return `${profileBase('MCN')}/kol${opts?.openAssign ? '?gan=1' : ''}`;
+}
+
+/** Where each milestone / submit condition gets done: a block of "Thông tin hồ sơ", a section or (MCN) "Quản lý KOL". */
+type Target = ProfileAnchor | Exclude<ProfileSection, 'thong-tin'> | 'kol';
 
 function targetPath(ownerType: OwnerType, t: Target): string {
+  if (t === 'kol') return mcnKolsPath();
   return isProfileAnchor(t) ? infoPath(ownerType, t) : profilePath(ownerType, t);
 }
 
@@ -117,6 +123,7 @@ const MILESTONE_TARGET: Record<MilestoneKey, Target> = {
   staff: 'nhan-su',
   identity: 'dinh-danh',
   channel: 'kenh',
+  kols: 'kol',
   submitted: 'tong-quan',
 };
 
@@ -127,6 +134,7 @@ export function milestoneBadge(ownerType: OwnerType, key: MilestoneKey): { label
     staff: 'Nhân sự',
     identity: ownerType === 'KOL' ? 'eKYC' : 'GCN ĐKDN',
     channel: 'Kênh & ảnh',
+    kols: 'KOL',
     submitted: 'Gửi xét duyệt',
   };
   return { label: labels[key], to: targetPath(ownerType, MILESTONE_TARGET[key]) };
@@ -141,6 +149,7 @@ const CHECKLIST_TARGET: Partial<Record<ChecklistKey, Target>> = {
   contact: 'lien-he',
   staff: 'nhan-su',
   channel: 'kenh',
+  kols: 'kol',
 };
 
 /** Page where an unmet submit condition gets fixed (pledges are ticked in place → undefined). */

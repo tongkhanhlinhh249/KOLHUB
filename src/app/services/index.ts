@@ -60,7 +60,16 @@ export type { FunnelRow, FunnelService } from './mock/funnel';
 export type { ChannelFilter } from './mock/channelRules';
 export type { Completeness, Milestone, ChecklistItem, TimelineStep } from './mock/profileRules';
 export { detectPlatform, validateProofImage, validateGcnFile, countByFilter, matchesFilter } from './mock/channelRules';
-export { buildTimeline, PLEDGES_LABEL, REVIEW_SLA_NOTE } from './mock/profileRules';
+export {
+  buildTimeline,
+  canManageKolAssignments,
+  CHANNEL_REQUIREMENT_LABEL,
+  KOLS_REQUIREMENT_LABEL,
+  missingContactFields,
+  missingOrgFields,
+  PLEDGES_LABEL,
+  REVIEW_SLA_NOTE,
+} from './mock/profileRules';
 export { FUNNEL_STEPS, formatDuration } from './mock/funnel';
 // --- unified KOL data (seed v2) ---
 export { toPublicKol, publicKolOf, normalizeText, normalizeUrl, channelBadge } from './mock/directory';

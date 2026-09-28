@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
 import { cn } from '../../components/ui/utils';
 import { MCN_KOLS_PATH } from '../../auth/roles';
-import { mcnKolService, type Channel, type McnKolRow } from '../../services';
+import { canManageKolAssignments, mcnKolService, type Channel, type McnKolRow, type ProfileStatus } from '../../services';
 import { channelName } from '../channels/ChannelParts';
 import { FilterSelect } from '../filters/FilterSelect';
 import { useLiveQuery } from '../shared/useLiveQuery';
@@ -15,7 +15,11 @@ import { filterByOwner, OWN_CHANNELS_LABEL, OWNER_PARAM, ownerOf, ownerOptions, 
 import { KolAvatar } from './McnKolRow';
 
 const MENU_ITEM = 'min-h-11 md:min-h-9';
-const NOT_APPROVED = 'Cần duyệt hồ sơ';
+/** Short reason in the More menu when assigning is locked (profile under review / rejected). */
+export function assignLockedShort(status: ProfileStatus | undefined): string {
+  return status === 'REJECTED' ? 'Hồ sơ bị từ chối' : 'Đang xét duyệt';
+}
+export const ASSIGN_LOCKED_TEXT = 'Không thể gán kênh khi hồ sơ MCN đang xét duyệt hoặc đã bị từ chối.';
 const nameOf = (c: Channel) => channelName(c.handle, c.url);
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
@@ -43,9 +47,11 @@ export function ChannelOwnerTag({ owner, className }: { owner: McnKolRow | null;
  * MCN "Quản lý kênh" owner features, plugged into the shared ChannelsTab / ChannelRow slots:
  * `?kol=` filter (Tất cả / Kênh riêng MCN / each KOL holding channels), owner tag, More-menu items,
  * the "Chủ sở hữu" section of the detail sheet and the assign dialog (any approved KOL).
- * No-ops when `enabled` is false (KOL). `canAssign` = the MCN profile is approved.
+ * No-ops when `enabled` is false (KOL). Assigning / unassigning follows `canManageKolAssignments`
+ * (MCN profile DRAFT, NEEDS_FIX or APPROVED; locked while under review or rejected).
  */
-export function useMcnChannelOwners(accountId: string, enabled: boolean, canAssign = true) {
+export function useMcnChannelOwners(accountId: string, enabled: boolean, profileStatus?: ProfileStatus) {
+  const canAssign = !profileStatus || canManageKolAssignments(profileStatus);
   const q = useLiveQuery(
     () => (enabled ? mcnKolService.listKols(accountId) : Promise.resolve([] as McnKolRow[])),
     [accountId, enabled],
@@ -96,10 +102,10 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean, canAssi
         <DropdownMenuItem className={MENU_ITEM} disabled={!canAssign} onSelect={() => setTarget(c)}>
           {assigned ? <ArrowLeftRight aria-hidden /> : <UserPlus aria-hidden />}
           {assigned ? 'Đổi KOL được gán' : 'Gán cho KOL'}
-          {!canAssign && <span className="ml-auto text-xs text-muted-foreground">{NOT_APPROVED}</span>}
+          {!canAssign && <span className="ml-auto text-xs text-muted-foreground">{assignLockedShort(profileStatus)}</span>}
         </DropdownMenuItem>
         {assigned && (
-          <DropdownMenuItem className={MENU_ITEM} onSelect={() => void unassign(c)}>
+          <DropdownMenuItem className={MENU_ITEM} disabled={!canAssign} onSelect={() => void unassign(c)}>
             <Building2 aria-hidden />
             Chuyển về {OWN_CHANNELS_LABEL}
           </DropdownMenuItem>
@@ -132,7 +138,7 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean, canAssi
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             {c.assignedKolAccountId && (
-              <Button type="button" variant="ghost" className="h-11 sm:h-9" onClick={() => void unassign(c)}>
+              <Button type="button" variant="ghost" className="h-11 sm:h-9" disabled={!canAssign} onClick={() => void unassign(c)}>
                 <Building2 aria-hidden />
                 Bỏ gán
               </Button>
@@ -144,7 +150,7 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean, canAssi
           </div>
         </div>
         {!canAssign ? (
-          <p className="text-xs text-muted-foreground">Hồ sơ tổ chức cần được duyệt trước khi gán kênh cho KOL.</p>
+          <p className="text-xs text-muted-foreground">{ASSIGN_LOCKED_TEXT}</p>
         ) : (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="size-3.5" aria-hidden />

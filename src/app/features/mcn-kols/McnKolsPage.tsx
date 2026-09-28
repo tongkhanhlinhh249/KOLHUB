@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { AlertCircle, Building2, Info, MonitorPlay, MoreHorizontal, Plus, RotateCcw, SearchX, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -16,13 +16,23 @@ import {
 import { Button, buttonVariants } from '../../components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../auth/AuthContext';
-import { channelService, KOL_CATEGORIES, mcnKolService, profileService, type KolCategory, type McnKolRow } from '../../services';
+import {
+  canManageKolAssignments,
+  channelService,
+  KOL_CATEGORIES,
+  mcnKolService,
+  profileService,
+  type KolCategory,
+  type McnKolRow,
+} from '../../services';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { SortSelect } from '../filters/SortSelect';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { profilePath } from '../profile/primaryAction';
 import { AssignChannelsDialog } from './AssignChannelsDialog';
+import { ASSIGN_LOCKED_TEXT } from './useMcnChannelOwners';
 import { McnKolListRow, McnKolListRowSkeleton } from './McnKolRow';
 import {
   applyMcnKolQuery,
@@ -36,7 +46,11 @@ import {
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-/** /ho-so-mcn/kol — KOLs holding channels of the signed-in MCN: assign channels (many → one KOL), unassign. */
+/**
+ * /ho-so-mcn/kol — KOLs holding channels of the signed-in MCN: assign channels (many → one KOL), unassign.
+ * Allowed while the MCN profile is DRAFT / NEEDS_FIX (≥ 1 assigned KOL is a submit condition) or APPROVED;
+ * locked while under review or rejected. `?gan=1` opens the assign dialog once (overview CTA).
+ */
 export function McnKolsPage() {
   const { account } = useAuth();
   const accountId = account?.id ?? '';
@@ -46,7 +60,7 @@ export function McnKolsPage() {
       channelService.list(accountId),
       profileService.getProfile(accountId),
     ]);
-    return { rows, channels, approved: view.profile.status === 'APPROVED' };
+    return { rows, channels, status: view.profile.status };
   }, [accountId]);
 
   const [params, setParams] = useSearchParams();
@@ -64,7 +78,24 @@ export function McnKolsPage() {
 
   const all = q.data?.rows;
   const channels = q.data?.channels ?? [];
-  const approved = q.data?.approved ?? false;
+  const status = q.data?.status;
+  const canAssign = !!status && canManageKolAssignments(status);
+  const preparing = status === 'DRAFT' || status === 'NEEDS_FIX';
+
+  // "Gán kênh cho KOL" from the overview (?gan=1): open the dialog once the profile state is known.
+  const openAssign = params.get('gan') === '1';
+  useEffect(() => {
+    if (!openAssign || !status) return;
+    if (canAssign) setAssign({ kol: null });
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('gan');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [openAssign, status, canAssign, setParams]);
   const rows = useMemo(() => applyMcnKolQuery(all ?? [], query), [all, query]);
   const active = hasMcnKolFilters(query);
   const ownCount = channels.filter((c) => !c.assignedKolAccountId).length;
@@ -102,11 +133,11 @@ export function McnKolsPage() {
             Xem kênh được gán
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem className="min-h-11 md:min-h-8" disabled={!approved} onSelect={() => setAssign({ kol: r })}>
+        <DropdownMenuItem className="min-h-11 md:min-h-8" disabled={!canAssign} onSelect={() => setAssign({ kol: r })}>
           <Plus aria-hidden />
           Gán thêm kênh
         </DropdownMenuItem>
-        <DropdownMenuItem variant="destructive" className="min-h-11 md:min-h-8" onSelect={() => setConfirm(r)}>
+        <DropdownMenuItem variant="destructive" className="min-h-11 md:min-h-8" disabled={!canAssign} onSelect={() => setConfirm(r)}>
           <Building2 aria-hidden />
           Bỏ gán tất cả kênh
         </DropdownMenuItem>
@@ -116,7 +147,7 @@ export function McnKolsPage() {
 
   const chips: FilterChip[] = query.category ? [{ key: 'category', label: query.category, remove: () => change({ category: undefined }) }] : [];
   const assignButton = (
-    <Button type="button" className="h-11 md:h-9" onClick={() => setAssign({ kol: null })} disabled={!approved}>
+    <Button type="button" className="h-11 md:h-9" onClick={() => setAssign({ kol: null })} disabled={!canAssign}>
       <Plus aria-hidden />
       Gán kênh cho KOL
     </Button>
@@ -154,7 +185,7 @@ export function McnKolsPage() {
         <p className="max-w-md text-sm text-muted-foreground">
           Chọn một KOL đã được duyệt và giao cho KOL đó một hoặc nhiều kênh của MCN. Kênh chưa gán là Kênh riêng MCN.
         </p>
-        {approved && assignButton}
+        {canAssign && assignButton}
       </div>
     );
   } else if (rows.length === 0) {
@@ -184,15 +215,29 @@ export function McnKolsPage() {
 
   return (
     <div className="@container mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
-      {q.data && !approved && (
+      {q.data && !canAssign && (
         <Alert>
           <Info className="size-4" aria-hidden />
-          <AlertTitle>Hồ sơ tổ chức chưa được duyệt</AlertTitle>
+          <AlertTitle>{status === 'REJECTED' ? 'Hồ sơ tổ chức không được duyệt' : 'Hồ sơ tổ chức đang xét duyệt'}</AlertTitle>
           <AlertDescription>
             <p>
-              Bạn cần được duyệt hồ sơ trước khi gán kênh cho KOL.{' '}
-              <Link to="/ho-so-mcn/tong-quan" className="font-medium text-primary underline-offset-4 hover:underline">
+              {ASSIGN_LOCKED_TEXT}{' '}
+              <Link to={profilePath('MCN', 'tong-quan')} className="font-medium text-primary underline-offset-4 hover:underline">
                 Xem trạng thái hồ sơ
+              </Link>
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+      {q.data && preparing && all && all.length === 0 && (
+        <Alert>
+          <Info className="size-4" aria-hidden />
+          <AlertTitle>Cần gán kênh cho ít nhất 1 KOL</AlertTitle>
+          <AlertDescription>
+            <p>
+              Hồ sơ MCN chỉ gửi xét duyệt được khi có ít nhất 1 KOL được gán kênh.{' '}
+              <Link to={profilePath('MCN', 'tong-quan')} className="font-medium text-primary underline-offset-4 hover:underline">
+                Xem điều kiện gửi hồ sơ
               </Link>
             </p>
           </AlertDescription>

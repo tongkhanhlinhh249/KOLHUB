@@ -8,6 +8,7 @@ import { delay as fakeDelay } from './delay';
 import { isSearchableChannel, normalizeText } from './directory';
 import { profileDisplayName } from './identity';
 import { normalizeEmail } from './normalize';
+import { canManageKolAssignments } from './profileRules';
 
 export interface McnKolServiceDeps {
   db: Db;
@@ -68,6 +69,12 @@ export function createMcnKolService(deps: McnKolServiceDeps) {
     return set;
   }
 
+  /** 4701 while the MCN profile is under review or rejected (assigning is part of preparing the profile). */
+  function requireAssignable(state: DemoState, mcnAccountId: string): void {
+    const p = state.mcnProfiles.find((x) => x.accountId === mcnAccountId);
+    if (!p || !canManageKolAssignments(p.status)) throw new KolhubError('KOLHUB-4701');
+  }
+
   /** KOLs holding ≥ 1 channel of this MCN, most recently assigned first. */
   async function listKols(mcnAccountId: string): Promise<McnKolRow[]> {
     await wait();
@@ -109,14 +116,15 @@ export function createMcnKolService(deps: McnKolServiceDeps) {
   }
 
   /**
-   * Assign channels of an approved MCN to one approved KOL (4701–4704). Channels held by another KOL move;
+   * Assign channels of an MCN (profile DRAFT, NEEDS_FIX or APPROVED) to one approved KOL (4701–4704).
+   * Channels held by another KOL move;
    * channels already held by this KOL are left untouched. All-or-nothing.
    */
   async function assignChannels(mcnAccountId: string, channelIds: string[], kolAccountId: string): Promise<{ assigned: number }> {
     await wait();
     const state = db.read();
     const ids = ownChannels(state, mcnAccountId, channelIds);
-    if (!state.mcnProfiles.some((p) => p.accountId === mcnAccountId && p.status === 'APPROVED')) throw new KolhubError('KOLHUB-4701');
+    requireAssignable(state, mcnAccountId);
     const kol = state.kolProfiles.find((p) => p.accountId === kolAccountId);
     if (!kol || !isApprovedKol(kol)) throw new KolhubError('KOLHUB-4702');
     const t = now();
@@ -133,10 +141,15 @@ export function createMcnKolService(deps: McnKolServiceDeps) {
     return { assigned };
   }
 
-  /** Back to "Kênh riêng MCN". Returns the previous owners (only channels that had one) for undo. */
+  /**
+   * Back to "Kênh riêng MCN" (same profile-status rule as assigning, 4701). Returns the previous owners
+   * (only channels that had one) for undo.
+   */
   async function unassignChannels(mcnAccountId: string, channelIds: string[]): Promise<ChannelAssignment[]> {
     await wait();
-    const ids = ownChannels(db.read(), mcnAccountId, channelIds);
+    const state = db.read();
+    const ids = ownChannels(state, mcnAccountId, channelIds);
+    requireAssignable(state, mcnAccountId);
     const t = now();
     const prev: ChannelAssignment[] = [];
     db.update((s) => {

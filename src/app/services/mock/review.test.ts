@@ -53,12 +53,17 @@ function readyKol(hh: Harness): { c1: string; c2: string } {
   return { c1: 'c1', c2: 'c2' };
 }
 
-function readyMcn(hh: Harness) {
+function readyMcn(hh: Harness, assign = true) {
   hh.db.update((s) => {
     const p = findProfile(s, hh.mcnId) as McnProfile;
     Object.assign(p.contact, { displayName: 'MCN Sao', province: 'Hà Nội', address: '2 Hàng Bài', category: 'Giải trí' });
     p.org = { orgName: 'Công ty Sao', regNo: '0312345678', regDate: '2020-01-01', regBy: 'Sở KH&ĐT', legalRep: 'Nguyễn A' };
     p.gcnFile = { name: 'gcn.pdf', type: 'application/pdf', size: 100 };
+    p.staff = { staffName: 'Hà', staffPhone: '0987654322', staffEmail: '' };
+    if (assign) {
+      const base = { ownerType: 'MCN' as const, ownerId: hh.mcnId, proofImage: png, status: 'PENDING_REVIEW' as const, active: true, createdAt: 0, updatedAt: 0 };
+      s.channels.push({ ...base, id: 'm1', platform: 'tiktok', url: 'https://tiktok.com/@saomcn', handle: '@saomcn', assignedKolAccountId: 'acc-kol-2026-0011', assignedAt: 0 });
+    }
   });
 }
 
@@ -88,7 +93,12 @@ describe('submit', () => {
     expect(h.db.read().funnel.map((f) => f.step)).toEqual(['profile_submitted']);
   });
 
-  test('MCN gửi được khi chưa có kênh (BR-65)', async () => {
+  test('MCN chưa gán kênh cho KOL nào → NOT_ELIGIBLE (BR-65)', async () => {
+    readyMcn(h, false);
+    await expect(review.submit(h.mcnId, ALL)).rejects.toThrow('NOT_ELIGIBLE');
+  });
+
+  test('MCN đủ Thông tin hồ sơ, có kênh gán cho KOL → gửi được', async () => {
     readyMcn(h);
     await expect(review.submit(h.mcnId, ALL)).resolves.toMatchObject({ status: 'SUBMITTED' });
   });
@@ -181,7 +191,7 @@ describe('approve / requestFix / reject', () => {
   test('MCN duyệt → APPROVED, mcnId', async () => {
     readyMcn(h);
     await review.submit(h.mcnId, ALL);
-    await review.approve(h.mcnId, {});
+    await review.approve(h.mcnId, { m1: { verdict: 'PASS' } });
     expect(findProfile(h.db.read(), h.mcnId)).toMatchObject({ status: 'APPROVED', mcnId: 'MCN900001' });
   });
 

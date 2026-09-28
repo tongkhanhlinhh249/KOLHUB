@@ -107,11 +107,24 @@ describe('assignChannels', () => {
     expect((await svc.listKols(SAOVIET)).some((r) => r.kolId === kolId(11))).toBe(true);
   });
 
-  test('MCN chưa duyệt → 4701', async () => {
+  test('MCN đang soạn hồ sơ (DRAFT) / cần bổ sung vẫn gán được — điều kiện để gửi hồ sơ', async () => {
     h.db.update((s) => {
-      s.channels.push({ ...structuredClone(s.channels.find((c) => c.ownerId === SAOVIET)!), id: 'draft-ch', ownerId: h.mcnId });
+      s.channels.push({ ...structuredClone(s.channels.find((c) => c.ownerId === SAOVIET)!), id: 'draft-ch', ownerId: h.mcnId, assignedKolAccountId: undefined });
     });
-    await expect(svc.assignChannels(h.mcnId, ['draft-ch'], kolAcc(11))).rejects.toMatchObject({ code: 'KOLHUB-4701' });
+    await expect(svc.assignChannels(h.mcnId, ['draft-ch'], kolAcc(11))).resolves.toEqual({ assigned: 1 });
+    h.db.update((s) => {
+      s.mcnProfiles.find((p) => p.accountId === h.mcnId)!.status = 'NEEDS_FIX';
+    });
+    await expect(svc.assignChannels(h.mcnId, ['draft-ch'], kolAcc(12))).resolves.toEqual({ assigned: 1 });
+  });
+
+  test.each(['SUBMITTED', 'REJECTED'] as const)('hồ sơ MCN %s → 4701, không kênh nào bị đổi', async (status) => {
+    h.db.update((s) => {
+      s.mcnProfiles.find((p) => p.accountId === SAOVIET)!.status = status;
+    });
+    const id = own()[0].id;
+    await expect(svc.assignChannels(SAOVIET, [id], kolAcc(20))).rejects.toMatchObject({ code: 'KOLHUB-4701' });
+    expect(mcnChannels().find((c) => c.id === id)!.assignedKolAccountId).toBeUndefined();
   });
 
   test('KOL chưa duyệt / không tồn tại → 4702', async () => {
@@ -142,6 +155,15 @@ describe('unassignChannels', () => {
     expect(prev).toEqual(ids.map((channelId) => ({ channelId, kolAccountId: kolAcc(11) })));
     expect(mcnChannels().filter((c) => ids.includes(c.id)).every((c) => !('assignedKolAccountId' in c) && !('assignedAt' in c))).toBe(true);
     expect((await svc.listKols(SAOVIET)).some((r) => r.kolAccountId === kolAcc(11))).toBe(false);
+  });
+
+  test.each(['SUBMITTED', 'REJECTED'] as const)('hồ sơ MCN %s → 4701, kênh vẫn giữ KOL', async (status) => {
+    const ch = mcnChannels().find((c) => c.assignedKolAccountId === kolAcc(12))!;
+    h.db.update((s) => {
+      s.mcnProfiles.find((p) => p.accountId === SAOVIET)!.status = status;
+    });
+    await expect(svc.unassignChannels(SAOVIET, [ch.id])).rejects.toMatchObject({ code: 'KOLHUB-4701' });
+    expect(mcnChannels().find((c) => c.id === ch.id)!.assignedKolAccountId).toBe(kolAcc(12));
   });
 
   test('kênh không thuộc MCN → 4703; không chọn kênh → 4704', async () => {

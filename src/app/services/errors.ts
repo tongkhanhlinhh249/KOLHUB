@@ -191,7 +191,7 @@ function violationMessage(code: ErrorCode): string {
 function mcnKolMessage(code: ErrorCode): string {
   switch (code) {
     case 'KOLHUB-4701':
-      return 'Hồ sơ tổ chức cần được duyệt trước khi gán kênh cho KOL.';
+      return 'Không thể gán kênh khi hồ sơ MCN đang xét duyệt hoặc đã bị từ chối.';
     case 'KOLHUB-4702':
       return 'Không tìm thấy KOL đã được duyệt. Vui lòng chọn KOL khác.';
     case 'KOLHUB-4703':

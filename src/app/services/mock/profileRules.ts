@@ -6,6 +6,7 @@ import type {
   KolProfile,
   McnProfile,
   OrgIdentity,
+  ProfileStatus,
   StaffInfo,
 } from '../profile-types';
 import type { DemoState } from './db';
@@ -47,16 +48,42 @@ export const REQUIRED_CONTACT: (keyof ContactInfo)[] = ['displayName', 'phone', 
 
 const filled = (v: string | undefined) => !!v && v.trim() !== '';
 
+/** Required contact fields that are empty or invalid (phone / email format), in form order. */
+export function missingContactFields(c: ContactInfo): (keyof ContactInfo)[] {
+  return REQUIRED_CONTACT.filter((k) => {
+    const v = c[k] as string | undefined;
+    if (!filled(v)) return true;
+    if (k === 'phone') return !isValidPhone(v!);
+    if (k === 'email') return !isValidEmail(v!);
+    return false;
+  });
+}
+
 export function contactComplete(c: ContactInfo): boolean {
-  return REQUIRED_CONTACT.every((k) => filled(c[k])) && isValidPhone(c.phone) && isValidEmail(c.email);
+  return missingContactFields(c).length === 0;
 }
 
 export function hasStaff(s: StaffInfo): boolean {
   return filled(s.staffName) && filled(s.staffPhone) && isValidPhone(s.staffPhone);
 }
 
+export const ORG_FIELDS: (keyof OrgIdentity)[] = ['orgName', 'regNo', 'regDate', 'regBy', 'legalRep'];
+
+/** Empty org identity fields, in form order. */
+export function missingOrgFields(o: OrgIdentity): (keyof OrgIdentity)[] {
+  return ORG_FIELDS.filter((k) => !filled(o[k]));
+}
+
 export function orgComplete(o: OrgIdentity): boolean {
-  return filled(o.orgName) && filled(o.regNo) && filled(o.regDate) && filled(o.regBy) && filled(o.legalRep);
+  return missingOrgFields(o).length === 0;
+}
+
+/**
+ * MCN may assign / unassign its channels to KOLs while the profile is being prepared (DRAFT, NEEDS_FIX)
+ * — assigning ≥ 1 is a submit condition — and once APPROVED; not while under review or after rejection.
+ */
+export function canManageKolAssignments(status: ProfileStatus): boolean {
+  return status === 'DRAFT' || status === 'NEEDS_FIX' || status === 'APPROVED';
 }
 
 export function findProfile(state: DemoState, accountId: string): KolProfile | McnProfile | undefined {
@@ -73,12 +100,30 @@ function hasActiveChannel(state: DemoState, accountId: string): boolean {
   return state.channels.some((c) => c.ownerId === accountId && activeWithProof(c));
 }
 
+/** MCN channels currently assigned to an existing KOL (same rule as the "Quản lý KOL" list). */
+export function assignedKolChannels(state: DemoState, mcnAccountId: string): Channel[] {
+  return state.channels.filter(
+    (c) =>
+      c.ownerId === mcnAccountId &&
+      c.ownerType === 'MCN' &&
+      !!c.assignedKolAccountId &&
+      state.kolProfiles.some((p) => p.accountId === c.assignedKolAccountId && !!p.kolId),
+  );
+}
+
+function hasAssignedKol(state: DemoState, mcnAccountId: string): boolean {
+  return assignedKolChannels(state, mcnAccountId).length > 0;
+}
+
+export const KOLS_REQUIREMENT_LABEL = 'Có ít nhất 1 KOL được gán kênh';
+export const CHANNEL_REQUIREMENT_LABEL = 'Có ít nhất 1 kênh đang hoạt động kèm ảnh';
+
 function identityDone(p: KolProfile | McnProfile): boolean {
   return p.ownerType === 'KOL' ? p.ekycStatus === 'PASSED' : !!p.gcnFile;
 }
 
 export interface Milestone {
-  key: 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
+  key: 'contact' | 'staff' | 'identity' | 'channel' | 'kols' | 'submitted';
   label: string;
   done: boolean;
 }
@@ -100,20 +145,26 @@ export function completeness(state: DemoState, accountId: string): Completeness 
       done: identityDone(p),
     },
     { key: 'channel', label: 'Có ít nhất 1 kênh hoạt động kèm ảnh', done: hasActiveChannel(state, accountId) },
-    { key: 'submitted', label: 'Đã gửi xét duyệt', done: p.status !== 'DRAFT' },
   ];
-  return { percent: milestones.filter((m) => m.done).length * 20, milestones };
+  if (p.ownerType === 'MCN') milestones.push({ key: 'kols', label: 'Có KOL được gán kênh', done: hasAssignedKol(state, accountId) });
+  milestones.push({ key: 'submitted', label: 'Đã gửi xét duyệt', done: p.status !== 'DRAFT' });
+  const done = milestones.filter((m) => m.done).length;
+  return { percent: Math.round((done / milestones.length) * 100), milestones };
 }
 
 export interface ChecklistItem {
-  key: 'ekyc' | 'org' | 'gcn' | 'contact' | 'staff' | 'channel' | 'pledges';
+  key: 'ekyc' | 'org' | 'gcn' | 'contact' | 'staff' | 'channel' | 'kols' | 'pledges';
   label: string;
   ok: boolean;
 }
 
 export const PLEDGES_LABEL = 'Đã tick đủ 3 cam đoan';
 
-/** BR-64 (KOL) / BR-65 (MCN) submit conditions. */
+/**
+ * BR-64 (KOL) / BR-65 (MCN) submit conditions — one requirement per tab of the profile area:
+ * "Thông tin hồ sơ" (identity, contact, staff), "Quản lý kênh" (≥ 1 active channel with proof) and,
+ * MCN only, "Quản lý KOL" (≥ 1 channel assigned to a KOL). Also the submit guard of the review service.
+ */
 export function submitChecklist(state: DemoState, accountId: string, pledges: boolean[]): ChecklistItem[] {
   const p = findProfile(state, accountId);
   if (!p) return [];
@@ -127,19 +178,18 @@ export function submitChecklist(state: DemoState, accountId: string, pledges: bo
     label: 'Thông tin liên hệ đủ trường bắt buộc',
     ok: contactComplete(p.contact),
   };
+  const staff: ChecklistItem = { key: 'staff', label: 'Có nhân sự quản lý nội dung', ok: hasStaff(p.staff) };
+  const channel: ChecklistItem = { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) };
   if (p.ownerType === 'KOL') {
-    return [
-      { key: 'ekyc', label: 'Đã xác thực danh tính (eKYC)', ok: p.ekycStatus === 'PASSED' },
-      contact,
-      { key: 'staff', label: 'Có nhân sự quản lý nội dung', ok: hasStaff(p.staff) },
-      { key: 'channel', label: 'Có ít nhất 1 kênh đang hoạt động kèm ảnh', ok: hasActiveChannel(state, accountId) },
-      pledgeItem,
-    ];
+    return [{ key: 'ekyc', label: 'Đã xác thực danh tính (eKYC)', ok: p.ekycStatus === 'PASSED' }, contact, staff, channel, pledgeItem];
   }
   return [
     { key: 'org', label: 'Đủ 5 trường định danh tổ chức', ok: orgComplete(p.org) },
     { key: 'gcn', label: 'Đã tải Giấy chứng nhận ĐKDN', ok: !!p.gcnFile },
     contact,
+    staff,
+    channel,
+    { key: 'kols', label: KOLS_REQUIREMENT_LABEL, ok: hasAssignedKol(state, accountId) },
     pledgeItem,
   ];
 }

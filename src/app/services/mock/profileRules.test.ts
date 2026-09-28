@@ -3,10 +3,13 @@ import type { Channel, ContactInfo, KolProfile } from '../profile-types';
 import type { DemoState } from './db';
 import {
   buildTimeline,
+  canManageKolAssignments,
   completeness,
   contactComplete,
   findProfile,
   maskIdNo,
+  missingContactFields,
+  missingOrgFields,
   normalizeName,
   submitChecklist,
   sweepExpired,
@@ -84,7 +87,18 @@ describe('completeness', () => {
     s.mcnProfiles[0].gcnFile = { name: 'gcn.pdf', type: 'application/pdf', size: 100 };
     const c = completeness(s, h.mcnId);
     expect(c.milestones.find((m) => m.key === 'identity')).toMatchObject({ done: true, label: 'Tải Giấy chứng nhận ĐKDN' });
-    expect(c.percent).toBe(20);
+    expect(c.percent).toBe(17);
+  });
+
+  test('MCN có 6 mốc (thêm KOL được gán kênh), % = số mốc xong / tổng', () => {
+    const h = makeHarness();
+    const s = h.db.read();
+    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'kols', 'submitted']);
+    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'submitted']);
+    s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
+    const c = completeness(s, h.mcnId);
+    expect(c.milestones.filter((m) => m.done).map((m) => m.key)).toEqual(['channel', 'kols']);
+    expect(c.percent).toBe(33);
   });
 
   test('kênh INACTIVE không tính mốc kênh', () => {
@@ -108,14 +122,23 @@ describe('submitChecklist', () => {
     expect(items.filter((i) => !i.ok).map((i) => i.key)).toEqual(['ekyc', 'pledges']);
   });
 
-  test('checklist MCN không đòi kênh và nhân sự', () => {
+  test('checklist MCN: đủ tab Thông tin hồ sơ, Quản lý kênh và Quản lý KOL', () => {
     const h = makeHarness();
-    expect(submitChecklist(h.db.read(), h.mcnId, [true, true, true]).map((i) => i.key)).toEqual([
-      'org',
-      'gcn',
-      'contact',
-      'pledges',
-    ]);
+    const items = submitChecklist(h.db.read(), h.mcnId, [true, true, true]);
+    expect(items.map((i) => i.key)).toEqual(['org', 'gcn', 'contact', 'staff', 'channel', 'kols', 'pledges']);
+    expect(items.find((i) => i.key === 'kols')).toMatchObject({ ok: false, label: 'Có ít nhất 1 KOL được gán kênh' });
+  });
+
+  test('MCN: kênh gán cho KOL đạt cả mốc kênh và KOL; kênh riêng MCN chỉ đạt mốc kênh', () => {
+    const h = makeHarness();
+    const s = h.db.read();
+    s.channels.push(channel(h.mcnId, { ownerType: 'MCN' }));
+    const ok = (key: string) => submitChecklist(s, h.mcnId, [true, true, true]).find((i) => i.key === key)!.ok;
+    expect([ok('channel'), ok('kols')]).toEqual([true, false]);
+    s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'khong-co' }));
+    expect(ok('kols')).toBe(false);
+    s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
+    expect(ok('kols')).toBe(true);
   });
 });
 
@@ -124,6 +147,18 @@ describe('pure helpers', () => {
     expect(contactComplete(fullContact)).toBe(true);
     expect(contactComplete({ ...fullContact, phone: '12345' })).toBe(false);
   });
+  test('missingContactFields: trường trống và SĐT/email sai định dạng', () => {
+    expect(missingContactFields(fullContact)).toEqual([]);
+    expect(missingContactFields({ ...fullContact, phone: '123', province: ' ', email: 'x' })).toEqual(['phone', 'email', 'province']);
+  });
+  test('missingOrgFields', () =>
+    expect(missingOrgFields({ orgName: 'A', regNo: '', regDate: '2020-01-01', regBy: '', legalRep: 'B' })).toEqual(['regNo', 'regBy']));
+  test('canManageKolAssignments: soạn hồ sơ / cần bổ sung / đã duyệt', () =>
+    expect((['DRAFT', 'SUBMITTED', 'NEEDS_FIX', 'APPROVED', 'REJECTED'] as const).filter(canManageKolAssignments)).toEqual([
+      'DRAFT',
+      'NEEDS_FIX',
+      'APPROVED',
+    ]));
   test('maskIdNo', () => expect(maskIdNo('079096012345')).toBe('079*******45'));
   test('normalizeName so khớp không phân biệt hoa và khoảng trắng', () =>
     expect(normalizeName('  nguyễn   văn an ')).toBe(normalizeName('NGUYỄN VĂN AN')));
