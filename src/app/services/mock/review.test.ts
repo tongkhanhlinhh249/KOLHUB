@@ -242,6 +242,7 @@ describe('KOL được duyệt → phép chiếu công khai (toPublicKol)', () =
         followers: expect.any(Number),
         views: expect.any(Number),
         videoCount: expect.any(Number),
+        likes: expect.any(Number),
         latestVideos: expect.any(Array),
         badge: 'VERIFIED',
         badgeExpiresAt: new Date(2027, 8, 27, 9, 0).toISOString(),

@@ -10,6 +10,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../components/ui/collapsible';
 import { cn } from '../../components/ui/utils';
 import type { KolVideo, PublicChannel } from '../../services';
+import { platformMetrics } from '../shared/platformMetrics';
 import { formatCompactVi } from './format';
 import { PlatformIcon, platformLabel } from './PlatformIcon';
 
@@ -132,6 +133,7 @@ function ChannelCard({
   onOpenChange(open: boolean): void;
 }) {
   const label = platformLabel(c.platform);
+  const metrics = platformMetrics(c.platform, c);
   return (
     <Collapsible open={open} onOpenChange={onOpenChange} className="overflow-hidden rounded-xl border border-border bg-card">
       <CollapsibleTrigger
@@ -150,9 +152,10 @@ function ChannelCard({
           <span className="block truncate text-xs text-muted-foreground">{handleOf(c)}</span>
         </span>
         <span className="col-span-3 col-start-1 row-start-2 grid grid-cols-3 gap-3 border-t border-border pt-3 sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:border-0 sm:pt-0">
-          <Stat label={c.platform === 'youtube' ? 'Người đăng ký' : 'Người theo dõi'} value={c.followers} />
-          <Stat label="Lượt xem" value={c.views} />
-          <Stat label="Video" value={c.videoCount} />
+          {metrics.length < 3 && <span className="hidden sm:block" aria-hidden />}
+          {metrics.map((m) => (
+            <Stat key={m.key} label={m.label} value={m.value ?? 0} />
+          ))}
         </span>
         <ChevronDown
           className={cn('size-5 shrink-0 text-muted-foreground transition-transform duration-200', open && 'rotate-180')}

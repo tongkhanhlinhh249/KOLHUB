@@ -45,6 +45,8 @@ test('channelTotals: xác định theo URL, lượt xem theo người theo dõi'
   expect(a.views).toBeLessThanOrEqual(100_000 * 400);
   expect(a.videoCount).toBeGreaterThanOrEqual(60);
   expect(a.videoCount).toBeLessThanOrEqual(1_500);
+  expect(a.likes).toBeGreaterThanOrEqual(100_000 * 20);
+  expect(a.likes).toBeLessThanOrEqual(100_000 * 80);
   expect(Number.isInteger(a.views)).toBe(true);
   expect(channelTotals('youtube.com/@kenh', 0).views).toBe(0);
   const counts = new Set(Array.from({ length: 20 }, (_, i) => channelTotals(`tiktok.com/@k${i}`, 1_000).videoCount));

@@ -174,6 +174,7 @@ describe('getKolPublicProfile', () => {
         'followers',
         'handle',
         'latestVideos',
+        'likes',
         'platform',
         'url',
         'videoCount',

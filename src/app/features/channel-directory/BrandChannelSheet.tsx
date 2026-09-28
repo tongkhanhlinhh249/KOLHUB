@@ -65,6 +65,7 @@ export function BrandChannelSheet({
           verifiedUntil: detail.badgeExpiresAt,
           followers: detail.followers,
           views: detail.views,
+          likes: detail.likes,
           videoCount: detail.videoCount,
           videos: detail.latestVideos,
           ownerName: detail.displayName,

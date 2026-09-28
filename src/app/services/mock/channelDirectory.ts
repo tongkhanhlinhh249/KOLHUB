@@ -90,6 +90,7 @@ export function findDirectoryChannel(state: DemoState, channelId: string, now: n
     ...item,
     views: pub?.views ?? 0,
     videoCount: pub?.videoCount ?? 0,
+    likes: pub?.likes ?? 0,
     latestVideos: channelContent(c, PROFILE_VIDEO_LIMIT),
   };
 }

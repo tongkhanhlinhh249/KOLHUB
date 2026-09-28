@@ -86,12 +86,14 @@ export function channelContent(channel: Pick<Channel, 'platform' | 'url' | 'stat
 /**
  * Channel totals "pulled" with the stats, derived at read time (not stored) so no DB change is
  * needed: deterministic from the URL, scaled on followers. `views` ≈ 40–400 × followers,
- * `videoCount` 60–1 500.
+ * `videoCount` 60–1 500, `likes` ≈ 20–80 × followers.
  */
-export function channelTotals(url: string, followers: number): { views: number; videoCount: number } {
+export function channelTotals(url: string, followers: number): { views: number; videoCount: number; likes: number } {
   const key = url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^(www|m)\./, '').replace(/\/+$/, '');
   const h = hash(`totals:${key}`);
   const videoCount = 60 + (h % 1_441);
   const perFollower = 40 + ((h >>> 11) % 361);
-  return { views: Math.max(0, Math.round(followers)) * perFollower, videoCount };
+  const f = Math.max(0, Math.round(followers));
+  // TikTok-style profile likes: 20–80 × followers.
+  return { views: f * perFollower, videoCount, likes: f * (20 + ((h >>> 5) % 61)) };
 }

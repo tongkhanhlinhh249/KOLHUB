@@ -7,7 +7,9 @@ import { Button } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
 import type { ActivityField, KolVideo, Platform } from '../../services';
+import { cn } from '../../components/ui/utils';
 import { ChannelContentGrid } from './ChannelContentGrid';
+import { platformMetrics } from '../shared/platformMetrics';
 import { formatCompactVi, formatFollowers } from '../biz-search/format';
 import { KolAvatar } from '../biz-search/KolCard';
 import { FieldBadges } from '../biz-search/KolMedia';
@@ -54,6 +56,7 @@ export interface ChannelDetailData {
   followers?: number;
   views?: number;
   videoCount?: number;
+  likes?: number;
   videos: KolVideo[];
   /** Used in video alt texts. */
   ownerName: string;
@@ -147,8 +150,8 @@ export function ChannelDetailSheet({
   actions?: ReactNode;
 }) {
   const ready = !loading && !error ? data : null;
+  const metrics = ready ? platformMetrics(ready.platform, ready) : [];
   const name = data ? channelName(data.handle, data.url) : 'Chi tiết kênh';
-  const followersLabel = data?.platform === 'youtube' ? 'Người đăng ký' : 'Người theo dõi';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -228,14 +231,15 @@ export function ChannelDetailSheet({
               {notice}
               <section className="space-y-3">
                 <h3 className="text-base font-semibold text-foreground">Số liệu kênh</h3>
-                <dl className="grid grid-cols-3 gap-2 sm:gap-3">
-                  <Stat
-                    label={followersLabel}
-                    value={num(ready.followers, formatFollowers)}
-                    title={full(followersLabel, ready.followers)}
-                  />
-                  <Stat label="Lượt xem" value={num(ready.views, formatCompactVi)} title={full('Lượt xem', ready.views)} />
-                  <Stat label="Video" value={num(ready.videoCount, formatCompactVi)} title={full('Video', ready.videoCount)} />
+                <dl className={cn('grid gap-2 sm:gap-3', metrics.length === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
+                  {metrics.map((m) => (
+                    <Stat
+                      key={m.key}
+                      label={m.label}
+                      value={num(m.value, m.key === 'followers' ? formatFollowers : formatCompactVi)}
+                      title={full(m.label, m.value)}
+                    />
+                  ))}
                 </dl>
               </section>
 

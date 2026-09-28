@@ -155,6 +155,8 @@ export interface PublicChannel {
   views: number;
   /** Number of videos on the channel (mock social listening, derived from the URL). */
   videoCount: number;
+  /** Total likes of the channel (mock social listening; shown for TikTok). */
+  likes: number;
   /** 0–6 newest videos of this channel, newest first. */
   latestVideos: KolVideo[];
   /** Badge status of the channel. */

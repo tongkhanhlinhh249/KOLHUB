@@ -52,13 +52,16 @@ export function OwnerChannelSheet({
               followers,
               views: totals?.views,
               videoCount: totals?.videoCount,
+              likes: totals?.likes,
               videos: channelContent(channel, PROFILE_VIDEO_LIMIT),
               ownerName: channelName(channel.handle, channel.url),
             }
           : null
       }
       status={channel && <ChannelStatusBadge channel={channel} now={now} />}
-      notice={channel && <NeedsFixCallout channel={channel} />}
+      notice={
+        channel && <NeedsFixCallout channel={channel} onAddImage={isLocked(channel) ? undefined : () => onEdit(channel)} />
+      }
       children={channel && renderExtra?.(channel)}
       actions={
         channel && (
