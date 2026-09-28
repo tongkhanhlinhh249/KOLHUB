@@ -15,6 +15,10 @@ interface SubmitPanelProps {
   pledges: string[];
   /** Re-submission after NEEDS_FIX. */
   resubmit: boolean;
+  /** "Xem mục còn thiếu": the modal closes, then the page scrolls to that card. */
+  onGoToSection(anchorId: string): void;
+  onSubmitted(): void;
+  onCancel(): void;
 }
 
 const SUBMIT_ERRORS: Record<string, string> = {
@@ -22,21 +26,12 @@ const SUBMIT_ERRORS: Record<string, string> = {
   NOT_SUBMITTABLE: 'Hồ sơ đã được gửi, vui lòng chờ kết quả.',
 };
 
-/** Bring a "Tình trạng hồ sơ" card into view and move focus to it. */
-function focusSection(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
-  el.focus({ preventScroll: true });
-}
-
 /**
- * Submit card body (shared by KOL and MCN): how many overview items are still missing (jumps to the first
+ * Body of the "Gửi hồ sơ xét duyệt" modal (shared by KOL and MCN): how many overview items are still missing (jumps to the first
  * incomplete section card), the 3 pledges and the submit button — enabled only when every required item
  * is met ("Khuyến nghị" items never block) and all pledges are ticked.
  */
-export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit }: SubmitPanelProps) {
+export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit, onGoToSection, onSubmitted, onCancel }: SubmitPanelProps) {
   const baseId = useId();
   const [checked, setChecked] = useState<boolean[]>(() => pledges.map(() => false));
   const [busy, setBusy] = useState(false);
@@ -50,6 +45,7 @@ export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit 
     try {
       await reviewService.submit(accountId, checked);
       toast.success('Đã gửi hồ sơ xét duyệt');
+      onSubmitted();
     } catch (e) {
       const key = e instanceof Error ? e.message : '';
       toast.error(SUBMIT_ERRORS[key] ?? (key || 'Đã có lỗi xảy ra. Vui lòng thử lại.'));
@@ -90,7 +86,7 @@ export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit 
               type="button"
               variant="outline"
               className="h-11 w-full bg-card sm:w-auto md:h-9"
-              onClick={() => focusSection(firstIncomplete.anchorId)}
+              onClick={() => onGoToSection(firstIncomplete.anchorId)}
             >
               <ChevronDown aria-hidden />
               Xem mục còn thiếu: {firstIncomplete.title}
@@ -104,10 +100,15 @@ export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit 
         </p>
       )}
 
-      <Button type="button" className="h-11 w-full md:w-auto" disabled={!ready || busy} onClick={() => void submit()}>
-        {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-        {resubmit ? 'Gửi lại hồ sơ' : 'Gửi xét duyệt'}
-      </Button>
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button type="button" variant="outline" className="h-11 md:h-9" onClick={onCancel}>
+          Huỷ
+        </Button>
+        <Button type="button" className="h-11 md:h-9" disabled={!ready || busy} onClick={() => void submit()}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
+          {resubmit ? 'Gửi lại hồ sơ' : 'Gửi xét duyệt'}
+        </Button>
+      </div>
     </div>
   );
 }

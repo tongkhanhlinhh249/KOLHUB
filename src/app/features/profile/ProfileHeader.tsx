@@ -11,10 +11,11 @@ import { profileDisplayName, profileService, validateProofImage, type ProfileVie
 import { toStoredFile } from '../shared/files';
 import { milestoneBadge } from './primaryAction';
 import { ProfileAvatar } from './ProfileAvatar';
-import { SUBMIT_ANCHOR } from './submitAnchor';
 
 interface ProfileHeaderProps {
   view: ProfileView;
+  /** Opens the "Gửi hồ sơ xét duyệt" modal; the button shows only while the profile can be sent. */
+  onSubmit(): void;
 }
 
 function errorText(e: unknown): string {
@@ -61,19 +62,14 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
 }
 
 /** SCR-03 — profile header (on "Tổng quan hồ sơ" only): cover, avatar, name + shield, completeness box with "Gửi xét duyệt" (DRAFT / NEEDS_FIX). Status lives in "Trạng thái xét duyệt". */
-export function ProfileHeader({ view }: ProfileHeaderProps) {
+export function ProfileHeader({ view, onSubmit }: ProfileHeaderProps) {
   const { profile, completeness } = view;
   // Same name + initials as the topbar identity (identityOf), so both always match.
   const name = profileDisplayName(profile);
   const shownName = name || 'Chưa đặt tên';
   const publicId = profile.ownerType === 'KOL' ? profile.kolId : profile.mcnId;
-  // The one action here (KOL + MCN): jump to the submit card (pledges + button) while the profile can be sent.
+  // The one action here (KOL + MCN): open the submit modal while the profile can be sent.
   const canSubmit = profile.status === 'DRAFT' || profile.status === 'NEEDS_FIX';
-  const goToSubmit = () => {
-    const card = document.getElementById(SUBMIT_ANCHOR);
-    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    card?.querySelector<HTMLElement>('[role="checkbox"], button')?.focus({ preventScroll: true });
-  };
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -120,7 +116,7 @@ export function ProfileHeader({ view }: ProfileHeaderProps) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-foreground">Hồ sơ hoàn thiện {completeness.percent}%</p>
             {canSubmit && (
-              <Button type="button" className="h-11 w-full sm:h-9 sm:w-auto" onClick={goToSubmit}>
+              <Button type="button" className="h-11 w-full sm:h-9 sm:w-auto" onClick={onSubmit}>
                 <Send aria-hidden />
                 Gửi xét duyệt
               </Button>
