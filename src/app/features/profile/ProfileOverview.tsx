@@ -104,7 +104,7 @@ export function ProfileOverview({
     <div className="@container">
       <div className="grid items-start gap-4 @5xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] @5xl:gap-6">
         <div className="min-w-0 space-y-4">
-          <ProfileHeader view={view} hasNeedsFixChannel={channels.some((c) => c.status === 'NEEDS_FIX')} />
+          <ProfileHeader view={view} />
           <OverviewGrid
             ownerType={view.profile.ownerType}
             sections={sections}

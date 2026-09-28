@@ -1,4 +1,4 @@
-import type { ChecklistItem, OwnerType, ProfileStatus } from '../../services';
+import type { ChecklistItem, OwnerType } from '../../services';
 
 export type ProfileSection = 'tong-quan' | 'thong-tin' | 'kenh';
 
@@ -59,65 +59,6 @@ export function infoPath(ownerType: OwnerType, anchor: ProfileAnchor): string {
 export function legacySectionPath(ownerType: OwnerType, tab: string | null | undefined, opts?: { openAddChannel?: boolean }): string {
   if (tab === 'lien-he' || tab === 'dinh-danh') return infoPath(ownerType, LEGACY_SECTION_ANCHOR[tab]);
   return profilePath(ownerType, isProfileSection(tab) ? tab : DEFAULT_PROFILE_SECTION, opts);
-}
-
-export interface PrimaryActionInput {
-  ownerType: OwnerType;
-  status: ProfileStatus;
-  /** First unmet REQUIRED item of ProfileView.checklist (undefined = ready to submit). */
-  firstMissing?: ChecklistKey;
-  hasNeedsFixChannel: boolean;
-}
-
-/** DRAFT header button: the next required step, in checklist order. */
-function nextStep(ownerType: OwnerType, key: ChecklistKey): PrimaryAction {
-  const to = (path: string, label: string): PrimaryAction => ({ label, to: path, disabled: false });
-  switch (key) {
-    case 'ekyc':
-      return to(infoPath(ownerType, 'dinh-danh'), 'Xác thực danh tính');
-    case 'org':
-    case 'gcn':
-      return to(infoPath(ownerType, 'dinh-danh'), 'Xác thực tổ chức');
-    case 'contact':
-      return to(infoPath(ownerType, 'lien-he'), 'Bổ sung liên hệ');
-    case 'staff':
-      return to(infoPath(ownerType, 'nhan-su'), 'Bổ sung nhân sự');
-    case 'channel':
-      return to(profilePath(ownerType, 'kenh', { openAddChannel: true }), 'Thêm kênh');
-    case 'kols':
-      return to(mcnKolsPath({ openAssign: true }), 'Gán kênh cho KOL');
-    case 'pledges':
-      return to(profilePath(ownerType, 'tong-quan'), 'Gửi xét duyệt');
-  }
-}
-
-export interface PrimaryAction {
-  label: string;
-  /** Route the button navigates to (null when disabled). */
-  to: string | null;
-  disabled: boolean;
-}
-
-/** Main button of the profile header (SCR-03) for each profile state. */
-export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
-  const go = (label: string, section: ProfileSection, openAddChannel = false): PrimaryAction => ({
-    label,
-    to: profilePath(input.ownerType, section, { openAddChannel }),
-    disabled: false,
-  });
-  const identity = (label: string): PrimaryAction => ({ label, to: infoPath(input.ownerType, 'dinh-danh'), disabled: false });
-  switch (input.status) {
-    case 'DRAFT':
-      return input.firstMissing ? nextStep(input.ownerType, input.firstMissing) : go('Gửi xét duyệt', 'tong-quan');
-    case 'SUBMITTED':
-      return { label: 'Đang xét duyệt', to: null, disabled: true };
-    case 'NEEDS_FIX':
-      return input.hasNeedsFixChannel ? go('Xem yêu cầu bổ sung', 'kenh') : identity('Xem yêu cầu bổ sung');
-    case 'APPROVED':
-      return go('Thêm kênh', 'kenh', true);
-    case 'REJECTED':
-      return null;
-  }
 }
 
 export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';

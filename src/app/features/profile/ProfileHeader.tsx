@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
-import { Camera, Check, Loader2, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router';
+import { Camera, Check, Loader2, Send, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Progress } from '../../components/ui/progress';
@@ -10,15 +9,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/too
 import { cn } from '../../components/ui/utils';
 import { profileDisplayName, profileService, validateProofImage, type ProfileView } from '../../services';
 import { toStoredFile } from '../shared/files';
-import { ProfileStatusBadge } from '../shared/StatusBadges';
-import { milestoneBadge, primaryAction } from './primaryAction';
-import { SUBMIT_ANCHOR } from './submitAnchor';
+import { milestoneBadge } from './primaryAction';
 import { ProfileAvatar } from './ProfileAvatar';
+import { SUBMIT_ANCHOR } from './submitAnchor';
 
 interface ProfileHeaderProps {
   view: ProfileView;
-  /** Whether any channel is NEEDS_FIX (decides where "Xem yêu cầu bổ sung" goes). */
-  hasNeedsFixChannel?: boolean;
 }
 
 function errorText(e: unknown): string {
@@ -64,21 +60,20 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
   );
 }
 
-/** SCR-03 — profile header (on "Tổng quan hồ sơ" only): cover, avatar, name + shield, status, main action, completeness. */
-export function ProfileHeader({ view, hasNeedsFixChannel = false }: ProfileHeaderProps) {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+/** SCR-03 — profile header (on "Tổng quan hồ sơ" only): cover, avatar, name + shield, completeness box with "Gửi xét duyệt" (DRAFT / NEEDS_FIX). Status lives in "Trạng thái xét duyệt". */
+export function ProfileHeader({ view }: ProfileHeaderProps) {
   const { profile, completeness } = view;
   // Same name + initials as the topbar identity (identityOf), so both always match.
   const name = profileDisplayName(profile);
   const shownName = name || 'Chưa đặt tên';
   const publicId = profile.ownerType === 'KOL' ? profile.kolId : profile.mcnId;
-  const action = primaryAction({
-    ownerType: profile.ownerType,
-    status: profile.status,
-    firstMissing: view.checklist.find((i) => !i.ok)?.key,
-    hasNeedsFixChannel,
-  });
+  // The one action here (KOL + MCN): jump to the submit card (pledges + button) while the profile can be sent.
+  const canSubmit = profile.status === 'DRAFT' || profile.status === 'NEEDS_FIX';
+  const goToSubmit = () => {
+    const card = document.getElementById(SUBMIT_ANCHOR);
+    card?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    card?.querySelector<HTMLElement>('[role="checkbox"], button')?.focus({ preventScroll: true });
+  };
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -119,34 +114,18 @@ export function ProfileHeader({ view, hasNeedsFixChannel = false }: ProfileHeade
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 md:justify-end">
-            <ProfileStatusBadge status={profile.status} />
-            {view.pendingChanges.length > 0 && (
-              <Badge variant="outline" className="border-transparent bg-chart-5/20 font-medium text-foreground">
-                Có thay đổi chờ duyệt
-              </Badge>
-            )}
-            {action && (
-              <Button
-                type="button"
-                className="h-11 w-full md:h-9 md:w-auto"
-                disabled={action.disabled}
-                onClick={() => {
-                  if (!action.to) return;
-                  // Already on "Tổng quan hồ sơ" ("Gửi xét duyệt"): bring the submit card into view.
-                  const target = action.to === pathname ? document.getElementById(SUBMIT_ANCHOR) : null;
-                  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  else navigate(action.to);
-                }}
-              >
-                {action.label}
-              </Button>
-            )}
-          </div>
         </div>
 
         <div className="mt-4 space-y-3 rounded-lg bg-muted/60 p-3 md:p-4">
-          <p className="text-sm font-semibold text-foreground">Hồ sơ hoàn thiện {completeness.percent}%</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-foreground">Hồ sơ hoàn thiện {completeness.percent}%</p>
+            {canSubmit && (
+              <Button type="button" className="h-11 w-full sm:h-9 sm:w-auto" onClick={goToSubmit}>
+                <Send aria-hidden />
+                Gửi xét duyệt
+              </Button>
+            )}
+          </div>
           <Progress value={completeness.percent} className="h-2" aria-label={`Hồ sơ hoàn thiện ${completeness.percent}%`} />
           <ul className="flex flex-wrap gap-2" aria-label="Các bước hoàn thiện hồ sơ">
             {completeness.milestones.map((m) => {
