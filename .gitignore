@@ -5,3 +5,4 @@ dist/
 *.log
 package.json.bak
 .claude/worktrees/
+.vercel
