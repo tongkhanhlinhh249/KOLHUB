@@ -11,6 +11,7 @@ import {
   missingContactFields,
   missingOrgFields,
   normalizeName,
+  profileRecommendations,
   submitChecklist,
   sweepExpired,
 } from './profileRules';
@@ -87,18 +88,19 @@ describe('completeness', () => {
     s.mcnProfiles[0].gcnFile = { name: 'gcn.pdf', type: 'application/pdf', size: 100 };
     const c = completeness(s, h.mcnId);
     expect(c.milestones.find((m) => m.key === 'identity')).toMatchObject({ done: true, label: 'Tải Giấy chứng nhận ĐKDN' });
-    expect(c.percent).toBe(17);
+    expect(c.percent).toBe(20);
   });
 
-  test('MCN có 6 mốc (thêm KOL được gán kênh), % = số mốc xong / tổng', () => {
+  test('KOL và MCN cùng 5 mốc bắt buộc (không tính gán KOL), mỗi mốc 20%', () => {
     const h = makeHarness();
     const s = h.db.read();
-    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'kols', 'submitted']);
-    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'submitted']);
+    const keys = ['contact', 'staff', 'identity', 'channel', 'submitted'];
+    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(keys);
+    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(keys);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
     const c = completeness(s, h.mcnId);
-    expect(c.milestones.filter((m) => m.done).map((m) => m.key)).toEqual(['channel', 'kols']);
-    expect(c.percent).toBe(33);
+    expect(c.milestones.filter((m) => m.done).map((m) => m.key)).toEqual(['channel']);
+    expect(c.percent).toBe(20);
   });
 
   test('kênh INACTIVE không tính mốc kênh', () => {
@@ -122,23 +124,42 @@ describe('submitChecklist', () => {
     expect(items.filter((i) => !i.ok).map((i) => i.key)).toEqual(['ekyc', 'pledges']);
   });
 
-  test('checklist MCN: đủ tab Thông tin hồ sơ, Quản lý kênh và Quản lý KOL', () => {
+  test('checklist MCN không đòi kênh và nhân sự', () => {
     const h = makeHarness();
-    const items = submitChecklist(h.db.read(), h.mcnId, [true, true, true]);
-    expect(items.map((i) => i.key)).toEqual(['org', 'gcn', 'contact', 'staff', 'channel', 'kols', 'pledges']);
-    expect(items.find((i) => i.key === 'kols')).toMatchObject({ ok: false, label: 'Có ít nhất 1 KOL được gán kênh' });
+    expect(submitChecklist(h.db.read(), h.mcnId, [true, true, true]).map((i) => i.key)).toEqual([
+      'org',
+      'gcn',
+      'contact',
+      'pledges',
+    ]);
+  });
+});
+
+describe('profileRecommendations', () => {
+  test('KOL không có mục khuyến nghị', () => {
+    const h = makeHarness();
+    expect(profileRecommendations(h.db.read(), h.kolId)).toEqual([]);
   });
 
-  test('MCN: kênh gán cho KOL đạt cả mốc kênh và KOL; kênh riêng MCN chỉ đạt mốc kênh', () => {
+  test('MCN: nhân sự, kênh, KOL được gán kênh là khuyến nghị (không chặn gửi)', () => {
     const h = makeHarness();
     const s = h.db.read();
+    const ok = () => profileRecommendations(s, h.mcnId).map((i) => [i.key, i.ok]);
+    expect(ok()).toEqual([
+      ['staff', false],
+      ['channel', false],
+      ['kols', false],
+    ]);
+    expect(profileRecommendations(s, h.mcnId).find((i) => i.key === 'kols')!.label).toBe('Có ít nhất 1 KOL được gán kênh');
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN' }));
-    const ok = (key: string) => submitChecklist(s, h.mcnId, [true, true, true]).find((i) => i.key === key)!.ok;
-    expect([ok('channel'), ok('kols')]).toEqual([true, false]);
+    expect(ok().slice(1)).toEqual([
+      ['channel', true],
+      ['kols', false],
+    ]);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'khong-co' }));
-    expect(ok('kols')).toBe(false);
+    expect(ok()[2]).toEqual(['kols', false]);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
-    expect(ok('kols')).toBe(true);
+    expect(ok()[2]).toEqual(['kols', true]);
   });
 });
 

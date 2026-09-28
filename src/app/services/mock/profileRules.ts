@@ -80,7 +80,7 @@ export function orgComplete(o: OrgIdentity): boolean {
 
 /**
  * MCN may assign / unassign its channels to KOLs while the profile is being prepared (DRAFT, NEEDS_FIX)
- * — assigning ≥ 1 is a submit condition — and once APPROVED; not while under review or after rejection.
+ * — recommended before submitting, not required — and once APPROVED; not while under review or after rejection.
  */
 export function canManageKolAssignments(status: ProfileStatus): boolean {
   return status === 'DRAFT' || status === 'NEEDS_FIX' || status === 'APPROVED';
@@ -116,6 +116,7 @@ function hasAssignedKol(state: DemoState, mcnAccountId: string): boolean {
 }
 
 export const KOLS_REQUIREMENT_LABEL = 'Có ít nhất 1 KOL được gán kênh';
+const STAFF_LABEL = 'Có nhân sự quản lý nội dung';
 export const CHANNEL_REQUIREMENT_LABEL = 'Có ít nhất 1 kênh đang hoạt động kèm ảnh';
 
 function identityDone(p: KolProfile | McnProfile): boolean {
@@ -123,7 +124,7 @@ function identityDone(p: KolProfile | McnProfile): boolean {
 }
 
 export interface Milestone {
-  key: 'contact' | 'staff' | 'identity' | 'channel' | 'kols' | 'submitted';
+  key: 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
   label: string;
   done: boolean;
 }
@@ -133,6 +134,7 @@ export interface Completeness {
   milestones: Milestone[];
 }
 
+/** Required steps only (BR-64/65 + submitted); recommendations such as MCN KOL assignment are not counted. */
 export function completeness(state: DemoState, accountId: string): Completeness {
   const p = findProfile(state, accountId);
   if (!p) return { percent: 0, milestones: [] };
@@ -145,11 +147,9 @@ export function completeness(state: DemoState, accountId: string): Completeness 
       done: identityDone(p),
     },
     { key: 'channel', label: 'Có ít nhất 1 kênh hoạt động kèm ảnh', done: hasActiveChannel(state, accountId) },
+    { key: 'submitted', label: 'Đã gửi xét duyệt', done: p.status !== 'DRAFT' },
   ];
-  if (p.ownerType === 'MCN') milestones.push({ key: 'kols', label: 'Có KOL được gán kênh', done: hasAssignedKol(state, accountId) });
-  milestones.push({ key: 'submitted', label: 'Đã gửi xét duyệt', done: p.status !== 'DRAFT' });
-  const done = milestones.filter((m) => m.done).length;
-  return { percent: Math.round((done / milestones.length) * 100), milestones };
+  return { percent: milestones.filter((m) => m.done).length * 20, milestones };
 }
 
 export interface ChecklistItem {
@@ -161,9 +161,9 @@ export interface ChecklistItem {
 export const PLEDGES_LABEL = 'Đã tick đủ 3 cam đoan';
 
 /**
- * BR-64 (KOL) / BR-65 (MCN) submit conditions — one requirement per tab of the profile area:
- * "Thông tin hồ sơ" (identity, contact, staff), "Quản lý kênh" (≥ 1 active channel with proof) and,
- * MCN only, "Quản lý KOL" (≥ 1 channel assigned to a KOL). Also the submit guard of the review service.
+ * BR-64 (KOL) / BR-65 (MCN) submit conditions — the required items, also the submit guard of the review
+ * service. KOL: eKYC, contact, staff, ≥ 1 active channel with proof. MCN: 5 org fields, GCN, contact
+ * (staff, channels and KOL assignment are only recommended, see profileRecommendations).
  */
 export function submitChecklist(state: DemoState, accountId: string, pledges: boolean[]): ChecklistItem[] {
   const p = findProfile(state, accountId);
@@ -178,19 +178,34 @@ export function submitChecklist(state: DemoState, accountId: string, pledges: bo
     label: 'Thông tin liên hệ đủ trường bắt buộc',
     ok: contactComplete(p.contact),
   };
-  const staff: ChecklistItem = { key: 'staff', label: 'Có nhân sự quản lý nội dung', ok: hasStaff(p.staff) };
-  const channel: ChecklistItem = { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) };
   if (p.ownerType === 'KOL') {
-    return [{ key: 'ekyc', label: 'Đã xác thực danh tính (eKYC)', ok: p.ekycStatus === 'PASSED' }, contact, staff, channel, pledgeItem];
+    return [
+      { key: 'ekyc', label: 'Đã xác thực danh tính (eKYC)', ok: p.ekycStatus === 'PASSED' },
+      contact,
+      { key: 'staff', label: STAFF_LABEL, ok: hasStaff(p.staff) },
+      { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) },
+      pledgeItem,
+    ];
   }
   return [
     { key: 'org', label: 'Đủ 5 trường định danh tổ chức', ok: orgComplete(p.org) },
     { key: 'gcn', label: 'Đã tải Giấy chứng nhận ĐKDN', ok: !!p.gcnFile },
     contact,
-    staff,
-    channel,
-    { key: 'kols', label: KOLS_REQUIREMENT_LABEL, ok: hasAssignedKol(state, accountId) },
     pledgeItem,
+  ];
+}
+
+/**
+ * Recommended (non-blocking) items shown next to the required ones: MCN staff, ≥ 1 active channel with
+ * proof and ≥ 1 channel assigned to a KOL. KOL has none (all its items are required).
+ */
+export function profileRecommendations(state: DemoState, accountId: string): ChecklistItem[] {
+  const p = findProfile(state, accountId);
+  if (!p || p.ownerType !== 'MCN') return [];
+  return [
+    { key: 'staff', label: STAFF_LABEL, ok: hasStaff(p.staff) },
+    { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) },
+    { key: 'kols', label: KOLS_REQUIREMENT_LABEL, ok: hasAssignedKol(state, accountId) },
   ];
 }
 

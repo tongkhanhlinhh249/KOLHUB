@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, CheckCircle2, ChevronRight, IdCard, MonitorPlay, Plus, UserPlus, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronRight, IdCard, Info, MonitorPlay, Plus, UserPlus, Users } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { cn } from '../../components/ui/utils';
@@ -13,13 +13,28 @@ import { mcnKolsPath, profilePath } from './primaryAction';
 
 const ICON: Record<OverviewSectionKey, typeof IdCard> = { 'thong-tin': IdCard, kenh: MonitorPlay, kol: Users };
 
-/** "Đã đủ" / "Còn thiếu N" — derived from the submit checklist items of the section. */
+/**
+ * "Còn thiếu N" counts required items only; "Đã đủ" once they are met (with a subtle "N gợi ý" while
+ * recommendations remain). A card holding only recommendations shows "Khuyến nghị" until they are done.
+ */
 export function SectionStateBadge({ section }: { section: OverviewSection }) {
-  return section.complete ? <ToneBadge tone="success">Đã đủ</ToneBadge> : <ToneBadge tone="warning">Còn thiếu {section.missing}</ToneBadge>;
+  if (!section.complete) return <ToneBadge tone="warning">Còn thiếu {section.missing}</ToneBadge>;
+  const onlyRecommended = section.items.every((i) => !i.required);
+  if (onlyRecommended && section.suggestions > 0) return <ToneBadge tone="info">Khuyến nghị</ToneBadge>;
+  return (
+    <span className="inline-flex items-center gap-2">
+      <ToneBadge tone="success">Đã đủ</ToneBadge>
+      {section.suggestions > 0 && <span className="text-xs whitespace-nowrap text-muted-foreground">{section.suggestions} gợi ý</span>}
+    </span>
+  );
 }
 
-/** One requirement row: ✓ / ! state, label + detail, the whole row links to where it is viewed or fixed. */
+/**
+ * One row: ✓ met, ! required and missing, (i) recommended and missing ("Khuyến nghị", never blocks submit);
+ * the whole row links to where it is viewed or fixed.
+ */
 function ItemRow({ item }: { item: OverviewItem }) {
+  const recommended = !item.required && !item.ok;
   return (
     <li>
       <Link
@@ -28,13 +43,22 @@ function ItemRow({ item }: { item: OverviewItem }) {
       >
         {item.ok ? (
           <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-chart-4" aria-label="Đạt" />
+        ) : recommended ? (
+          <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label="Khuyến nghị" />
         ) : (
           <AlertCircle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-label="Còn thiếu" />
         )}
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-foreground">{item.label}</span>
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-foreground">
+            {item.label}
+            {!item.required && (
+              <span className="rounded bg-muted px-1.5 py-px text-[11px] font-normal text-muted-foreground">Khuyến nghị</span>
+            )}
+          </span>
           {item.detail && (
-            <span className={cn('block text-xs break-words', item.ok ? 'text-muted-foreground' : 'text-foreground/80')}>{item.detail}</span>
+            <span className={cn('block text-xs break-words', item.ok || recommended ? 'text-muted-foreground' : 'text-foreground/80')}>
+              {item.detail}
+            </span>
           )}
         </span>
         <span className="mt-0.5 inline-flex shrink-0 items-center text-xs font-medium text-primary">
@@ -173,7 +197,7 @@ function KolSummary({ channels, kols }: { channels: Channel[]; kols: McnKolRow[]
 
 /**
  * "Tổng quan hồ sơ": one card per tab of the profile area (Thông tin hồ sơ, Quản lý kênh, MCN: Quản lý KOL)
- * with its submit requirements. 1 column on narrow containers, 2 from @2xl, 3 (MCN) from @4xl.
+ * with its submit requirements (and recommended items). 1 column on narrow containers, 2 from @2xl, 3 (MCN) from @4xl.
  */
 export function OverviewGrid({
   ownerType,
@@ -190,6 +214,7 @@ export function OverviewGrid({
 }) {
   const now = Date.now();
   const three = sections.length > 2;
+  const hasRecommended = sections.some((s) => s.items.some((i) => !i.required));
   const cards = sections.map((s) => {
     if (s.key === 'kenh') {
       return (
@@ -245,7 +270,11 @@ export function OverviewGrid({
         <h2 id="tong-quan-ho-so" className="text-base font-semibold text-foreground">
           Tổng quan hồ sơ
         </h2>
-        <p className="text-sm text-muted-foreground">Đủ tất cả mục bên dưới để gửi hồ sơ xét duyệt.</p>
+        <p className="text-sm text-muted-foreground">
+          {hasRecommended
+            ? 'Đủ các mục bắt buộc để gửi hồ sơ xét duyệt; mục Khuyến nghị không bắt buộc.'
+            : 'Đủ tất cả mục bên dưới để gửi hồ sơ xét duyệt.'}
+        </p>
       </div>
       <div className={cn('grid items-stretch gap-4 @2xl:grid-cols-2', three && '@4xl:grid-cols-3')}>
         {cards.map((c) => (

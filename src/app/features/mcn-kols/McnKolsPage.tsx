@@ -48,7 +48,7 @@ const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : '
 
 /**
  * /ho-so-mcn/kol — KOLs holding channels of the signed-in MCN: assign channels (many → one KOL), unassign.
- * Allowed while the MCN profile is DRAFT / NEEDS_FIX (≥ 1 assigned KOL is a submit condition) or APPROVED;
+ * Allowed while the MCN profile is DRAFT / NEEDS_FIX (≥ 1 assigned KOL is recommended, not required) or APPROVED;
  * locked while under review or rejected. `?gan=1` opens the assign dialog once (overview CTA).
  */
 export function McnKolsPage() {
@@ -232,10 +232,10 @@ export function McnKolsPage() {
       {q.data && preparing && all && all.length === 0 && (
         <Alert>
           <Info className="size-4" aria-hidden />
-          <AlertTitle>Cần gán kênh cho ít nhất 1 KOL</AlertTitle>
+          <AlertTitle>Khuyến nghị: gán kênh cho KOL</AlertTitle>
           <AlertDescription>
             <p>
-              Hồ sơ MCN chỉ gửi xét duyệt được khi có ít nhất 1 KOL được gán kênh.{' '}
+              Gán kênh cho ít nhất 1 KOL giúp hồ sơ MCN đầy đủ hơn khi xét duyệt (không bắt buộc để gửi hồ sơ).{' '}
               <Link to={profilePath('MCN', 'tong-quan')} className="font-medium text-primary underline-offset-4 hover:underline">
                 Xem điều kiện gửi hồ sơ
               </Link>

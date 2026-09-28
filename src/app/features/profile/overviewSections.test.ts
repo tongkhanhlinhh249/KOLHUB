@@ -57,10 +57,10 @@ describe('overviewSections', () => {
       ['kenh', 1, false],
     ]);
     const info = sections[0];
-    expect(info.items.map((i) => [i.key, i.to])).toEqual([
-      ['ekyc', '/ho-so-kol/thong-tin#dinh-danh'],
-      ['contact', '/ho-so-kol/thong-tin#lien-he'],
-      ['staff', '/ho-so-kol/thong-tin#nhan-su'],
+    expect(info.items.map((i) => [i.key, i.to, i.required])).toEqual([
+      ['ekyc', '/ho-so-kol/thong-tin#dinh-danh', true],
+      ['contact', '/ho-so-kol/thong-tin#lien-he', true],
+      ['staff', '/ho-so-kol/thong-tin#nhan-su', true],
     ]);
     expect(info.items[1].detail).toMatch(/^Thiếu 4 trường bắt buộc: Họ tên KOL\/KOC, Tỉnh\/Thành phố, Địa chỉ, Lĩnh vực chính$/);
     expect(info.items[2].detail).toBe('Chưa có nhân sự');
@@ -85,7 +85,7 @@ describe('overviewSections', () => {
     expect(overviewProgress(sections)).toEqual({ missing: 0, firstIncomplete: undefined });
   });
 
-  test('MCN: 3 thẻ; ok của từng mục lấy đúng từ checklist gửi hồ sơ', () => {
+  test('MCN: 3 thẻ; mục bắt buộc lấy đúng từ checklist gửi hồ sơ, nhân sự/kênh/KOL là khuyến nghị', () => {
     const h = makeHarness();
     const s = h.db.read();
     fillContact(s, h.mcnId);
@@ -95,11 +95,44 @@ describe('overviewSections', () => {
     const i = input(s, h.mcnId);
     const sections = overviewSections(i);
     expect(sections.map((x) => x.key)).toEqual(['thong-tin', 'kenh', 'kol']);
-    const flat = sections.flatMap((x) => x.items.map((it) => [it.key, it.ok]));
-    expect(flat).toEqual(i.view.checklist.map((c) => [c.key, c.ok]));
+    const flat = sections.flatMap((x) => x.items.map((it) => [it.key, it.ok, it.required]));
+    expect(flat).toEqual([
+      ['org', false, true],
+      ['gcn', false, true],
+      ['contact', true, true],
+      ['staff', true, false],
+      ['channel', true, false],
+      ['kols', false, false],
+    ]);
+    expect(flat.filter((x) => x[2]).map((x) => [x[0], x[1]])).toEqual(i.view.checklist.map((c) => [c.key, c.ok]));
     expect(sections[0].items.find((x) => x.key === 'org')!.detail).toBe('Thiếu 2 trường bắt buộc: Ngày cấp, Người đại diện');
     expect(sections[0].items.find((x) => x.key === 'gcn')!.detail).toBe('Chưa tải lên');
-    expect(sections[2]).toMatchObject({ to: '/ho-so-mcn/kol', missing: 1, items: [{ key: 'kols', detail: 'Chưa gán kênh cho KOL nào' }] });
+    expect(sections[0]).toMatchObject({ missing: 2, suggestions: 0, complete: false });
+    expect(sections[1]).toMatchObject({ missing: 0, suggestions: 0, complete: true });
+    expect(sections[2]).toMatchObject({
+      to: '/ho-so-mcn/kol',
+      missing: 0,
+      suggestions: 1,
+      complete: true,
+      items: [{ key: 'kols', required: false, detail: 'Chưa gán kênh cho KOL nào' }],
+    });
+    expect(overviewProgress(sections)).toMatchObject({ missing: 2, firstIncomplete: { key: 'thong-tin' } });
+  });
+
+  test('MCN đủ mục bắt buộc, chưa có nhân sự/kênh/KOL → không còn mục cần bổ sung, chỉ còn gợi ý', () => {
+    const h = makeHarness();
+    const s = h.db.read();
+    const p = findProfile(s, h.mcnId) as McnProfile;
+    Object.assign(p.contact, { displayName: 'MCN Sao', province: 'Hà Nội', address: '2 Hàng Bài', category: 'Giải trí' });
+    p.org = { orgName: 'Công ty Sao', regNo: '0312345678', regDate: '2020-01-01', regBy: 'Sở KH&ĐT', legalRep: 'Nguyễn A' };
+    p.gcnFile = { name: 'gcn.pdf', type: 'application/pdf', size: 100 };
+    const sections = overviewSections(input(s, h.mcnId));
+    expect(sections.map((x) => [x.key, x.complete, x.missing, x.suggestions])).toEqual([
+      ['thong-tin', true, 0, 1],
+      ['kenh', true, 0, 1],
+      ['kol', true, 0, 1],
+    ]);
+    expect(overviewProgress(sections)).toEqual({ missing: 0, firstIncomplete: undefined });
   });
 
   test('MCN có kênh gán cho KOL → thẻ Quản lý KOL Đã đủ', () => {

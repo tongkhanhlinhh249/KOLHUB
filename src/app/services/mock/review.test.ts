@@ -93,8 +93,24 @@ describe('submit', () => {
     expect(h.db.read().funnel.map((f) => f.step)).toEqual(['profile_submitted']);
   });
 
-  test('MCN chưa gán kênh cho KOL nào → NOT_ELIGIBLE (BR-65)', async () => {
+  test('MCN gửi được khi chưa có kênh (BR-65)', async () => {
     readyMcn(h, false);
+    await expect(review.submit(h.mcnId, ALL)).resolves.toMatchObject({ status: 'SUBMITTED' });
+  });
+
+  test('MCN chưa có nhân sự vẫn gửi được (nhân sự chỉ là khuyến nghị)', async () => {
+    readyMcn(h, false);
+    h.db.update((s) => {
+      (findProfile(s, h.mcnId) as McnProfile).staff = { staffName: '', staffPhone: '', staffEmail: '' };
+    });
+    await expect(review.submit(h.mcnId, ALL)).resolves.toMatchObject({ status: 'SUBMITTED' });
+  });
+
+  test('MCN thiếu GCN → NOT_ELIGIBLE', async () => {
+    readyMcn(h, false);
+    h.db.update((s) => {
+      delete (findProfile(s, h.mcnId) as McnProfile).gcnFile;
+    });
     await expect(review.submit(h.mcnId, ALL)).rejects.toThrow('NOT_ELIGIBLE');
   });
 

@@ -68,6 +68,7 @@ export {
   missingContactFields,
   missingOrgFields,
   PLEDGES_LABEL,
+  profileRecommendations,
   REVIEW_SLA_NOTE,
 } from './mock/profileRules';
 export { FUNNEL_STEPS, formatDuration } from './mock/funnel';

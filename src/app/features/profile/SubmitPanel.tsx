@@ -33,8 +33,8 @@ function focusSection(id: string) {
 
 /**
  * Submit card body (shared by KOL and MCN): how many overview items are still missing (jumps to the first
- * incomplete section card), the 3 pledges and the submit button — enabled only when every section is
- * "Đã đủ" and all pledges are ticked.
+ * incomplete section card), the 3 pledges and the submit button — enabled only when every required item
+ * is met ("Khuyến nghị" items never block) and all pledges are ticked.
  */
 export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit }: SubmitPanelProps) {
   const baseId = useId();
@@ -42,7 +42,7 @@ export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit 
   const [busy, setBusy] = useState(false);
   const allPledged = checked.length === pledges.length && checked.every(Boolean);
   const { missing, firstIncomplete } = overviewProgress(sections);
-  const missingLabels = sections.flatMap((s) => s.items.filter((i) => !i.ok).map((i) => i.label));
+  const missingLabels = sections.flatMap((s) => s.items.filter((i) => i.required && !i.ok).map((i) => i.label));
   const ready = missing === 0 && allPledged;
 
   const submit = async () => {

@@ -1,6 +1,7 @@
 // "Tổng quan hồ sơ" on "Gửi hồ sơ xác thực": one summary card per tab of the profile area, built from the
 // same BR-64/65 checklist (ProfileView.checklist = submitChecklist) that guards submit, so the cards'
-// "Đã đủ / Còn thiếu N" and the submit button can never disagree.
+// "Đã đủ / Còn thiếu N" and the submit button can never disagree. Recommended items
+// (ProfileView.recommendations, e.g. MCN staff / channels / KOL assignment) are listed too but never block.
 import {
   missingContactFields,
   missingOrgFields,
@@ -24,8 +25,10 @@ export type OverviewItemKey = Exclude<ChecklistItem['key'], 'pledges'>;
 export interface OverviewItem {
   key: OverviewItemKey;
   label: string;
-  /** Straight from the submit checklist. */
+  /** Straight from the submit checklist (required) or the recommendations. */
   ok: boolean;
+  /** Required to submit; false = "Khuyến nghị" (shown, never blocks). */
+  required: boolean;
   detail?: string;
   /** Where the item is viewed / fixed. */
   to: string;
@@ -39,8 +42,11 @@ export interface OverviewSection {
   to: string;
   linkLabel: string;
   items: OverviewItem[];
-  /** Unmet items. */
+  /** Unmet required items. */
   missing: number;
+  /** Unmet recommended items. */
+  suggestions: number;
+  /** Every required item is met (recommendations may remain). */
   complete: boolean;
 }
 
@@ -59,6 +65,9 @@ const SECTION_OF: Record<OverviewItemKey, OverviewSectionKey> = {
   channel: 'kenh',
   kols: 'kol',
 };
+
+/** Row order inside a card. */
+const ITEM_ORDER: OverviewItemKey[] = ['ekyc', 'org', 'gcn', 'contact', 'staff', 'channel', 'kols'];
 
 const ITEM_LABEL: Record<OverviewItemKey, string> = {
   ekyc: 'Định danh (eKYC)',
@@ -200,22 +209,29 @@ export function overviewSections(input: OverviewInput): OverviewSection[] {
     kol: { title: 'Quản lý KOL', to: mcnKolsPath(), linkLabel: 'Quản lý KOL' },
   };
   const order: OverviewSectionKey[] = ownerType === 'MCN' ? ['thong-tin', 'kenh', 'kol'] : ['thong-tin', 'kenh'];
+  const all = [
+    ...input.view.checklist.map((c) => ({ ...c, required: true })),
+    ...(input.view.recommendations ?? []).map((c) => ({ ...c, required: false })),
+  ].filter((c): c is ChecklistItem & { key: OverviewItemKey; required: boolean } => c.key !== 'pledges');
   return order.map((key) => {
-    const items: OverviewItem[] = input.view.checklist
-      .filter((c): c is ChecklistItem & { key: OverviewItemKey } => c.key !== 'pledges' && SECTION_OF[c.key] === key)
+    const items: OverviewItem[] = all
+      .filter((c) => SECTION_OF[c.key] === key)
+      .sort((a, b) => ITEM_ORDER.indexOf(a.key) - ITEM_ORDER.indexOf(b.key))
       .map((c) => ({
         key: c.key,
         label: ITEM_LABEL[c.key],
         ok: c.ok,
+        required: c.required,
         detail: itemDetail(c.key, c.ok, input) || undefined,
         to: checklistLink(ownerType, c.key) ?? meta[key].to,
       }));
-    const missing = items.filter((i) => !i.ok).length;
-    return { key, ...meta[key], anchorId: OVERVIEW_ANCHOR[key], items, missing, complete: missing === 0 };
+    const missing = items.filter((i) => i.required && !i.ok).length;
+    const suggestions = items.filter((i) => !i.required && !i.ok).length;
+    return { key, ...meta[key], anchorId: OVERVIEW_ANCHOR[key], items, missing, suggestions, complete: missing === 0 };
   });
 }
 
-/** Unmet items across the sections and the first incomplete section (target of "Còn N mục cần bổ sung"). */
+/** Unmet required items across the sections and the first incomplete section (target of "Còn N mục cần bổ sung"). */
 export function overviewProgress(sections: OverviewSection[]): { missing: number; firstIncomplete?: OverviewSection } {
   return {
     missing: sections.reduce((n, s) => n + s.missing, 0),

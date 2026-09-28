@@ -107,7 +107,7 @@ describe('assignChannels', () => {
     expect((await svc.listKols(SAOVIET)).some((r) => r.kolId === kolId(11))).toBe(true);
   });
 
-  test('MCN đang soạn hồ sơ (DRAFT) / cần bổ sung vẫn gán được — điều kiện để gửi hồ sơ', async () => {
+  test('MCN đang soạn hồ sơ (DRAFT) / cần bổ sung vẫn gán được — khuyến nghị trước khi gửi hồ sơ', async () => {
     h.db.update((s) => {
       s.channels.push({ ...structuredClone(s.channels.find((c) => c.ownerId === SAOVIET)!), id: 'draft-ch', ownerId: h.mcnId, assignedKolAccountId: undefined });
     });

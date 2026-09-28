@@ -23,6 +23,7 @@ import {
   emptyKolProfile,
   emptyMcnProfile,
   findProfile,
+  profileRecommendations,
   submitChecklist,
   sweepExpired,
   type ChecklistItem,
@@ -34,8 +35,10 @@ export interface ProfileView {
   completeness: Completeness;
   channelCount: number;
   pendingChanges: ChangeRequest[];
-  /** BR-64/65 items without the pledges row (the screen adds it). */
+  /** BR-64/65 items without the pledges row (the screen adds it) — required to submit. */
   checklist: ChecklistItem[];
+  /** Recommended, non-blocking items (MCN: staff, channel, KOL assignment; KOL: none). */
+  recommendations: ChecklistItem[];
 }
 
 export function newId(prefix: string, now: number): string {
@@ -151,6 +154,7 @@ export function buildProfileView(state: DemoState, accountId: string): ProfileVi
     channelCount: state.channels.filter((c) => c.ownerId === accountId).length,
     pendingChanges: state.changeRequests.filter((c) => c.ownerId === accountId && c.status === 'PENDING_CHANGE'),
     checklist: submitChecklist(state, accountId, [true, true, true]).filter((i) => i.key !== 'pledges'),
+    recommendations: profileRecommendations(state, accountId),
   };
 }
 
