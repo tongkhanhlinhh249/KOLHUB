@@ -7,14 +7,17 @@ import { DropdownMenuItem, DropdownMenuSeparator } from '../../components/ui/dro
 import { cn } from '../../components/ui/utils';
 import { MCN_KOLS_PATH } from '../../auth/roles';
 import { mcnKolService, type Channel, type McnKolRow } from '../../services';
+import { channelName } from '../channels/ChannelParts';
 import { FilterSelect } from '../filters/FilterSelect';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { AssignChannelDialog } from './AssignChannelDialog';
+import { AssignChannelsDialog } from './AssignChannelsDialog';
 import { filterByOwner, OWN_CHANNELS_LABEL, OWNER_PARAM, ownerOf, ownerOptions, parseOwnerParam, withOwnerParam } from './channelOwner';
 import { KolAvatar } from './McnKolRow';
 
 const MENU_ITEM = 'min-h-11 md:min-h-9';
-const nameOf = (c: Channel) => c.handle || c.url;
+const NOT_APPROVED = 'Cần duyệt hồ sơ';
+const nameOf = (c: Channel) => channelName(c.handle, c.url);
+const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
 /** "KOL: Tên" with a small avatar, or "Kênh riêng MCN". */
 export function ChannelOwnerTag({ owner, className }: { owner: McnKolRow | null; className?: string }) {
@@ -38,15 +41,16 @@ export function ChannelOwnerTag({ owner, className }: { owner: McnKolRow | null;
 
 /**
  * MCN "Quản lý kênh" owner features, plugged into the shared ChannelsTab / ChannelRow slots:
- * `?kol=` filter (Tất cả / Kênh riêng MCN / each ACTIVE KOL), owner tag, More-menu items,
- * the "Chủ sở hữu" section of the detail sheet and the assign dialog. No-ops when `enabled` is false (KOL).
+ * `?kol=` filter (Tất cả / Kênh riêng MCN / each KOL holding channels), owner tag, More-menu items,
+ * the "Chủ sở hữu" section of the detail sheet and the assign dialog (any approved KOL).
+ * No-ops when `enabled` is false (KOL). `canAssign` = the MCN profile is approved.
  */
-export function useMcnChannelOwners(accountId: string, enabled: boolean) {
+export function useMcnChannelOwners(accountId: string, enabled: boolean, canAssign = true) {
   const q = useLiveQuery(
     () => (enabled ? mcnKolService.listKols(accountId) : Promise.resolve([] as McnKolRow[])),
     [accountId, enabled],
   );
-  const kols = useMemo(() => (q.data ?? []).filter((k) => k.status === 'ACTIVE'), [q.data]);
+  const kols = useMemo(() => q.data ?? [], [q.data]);
   const [params, setParams] = useSearchParams();
   const owner = enabled ? parseOwnerParam(params.get(OWNER_PARAM)) : undefined;
   const setOwner = useCallback(
@@ -55,27 +59,20 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean) {
   );
   const [target, setTarget] = useState<Channel | null>(null);
 
-  const assign = async (c: Channel, kolAccountId: string | null) => {
-    await mcnKolService.assignChannel(accountId, c.id, kolAccountId);
-  };
-
   const unassign = async (c: Channel) => {
-    const prev = c.assignedKolAccountId;
     try {
-      await assign(c, null);
+      const prev = await mcnKolService.unassignChannels(accountId, [c.id]);
       toast.success(`Đã chuyển ${nameOf(c)} về ${OWN_CHANNELS_LABEL}`, {
-        action: prev ? { label: 'Hoàn tác', onClick: () => void assign(c, prev).catch(() => undefined) } : undefined,
+        action: prev[0]
+          ? {
+              label: 'Hoàn tác',
+              onClick: () => void mcnKolService.assignChannels(accountId, [c.id], prev[0].kolAccountId).catch((e) => toast.error(errText(e))),
+            }
+          : undefined,
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+      toast.error(errText(e));
     }
-  };
-
-  const save = async (kolAccountId: string | null) => {
-    if (!target) return;
-    await assign(target, kolAccountId);
-    const k = kols.find((x) => x.kolAccountId === kolAccountId);
-    toast.success(k ? `Đã gán ${nameOf(target)} cho ${k.displayName}` : `Đã chuyển ${nameOf(target)} về ${OWN_CHANNELS_LABEL}`);
   };
 
   const ownerSelect = (channels: Channel[], className?: string): ReactNode =>
@@ -92,13 +89,14 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean) {
 
   const menuItems = (c: Channel): ReactNode => {
     if (!enabled) return null;
-    const assigned = !!ownerOf(c, kols);
+    const assigned = !!c.assignedKolAccountId;
     return (
       <>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className={MENU_ITEM} onSelect={() => setTarget(c)}>
+        <DropdownMenuItem className={MENU_ITEM} disabled={!canAssign} onSelect={() => setTarget(c)}>
           {assigned ? <ArrowLeftRight aria-hidden /> : <UserPlus aria-hidden />}
           {assigned ? 'Đổi KOL được gán' : 'Gán cho KOL'}
+          {!canAssign && <span className="ml-auto text-xs text-muted-foreground">{NOT_APPROVED}</span>}
         </DropdownMenuItem>
         {assigned && (
           <DropdownMenuItem className={MENU_ITEM} onSelect={() => void unassign(c)}>
@@ -128,27 +126,29 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean) {
             <div className="min-w-0">
               <p className="truncate font-semibold text-foreground">{o ? o.displayName : OWN_CHANNELS_LABEL}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {o ? `KOL ID: ${o.kolId} · KOL do MCN quản lý` : 'Kênh do MCN phát triển, chưa gán cho KOL nào'}
+                {o ? `KOL ID: ${o.kolId} · KOL phụ trách kênh` : 'Kênh do MCN phát triển, chưa gán cho KOL nào'}
               </p>
             </div>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            {o && (
+            {c.assignedKolAccountId && (
               <Button type="button" variant="ghost" className="h-11 sm:h-9" onClick={() => void unassign(c)}>
                 <Building2 aria-hidden />
                 Bỏ gán
               </Button>
             )}
-            <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={() => setTarget(c)}>
+            <Button type="button" variant="outline" className="h-11 sm:h-9" disabled={!canAssign} onClick={() => setTarget(c)}>
               {o ? <ArrowLeftRight aria-hidden /> : <UserPlus aria-hidden />}
               {o ? 'Đổi KOL' : 'Gán cho KOL'}
             </Button>
           </div>
         </div>
-        {kols.length === 0 && (
+        {!canAssign ? (
+          <p className="text-xs text-muted-foreground">Hồ sơ tổ chức cần được duyệt trước khi gán kênh cho KOL.</p>
+        ) : (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="size-3.5" aria-hidden />
-            MCN chưa quản lý KOL nào.{' '}
+            Xem tất cả KOL đang phụ trách kênh ở{' '}
             <Link to={MCN_KOLS_PATH} className="font-medium text-primary underline-offset-4 hover:underline">
               Quản lý KOL
             </Link>
@@ -159,13 +159,13 @@ export function useMcnChannelOwners(accountId: string, enabled: boolean) {
   };
 
   const dialog: ReactNode = enabled && (
-    <AssignChannelDialog
+    <AssignChannelsDialog
       open={target !== null}
       onOpenChange={(o) => !o && setTarget(null)}
-      channelName={target ? nameOf(target) : ''}
-      kols={kols}
-      currentKolAccountId={target ? ownerOf(target, kols)?.kolAccountId : undefined}
-      onSave={save}
+      mcnAccountId={accountId}
+      channels={target ? [target] : []}
+      ownerName={(id) => kols.find((k) => k.kolAccountId === id)?.displayName}
+      initialChannelIds={target ? [target.id] : []}
     />
   );
 

@@ -191,25 +191,13 @@ function violationMessage(code: ErrorCode): string {
 function mcnKolMessage(code: ErrorCode): string {
   switch (code) {
     case 'KOLHUB-4701':
-      return 'Hồ sơ tổ chức cần được duyệt trước khi mời KOL.';
+      return 'Hồ sơ tổ chức cần được duyệt trước khi gán kênh cho KOL.';
     case 'KOLHUB-4702':
-      return 'Vui lòng nhập KOL ID (ví dụ KOL-2026-0001) hoặc email đăng nhập của KOL.';
+      return 'Không tìm thấy KOL đã được duyệt. Vui lòng chọn KOL khác.';
     case 'KOLHUB-4703':
-      return 'Không tìm thấy KOL đã được duyệt với KOL ID hoặc email này.';
-    case 'KOLHUB-4704':
-      return 'Bạn đã gửi lời mời cho KOL này, đang chờ KOL xác nhận.';
-    case 'KOLHUB-4705':
-      return 'KOL này đang do bạn quản lý.';
-    case 'KOLHUB-4706':
-      return 'KOL này đang thuộc quản lý của một MCN khác.';
-    case 'KOLHUB-4707':
-      return 'Lời mời hoặc liên kết không còn ở trạng thái cho phép thao tác này. Vui lòng tải lại.';
-    case 'KOLHUB-4708':
-      return 'Bạn đang thuộc quản lý của một MCN khác. Hãy rời MCN hiện tại trước khi chấp nhận lời mời mới.';
-    case 'KOLHUB-4709':
-      return 'Chỉ gán kênh cho KOL đang do MCN quản lý.';
-    case 'KOLHUB-4710':
       return 'Không tìm thấy kênh của MCN. Có thể kênh đã bị gỡ.';
+    case 'KOLHUB-4704':
+      return 'Vui lòng chọn ít nhất một kênh.';
     default:
       return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }

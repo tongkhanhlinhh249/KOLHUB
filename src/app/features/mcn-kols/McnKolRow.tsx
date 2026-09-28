@@ -1,47 +1,14 @@
 import type { ReactNode } from 'react';
 import { format } from 'date-fns';
-import { MonitorPlay, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
-import { Badge } from '../../components/ui/badge';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import { initialsOf } from '../../auth/useIdentity';
-import { MCN_KOL_STATUS_LABEL, type McnKolLinkStatus, type McnKolRow } from '../../services';
+import type { McnKolRow, Platform } from '../../services';
 import { formatFollowers } from '../biz-search/format';
-
-// Same tones as shared/StatusBadges (chart-4 = success, chart-5 = warning).
-const TONE: Record<McnKolLinkStatus, { badge: string; dot: string }> = {
-  ACTIVE: { badge: 'bg-chart-4/15 text-foreground', dot: 'bg-chart-4' },
-  PENDING: { badge: 'bg-chart-5/20 text-foreground', dot: 'bg-chart-5' },
-  DECLINED: { badge: 'bg-secondary text-secondary-foreground', dot: 'bg-muted-foreground' },
-  ENDED: { badge: 'bg-secondary text-secondary-foreground', dot: 'bg-muted-foreground' },
-};
-
-export function McnKolStatusBadge({ status, className }: { status: McnKolLinkStatus; className?: string }) {
-  return (
-    <Badge variant="outline" className={cn('gap-1.5 border-transparent font-medium whitespace-nowrap', TONE[status].badge, className)}>
-      <span className={cn('size-1.5 shrink-0 rounded-full', TONE[status].dot)} aria-hidden />
-      {MCN_KOL_STATUS_LABEL[status]}
-    </Badge>
-  );
-}
-
-const day = (ms: number) => format(ms, 'dd/MM/yyyy');
-
-/** Date line under the status: when the relation started / was proposed / closed. */
-export function statusDate(r: McnKolRow): string {
-  switch (r.status) {
-    case 'ACTIVE':
-      return `Quản lý từ ${day(r.respondedAt ?? r.invitedAt)}`;
-    case 'PENDING':
-      return `Đã mời ngày ${day(r.invitedAt)}`;
-    case 'DECLINED':
-      return `KOL từ chối ngày ${day(r.respondedAt ?? r.invitedAt)}`;
-    case 'ENDED':
-      return `${r.endedBy === 'KOL' ? 'KOL rời MCN' : 'Kết thúc'} ngày ${day(r.endedAt ?? r.invitedAt)}`;
-  }
-}
+import { PlatformIcon } from '../biz-search/PlatformIcon';
 
 export function KolAvatar({ name, src, className }: { name: string; src?: string; className?: string }) {
   return (
@@ -52,12 +19,23 @@ export function KolAvatar({ name, src, className }: { name: string; src?: string
   );
 }
 
+/** "KOL-2026-0011 · Lifestyle · Hà Nội". */
+export function kolMeta(k: { kolId: string; category?: string; region?: string }): string {
+  return [k.kolId, k.category, k.region].filter(Boolean).join(' · ');
+}
+
+/** Distinct platforms of the assigned channels, first-seen order. */
+function platformsOf(row: McnKolRow): Platform[] {
+  const out: Platform[] = [];
+  for (const c of row.channels) if (!out.includes(c.platform)) out.push(c.platform);
+  return out;
+}
+
 /**
- * One KOL of the MCN. Layout follows the list width (container queries on the parent `@container`):
- * ≥ @3xl one line — [avatar | name, KOL ID, field] · stats · status · actions; below, stacked.
+ * One KOL holding channels of the MCN. Layout follows the list width (container queries on the parent `@container`):
+ * ≥ @3xl one line — [avatar | name, KOL ID, field] · followers · assigned channels · actions; below, stacked.
  */
 export function McnKolListRow({ row, actions }: { row: McnKolRow; actions: ReactNode }) {
-  const meta = [row.category, row.region].filter(Boolean).join(' · ');
   return (
     <Card className="gap-0 p-4 @xl:p-5">
       <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:gap-6">
@@ -67,39 +45,33 @@ export function McnKolListRow({ row, actions }: { row: McnKolRow; actions: React
             <h3 className="truncate font-semibold text-foreground" title={row.displayName}>
               {row.displayName}
             </h3>
-            <p className="truncate text-sm text-muted-foreground">
-              <span className="font-mono text-xs">{row.kolId}</span>
-              {meta && <> · {meta}</>}
-            </p>
+            <p className="truncate text-sm text-muted-foreground">{kolMeta(row)}</p>
           </div>
           {/* Phones: the menu stays next to the name. */}
           <div className="shrink-0 @3xl:hidden">{actions}</div>
         </div>
 
-        <dl className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm @3xl:w-60 @3xl:shrink-0">
-          <div className="flex items-center gap-1.5">
-            <Users className="size-4 text-muted-foreground" aria-hidden />
-            <dt className="sr-only">Người theo dõi</dt>
-            <dd>
-              <span className="font-semibold text-foreground">{formatFollowers(row.totalFollowers)}</span>{' '}
-              <span className="text-muted-foreground">người theo dõi</span>
-            </dd>
-          </div>
-          {row.status === 'ACTIVE' && (
-            <div className="flex items-center gap-1.5">
-              <MonitorPlay className="size-4 text-muted-foreground" aria-hidden />
-              <dt className="sr-only">Kênh MCN được gán</dt>
-              <dd>
-                <span className="font-semibold text-foreground">{row.assignedChannelCount}</span>{' '}
-                <span className="text-muted-foreground">kênh MCN</span>
-              </dd>
-            </div>
-          )}
-        </dl>
+        <p className="flex items-center gap-1.5 text-sm @3xl:w-44 @3xl:shrink-0">
+          <Users className="size-4 text-muted-foreground" aria-hidden />
+          <span className="font-semibold text-foreground">{formatFollowers(row.totalFollowers)}</span>
+          <span className="text-muted-foreground">người theo dõi</span>
+        </p>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 @3xl:w-56 @3xl:shrink-0 @3xl:flex-col @3xl:items-start">
-          <McnKolStatusBadge status={row.status} />
-          <span className="text-xs text-muted-foreground">{statusDate(row)}</span>
+          <p
+            className="flex items-center gap-2 text-sm"
+            title={row.channels.map((c) => c.handle || c.url).join(', ')}
+          >
+            <span className="font-semibold text-foreground">{row.assignedChannelCount} kênh</span>
+            <span className="flex items-center gap-1">
+              {platformsOf(row).map((p) => (
+                <PlatformIcon key={p} platform={p} />
+              ))}
+            </span>
+          </p>
+          {row.lastAssignedAt !== undefined && (
+            <span className="text-xs text-muted-foreground">Gán gần nhất {format(row.lastAssignedAt, 'dd/MM/yyyy')}</span>
+          )}
         </div>
 
         <div className="hidden shrink-0 @3xl:block">{actions}</div>
@@ -119,8 +91,8 @@ export function McnKolListRowSkeleton() {
             <Skeleton className="h-4 w-56" />
           </div>
         </div>
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-5 w-28 rounded-full" />
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-5 w-28" />
       </div>
     </Card>
   );

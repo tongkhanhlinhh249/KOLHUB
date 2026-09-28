@@ -114,7 +114,7 @@ export function ChannelsTab({
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
   const detail = useChannelParam();
   // MCN only ('status' mode): channel owner (assigned KOL / Kênh riêng MCN), `?kol=` filter, assign.
-  const owners = useMcnChannelOwners(accountId, statusMode);
+  const owners = useMcnChannelOwners(accountId, statusMode, profileStatus === 'APPROVED');
   const [page, setPage] = useState(1);
   // Back to page 1 when filters change (not when only `?kenh=` changes).
   const queryKey = JSON.stringify(query);

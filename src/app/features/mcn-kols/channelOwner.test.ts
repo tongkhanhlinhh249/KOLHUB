@@ -2,24 +2,22 @@ import { expect, test } from 'vitest';
 import type { McnKolRow } from '../../services';
 import { filterByOwner, ownerOf, ownerOptions, parseOwnerParam, withOwnerParam } from './channelOwner';
 
-const kol = (n: number, name: string, status: McnKolRow['status'] = 'ACTIVE'): McnKolRow => ({
-  linkId: `l${n}`,
+const kol = (n: number, name: string): McnKolRow => ({
   kolAccountId: `acc-${n}`,
   kolId: `KOL-2026-00${n}`,
   displayName: name,
   totalFollowers: 0,
   assignedChannelCount: 0,
-  status,
-  invitedAt: 0,
+  channels: [],
 });
 
-const kols = [kol(11, 'Bảo Ngọc'), kol(12, 'An Nhiên'), kol(13, 'Cũ', 'ENDED')];
+const kols = [kol(11, 'Bảo Ngọc'), kol(12, 'An Nhiên')];
 const chans = [
   { id: 'a', assignedKolAccountId: 'acc-11' },
   { id: 'b', assignedKolAccountId: 'acc-11' },
   { id: 'c', assignedKolAccountId: 'acc-12' },
   { id: 'd' },
-  // Stale assignment to a KOL that is no longer managed counts as Kênh riêng MCN.
+  // Assignment to a KOL missing from the rows (e.g. profile gone) counts as Kênh riêng MCN.
   { id: 'e', assignedKolAccountId: 'acc-13' },
 ];
 

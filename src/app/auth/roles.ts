@@ -90,7 +90,7 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
   ];
 }
 
-/** MCN only: KOLs the MCN manages (invites, management links; group "Hồ sơ MCN"). */
+/** MCN only: KOLs the MCN's channels are assigned to (group "Hồ sơ MCN"). */
 export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
 const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
 
@@ -229,7 +229,7 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/lien-he': 'Thông tin liên hệ và nhân sự quản lý nội dung',
   '/ho-so-mcn/dinh-danh': 'Xác thực tổ chức bằng Giấy chứng nhận ĐKDN',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
-  '/ho-so-mcn/kol': 'Mời KOL, theo dõi lời mời và các KOL MCN đang quản lý',
+  '/ho-so-mcn/kol': 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',

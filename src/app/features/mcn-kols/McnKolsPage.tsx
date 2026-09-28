@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertCircle, Info, MonitorPlay, MoreHorizontal, RotateCcw, SearchX, UserMinus, UserPlus, Users, XCircle } from 'lucide-react';
+import { AlertCircle, Building2, Info, MonitorPlay, MoreHorizontal, Plus, RotateCcw, SearchX, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import {
@@ -14,52 +14,39 @@ import {
   AlertDialogTitle,
 } from '../../components/ui/alert-dialog';
 import { Button, buttonVariants } from '../../components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../../components/ui/dropdown-menu';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../auth/AuthContext';
-import { KOL_CATEGORIES, mcnKolService, profileService, type KolCategory, type McnKolRow, type McnKolTab } from '../../services';
+import { channelService, KOL_CATEGORIES, mcnKolService, profileService, type KolCategory, type McnKolRow } from '../../services';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { SortSelect } from '../filters/SortSelect';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { InviteKolDialog } from './InviteKolDialog';
+import { AssignChannelsDialog } from './AssignChannelsDialog';
 import { McnKolListRow, McnKolListRowSkeleton } from './McnKolRow';
 import {
   applyMcnKolQuery,
   assignedChannelsPath,
-  countMcnKolTabs,
   hasMcnKolFilters,
   mergeMcnKolParams,
   MCN_KOL_SORT_OPTIONS,
-  MCN_KOL_TABS,
   parseMcnKolParams,
   type McnKolQuery,
 } from './mcnKolQuery';
 
-const EMPTY_TAB: Record<McnKolTab, { title: string; body: string }> = {
-  ACTIVE: {
-    title: 'Chưa quản lý KOL nào',
-    body: 'Mời KOL đã được duyệt bằng KOL ID hoặc email. Khi KOL chấp nhận, bạn có thể gán kênh MCN cho KOL đó.',
-  },
-  PENDING: { title: 'Không có lời mời đang chờ', body: 'Lời mời bạn gửi sẽ hiện ở đây cho tới khi KOL chấp nhận hoặc từ chối.' },
-  CLOSED: { title: 'Chưa có KOL nào kết thúc', body: 'KOL từ chối lời mời, rời MCN hoặc được bạn kết thúc quản lý sẽ hiện ở đây.' },
-};
+const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-type Confirm = { kind: 'end' | 'cancel'; row: McnKolRow } | null;
-
-/** /ho-so-mcn/kol — KOLs managed by the signed-in MCN: invite, cancel an invite, end management. */
+/** /ho-so-mcn/kol — KOLs holding channels of the signed-in MCN: assign channels (many → one KOL), unassign. */
 export function McnKolsPage() {
   const { account } = useAuth();
   const accountId = account?.id ?? '';
   const q = useLiveQuery(async () => {
-    const [rows, view] = await Promise.all([mcnKolService.listKols(accountId), profileService.getProfile(accountId)]);
-    return { rows, approved: view.profile.status === 'APPROVED' };
+    const [rows, channels, view] = await Promise.all([
+      mcnKolService.listKols(accountId),
+      channelService.list(accountId),
+      profileService.getProfile(accountId),
+    ]);
+    return { rows, channels, approved: view.profile.status === 'APPROVED' };
   }, [accountId]);
 
   const [params, setParams] = useSearchParams();
@@ -70,77 +57,70 @@ export function McnKolsPage() {
     [setParams],
   );
   const change = (patch: Partial<McnKolQuery>) => write({ ...query, ...patch });
-  const clear = () => write({ tab: query.tab, sort: query.sort });
+  const clear = () => write({ sort: query.sort });
 
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [confirm, setConfirm] = useState<Confirm>(null);
+  const [assign, setAssign] = useState<{ kol: McnKolRow | null } | null>(null);
+  const [confirm, setConfirm] = useState<McnKolRow | null>(null);
 
   const all = q.data?.rows;
+  const channels = q.data?.channels ?? [];
   const approved = q.data?.approved ?? false;
-  const counts = useMemo(() => countMcnKolTabs(all ?? [], query), [all, query]);
   const rows = useMemo(() => applyMcnKolQuery(all ?? [], query), [all, query]);
   const active = hasMcnKolFilters(query);
+  const ownCount = channels.filter((c) => !c.assignedKolAccountId).length;
+  const ownerName = (id: string) => all?.find((r) => r.kolAccountId === id)?.displayName;
 
-  const invite = async (target: string) => {
-    const row = await mcnKolService.invite(accountId, target);
-    toast.success(`Đã gửi lời mời tới ${row.displayName}`, { description: 'KOL sẽ thấy lời mời trong hồ sơ của mình.' });
-    write({ tab: 'PENDING', sort: query.sort });
-    return row;
-  };
-
-  const runConfirm = async () => {
-    if (!confirm) return;
-    const { kind, row } = confirm;
+  const unassignAll = async (r: McnKolRow) => {
     try {
-      if (kind === 'end') {
-        await mcnKolService.endLink(accountId, row.linkId);
-        toast.success(`Đã kết thúc quản lý ${row.displayName}`, {
-          description: row.assignedChannelCount > 0 ? 'Các kênh đã gán cho KOL này trở thành Kênh riêng MCN.' : undefined,
-        });
-      } else {
-        await mcnKolService.cancelInvite(accountId, row.linkId);
-        toast.success(`Đã huỷ lời mời ${row.displayName}`);
-      }
+      const prev = await mcnKolService.unassignChannels(accountId, r.channels.map((c) => c.id));
+      toast.success(`Đã bỏ gán ${prev.length} kênh của ${r.displayName}`, {
+        description: 'Các kênh trở thành Kênh riêng MCN.',
+        action: {
+          label: 'Hoàn tác',
+          onClick: () =>
+            void mcnKolService
+              .assignChannels(accountId, prev.map((p) => p.channelId), r.kolAccountId)
+              .catch((e) => toast.error(errText(e))),
+        },
+      });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
+      toast.error(errText(e));
     }
   };
 
-  const rowActions = (r: McnKolRow) => {
-    if (r.status !== 'ACTIVE' && r.status !== 'PENDING') return null;
-    return (
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" className="size-11 md:size-9" aria-label={`Thao tác: ${r.displayName}`}>
-            <MoreHorizontal aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          {r.status === 'ACTIVE' ? (
-            <>
-              <DropdownMenuItem asChild className="min-h-11 md:min-h-8">
-                <Link to={assignedChannelsPath(r.kolId)}>
-                  <MonitorPlay aria-hidden />
-                  Xem kênh được gán
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" className="min-h-11 md:min-h-8" onSelect={() => setConfirm({ kind: 'end', row: r })}>
-                <UserMinus aria-hidden />
-                Kết thúc quản lý
-              </DropdownMenuItem>
-            </>
-          ) : (
-            <DropdownMenuItem variant="destructive" className="min-h-11 md:min-h-8" onSelect={() => setConfirm({ kind: 'cancel', row: r })}>
-              <XCircle aria-hidden />
-              Huỷ lời mời
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  };
+  const rowActions = (r: McnKolRow) => (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="icon" className="size-11 md:size-9" aria-label={`Thao tác: ${r.displayName}`}>
+          <MoreHorizontal aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem asChild className="min-h-11 md:min-h-8">
+          <Link to={assignedChannelsPath(r.kolId)}>
+            <MonitorPlay aria-hidden />
+            Xem kênh được gán
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="min-h-11 md:min-h-8" disabled={!approved} onSelect={() => setAssign({ kol: r })}>
+          <Plus aria-hidden />
+          Gán thêm kênh
+        </DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" className="min-h-11 md:min-h-8" onSelect={() => setConfirm(r)}>
+          <Building2 aria-hidden />
+          Bỏ gán tất cả kênh
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const chips: FilterChip[] = query.category ? [{ key: 'category', label: query.category, remove: () => change({ category: undefined }) }] : [];
+  const assignButton = (
+    <Button type="button" className="h-11 md:h-9" onClick={() => setAssign({ kol: null })} disabled={!approved}>
+      <Plus aria-hidden />
+      Gán kênh cho KOL
+    </Button>
+  );
 
   let body: ReactNode;
   if (q.loading && !all) {
@@ -164,41 +144,37 @@ export function McnKolsPage() {
         </AlertDescription>
       </Alert>
     );
-  } else if (rows.length === 0 && active) {
+  } else if (all && all.length === 0) {
+    body = (
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-4 py-12 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Users className="size-6" aria-hidden />
+        </div>
+        <p className="font-semibold text-foreground">Chưa gán kênh cho KOL nào</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          Chọn một KOL đã được duyệt và giao cho KOL đó một hoặc nhiều kênh của MCN. Kênh chưa gán là Kênh riêng MCN.
+        </p>
+        {approved && assignButton}
+      </div>
+    );
+  } else if (rows.length === 0) {
     body = (
       <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
         <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <SearchX className="size-6" aria-hidden />
         </div>
         <p className="font-semibold text-foreground">Không có KOL phù hợp</p>
-        <p className="text-sm text-muted-foreground">Thử đổi từ khoá, bỏ bớt bộ lọc hoặc xem trạng thái khác.</p>
+        <p className="text-sm text-muted-foreground">Thử đổi từ khoá hoặc bỏ bớt bộ lọc.</p>
         <Button type="button" variant="outline" className="h-11" onClick={clear}>
           Xoá bộ lọc
         </Button>
-      </div>
-    );
-  } else if (rows.length === 0) {
-    const e = EMPTY_TAB[query.tab];
-    body = (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-4 py-12 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <Users className="size-6" aria-hidden />
-        </div>
-        <p className="font-semibold text-foreground">{e.title}</p>
-        <p className="max-w-md text-sm text-muted-foreground">{e.body}</p>
-        {query.tab === 'ACTIVE' && approved && (
-          <Button type="button" className="h-11 md:h-9" onClick={() => setInviteOpen(true)}>
-            <UserPlus aria-hidden />
-            Mời KOL
-          </Button>
-        )}
       </div>
     );
   } else {
     body = (
       <ul className="flex flex-col gap-3" aria-label="Danh sách KOL">
         {rows.map((r) => (
-          <li key={r.linkId}>
+          <li key={r.kolAccountId}>
             <McnKolListRow row={r} actions={rowActions(r)} />
           </li>
         ))}
@@ -214,7 +190,7 @@ export function McnKolsPage() {
           <AlertTitle>Hồ sơ tổ chức chưa được duyệt</AlertTitle>
           <AlertDescription>
             <p>
-              Bạn cần được duyệt hồ sơ trước khi mời KOL.{' '}
+              Bạn cần được duyệt hồ sơ trước khi gán kênh cho KOL.{' '}
               <Link to="/ho-so-mcn/dinh-danh" className="font-medium text-primary underline-offset-4 hover:underline">
                 Xem thông tin định danh
               </Link>
@@ -223,77 +199,72 @@ export function McnKolsPage() {
         </Alert>
       )}
 
-      <FilterBar
-        keyword={query.keyword}
-        onKeywordChange={(keyword) => change({ keyword })}
-        searchPlaceholder="Tìm theo tên hoặc KOL ID"
-        searchLabel="Tìm KOL theo tên hoặc KOL ID"
-        renderFilters={(triggerClass) => (
-          <FilterSelect<KolCategory>
-            label="Lĩnh vực"
-            allLabel="Tất cả lĩnh vực"
-            value={query.category}
-            options={KOL_CATEGORIES.map((c) => ({ key: c, label: c }))}
-            onChange={(category) => change({ category })}
-            className={triggerClass}
-          />
-        )}
-        filterGridClass="grid-cols-2"
-        inlineFilterClass="@4xl:w-44"
-        renderSort={(className) => (
-          <SortSelect value={query.sort} options={MCN_KOL_SORT_OPTIONS} onChange={(sort) => change({ sort })} className={className} />
-        )}
-        sortClass="@4xl:w-56"
-        filterCount={query.category ? 1 : 0}
-        active={active}
-        chips={chips}
-        onClear={clear}
-      />
+      {all && all.length > 0 && (
+        <FilterBar
+          keyword={query.keyword}
+          onKeywordChange={(keyword) => change({ keyword })}
+          searchPlaceholder="Tìm theo tên hoặc KOL ID"
+          searchLabel="Tìm KOL theo tên hoặc KOL ID"
+          renderFilters={(triggerClass) => (
+            <FilterSelect<KolCategory>
+              label="Lĩnh vực"
+              allLabel="Tất cả lĩnh vực"
+              value={query.category}
+              options={KOL_CATEGORIES.map((c) => ({ key: c, label: c }))}
+              onChange={(category) => change({ category })}
+              className={triggerClass}
+            />
+          )}
+          filterGridClass="grid-cols-2"
+          inlineFilterClass="@4xl:w-44"
+          renderSort={(className) => (
+            <SortSelect value={query.sort} options={MCN_KOL_SORT_OPTIONS} onChange={(sort) => change({ sort })} className={className} />
+          )}
+          sortClass="@4xl:w-56"
+          filterCount={query.category ? 1 : 0}
+          active={active}
+          chips={chips}
+          onClear={clear}
+        />
+      )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="-mx-4 min-w-0 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <Tabs value={query.tab} onValueChange={(t) => change({ tab: t as McnKolTab })}>
-            <TabsList className="h-auto" aria-label="Lọc theo trạng thái">
-              {MCN_KOL_TABS.map((t) => (
-                <TabsTrigger key={t.key} value={t.key} className="h-11 md:h-8">
-                  {t.label} ({all ? counts[t.key] : '–'})
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
-          <p className="text-sm font-medium text-foreground" aria-live="polite">
-            {all ? `${rows.length} KOL` : ''}
+      {all && all.length > 0 && (
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+          <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1" aria-live="polite">
+            <span className="font-medium text-foreground">{rows.length} KOL</span>
+            <span className="text-muted-foreground">
+              {channels.length - ownCount} kênh đã gán · {ownCount} Kênh riêng MCN
+            </span>
           </p>
-          <Button type="button" className="h-11 md:h-9" onClick={() => setInviteOpen(true)} disabled={!approved}>
-            <UserPlus aria-hidden />
-            Mời KOL
-          </Button>
+          <div className="ml-auto">{assignButton}</div>
         </div>
-      </div>
+      )}
 
       {body}
 
-      <InviteKolDialog open={inviteOpen} onOpenChange={setInviteOpen} onInvite={invite} />
+      <AssignChannelsDialog
+        open={assign !== null}
+        onOpenChange={(o) => !o && setAssign(null)}
+        mcnAccountId={accountId}
+        channels={channels}
+        ownerName={ownerName}
+        initialKol={assign?.kol ?? null}
+      />
       <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirm?.kind === 'end' ? `Kết thúc quản lý ${confirm.row.displayName}?` : `Huỷ lời mời ${confirm?.row.displayName ?? ''}?`}
-            </AlertDialogTitle>
+            <AlertDialogTitle>Bỏ gán tất cả kênh của {confirm?.displayName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirm?.kind === 'end'
-                ? confirm.row.assignedChannelCount > 0
-                  ? `${confirm.row.assignedChannelCount} kênh đã gán cho KOL này sẽ trở thành Kênh riêng MCN. Bạn có thể mời lại KOL sau.`
-                  : 'KOL sẽ không còn thuộc quản lý của MCN. Bạn có thể mời lại KOL sau.'
-                : 'KOL sẽ không còn thấy lời mời này. Bạn có thể mời lại sau.'}
+              {confirm?.assignedChannelCount} kênh sẽ trở thành Kênh riêng MCN và KOL không còn trong danh sách này. Bạn có thể gán lại bất cứ lúc nào.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11 md:h-9">Đóng</AlertDialogCancel>
-            <AlertDialogAction className={buttonVariants({ variant: 'destructive', className: 'h-11 md:h-9' })} onClick={() => void runConfirm()}>
-              {confirm?.kind === 'end' ? 'Kết thúc quản lý' : 'Huỷ lời mời'}
+            <AlertDialogAction
+              className={buttonVariants({ variant: 'destructive', className: 'h-11 md:h-9' })}
+              onClick={() => confirm && void unassignAll(confirm)}
+            >
+              Bỏ gán tất cả
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

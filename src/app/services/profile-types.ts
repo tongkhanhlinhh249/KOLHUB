@@ -136,6 +136,8 @@ export interface Channel {
    * Unset = "Kênh riêng MCN" (developed by the MCN itself).
    */
   assignedKolAccountId?: string;
+  /** When `assignedKolAccountId` was last set. */
+  assignedAt?: number;
   /** Mock social-listening data, set when the channel is verified (see mock/socialListening). */
   stats?: ChannelStats;
   createdAt: number;

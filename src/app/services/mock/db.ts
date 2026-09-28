@@ -18,8 +18,6 @@ import type {
 import type { SafetyMonitor, SafetyVideo } from '../safety-types';
 // --- violations ---
 import type { Violation } from '../violation-types';
-// --- MCN ↔ KOL ---
-import type { McnKolLink } from '../mcn-kol-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -53,11 +51,12 @@ export interface PendingRegistration {
  * Bump when the stored shape or seed content changes incompatibly; any other stored version is replaced by the seed.
  * v6: seeded monitors of profile channels carry that channel's follower count.
  * v7: MCN ↔ KOL links (`mcnKolLinks`) and MCN channels assigned to linked KOLs.
+ * v8: no more links — MCN channels are assigned directly to approved KOLs (`Channel.assignedKolAccountId`).
  */
-export const DB_VERSION = 7;
+export const DB_VERSION = 8;
 
 export interface DemoState {
-  version: 7;
+  version: 8;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -80,8 +79,6 @@ export interface DemoState {
   safetyMonitors: SafetyMonitor[];
   // --- violations ---
   violations: Violation[];
-  // --- MCN ↔ KOL ---
-  mcnKolLinks: McnKolLink[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

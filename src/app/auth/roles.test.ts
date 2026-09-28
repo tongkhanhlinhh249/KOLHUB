@@ -206,10 +206,10 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       title: 'Quản lý kênh',
       description: 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
     });
-    expect(getPageMeta('/ho-so-mcn/kol?tab=cho-xac-nhan', 'kolhub.user.mcn')).toEqual({
+    expect(getPageMeta('/ho-so-mcn/kol?sap-xep=name', 'kolhub.user.mcn')).toEqual({
       title: 'Quản lý KOL',
       group: 'Tổ chức/MCN',
-      description: 'Mời KOL, theo dõi lời mời và các KOL MCN đang quản lý',
+      description: 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',
     });
     expect(resolveAccess('kolhub.user.kol', '/ho-so-mcn/kol')).toMatchObject({ allow: false, reason: 'forbidden' });
     expect(getPageMeta('/tim-kiem-kol')).toMatchObject({ title: 'Tìm kiếm KOL', group: 'Nhãn hàng/Agency' });
