@@ -100,7 +100,7 @@ export function ProfileOverview({
 
   return (
     <div className="@container space-y-4">
-      <ProfileHeader view={view} ekyc={ekyc} hasNeedsFixChannel={channels.some((c) => c.status === 'NEEDS_FIX')} />
+      <ProfileHeader view={view} hasNeedsFixChannel={channels.some((c) => c.status === 'NEEDS_FIX')} />
       <OverviewGrid ownerType={view.profile.ownerType} sections={sections} status={view.profile.status} channels={channels} kols={kols} />
       <div className="grid items-start gap-4 @3xl:grid-cols-[3fr_2fr]">
         {canSubmit ? (

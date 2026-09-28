@@ -1,4 +1,4 @@
-import type { ChecklistItem, EkycStatus, OwnerType, ProfileStatus } from '../../services';
+import type { ChecklistItem, OwnerType, ProfileStatus } from '../../services';
 
 export type ProfileSection = 'tong-quan' | 'thong-tin' | 'kenh';
 
@@ -64,10 +64,31 @@ export function legacySectionPath(ownerType: OwnerType, tab: string | null | und
 export interface PrimaryActionInput {
   ownerType: OwnerType;
   status: ProfileStatus;
-  ekycStatus?: EkycStatus;
-  /** Every item of ProfileView.checklist is ok. */
-  eligible: boolean;
+  /** First unmet REQUIRED item of ProfileView.checklist (undefined = ready to submit). */
+  firstMissing?: ChecklistKey;
   hasNeedsFixChannel: boolean;
+}
+
+/** DRAFT header button: the next required step, in checklist order. */
+function nextStep(ownerType: OwnerType, key: ChecklistKey): PrimaryAction {
+  const to = (path: string, label: string): PrimaryAction => ({ label, to: path, disabled: false });
+  switch (key) {
+    case 'ekyc':
+      return to(infoPath(ownerType, 'dinh-danh'), 'Xác thực danh tính');
+    case 'org':
+    case 'gcn':
+      return to(infoPath(ownerType, 'dinh-danh'), 'Xác thực tổ chức');
+    case 'contact':
+      return to(infoPath(ownerType, 'lien-he'), 'Bổ sung liên hệ');
+    case 'staff':
+      return to(infoPath(ownerType, 'nhan-su'), 'Bổ sung nhân sự');
+    case 'channel':
+      return to(profilePath(ownerType, 'kenh', { openAddChannel: true }), 'Thêm kênh');
+    case 'kols':
+      return to(mcnKolsPath({ openAssign: true }), 'Gán kênh cho KOL');
+    case 'pledges':
+      return to(profilePath(ownerType, 'tong-quan'), 'Gửi xét duyệt');
+  }
 }
 
 export interface PrimaryAction {
@@ -87,11 +108,7 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
   const identity = (label: string): PrimaryAction => ({ label, to: infoPath(input.ownerType, 'dinh-danh'), disabled: false });
   switch (input.status) {
     case 'DRAFT':
-      if (input.ownerType === 'KOL') {
-        if (input.ekycStatus !== 'PASSED') return identity('Xác thực danh tính');
-        return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : identity('Hoàn thiện hồ sơ');
-      }
-      return input.eligible ? go('Gửi xét duyệt', 'tong-quan') : identity('Xác thực tổ chức');
+      return input.firstMissing ? nextStep(input.ownerType, input.firstMissing) : go('Gửi xét duyệt', 'tong-quan');
     case 'SUBMITTED':
       return { label: 'Đang xét duyệt', to: null, disabled: true };
     case 'NEEDS_FIX':
@@ -103,7 +120,7 @@ export function primaryAction(input: PrimaryActionInput): PrimaryAction | null {
   }
 }
 
-export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'kols' | 'submitted';
+export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
 
 /** MCN "Quản lý KOL" (assign channels to KOLs); `openAssign` adds ?gan=1 so the page opens its assign dialog. */
 export function mcnKolsPath(opts?: { openAssign?: boolean }): string {
@@ -123,7 +140,6 @@ const MILESTONE_TARGET: Record<MilestoneKey, Target> = {
   staff: 'nhan-su',
   identity: 'dinh-danh',
   channel: 'kenh',
-  kols: 'kol',
   submitted: 'tong-quan',
 };
 
@@ -134,7 +150,6 @@ export function milestoneBadge(ownerType: OwnerType, key: MilestoneKey): { label
     staff: 'Nhân sự',
     identity: ownerType === 'KOL' ? 'eKYC' : 'GCN ĐKDN',
     channel: 'Kênh & ảnh',
-    kols: 'KOL',
     submitted: 'Gửi xét duyệt',
   };
   return { label: labels[key], to: targetPath(ownerType, MILESTONE_TARGET[key]) };

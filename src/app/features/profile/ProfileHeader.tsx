@@ -8,7 +8,7 @@ import { Card } from '../../components/ui/card';
 import { Progress } from '../../components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../components/ui/tooltip';
 import { cn } from '../../components/ui/utils';
-import { profileDisplayName, profileService, validateProofImage, type EkycView, type ProfileView } from '../../services';
+import { profileDisplayName, profileService, validateProofImage, type ProfileView } from '../../services';
 import { toStoredFile } from '../shared/files';
 import { ProfileStatusBadge } from '../shared/StatusBadges';
 import { milestoneBadge, primaryAction } from './primaryAction';
@@ -17,7 +17,6 @@ import { ProfileAvatar } from './ProfileAvatar';
 
 interface ProfileHeaderProps {
   view: ProfileView;
-  ekyc?: EkycView;
   /** Whether any channel is NEEDS_FIX (decides where "Xem yêu cầu bổ sung" goes). */
   hasNeedsFixChannel?: boolean;
 }
@@ -66,7 +65,7 @@ function ImageButton({ label, kind, accountId, className }: { label: string; kin
 }
 
 /** SCR-03 — profile header (on "Gửi hồ sơ xác thực" only): cover, avatar, name + shield, status, main action, completeness. */
-export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: ProfileHeaderProps) {
+export function ProfileHeader({ view, hasNeedsFixChannel = false }: ProfileHeaderProps) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { profile, completeness } = view;
@@ -74,12 +73,10 @@ export function ProfileHeader({ view, ekyc, hasNeedsFixChannel = false }: Profil
   const name = profileDisplayName(profile);
   const shownName = name || 'Chưa đặt tên';
   const publicId = profile.ownerType === 'KOL' ? profile.kolId : profile.mcnId;
-  const eligible = view.checklist.every((i) => i.ok);
   const action = primaryAction({
     ownerType: profile.ownerType,
     status: profile.status,
-    ekycStatus: profile.ownerType === 'KOL' ? (ekyc?.status ?? profile.ekycStatus) : undefined,
-    eligible,
+    firstMissing: view.checklist.find((i) => !i.ok)?.key,
     hasNeedsFixChannel,
   });
 
