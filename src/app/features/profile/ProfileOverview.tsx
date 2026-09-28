@@ -1,19 +1,26 @@
+import { useMemo } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router';
 import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import type { Channel, EkycView, ProfileView } from '../../services';
+import type { Channel, EkycView, McnKolRow, ProfileView } from '../../services';
 import { KOL_PLEDGES, MCN_PLEDGES } from '../kol-profile/ekycCopy';
 import { ReviewStatusBox } from '../review-status/ReviewStatusBox';
+import { OverviewGrid } from './OverviewGrid';
+import { overviewSections, type OverviewSection } from './overviewSections';
 import { ProfileHeader } from './ProfileHeader';
 import { profilePath } from './primaryAction';
 import { SubmitPanel } from './SubmitPanel';
 import { SUBMIT_ANCHOR } from './submitAnchor';
 
+const NO_KOLS: McnKolRow[] = [];
 const linkClass = 'inline-flex items-center gap-0.5 font-medium text-primary underline-offset-4 hover:underline';
 
-/** Submit card: checklist + pledges + "Gửi xét duyệt" while the profile can be (re)submitted, else a short summary. */
-function SubmitCard({ view }: { view: ProfileView }) {
+/**
+ * Submit card: missing items (from the overview sections) + pledges + "Gửi xét duyệt" while the profile can
+ * be (re)submitted, else a short summary.
+ */
+function SubmitCard({ view, sections }: { view: ProfileView; sections: OverviewSection[] }) {
   const { profile } = view;
   const canSubmit = profile.status === 'DRAFT' || profile.status === 'NEEDS_FIX';
   const resubmit = profile.status === 'NEEDS_FIX';
@@ -26,7 +33,7 @@ function SubmitCard({ view }: { view: ProfileView }) {
           <CardDescription>
             {resubmit
               ? 'Cập nhật theo yêu cầu bổ sung, tick đủ cam đoan rồi gửi lại hồ sơ.'
-              : 'Đáp ứng đủ điều kiện và tick 3 cam đoan để gửi hồ sơ xét duyệt.'}
+              : 'Hoàn thiện đủ các mục ở Tổng quan hồ sơ và tick 3 cam đoan để gửi hồ sơ xét duyệt.'}
           </CardDescription>
         )}
       </CardHeader>
@@ -36,7 +43,7 @@ function SubmitCard({ view }: { view: ProfileView }) {
             key={profile.status}
             ownerType={profile.ownerType}
             accountId={profile.accountId}
-            view={view}
+            sections={sections}
             pledges={profile.ownerType === 'KOL' ? KOL_PLEDGES : MCN_PLEDGES}
             resubmit={resubmit}
           />
@@ -69,18 +76,32 @@ function SubmitCard({ view }: { view: ProfileView }) {
 }
 
 /**
- * "Gửi hồ sơ xác thực" (/ho-so-kol|mcn/tong-quan): profile header (SCR-03), then the submit card and
- * "Trạng thái xét duyệt" side by side on wide containers. The card that needs the user's attention
- * comes first (submit while it can be sent, review status afterwards).
+ * "Gửi hồ sơ xác thực" (/ho-so-kol|mcn/tong-quan): profile header (SCR-03), "Tổng quan hồ sơ" (one card per
+ * tab with its submit requirements), then the submit card and "Trạng thái xét duyệt" side by side on wide
+ * containers. The card that needs the user's attention comes first (submit while it can be sent, review
+ * status afterwards). Overview cards and the submit button share the same checklist items.
  */
-export function ProfileOverview({ view, ekyc, channels }: { view: ProfileView; ekyc?: EkycView; channels: Channel[] }) {
+export function ProfileOverview({
+  view,
+  ekyc,
+  channels,
+  kols = NO_KOLS,
+}: {
+  view: ProfileView;
+  ekyc?: EkycView;
+  channels: Channel[];
+  /** MCN only: KOLs holding its channels. */
+  kols?: McnKolRow[];
+}) {
   const canSubmit = view.profile.status === 'DRAFT' || view.profile.status === 'NEEDS_FIX';
-  const submit = <SubmitCard view={view} />;
+  const sections = useMemo(() => overviewSections({ view, ekyc, channels, kols }), [view, ekyc, channels, kols]);
+  const submit = <SubmitCard view={view} sections={sections} />;
   const status = <ReviewStatusBox profile={view.profile} channels={channels} />;
 
   return (
     <div className="@container space-y-4">
       <ProfileHeader view={view} ekyc={ekyc} hasNeedsFixChannel={channels.some((c) => c.status === 'NEEDS_FIX')} />
+      <OverviewGrid ownerType={view.profile.ownerType} sections={sections} status={view.profile.status} channels={channels} kols={kols} />
       <div className="grid items-start gap-4 @3xl:grid-cols-[3fr_2fr]">
         {canSubmit ? (
           <>

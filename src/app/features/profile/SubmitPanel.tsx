@@ -1,17 +1,17 @@
 import { useId, useState } from 'react';
-import { Link } from 'react-router';
-import { CheckCircle2, ChevronRight, Loader2, Send, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Label } from '../../components/ui/label';
-import { PLEDGES_LABEL, reviewService, type OwnerType, type ProfileView } from '../../services';
-import { checklistLink } from './primaryAction';
+import { reviewService, type OwnerType } from '../../services';
+import { overviewProgress, type OverviewSection } from './overviewSections';
 
 interface SubmitPanelProps {
   ownerType: OwnerType;
   accountId: string;
-  view: ProfileView;
+  /** "Tổng quan hồ sơ" sections (same checklist items as the submit guard). */
+  sections: OverviewSection[];
   pledges: string[];
   /** Re-submission after NEEDS_FIX. */
   resubmit: boolean;
@@ -22,14 +22,28 @@ const SUBMIT_ERRORS: Record<string, string> = {
   NOT_SUBMITTABLE: 'Hồ sơ đã được gửi, vui lòng chờ kết quả.',
 };
 
-/** BR-64 / BR-65 checklist (unmet items link to their page) + 3 pledges + submit button (shared by KOL and MCN). */
-export function SubmitPanel({ ownerType, accountId, view, pledges, resubmit }: SubmitPanelProps) {
+/** Bring a "Tổng quan hồ sơ" card into view and move focus to it. */
+function focusSection(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  el.focus({ preventScroll: true });
+}
+
+/**
+ * Submit card body (shared by KOL and MCN): how many overview items are still missing (jumps to the first
+ * incomplete section card), the 3 pledges and the submit button — enabled only when every section is
+ * "Đã đủ" and all pledges are ticked.
+ */
+export function SubmitPanel({ ownerType, accountId, sections, pledges, resubmit }: SubmitPanelProps) {
   const baseId = useId();
   const [checked, setChecked] = useState<boolean[]>(() => pledges.map(() => false));
   const [busy, setBusy] = useState(false);
   const allPledged = checked.length === pledges.length && checked.every(Boolean);
-  const items = [...view.checklist, { key: 'pledges' as const, label: PLEDGES_LABEL, ok: allPledged }];
-  const ready = items.every((i) => i.ok);
+  const { missing, firstIncomplete } = overviewProgress(sections);
+  const missingLabels = sections.flatMap((s) => s.items.filter((i) => !i.ok).map((i) => i.label));
+  const ready = missing === 0 && allPledged;
 
   const submit = async () => {
     setBusy(true);
@@ -46,33 +60,6 @@ export function SubmitPanel({ ownerType, accountId, view, pledges, resubmit }: S
 
   return (
     <div className="space-y-4" data-owner={ownerType}>
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">Điều kiện gửi hồ sơ</p>
-        <ul className="space-y-1.5">
-          {items.map((i) => {
-            const to = i.ok ? undefined : checklistLink(ownerType, i.key);
-            return (
-              <li key={i.key} className="flex items-start gap-2 text-sm">
-                {i.ok ? (
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-chart-4" aria-label="Đạt" />
-                ) : (
-                  <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-label="Chưa đạt" />
-                )}
-                <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                  <span className={i.ok ? 'text-foreground' : 'text-muted-foreground'}>{i.label}</span>
-                  {to && (
-                    <Link to={to} className="inline-flex items-center font-medium text-primary underline-offset-4 hover:underline">
-                      Bổ sung
-                      <ChevronRight className="size-4" aria-hidden />
-                    </Link>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
       <fieldset className="space-y-3">
         <legend className="mb-2 text-sm font-medium text-foreground">Cam đoan</legend>
         {pledges.map((p, idx) => (
@@ -90,6 +77,32 @@ export function SubmitPanel({ ownerType, accountId, view, pledges, resubmit }: S
           </div>
         ))}
       </fieldset>
+
+      {missing > 0 ? (
+        <div className="space-y-2 rounded-lg border border-chart-5/50 bg-chart-5/10 p-3" role="status">
+          <p className="flex items-start gap-2 text-sm font-medium text-foreground">
+            <AlertCircle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-hidden />
+            Còn {missing} mục cần bổ sung
+          </p>
+          <p className="text-sm text-muted-foreground">{missingLabels.join(' · ')}</p>
+          {firstIncomplete && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full bg-card sm:w-auto md:h-9"
+              onClick={() => focusSection(firstIncomplete.anchorId)}
+            >
+              <ChevronDown aria-hidden />
+              Xem mục còn thiếu: {firstIncomplete.title}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <p className="flex items-start gap-2 rounded-lg border border-chart-4/40 bg-chart-4/10 p-3 text-sm text-foreground" role="status">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-chart-4" aria-hidden />
+          {allPledged ? 'Hồ sơ đã đủ điều kiện gửi xét duyệt.' : 'Hồ sơ đã đủ thông tin. Tick đủ 3 cam đoan để gửi.'}
+        </p>
+      )}
 
       <Button type="button" className="h-11 w-full md:w-auto" disabled={!ready || busy} onClick={() => void submit()}>
         {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}

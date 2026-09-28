@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useAuth } from '../../auth/AuthContext';
-import { channelService, ekycService, profileService, type OwnerType } from '../../services';
+import { channelService, ekycService, mcnKolService, profileService, type McnKolRow, type OwnerType } from '../../services';
 import { ChannelsTab } from '../channels/ChannelsTab';
 import { KolIdentityTab } from '../kol-profile/KolIdentityTab';
 import { McnIdentityTab } from '../mcn-profile/McnIdentityTab';
@@ -95,17 +95,19 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
   const isOverview = section === 'tong-quan';
   const isInfo = section === 'thong-tin';
 
-  // Profile (+ KOL eKYC state) for every section; channels only for the overview (the channels page
-  // loads its own list). The page instance is reused across sections, so `withChannels` tells whether
-  // the data in hand already has them.
+  // Profile (+ KOL eKYC state) for every section; channels (+ MCN: KOLs holding its channels) only for
+  // the overview (the channels / KOL pages load their own lists). The page instance is reused across
+  // sections, so `withChannels` tells whether the data in hand already has them. Live: edits on any tab
+  // (or the Admin simulator) refresh the overview.
   const q = useLiveQuery(
     async () => {
-      const [view, ekyc, channels] = await Promise.all([
+      const [view, ekyc, channels, kols] = await Promise.all([
         profileService.getProfile(accountId),
         ownerType === 'KOL' ? ekycService.getState(accountId) : Promise.resolve(undefined),
         isOverview ? channelService.list(accountId) : Promise.resolve([]),
+        isOverview && ownerType === 'MCN' ? mcnKolService.listKols(accountId) : Promise.resolve([] as McnKolRow[]),
       ]);
-      return { view, ekyc, channels, withChannels: isOverview };
+      return { view, ekyc, channels, kols, withChannels: isOverview };
     },
     [accountId, ownerType, isOverview],
   );
@@ -146,7 +148,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
         </Alert>
       ) : (
         <>
-          {isOverview && <ProfileOverview view={q.data.view} ekyc={q.data.ekyc} channels={q.data.channels} />}
+          {isOverview && <ProfileOverview view={q.data.view} ekyc={q.data.ekyc} channels={q.data.channels} kols={q.data.kols} />}
           {!isOverview && q.data.view.profile.status === 'NEEDS_FIX' && <NeedsFixNotice ownerType={q.data.view.profile.ownerType} />}
           <div>
             {isInfo && (

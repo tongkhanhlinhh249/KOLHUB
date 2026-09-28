@@ -21,9 +21,9 @@ const DOT = {
   error: 'bg-destructive',
 } as const;
 
-type Tone = keyof typeof TONE;
+export type Tone = keyof typeof TONE;
 
-function ToneBadge({ tone, children, className }: { tone: Tone; children: ReactNode; className?: string }) {
+export function ToneBadge({ tone, children, className }: { tone: Tone; children: ReactNode; className?: string }) {
   return (
     <Badge variant="outline" className={cn('gap-1.5 whitespace-nowrap font-medium', TONE[tone], className)}>
       <span className={cn('size-1.5 shrink-0 rounded-full', DOT[tone])} aria-hidden />
