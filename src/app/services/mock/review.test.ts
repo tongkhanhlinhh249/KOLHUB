@@ -5,7 +5,7 @@ import { createEkycService } from './ekyc';
 import { createProfileService } from './profile';
 import { findProfile } from './profileRules';
 import { toPublicKol } from './directory';
-import { createReviewService, pendingChannelsOf } from './review';
+import { createReviewService, nextOwnerId, pendingChannelsOf } from './review';
 import { syncChannelStats } from './socialListening';
 import { VERIFIED_MCN_ACCOUNT_ID } from './mcnSeed';
 import { makeHarness, type Harness } from './testHarness';
@@ -126,7 +126,7 @@ describe('approve / requestFix / reject', () => {
     await review.submit(h.kolId, ALL);
     await review.approve(h.kolId, { [c1]: { verdict: 'PASS' }, [c2]: { verdict: 'NEEDS_FIX', reason: 'Ảnh không thấy tên kênh' } });
     const s = h.db.read();
-    expect(findProfile(s, h.kolId)).toMatchObject({ status: 'APPROVED', kolId: 'KH900001' });
+    expect(findProfile(s, h.kolId)).toMatchObject({ status: 'APPROVED', kolId: 'KOL-2026-0041' });
     expect(s.channels.find((c) => c.id === c1)).toMatchObject({
       status: 'VERIFIED',
       badgeExpiresAt: new Date(2027, 8, 27, 9, 0).getTime(),
@@ -208,7 +208,7 @@ describe('approve / requestFix / reject', () => {
     readyMcn(h);
     await review.submit(h.mcnId, ALL);
     await review.approve(h.mcnId, { m1: { verdict: 'PASS' } });
-    expect(findProfile(h.db.read(), h.mcnId)).toMatchObject({ status: 'APPROVED', mcnId: 'MCN900001' });
+    expect(findProfile(h.db.read(), h.mcnId)).toMatchObject({ status: 'APPROVED', mcnId: 'MCN-2026-0002' });
   });
 
   test('hồ sơ APPROVED thêm kênh mới → approve chỉ đổi kênh, hồ sơ vẫn APPROVED, kolId giữ nguyên', async () => {
@@ -218,12 +218,12 @@ describe('approve / requestFix / reject', () => {
     h.notices.length = 0;
     await review.approve(h.kolId, { [c3.id]: { verdict: 'PASS' } });
     const s = h.db.read();
-    expect(findProfile(s, h.kolId)).toMatchObject({ status: 'APPROVED', kolId: 'KH900001' });
+    expect(findProfile(s, h.kolId)).toMatchObject({ status: 'APPROVED', kolId: 'KOL-2026-0041' });
     expect(s.channels.find((c) => c.id === c3.id)!.status).toBe('VERIFIED');
     expect(h.notices[0].body).toBe('KOL Hub: Kênh mới của bạn đã được duyệt. 1 kênh nhận dấu Kênh xác thực, hiệu lực đến 27/09/2027.');
   });
 
-  test('KOL thứ hai được duyệt → KH900002', async () => {
+  test('KOL thứ hai được duyệt → KOL-2026-0042', async () => {
     await approvedKol(h);
     h.db.update((s) => {
       s.accounts.push({ id: 'k2', type: 'KOL', email: 'k2@x.vn', phone: '0987000333', createdAt: '', password: 'x' });
@@ -238,7 +238,7 @@ describe('approve / requestFix / reject', () => {
     const c = await channels.add('k2', { url: 'tiktok.com/@k2', proofImage: png });
     await review.submit('k2', ALL);
     await review.approve('k2', { [c.id]: { verdict: 'PASS' } });
-    expect(findProfile(h.db.read(), 'k2')).toMatchObject({ kolId: 'KH900002' });
+    expect(findProfile(h.db.read(), 'k2')).toMatchObject({ kolId: 'KOL-2026-0042' });
   });
 });
 
@@ -252,7 +252,7 @@ describe('KOL được duyệt → phép chiếu công khai (toPublicKol)', () =
     await approvedKol(h);
     const k = pub()!;
     expect(k).toMatchObject({
-      kolId: 'KH900001',
+      kolId: 'KOL-2026-0041',
       displayName: 'Khánh Vy',
       category: 'Giáo dục',
       region: 'Hà Nội',
@@ -422,5 +422,14 @@ describe('admin queue', () => {
     expect(own.map((c) => [c.id, c.displayName])).toEqual([['c1', 'Khánh Vy']]);
     // Seeded sample KOLs are real verified channels too.
     expect(q.verifiedChannels.some((c) => c.id === 'KOL-2026-0001-youtube')).toBe(true);
+  });
+});
+
+describe('nextOwnerId', () => {
+  const T = Date.UTC(2026, 8, 28);
+  test('số kế tiếp theo năm, đúng định dạng dữ liệu mẫu', () => {
+    expect(nextOwnerId('KOL', ['KOL-2026-0040', 'KOL-2026-0007', undefined, 'KOL-2025-0099'], T)).toBe('KOL-2026-0041');
+    expect(nextOwnerId('MCN', ['MCN-2026-0001'], T)).toBe('MCN-2026-0002');
+    expect(nextOwnerId('MCN', [], T)).toBe('MCN-2026-0001');
   });
 });

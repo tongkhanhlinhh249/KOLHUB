@@ -10,7 +10,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 
 /** Login of the approved sample MCN. */
 export const VERIFIED_MCN_EMAIL = 'saoviet@demo.kolhub.vn';
-/** Seed-style id (like KOL-2026-xxxx), so review.ts keeps issuing MCN900001… for newly approved MCNs. */
+/** Seed-style id (like KOL-2026-xxxx); review.ts issues the next one (MCN-2026-0002…) to newly approved MCNs. */
 export const VERIFIED_MCN_ID = 'MCN-2026-0001';
 export const VERIFIED_MCN_ACCOUNT_ID = 'acc-mcn-saoviet';
 const ACCOUNT_ID = VERIFIED_MCN_ACCOUNT_ID;

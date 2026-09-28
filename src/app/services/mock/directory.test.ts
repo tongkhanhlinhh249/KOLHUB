@@ -55,7 +55,7 @@ function profile(over: Partial<KolProfile> = {}): KolProfile {
       { name: 'MC', medal: 'none' },
     ],
   });
-  return { ...p, status: 'APPROVED', kolId: 'KH900001', ekycStatus: 'PASSED', approvedAt: NOW - 2 * DAY, ...over };
+  return { ...p, status: 'APPROVED', kolId: 'KOL-2026-0041', ekycStatus: 'PASSED', approvedAt: NOW - 2 * DAY, ...over };
 }
 
 const video = (platform: Channel['platform'], n: number) => ({
@@ -110,7 +110,7 @@ describe('toPublicKol / publicKolOf', () => {
     ];
     const k = toPublicKol(profile(), channels, NOW)!;
     expect(k).toMatchObject({
-      kolId: 'KH900001',
+      kolId: 'KOL-2026-0041',
       displayName: 'Mai Anh',
       nickname: 'x',
       bio: 'Giới thiệu',

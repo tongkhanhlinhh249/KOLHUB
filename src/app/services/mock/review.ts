@@ -56,6 +56,18 @@ function latestRequest(state: DemoState, ownerId: string): ReviewRequest | undef
 }
 
 /** Mock review + Admin simulation (BR-15..17, BR-44, BR-64/65). */
+/** Next public id in the seed format (KOL-2026-0041, MCN-2026-0002): highest number of that year + 1. */
+export function nextOwnerId(prefix: 'KOL' | 'MCN', existing: (string | undefined)[], t: number): string {
+  const year = new Date(t).getFullYear();
+  const re = new RegExp(`^${prefix}-${year}-(\\d+)$`);
+  let max = 0;
+  for (const id of existing) {
+    const m = id?.match(re);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `${prefix}-${year}-${String(max + 1).padStart(4, '0')}`;
+}
+
 export function createReviewService(deps: ReviewServiceDeps) {
   const { db, now, notify } = deps;
   const wait = () => (deps.delay === false ? Promise.resolve() : fakeDelay());
@@ -135,12 +147,11 @@ export function createReviewService(deps: ReviewServiceDeps) {
           p.status = 'APPROVED';
           p.decisionReason = undefined;
           if (p.ownerType === 'KOL' && !p.kolId) {
-            // Seeded sample KOLs use KOL-2026-xxxx ids; only count ids issued here.
-            p.kolId = 'KH' + (900001 + s.kolProfiles.filter((x) => x.kolId?.startsWith('KH')).length);
+            p.kolId = nextOwnerId('KOL', s.kolProfiles.map((x) => x.kolId), t);
             p.approvedAt = t;
           }
           if (p.ownerType === 'MCN' && !p.mcnId) {
-            p.mcnId = 'MCN' + (900001 + s.mcnProfiles.filter((x) => x.mcnId?.startsWith('MCN9')).length);
+            p.mcnId = nextOwnerId('MCN', s.mcnProfiles.map((x) => x.mcnId), t);
             p.approvedAt = t;
           }
           p.approvedAt ??= t;
