@@ -24,7 +24,7 @@ export function ViewToggle({
     <div
       role="group"
       aria-label="Kiểu hiển thị"
-      className={cn('flex items-center gap-1 rounded-md border border-border p-0.5', className)}
+      className={cn('flex items-center gap-1 rounded-[8px] border border-border p-0.5', className)}
     >
       {OPTIONS.map(({ key, label, Icon }) => (
         <Button
@@ -32,7 +32,8 @@ export function ViewToggle({
           type="button"
           variant={value === key ? 'secondary' : 'ghost'}
           size="sm"
-          className="h-11 md:h-8"
+          // 8px outer radius; the inner segments sit 2px inside it, so 6px keeps the corners concentric.
+          className="h-11 rounded-[6px] md:h-8"
           aria-pressed={value === key}
           aria-label={`Xem dạng ${label.toLowerCase()}`}
           title={label}

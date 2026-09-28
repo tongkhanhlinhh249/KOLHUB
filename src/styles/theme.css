@@ -33,7 +33,7 @@
   --chart-4: #22c55e;
   --chart-5: #ffb020;
   --radius: 1rem;
-  --sidebar: #fdfaf8;
+  --sidebar: #f3f4f6;
   --sidebar-foreground: #131313;
   --sidebar-primary: #f15a29;
   --sidebar-primary-foreground: #ffffff;
@@ -42,11 +42,11 @@
   --sidebar-border: #efe6e1;
   --sidebar-ring: #f15a29;
 
-  /* Admin dashboard shell — NetSpace kit pattern */
-  --page: #fdfaf8;
-  --panel-border: rgba(150, 70, 30, 0.1);
-  --panel-border-subtle: rgba(150, 70, 30, 0.05);
-  --panel-border-sidebar: rgba(150, 70, 30, 0.08);
+  /* Admin dashboard shell — NetSpace kit pattern: neutral grey page behind the sidebar and the white content card */
+  --page: #f3f4f6;
+  --panel-border: rgba(17, 24, 39, 0.08);
+  --panel-border-subtle: rgba(17, 24, 39, 0.04);
+  --panel-border-sidebar: rgba(17, 24, 39, 0.06);
 }
 
 .dark {
