@@ -29,7 +29,10 @@ export interface OverviewItem {
   ok: boolean;
   /** Required to submit; false = "Khuyến nghị" (shown, never blocks). */
   required: boolean;
+  /** Short status, one line (e.g. "Thiếu 4 trường"). */
   detail?: string;
+  /** Longer explanation for the tooltip (e.g. the names of the missing fields). */
+  hint?: string;
   /** Where the item is viewed / fixed. */
   to: string;
 }
@@ -74,9 +77,9 @@ const ITEM_LABEL: Record<OverviewItemKey, string> = {
   org: 'Định danh tổ chức',
   gcn: 'Giấy chứng nhận ĐKDN',
   contact: 'Liên hệ',
-  staff: 'Nhân sự quản lý nội dung',
-  channel: 'Có ít nhất 1 kênh hoạt động kèm ảnh',
-  kols: 'Có ít nhất 1 KOL được gán kênh',
+  staff: 'Nhân sự',
+  channel: 'Kênh hoạt động kèm ảnh',
+  kols: 'KOL được gán kênh',
 };
 
 type RequiredContactKey = 'displayName' | 'phone' | 'email' | 'province' | 'address' | 'category';
@@ -108,7 +111,8 @@ const EKYC_PENDING: Record<Exclude<EkycStatus, 'PASSED'>, string> = {
   REPORTED: 'Báo cáo mạo danh đang chờ xử lý',
 };
 
-const missingText = (n: number, names: string[]) => `Thiếu ${n} trường bắt buộc: ${names.join(', ')}`;
+const missingText = (n: number) => `Thiếu ${n} trường`;
+const missingHint = (names: string[]) => `Còn thiếu: ${names.join(', ')}`;
 
 export interface ChannelStats {
   total: number;
@@ -167,37 +171,46 @@ function itemDetail(key: OverviewItemKey, ok: boolean, { view, ekyc, channels, k
       const status = ekyc?.status ?? profile.ekycStatus;
       if (status !== 'PASSED') return EKYC_PENDING[status];
       const id = ekyc?.identity;
-      return id ? `${id.fullName} · Số giấy tờ ${id.idNoMasked}` : 'Đã xác thực danh tính';
+      return id ? `${id.fullName} · ${id.idNoMasked}` : 'Đã xác thực';
     }
     case 'org': {
       if (profile.ownerType !== 'MCN') return '';
       if (ok) return `${profile.org.orgName} · MST ${profile.org.regNo}`;
       const miss = missingOrgFields(profile.org);
-      return missingText(miss.length, miss.map((k) => ORG_LABEL[k]));
+      return missingText(miss.length);
     }
     case 'gcn':
-      return profile.ownerType === 'MCN' && profile.gcnFile ? `Đã tải lên · ${profile.gcnFile.name}` : 'Chưa tải lên';
+      return profile.ownerType === 'MCN' && profile.gcnFile ? 'Đã tải lên' : 'Chưa tải lên';
     case 'contact': {
-      if (ok) return 'Đủ thông tin bắt buộc';
+      if (ok) return 'Đã đủ';
       const miss = missingContactFields(profile.contact);
-      return missingText(miss.length, miss.map((k) => contactLabel(profile.ownerType, k)));
+      return missingText(miss.length);
     }
     case 'staff': {
       const s = profile.staff;
       if (ok) return `${s.staffName.trim()} · ${s.staffPhone.trim()}`;
-      return s.staffName.trim() ? 'Thiếu số điện thoại hợp lệ' : 'Chưa có nhân sự';
+      return s.staffName.trim() ? 'Thiếu SĐT' : 'Chưa có';
     }
     case 'channel': {
       const active = channels.filter((c) => c.active && !!c.proofImage).length;
-      if (ok) return `${active || 'Có'} kênh đang hoạt động kèm ảnh`;
-      return channels.length === 0 ? 'Chưa có kênh nào' : 'Chưa có kênh nào đang bật';
+      if (ok) return `${active || 'Có'} kênh`;
+      return channels.length === 0 ? 'Chưa có' : 'Chưa bật kênh';
     }
     case 'kols': {
-      if (!ok) return 'Chưa gán kênh cho KOL nào';
+      if (!ok) return 'Chưa gán';
       const { kolCount, assigned } = kolStats(channels, kols);
-      return kolCount ? `${kolCount} KOL · ${assigned} kênh đã gán` : 'Đã gán kênh cho KOL';
+      return kolCount ? `${kolCount} KOL · ${assigned} kênh` : 'Đã gán';
     }
   }
+}
+
+/** Tooltip text: which fields are missing (org / contact), undefined otherwise. */
+function itemHint(key: OverviewItemKey, ok: boolean, { view }: OverviewInput): string | undefined {
+  const { profile } = view;
+  if (ok) return undefined;
+  if (key === 'org' && profile.ownerType === 'MCN') return missingHint(missingOrgFields(profile.org).map((k) => ORG_LABEL[k]));
+  if (key === 'contact') return missingHint(missingContactFields(profile.contact).map((k) => contactLabel(profile.ownerType, k)));
+  return undefined;
 }
 
 /** Summary sections (Thông tin hồ sơ, Quản lý kênh, MCN: Quản lý KOL) with their checklist items. */
@@ -223,6 +236,7 @@ export function overviewSections(input: OverviewInput): OverviewSection[] {
         ok: c.ok,
         required: c.required,
         detail: itemDetail(c.key, c.ok, input) || undefined,
+        hint: itemHint(c.key, c.ok, input),
         to: checklistLink(ownerType, c.key) ?? meta[key].to,
       }));
     const missing = items.filter((i) => i.required && !i.ok).length;

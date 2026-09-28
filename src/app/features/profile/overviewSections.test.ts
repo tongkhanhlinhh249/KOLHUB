@@ -62,9 +62,10 @@ describe('overviewSections', () => {
       ['contact', '/ho-so-kol/thong-tin#lien-he', true],
       ['staff', '/ho-so-kol/thong-tin#nhan-su', true],
     ]);
-    expect(info.items[1].detail).toMatch(/^Thiếu 4 trường bắt buộc: Họ tên KOL\/KOC, Tỉnh\/Thành phố, Địa chỉ, Lĩnh vực chính$/);
-    expect(info.items[2].detail).toBe('Chưa có nhân sự');
-    expect(sections[1].items[0]).toMatchObject({ key: 'channel', ok: false, detail: 'Chưa có kênh nào', to: '/ho-so-kol/kenh' });
+    expect(info.items[1].detail).toBe('Thiếu 4 trường');
+    expect(info.items[1].hint).toBe('Còn thiếu: Họ tên KOL/KOC, Tỉnh/Thành phố, Địa chỉ, Lĩnh vực chính');
+    expect(info.items[2].detail).toBe('Chưa có');
+    expect(sections[1].items[0]).toMatchObject({ key: 'channel', ok: false, detail: 'Chưa có', to: '/ho-so-kol/kenh' });
     expect(overviewProgress(sections)).toMatchObject({ missing: 4, firstIncomplete: { key: 'thong-tin' } });
   });
 
@@ -78,8 +79,8 @@ describe('overviewSections', () => {
     const sections = overviewSections({ ...input(s, h.kolId), ekyc });
     expect(sections.every((x) => x.complete)).toBe(true);
     expect(sections[0].items.map((i) => i.detail)).toEqual([
-      'KHÁNH VY · Số giấy tờ 079*******45',
-      'Đủ thông tin bắt buộc',
+      'KHÁNH VY · 079*******45',
+      'Đã đủ',
       'Lan · 0987654321',
     ]);
     expect(overviewProgress(sections)).toEqual({ missing: 0, firstIncomplete: undefined });
@@ -105,7 +106,7 @@ describe('overviewSections', () => {
       ['kols', false, false],
     ]);
     expect(flat.filter((x) => x[2]).map((x) => [x[0], x[1]])).toEqual(i.view.checklist.map((c) => [c.key, c.ok]));
-    expect(sections[0].items.find((x) => x.key === 'org')!.detail).toBe('Thiếu 2 trường bắt buộc: Ngày cấp, Người đại diện');
+    expect(sections[0].items.find((x) => x.key === 'org')).toMatchObject({ detail: 'Thiếu 2 trường', hint: 'Còn thiếu: Ngày cấp, Người đại diện' });
     expect(sections[0].items.find((x) => x.key === 'gcn')!.detail).toBe('Chưa tải lên');
     expect(sections[0]).toMatchObject({ missing: 2, suggestions: 0, complete: false });
     expect(sections[1]).toMatchObject({ missing: 0, suggestions: 0, complete: true });
@@ -114,7 +115,7 @@ describe('overviewSections', () => {
       missing: 0,
       suggestions: 1,
       complete: true,
-      items: [{ key: 'kols', required: false, detail: 'Chưa gán kênh cho KOL nào' }],
+      items: [{ key: 'kols', required: false, detail: 'Chưa gán' }],
     });
     expect(overviewProgress(sections)).toMatchObject({ missing: 2, firstIncomplete: { key: 'thong-tin' } });
   });
@@ -140,7 +141,7 @@ describe('overviewSections', () => {
     const s = h.db.read();
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
     const kol = overviewSections(input(s, h.mcnId, { kols: [kolRow(11, 1)] }))[2];
-    expect(kol).toMatchObject({ complete: true, items: [{ ok: true, detail: '1 KOL · 1 kênh đã gán' }] });
+    expect(kol).toMatchObject({ complete: true, items: [{ ok: true, detail: '1 KOL · 1 kênh' }] });
   });
 });
 

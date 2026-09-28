@@ -35,36 +35,44 @@ export function SectionStateBadge({ section }: { section: OverviewSection }) {
  */
 function ItemRow({ item }: { item: OverviewItem }) {
   const recommended = !item.required && !item.ok;
+  const state = item.ok ? 'Đạt' : recommended ? 'Khuyến nghị' : 'Còn thiếu';
   return (
     <li>
       <Link
         to={item.to}
-        className="-mx-2 flex min-h-11 items-start gap-2.5 rounded-md px-2 py-2 transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-0"
+        title={[item.label, item.detail, item.hint, recommended ? 'Khuyến nghị, không bắt buộc để gửi' : '']
+          .filter(Boolean)
+          .join(' · ')}
+        className="-mx-2 flex min-h-11 items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
       >
         {item.ok ? (
-          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-chart-4" aria-label="Đạt" />
+          <CheckCircle2 className="size-4 shrink-0 text-chart-4" aria-label={state} />
         ) : recommended ? (
-          <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label="Khuyến nghị" />
+          <Info className="size-4 shrink-0 text-muted-foreground" aria-label={state} />
         ) : (
-          <AlertCircle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-label="Còn thiếu" />
+          <AlertCircle className="size-4 shrink-0 text-chart-5" aria-label={state} />
         )}
-        <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-foreground">
-            {item.label}
-            {!item.required && (
-              <span className="rounded bg-muted px-1.5 py-px text-[11px] font-normal text-muted-foreground">Khuyến nghị</span>
+        <span className="shrink-0 font-medium text-foreground">{item.label}</span>
+        {item.detail && (
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate text-right',
+              item.ok || recommended ? 'text-muted-foreground' : 'text-chart-5',
             )}
+          >
+            {item.detail}
           </span>
-          {item.detail && (
-            <span className={cn('block text-xs break-words', item.ok || recommended ? 'text-muted-foreground' : 'text-foreground/80')}>
-              {item.detail}
-            </span>
-          )}
-        </span>
-        <span className="mt-0.5 inline-flex shrink-0 items-center text-xs font-medium text-primary">
-          {item.ok ? 'Xem' : 'Bổ sung'}
-          <ChevronRight className="size-4" aria-hidden />
-        </span>
+        )}
+        {item.hint && <span className="sr-only">{item.hint}</span>}
+        {item.ok ? (
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        ) : (
+          <span className="inline-flex shrink-0 items-center text-xs font-medium text-primary">
+            {/* Narrow cards keep the arrow only, so the short status stays readable. */}
+            <span className="sr-only @md/card:not-sr-only">Bổ sung</span>
+            <ChevronRight className="size-4" aria-hidden />
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -86,7 +94,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: Ton
   );
 }
 
-function SectionCard({ section, summary, actions }: { section: OverviewSection; summary?: ReactNode; actions: ReactNode }) {
+function SectionCard({ section, summary, actions }: { section: OverviewSection; summary?: ReactNode; actions?: ReactNode }) {
   const Icon = ICON[section.key];
   const titleId = `${section.anchorId}-title`;
   return (
@@ -105,36 +113,24 @@ function SectionCard({ section, summary, actions }: { section: OverviewSection; 
           <span className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
             <Icon className="size-4" aria-hidden />
           </span>
-          <span className="whitespace-nowrap">{section.title}</span>
+          <Link to={section.to} className="whitespace-nowrap rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            {section.title}
+          </Link>
         </h3>
         <SectionStateBadge section={section} />
       </div>
       {summary}
-      <ul
-        className="space-y-0.5 @xl/card:grid @xl/card:grid-cols-2 @xl/card:gap-x-6 @xl/card:space-y-0"
-        aria-label={`Điều kiện: ${section.title}`}
-      >
+      <ul className="divide-y divide-border/60" aria-label={`Điều kiện: ${section.title}`}>
         {section.items.map((i) => (
           <ItemRow key={i.key} item={i} />
         ))}
       </ul>
-      <div className="mt-auto flex flex-col gap-2 pt-1 @xs/card:flex-row @xs/card:flex-wrap">{actions}</div>
+      {actions && <div className="flex flex-col gap-2 @xs/card:flex-row @xs/card:flex-wrap">{actions}</div>}
     </Card>
   );
 }
 
 const btn = 'h-11 w-full md:h-9 @xs/card:w-auto';
-
-function SectionLink({ section }: { section: OverviewSection }) {
-  return (
-    <Button asChild variant="outline" className={btn}>
-      <Link to={section.to}>
-        {section.linkLabel}
-        <ChevronRight aria-hidden />
-      </Link>
-    </Button>
-  );
-}
 
 function ChannelSummary({ channels, now }: { channels: Channel[]; now: number }) {
   const st = channelStats(channels, now);
@@ -224,17 +220,14 @@ export function OverviewGrid({
           section={s}
           summary={<ChannelSummary channels={channels} now={now} />}
           actions={
-            <>
-              {channels.length === 0 && (
-                <Button asChild className={btn}>
-                  <Link to={profilePath(ownerType, 'kenh', { openAddChannel: true })}>
-                    <Plus aria-hidden />
-                    Thêm kênh
-                  </Link>
-                </Button>
-              )}
-              <SectionLink section={s} />
-            </>
+            channels.length === 0 ? (
+              <Button asChild className={btn}>
+                <Link to={profilePath(ownerType, 'kenh', { openAddChannel: true })}>
+                  <Plus aria-hidden />
+                  Thêm kênh
+                </Link>
+              </Button>
+            ) : undefined
           }
         />
       );
@@ -247,22 +240,19 @@ export function OverviewGrid({
           section={s}
           summary={<KolSummary channels={channels} kols={kols} />}
           actions={
-            <>
-              {kols.length === 0 && canAssign && channels.length > 0 && (
-                <Button asChild className={btn}>
-                  <Link to={mcnKolsPath({ openAssign: true })}>
-                    <UserPlus aria-hidden />
-                    Gán kênh cho KOL
-                  </Link>
-                </Button>
-              )}
-              <SectionLink section={s} />
-            </>
+            kols.length === 0 && canAssign && channels.length > 0 ? (
+              <Button asChild className={btn}>
+                <Link to={mcnKolsPath({ openAssign: true })}>
+                  <UserPlus aria-hidden />
+                  Gán kênh cho KOL
+                </Link>
+              </Button>
+            ) : undefined
           }
         />
       );
     }
-    return <SectionCard key={s.key} section={s} actions={<SectionLink section={s} />} />;
+    return <SectionCard key={s.key} section={s} />;
   });
 
   return (
