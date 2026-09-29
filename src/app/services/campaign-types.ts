@@ -135,8 +135,9 @@ export interface CampaignFilters {
 // Marketplace ("Sàn chiến dịch")
 // ---------------------------------------------------------------------------
 
-export type MarketplaceSort = 'newest' | 'budget' | 'deadline';
+export type MarketplaceSort = 'match' | 'newest' | 'budget' | 'deadline';
 export const MARKETPLACE_SORTS: { key: MarketplaceSort; label: string }[] = [
+  { key: 'match', label: 'Phù hợp nhất' },
   { key: 'newest', label: 'Mới nhất' },
   { key: 'budget', label: 'Ngân sách cao nhất' },
   { key: 'deadline', label: 'Sắp hết hạn nhận đề xuất' },
@@ -150,8 +151,53 @@ export interface MarketplaceFilters {
   /** VND, inclusive. */
   budgetMin?: number;
   budgetMax?: number;
-  /** Default 'newest' (publishedAt desc). 'budget' = desc; 'deadline' = soonest applyDeadline first, none last. */
+  /**
+   * Default 'match' (match score desc, then newest). 'newest' = publishedAt desc; 'budget' = desc;
+   * 'deadline' = soonest applyDeadline first, none last.
+   */
   sort?: MarketplaceSort;
+}
+
+/**
+ * The signed-in supplier as the matcher sees it: channels it could put in a proposal (verified badge, active;
+ * MCN: MCN channels assigned to an approved KOL; KOL: its own channels), each with the categories / activity
+ * fields of the KOL behind it.
+ */
+export interface SupplierMatchContext {
+  type: SupplierType;
+  channels: { id: string; platform: Platform; followers: number; kolAccountId: string; categories: string[] }[];
+  /** MCN only: verified, active MCN channels not assigned to any KOL yet (cannot be proposed). */
+  unassignedPlatforms?: Platform[];
+}
+
+/** "Phù hợp với bạn": how well a marketplace campaign fits the signed-in supplier (see spec "Sàn v2"). */
+export interface CampaignMatch {
+  /** 0–100. */
+  score: number;
+  /** Why it fits, most important first (e.g. "Khớp lĩnh vực Ẩm thực", "Có 3 kênh TikTok đã xác thực"). */
+  reasons: string[];
+  /** What is missing (e.g. "Chưa có kênh YouTube đã xác thực"). */
+  missing: string[];
+}
+
+/** Public facts about the brand behind a marketplace campaign (no contact data, no ratings). */
+export interface MarketplaceBrandInfo {
+  company: string;
+  /** Brand accounts register with an OTP-verified company email (free mail domains are refused, BR-45). */
+  businessEmailVerified: boolean;
+  /** Campaigns the brand has published (OPEN at least once). */
+  campaignsPosted: number;
+  /** Bookings of the brand that reached COMPLETED on KOLHUB. */
+  completedBookings: number;
+  /** Account creation time (ISO). */
+  memberSince: string;
+}
+
+/** A bookmark of a marketplace campaign by a supplier account. */
+export interface SavedCampaign {
+  accountId: string;
+  campaignId: string;
+  savedAt: number;
 }
 
 /** A campaign as suppliers see it on the marketplace (no brand-internal data). */
@@ -174,6 +220,20 @@ export interface MarketplaceCampaign {
   applicationCount: number;
   /** The viewer's own occupying booking on this campaign, if any (invite or application). */
   myBooking?: { id: string; status: BookingStatus; origin: BookingOrigin };
+  /** Fit for the viewer (listMarketplace / listSaved / getMarketplaceItem / listApplied). */
+  match?: CampaignMatch;
+  /** The viewer bookmarked it ("Đã lưu"). */
+  saved?: boolean;
+  /** Still open for applications (false only in listApplied for campaigns that closed since). */
+  accepting?: boolean;
+  /** getMarketplaceItem only: the "Nhãn hàng" block. */
+  brandInfo?: MarketplaceBrandInfo;
+}
+
+/** "Đã ứng tuyển": one of the viewer's applications with its campaign. */
+export interface AppliedCampaign {
+  booking: Pick<BookingView, 'id' | 'status' | 'awaiting' | 'payment' | 'price' | 'origin' | 'expiresAt' | 'createdAt' | 'updatedAt' | 'allowedActions'>;
+  campaign: MarketplaceCampaign;
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +319,7 @@ export type BookingAction =
   | 'APPLIED'
   | 'COUNTERED'
   | 'ITEMS_ASSIGNED'
+  | 'APPLICATION_UPDATED'
   | 'ACCEPTED'
   | 'DECLINED'
   | 'CANCELLED'
@@ -370,6 +431,8 @@ export type BookingActionKey =
   | 'DECLINE'
   | 'CANCEL'
   | 'ASSIGN_ITEMS'
+  /** Supplier edits its APPLIED application (items, price, note) until the brand answers. */
+  | 'EDIT_APPLICATION'
   | 'SUBMIT_DRAFT'
   | 'REVIEW_CONTENT'
   | 'SUBMIT_POST'

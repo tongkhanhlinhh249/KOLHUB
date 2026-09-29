@@ -1,6 +1,7 @@
 // Mock campaign service (beta): Brand campaigns, KOL invites (routed to MCN or KOL) and the supplier-side
 // marketplace ("Sàn chiến dịch"). Actor = the signed-in account (state.sessionAccountId).
 import type {
+  AppliedCampaign,
   ApplyInput,
   Booking,
   BookingItem,
@@ -14,12 +15,14 @@ import type {
   InviteResult,
   MarketplaceCampaign,
   MarketplaceFilters,
+  SupplierMatchContext,
 } from '../campaign-types';
 import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
 import {
+  brandInfoOf,
   checkNote,
   currentSupplier,
   effectiveStatus,
@@ -39,6 +42,7 @@ import {
   validateForOpen,
 } from './campaignRules';
 import { normalizeText, publicKolOf } from './directory';
+import { matchCampaign, supplierMatchContext } from './campaignMatch';
 
 export interface CampaignServiceDeps {
   db: Db;
@@ -313,31 +317,69 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     return { accountId: acc.id };
   }
 
-  /** Campaigns open for applications (MARKETPLACE, OPEN / RUNNING, deadline not passed). */
-  async function listMarketplace(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
-    await wait();
+  /** Marketplace card of `c` for the viewer: match, saved flag, accepting flag. */
+  function card(state: DemoState, c: Campaign, viewerId: string, ctx: SupplierMatchContext, saved: Set<string>, t: number): MarketplaceCampaign {
+    return {
+      ...toMarketplaceCampaign(state, c, viewerId, t),
+      match: matchCampaign(c, ctx),
+      saved: saved.has(c.id),
+      accepting: isAcceptingApplications(c, t),
+    };
+  }
+
+  const savedIds = (state: DemoState, accountId: string) =>
+    new Set(state.savedCampaigns.filter((x) => x.accountId === accountId).map((x) => x.campaignId));
+
+  /** Filters on the campaign itself (category / platform / budget); the keyword is matched on the card. */
+  function campaignFilter(filters: MarketplaceFilters) {
+    return (c: Campaign) =>
+      (!filters.category || c.categories.includes(filters.category)) &&
+      (!filters.platform || c.platforms.includes(filters.platform)) &&
+      (filters.budgetMin === undefined || c.budget >= filters.budgetMin) &&
+      (filters.budgetMax === undefined || c.budget <= filters.budgetMax);
+  }
+
+  function keywordFilter(filters: MarketplaceFilters) {
+    const kw = normalizeText(filters.keyword ?? '');
+    return (m: MarketplaceCampaign) => !kw || normalizeText(`${m.name} ${m.objective} ${m.brief} ${m.brand.company}`).includes(kw);
+  }
+
+  /** Sort (default 'match': score desc, then newest). */
+  function compare(sort: MarketplaceFilters['sort'] = 'match') {
+    const deadline = (m: MarketplaceCampaign) => (m.applyDeadline ? endOfDay(m.applyDeadline) : Infinity);
+    return (a: MarketplaceCampaign, b: MarketplaceCampaign) => {
+      if (sort === 'budget') return b.budget - a.budget || b.publishedAt - a.publishedAt;
+      if (sort === 'deadline') return deadline(a) - deadline(b) || b.publishedAt - a.publishedAt;
+      if (sort === 'match') return (b.match?.score ?? 0) - (a.match?.score ?? 0) || b.publishedAt - a.publishedAt;
+      return b.publishedAt - a.publishedAt;
+    };
+  }
+
+  function marketplaceList(filters: MarketplaceFilters, only?: (c: Campaign, saved: Set<string>) => boolean): MarketplaceCampaign[] {
     const state = db.read();
     const me = marketplaceViewer(state);
     const t = now();
-    const kw = normalizeText(filters.keyword ?? '');
-    const items = state.campaigns
+    const ctx = supplierMatchContext(state, me.accountId, t);
+    const saved = savedIds(state, me.accountId);
+    return state.campaigns
       .filter((c) => isAcceptingApplications(c, t))
-      .filter((c) => !filters.category || c.categories.includes(filters.category))
-      .filter((c) => !filters.platform || c.platforms.includes(filters.platform))
-      .filter((c) => filters.budgetMin === undefined || c.budget >= filters.budgetMin)
-      .filter((c) => filters.budgetMax === undefined || c.budget <= filters.budgetMax)
-      .map((c) => toMarketplaceCampaign(state, c, me.accountId, t))
-      .filter((m) => !kw || normalizeText(`${m.name} ${m.objective} ${m.brief} ${m.brand.company}`).includes(kw));
-    const sort = filters.sort ?? 'newest';
-    const deadline = (m: MarketplaceCampaign) => (m.applyDeadline ? endOfDay(m.applyDeadline) : Infinity);
-    return items.sort((a, b) => {
-      if (sort === 'budget') return b.budget - a.budget || b.publishedAt - a.publishedAt;
-      if (sort === 'deadline') return deadline(a) - deadline(b) || b.publishedAt - a.publishedAt;
-      return b.publishedAt - a.publishedAt;
-    });
+      .filter((c) => !only || only(c, saved))
+      .filter(campaignFilter(filters))
+      .map((c) => card(state, c, me.accountId, ctx, saved, t))
+      .filter(keywordFilter(filters))
+      .sort(compare(filters.sort));
   }
 
-  /** Marketplace detail; 4801 unless the campaign is open for applications or the supplier already has a booking on it. */
+  /**
+   * Campaigns open for applications (MARKETPLACE, OPEN / RUNNING, deadline not passed), each with the viewer's
+   * `match` ("Phù hợp với bạn") and `saved` flag. Default sort 'match'.
+   */
+  async function listMarketplace(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
+    await wait();
+    return marketplaceList(filters);
+  }
+
+  /** Marketplace detail (+ match, saved, brand block); 4801 unless open for applications or the supplier has a booking on it. */
   async function getMarketplaceItem(id: string): Promise<MarketplaceCampaign> {
     await wait();
     const state = db.read();
@@ -345,9 +387,78 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const t = now();
     const c = state.campaigns.find((x) => x.id === id);
     if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
-    const item = toMarketplaceCampaign(state, c, me.accountId, t);
+    const item = card(state, c, me.accountId, supplierMatchContext(state, me.accountId, t), savedIds(state, me.accountId), t);
     if (!isAcceptingApplications(c, t) && !(c.visibility === 'MARKETPLACE' && item.myBooking)) throw new KolhubError('KOLHUB-4801');
-    return item;
+    return { ...item, brandInfo: brandInfoOf(state, c.brandAccountId, t) };
+  }
+
+  // --- saved campaigns (any signed-in KOL / MCN, like browsing) ---
+
+  /** Bookmark a campaign that is open on the marketplace (4801 otherwise). Idempotent. */
+  async function saveCampaign(id: string): Promise<void> {
+    await wait();
+    const state = db.read();
+    const me = marketplaceViewer(state);
+    const c = state.campaigns.find((x) => x.id === id);
+    if (!c || !isAcceptingApplications(c, now())) throw new KolhubError('KOLHUB-4801');
+    if (state.savedCampaigns.some((x) => x.accountId === me.accountId && x.campaignId === id)) return;
+    db.update((s) => {
+      s.savedCampaigns.push({ accountId: me.accountId, campaignId: id, savedAt: now() });
+    });
+  }
+
+  /** Remove a bookmark (no-op when absent). */
+  async function unsaveCampaign(id: string): Promise<void> {
+    await wait();
+    const me = marketplaceViewer(db.read());
+    db.update((s) => {
+      s.savedCampaigns = s.savedCampaigns.filter((x) => !(x.accountId === me.accountId && x.campaignId === id));
+    });
+  }
+
+  /** "Đã lưu": bookmarked campaigns still open for applications, same filters / sort as listMarketplace. */
+  async function listSaved(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
+    await wait();
+    return marketplaceList(filters, (c, saved) => saved.has(c.id));
+  }
+
+  /**
+   * "Đã ứng tuyển": every application (origin APPLICATION) of the viewer, any status, with its campaign
+   * (`accepting` false once it stopped taking applications). Same filters / sort as listMarketplace.
+   * Unapproved KOL / MCN simply have none.
+   */
+  async function listApplied(filters: MarketplaceFilters = {}): Promise<AppliedCampaign[]> {
+    await wait();
+    const state = db.read();
+    const me = marketplaceViewer(state);
+    const t = now();
+    const ctx = supplierMatchContext(state, me.accountId, t);
+    const saved = savedIds(state, me.accountId);
+    const ofCampaign = campaignFilter(filters);
+    const byKeyword = keywordFilter(filters);
+    const order = compare(filters.sort);
+    return state.bookings
+      .filter((b) => b.supplierAccountId === me.accountId && b.origin === 'APPLICATION')
+      .map((b) => ({ b, c: state.campaigns.find((x) => x.id === b.campaignId) }))
+      .filter((x): x is { b: Booking; c: Campaign } => !!x.c && ofCampaign(x.c))
+      .map(({ b, c }) => {
+        const v = toBookingView(state, b, 'SUPPLIER', t);
+        const booking: AppliedCampaign['booking'] = {
+          id: v.id,
+          status: v.status,
+          payment: v.payment,
+          price: v.price,
+          origin: v.origin,
+          createdAt: v.createdAt,
+          updatedAt: v.updatedAt,
+          allowedActions: v.allowedActions,
+        };
+        if (v.awaiting) booking.awaiting = v.awaiting;
+        if (v.expiresAt !== undefined) booking.expiresAt = v.expiresAt;
+        return { booking, campaign: card(state, c, me.accountId, ctx, saved, t) };
+      })
+      .filter((x) => byKeyword(x.campaign))
+      .sort((a, b) => order(a.campaign, b.campaign) || b.booking.updatedAt - a.booking.updatedAt);
   }
 
   /**
@@ -392,7 +503,23 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     return toBookingView(db.read(), b, 'SUPPLIER', t);
   }
 
-  return { listMine, get, create, update, publish, close, cancel, inviteKols, listMarketplace, getMarketplaceItem, apply };
+  return {
+    listMine,
+    get,
+    create,
+    update,
+    publish,
+    close,
+    cancel,
+    inviteKols,
+    listMarketplace,
+    getMarketplaceItem,
+    apply,
+    saveCampaign,
+    unsaveCampaign,
+    listSaved,
+    listApplied,
+  };
 }
 
 export type CampaignService = ReturnType<typeof createCampaignService>;

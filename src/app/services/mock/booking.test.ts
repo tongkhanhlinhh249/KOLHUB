@@ -316,7 +316,7 @@ describe('hợp đồng, đếm huy hiệu, gói dịch vụ', () => {
     as(BRAND);
     expect(await svc.brandCounts()).toEqual({ newApplications: 1, awaitingBrand: 1, pendingReviews: 1, toPay: 1 });
     as(SAOVIET);
-    expect(await svc.supplierCounts()).toEqual({ newInvites: 0, awaitingSupplier: 0, toDeliver: 0, toConfirmPayment: 0, openMarketplace: 4 });
+    expect(await svc.supplierCounts()).toEqual({ newInvites: 0, awaitingSupplier: 0, toDeliver: 0, toConfirmPayment: 0, openMarketplace: 8 });
     as(KHANHVY);
     expect(await svc.supplierCounts()).toMatchObject({ newInvites: 1, awaitingSupplier: 1 });
   });
@@ -338,5 +338,64 @@ describe('hợp đồng, đếm huy hiệu, gói dịch vụ', () => {
     expect(await plans.getCurrentPlan()).toMatchObject({ plan: { key: 'STANDARD' }, since: 123 });
     as(KHANHVY);
     await expect(plans.getCurrentPlan()).rejects.toMatchObject({ code: 'KOLHUB-4016' });
+  });
+});
+
+describe('sửa đề xuất ứng tuyển (Sàn v2)', () => {
+  const edit = {
+    items: [{ kolAccountId: 'acc-kol-2026-0014', channelId: 'MCN-2026-0001-ch-05', deliverableType: 'VIDEO' as const, quantity: 1 }],
+    price: 45_000_000,
+    note: 'Rút gọn còn 1 video YouTube',
+  };
+
+  test('NCC sửa hạng mục, giá, lời nhắn khi còn APPLIED; ghi lịch sử, không gia hạn hạn phản hồi', async () => {
+    as(SAOVIET);
+    const before = await svc.get(SEED_BOOKING.application);
+    expect(before.allowedActions).toContain('EDIT_APPLICATION');
+    h.clock.t += 1000;
+    const b = await svc.updateApplication(SEED_BOOKING.application, edit);
+    expect(b).toMatchObject({ status: 'APPLIED', awaiting: 'BRAND', price: 45_000_000, note: 'Rút gọn còn 1 video YouTube', updatedAt: h.now() });
+    expect(b.items).toHaveLength(1);
+    expect(b.items[0]).toMatchObject({ kolId: 'KOL-2026-0014', channelId: 'MCN-2026-0001-ch-05' });
+    expect(b.history.at(-1)).toEqual({ at: h.now(), by: 'SUPPLIER', action: 'APPLICATION_UPDATED', price: 45_000_000, note: 'Rút gọn còn 1 video YouTube' });
+    expect(b.expiresAt).toBe(before.expiresAt);
+    expect(b.createdAt).toBe(before.createdAt);
+    // Bỏ lời nhắn → lời nhắn rỗng
+    expect((await svc.updateApplication(SEED_BOOKING.application, { ...edit, note: undefined })).note).toBe('');
+  });
+
+  test('Nhãn hàng không sửa được; sau khi Nhãn hàng trả giá / hết hạn / rút → 4805', async () => {
+    as(BRAND);
+    expect((await svc.get(SEED_BOOKING.application)).allowedActions).not.toContain('EDIT_APPLICATION');
+    await expect(svc.updateApplication(SEED_BOOKING.application, edit)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
+    await svc.counter(SEED_BOOKING.application, 50_000_000);
+    as(SAOVIET);
+    await expect(svc.updateApplication(SEED_BOOKING.application, edit)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
+  });
+
+  test('hết hạn hoặc đã rút → 4805; lời mời (INVITE) không có quyền sửa đề xuất', async () => {
+    as(SAOVIET);
+    await svc.cancel(SEED_BOOKING.application);
+    await expect(svc.updateApplication(SEED_BOOKING.application, edit)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
+    as(KHANHVY);
+    expect((await svc.get(SEED_BOOKING.khanhVyInvite)).allowedActions).not.toContain('EDIT_APPLICATION');
+  });
+
+  test('đề xuất sửa sai: trống (4812), giá (4810), kênh không hợp lệ (4809); không phải bên booking (4804)', async () => {
+    as(SAOVIET);
+    await expect(svc.updateApplication(SEED_BOOKING.application, { ...edit, items: [] })).rejects.toMatchObject({ code: 'KOLHUB-4812' });
+    await expect(svc.updateApplication(SEED_BOOKING.application, { ...edit, price: 0 })).rejects.toMatchObject({ code: 'KOLHUB-4810' });
+    await expect(
+      svc.updateApplication(SEED_BOOKING.application, { ...edit, items: [{ ...edit.items[0], channelId: 'MCN-2026-0001-ch-09' }] }),
+    ).rejects.toMatchObject({ code: 'KOLHUB-4809' });
+    expect(stored(SEED_BOOKING.application).price).toBe(60_000_000);
+    as(KHANHVY);
+    await expect(svc.updateApplication(SEED_BOOKING.application, edit)).rejects.toMatchObject({ code: 'KOLHUB-4804' });
+  });
+
+  test('hết hạn phản hồi → 4805', async () => {
+    as(SAOVIET);
+    h.clock.t += 8 * DAY;
+    await expect(svc.updateApplication(SEED_BOOKING.application, edit)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
   });
 });

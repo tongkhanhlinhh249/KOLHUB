@@ -19,7 +19,7 @@ import type { SafetyMonitor, SafetyVideo } from '../safety-types';
 // --- violations ---
 import type { Violation } from '../violation-types';
 // --- campaign booking (beta) ---
-import type { Booking, Campaign, PlanKey } from '../campaign-types';
+import type { Booking, Campaign, PlanKey, SavedCampaign } from '../campaign-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -55,11 +55,12 @@ export interface PendingRegistration {
  * v7: MCN ↔ KOL links (`mcnKolLinks`) and MCN channels assigned to linked KOLs.
  * v8: no more links — MCN channels are assigned directly to approved KOLs (`Channel.assignedKolAccountId`).
  * v9: campaign booking beta — `campaigns`, `bookings`, `brandPlans`.
+ * v10: Sàn v2 — `savedCampaigns` (supplier bookmarks) and 4 more marketplace campaigns in the seed.
  */
-export const DB_VERSION = 9;
+export const DB_VERSION = 10;
 
 export interface DemoState {
-  version: 9;
+  version: 10;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -87,6 +88,9 @@ export interface DemoState {
   bookings: Booking[];
   /** Brand account id → plan; absent = DEFAULT_PLAN (TRIAL). */
   brandPlans: Record<string, { plan: PlanKey; since: number }>;
+  // --- Sàn v2 ---
+  /** Marketplace bookmarks, one row per (supplier account, campaign). */
+  savedCampaigns: SavedCampaign[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

@@ -382,6 +382,7 @@ const ACTION_LABEL: Record<BookingAction, string> = {
   APPLIED: 'Gửi đề xuất ứng tuyển',
   COUNTERED: 'Báo giá mới',
   ITEMS_ASSIGNED: 'Cập nhật KOL và kênh',
+  APPLICATION_UPDATED: 'Sửa đề xuất ứng tuyển',
   ACCEPTED: 'Chốt booking',
   DECLINED: 'Từ chối',
   CANCELLED: 'Huỷ booking',

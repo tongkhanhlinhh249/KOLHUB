@@ -2,6 +2,7 @@
 // internal ratings. Both sides use the same functions; the side is resolved from the signed-in account
 // and every mutation checks `allowedActions` (KOLHUB-4805 otherwise).
 import type {
+  ApplyInput,
   Booking,
   BookingActionKey,
   BookingParty,
@@ -211,6 +212,27 @@ export function createBookingService(deps: BookingServiceDeps) {
     });
   }
 
+  /**
+   * Sàn v2: the supplier edits its application (items, total price, note) while it is still APPLIED — the brand
+   * has not answered yet (EDIT_APPLICATION, 4805 otherwise). Replaces the whole proposal; the reply deadline
+   * (createdAt + 7 days / applyDeadline) does not move.
+   */
+  async function updateApplication(id: string, proposal: ApplyInput): Promise<BookingView> {
+    await wait();
+    const ctx = guard(id, 'EDIT_APPLICATION');
+    const me = currentSupplier(ctx.state);
+    const c = ctx.state.campaigns.find((x) => x.id === ctx.booking.campaignId)!;
+    const items = resolveItems(ctx.state, me, c, proposal?.items ?? [], ctx.t, newId);
+    if (!isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
+    const note = checkNote(proposal.note);
+    return commit(ctx, (b) => {
+      b.items = items;
+      b.price = proposal.price;
+      b.note = note;
+      b.history.push({ at: ctx.t, by: 'SUPPLIER', action: 'APPLICATION_UPDATED', price: proposal.price, ...(note ? { note } : {}) });
+    });
+  }
+
   // --- content ---
 
   /** Supplier submits a draft (file and/or preview link); a file gets a KOL Safety verdict. → CONTENT_REVIEW. */
@@ -394,6 +416,7 @@ export function createBookingService(deps: BookingServiceDeps) {
     accept,
     decline,
     cancel,
+    updateApplication,
     assignItems,
     submitDraft,
     reviewContent,

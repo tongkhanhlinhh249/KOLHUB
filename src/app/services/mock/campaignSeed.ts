@@ -1,6 +1,7 @@
 // Seed v9: campaign booking beta — campaigns of the two demo brands, bookings with Sao Việt Media and Khánh Vy.
+// Seed v10 (Sàn v2): 4 more marketplace campaigns with varied fit, and saved campaigns of the two suppliers.
 import type { Platform } from '../bizTypes';
-import type { Booking, BookingEvent, Campaign, ContentSubmission } from '../campaign-types';
+import type { Booking, BookingEvent, Campaign, ContentSubmission, SavedCampaign } from '../campaign-types';
 import type { Channel } from '../profile-types';
 import { isoDay, postMetrics } from './campaignRules';
 import { VERIFIED_MCN_ACCOUNT_ID, VERIFIED_MCN_ID } from './mcnSeed';
@@ -26,6 +27,15 @@ export const SEED_CAMPAIGN = {
   agencyFashion: 'cmp-seed-thoi-trang',
   agencyEnglish: 'cmp-seed-tieng-anh',
   agencyTravel: 'cmp-seed-du-lich',
+  // v10
+  /** Demo brand, TikTok only, apply deadline tomorrow. */
+  yogurt: 'cmp-seed-sua-chua',
+  /** Demo brand, Facebook livestream. */
+  livestream: 'cmp-seed-livestream-bep',
+  /** Agency, YouTube only (tech). */
+  agencyHeadphones: 'cmp-seed-tai-nghe',
+  /** Agency, TikTok + Facebook livestream, education. */
+  agencyChallenge: 'cmp-seed-thu-thach-tieng-anh',
 } as const;
 
 export const SEED_BOOKING = {
@@ -40,7 +50,7 @@ function campaign(base: Omit<Campaign, 'createdAt' | 'updatedAt'> & { createdAt:
   return { ...base, updatedAt: base.updatedAt ?? base.createdAt };
 }
 
-export function seedCampaigns(channels: Channel[], now: number): { campaigns: Campaign[]; bookings: Booking[] } {
+export function seedCampaigns(channels: Channel[], now: number): { campaigns: Campaign[]; bookings: Booking[]; savedCampaigns: SavedCampaign[] } {
   const day = (n: number) => isoDay(now + n * DAY);
   const ago = (days: number, hours = 0) => now - days * DAY - hours * HOUR;
   const followers = (id: string) => channels.find((c) => c.id === id)?.stats?.followers ?? 0;
@@ -177,6 +187,93 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
     status: 'OPEN',
     publishedAt: ago(6),
     createdAt: ago(7),
+  });
+
+  // --- v10: more marketplace campaigns (varied platforms, categories, budgets and deadlines) ---
+  const yogurt = campaign({
+    id: SEED_CAMPAIGN.yogurt,
+    brandAccountId: SEED_BRAND_ID,
+    name: 'Sữa chua uống cho dân văn phòng',
+    objective: 'Đưa sữa chua uống vào thói quen giữa giờ của nhân viên văn phòng.',
+    brief: 'Video ngắn "một ngày ở văn phòng": bữa sáng vội, giờ nghỉ giữa buổi, tăng ca — sữa chua uống xuất hiện tự nhiên ở mỗi khoảnh khắc.',
+    budget: 45_000_000,
+    startDate: day(4),
+    endDate: day(25),
+    platforms: ['tiktok'],
+    categories: ['Lifestyle', 'Ẩm thực'],
+    deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 3 }],
+    contentRules: 'Gắn nhãn #QuangCao. Không nói về công dụng giảm cân.',
+    visibility: 'MARKETPLACE',
+    applyDeadline: day(1),
+    status: 'OPEN',
+    publishedAt: ago(5),
+    createdAt: ago(6),
+  });
+
+  const livestream = campaign({
+    id: SEED_CAMPAIGN.livestream,
+    brandAccountId: SEED_BRAND_ID,
+    name: 'Livestream bếp nhà cuối tuần',
+    objective: 'Bán hàng trực tiếp combo sữa và nguyên liệu làm bánh qua livestream.',
+    brief: 'Hai buổi livestream tối thứ Bảy: vừa làm bánh cùng cả nhà vừa giới thiệu combo ưu đãi. Có mã giảm giá riêng cho người xem livestream.',
+    budget: 70_000_000,
+    startDate: day(8),
+    endDate: day(30),
+    platforms: ['facebook'],
+    categories: ['Gia đình', 'Ẩm thực'],
+    deliverables: [
+      { type: 'LIVESTREAM', platform: 'facebook', quantity: 2 },
+      { type: 'POST', platform: 'facebook', quantity: 1 },
+    ],
+    contentRules: 'Gắn nhãn #QuangCao. Đọc đúng giá và điều kiện ưu đãi. Livestream tối thiểu 60 phút.',
+    visibility: 'MARKETPLACE',
+    applyDeadline: day(6),
+    status: 'OPEN',
+    publishedAt: ago(1),
+    createdAt: ago(1, 5),
+  });
+
+  const headphones = campaign({
+    id: SEED_CAMPAIGN.agencyHeadphones,
+    brandAccountId: SEED_AGENCY_ID,
+    name: 'Đánh giá tai nghe không dây mới',
+    objective: 'Tạo nội dung đánh giá chi tiết cho dòng tai nghe không dây sắp mở bán.',
+    brief: 'Video đánh giá 10–15 phút: thiết kế, chất âm, chống ồn, thời lượng pin. Được giữ mẫu sau chiến dịch.',
+    budget: 90_000_000,
+    startDate: day(14),
+    endDate: day(50),
+    platforms: ['youtube'],
+    categories: ['Công nghệ', 'Giải trí'],
+    deliverables: [{ type: 'VIDEO', platform: 'youtube', quantity: 2 }],
+    contentRules: 'Gắn nhãn #QuangCao. Đánh giá trung thực, không so sánh trực tiếp với sản phẩm cụ thể của hãng khác.',
+    visibility: 'MARKETPLACE',
+    applyDeadline: day(12),
+    status: 'OPEN',
+    publishedAt: ago(0, 5),
+    createdAt: ago(0, 8),
+  });
+
+  const challenge = campaign({
+    id: SEED_CAMPAIGN.agencyChallenge,
+    brandAccountId: SEED_AGENCY_ID,
+    name: 'Thử thách 30 ngày nói tiếng Anh',
+    objective: 'Lan toả thói quen luyện nói tiếng Anh mỗi ngày cho người đi làm trẻ.',
+    brief: 'Chuỗi video TikTok ghi lại tiến bộ sau 30 ngày luyện nói cùng khoá học, kết thúc bằng một buổi livestream giao lưu trên Facebook.',
+    budget: 250_000_000,
+    startDate: day(21),
+    endDate: day(60),
+    platforms: ['tiktok', 'facebook'],
+    categories: ['Giáo dục', 'Lifestyle'],
+    deliverables: [
+      { type: 'VIDEO', platform: 'tiktok', quantity: 4 },
+      { type: 'LIVESTREAM', platform: 'facebook', quantity: 1 },
+    ],
+    contentRules: 'Gắn nhãn #QuangCao. Không cam kết điểm số hay chứng chỉ cụ thể.',
+    visibility: 'MARKETPLACE',
+    applyDeadline: day(20),
+    status: 'OPEN',
+    publishedAt: ago(2, 3),
+    createdAt: ago(2, 6),
   });
 
   // --- bookings ---
@@ -387,7 +484,12 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
   };
 
   return {
-    campaigns: [running, marketplace, draft, fashion, english, travel],
+    campaigns: [running, marketplace, draft, fashion, english, travel, yogurt, livestream, headphones, challenge],
     bookings: [review, verified, completed, khanhVy, application],
+    savedCampaigns: [
+      { accountId: SAOVIET, campaignId: travel.id, savedAt: ago(1) },
+      { accountId: SAOVIET, campaignId: yogurt.id, savedAt: ago(0, 3) },
+      { accountId: SEED_KHANHVY_ID, campaignId: english.id, savedAt: ago(2) },
+    ],
   };
 }

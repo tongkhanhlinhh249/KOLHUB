@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { allowedActions, isAcceptingApplications, routeKol } from './campaignRules';
+import { allowedActions, isAcceptingApplications, isoDay, routeKol } from './campaignRules';
 import { SEED_AGENCY_ID, SEED_BOOKING, SEED_BRAND_ID, SEED_CAMPAIGN, SEED_KHANHVY_ID } from './campaignSeed';
 import { VERIFIED_MCN_ACCOUNT_ID as SAOVIET } from './mcnSeed';
 import { seedState } from './seed';
@@ -10,19 +10,34 @@ describe('seed v9 — chiến dịch & booking', () => {
   const campaign = (id: string) => s.campaigns.find((c) => c.id === id)!;
   const booking = (id: string) => s.bookings.find((b) => b.id === id)!;
 
-  test('Nhãn hàng demo: 1 RUNNING riêng tư, 1 OPEN trên Sàn, 1 DRAFT; agency: 3 OPEN trên Sàn', () => {
+  test('Nhãn hàng demo: 1 RUNNING riêng tư, 3 OPEN trên Sàn, 1 DRAFT; agency: 5 OPEN trên Sàn', () => {
     const mine = s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID);
     expect(mine.map((c) => [c.status, c.visibility])).toEqual([
       ['RUNNING', 'PRIVATE'],
       ['OPEN', 'MARKETPLACE'],
       ['DRAFT', 'PRIVATE'],
+      ['OPEN', 'MARKETPLACE'],
+      ['OPEN', 'MARKETPLACE'],
     ]);
     const agency = s.campaigns.filter((c) => c.brandAccountId === SEED_AGENCY_ID);
-    expect(agency).toHaveLength(3);
+    expect(agency).toHaveLength(5);
     expect(agency.every((c) => c.status === 'OPEN' && c.visibility === 'MARKETPLACE' && isAcceptingApplications(c, now))).toBe(true);
-    expect(new Set(agency.map((c) => c.categories[0])).size).toBe(3);
-    expect(new Set(agency.map((c) => c.budget)).size).toBe(3);
+    expect(new Set(agency.map((c) => c.categories[0])).size).toBeGreaterThanOrEqual(4);
+    expect(new Set(agency.map((c) => c.budget)).size).toBe(5);
     expect(s.brandPlans).toEqual({});
+  });
+
+  test('v10 — Sàn đa dạng: 1 chiến dịch sắp hết hạn (≤ 2 ngày), 1 chỉ YouTube, 1 livestream Facebook; chiến dịch đã lưu', () => {
+    const open = s.campaigns.filter((c) => isAcceptingApplications(c, now));
+    expect(open).toHaveLength(8);
+    const soon = campaign(SEED_CAMPAIGN.yogurt);
+    expect(soon.applyDeadline! <= isoDay(now + 2 * 86_400_000)).toBe(true);
+    expect(campaign(SEED_CAMPAIGN.agencyHeadphones).platforms).toEqual(['youtube']);
+    expect(campaign(SEED_CAMPAIGN.livestream).deliverables.some((d) => d.type === 'LIVESTREAM' && d.platform === 'facebook')).toBe(true);
+    expect(s.savedCampaigns.filter((x) => x.accountId === SAOVIET).map((x) => x.campaignId).sort()).toEqual(
+      [SEED_CAMPAIGN.agencyTravel, SEED_CAMPAIGN.yogurt].sort(),
+    );
+    expect(s.savedCampaigns.filter((x) => x.accountId === SEED_KHANHVY_ID).map((x) => x.campaignId)).toEqual([SEED_CAMPAIGN.agencyEnglish]);
   });
 
   test('chiến dịch RUNNING: booking với Sao Việt ở CONTENT_REVIEW (có KOL Safety), VERIFIED chờ thanh toán, COMPLETED', () => {

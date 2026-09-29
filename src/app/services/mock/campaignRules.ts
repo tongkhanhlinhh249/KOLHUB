@@ -26,6 +26,7 @@ import {
   type CampaignView,
   type Deliverable,
   type DeliverableType,
+  type MarketplaceBrandInfo,
   type MarketplaceCampaign,
   type PostMetrics,
   type ProposalItemInput,
@@ -35,6 +36,7 @@ import {
 import type { Channel, KolProfile, McnProfile } from '../profile-types';
 import { KolhubError } from '../types';
 import type { DemoState, StoredAccount } from './db';
+import { isFreeEmail } from './auth';
 import { currentBizAccount } from './bizSession';
 import { isSearchableChannel, publicKolOf } from './directory';
 import { profileDisplayName } from './identity';
@@ -239,6 +241,8 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
       if (party === 'SUPPLIER') out.push('ASSIGN_ITEMS');
     } else {
       out.push('CANCEL');
+      // Sàn v2: an application can be edited until the brand answers.
+      if (party === 'SUPPLIER' && status === 'APPLIED' && b.origin === 'APPLICATION') out.push('EDIT_APPLICATION');
     }
   }
   if (isInProgress(status) && !b.payment.brandMarkedAt) out.push('CANCEL');
@@ -443,6 +447,25 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
   const mine = viewerId ? own.find((b) => b.supplierAccountId === viewerId && isOccupying(effectiveStatus(b, c, now))) : undefined;
   if (mine) item.myBooking = { id: mine.id, status: effectiveStatus(mine, c, now), origin: mine.origin };
   return item;
+}
+
+/**
+ * "Nhãn hàng" block of a marketplace campaign (Sàn v2): public facts only — no contact data, no ratings.
+ * Brand accounts register with an OTP-verified email on a company domain (BR-45), so that counts as verified.
+ */
+export function brandInfoOf(state: DemoState, brandAccountId: string, now: number): MarketplaceBrandInfo {
+  const acc = state.accounts.find((a) => a.id === brandAccountId);
+  const campaigns = state.campaigns.filter((c) => c.brandAccountId === brandAccountId);
+  const byId = new Map(campaigns.map((c) => [c.id, c]));
+  return {
+    company: brandRef(acc, brandAccountId).company,
+    businessEmailVerified: acc?.type === 'BIZ' && !!acc.email && !isFreeEmail(acc.email),
+    campaignsPosted: campaigns.filter((c) => c.status !== 'DRAFT' && c.publishedAt !== undefined).length,
+    completedBookings: state.bookings.filter(
+      (b) => b.brandAccountId === brandAccountId && effectiveStatus(b, byId.get(b.campaignId), now) === 'COMPLETED',
+    ).length,
+    memberSince: acc?.createdAt ?? '',
+  };
 }
 
 function supplierRef(state: DemoState, b: Booking): SupplierRef {

@@ -46,6 +46,7 @@ const SEED_BIZ_NEW: Account = {
  * v8: Sao Việt Media assigns 6 of its 12 channels to KOL-2026-0011…0015 (no invites / links).
  * v9: campaign booking beta — 3 campaigns of the demo brand (bookings with Sao Việt Media and Khánh Vy),
  * 3 marketplace campaigns of the new agency; every brand on the default "Dùng thử" plan.
+ * v10 (Sàn v2): 2 more marketplace campaigns per brand; Sao Việt Media and Khánh Vy have saved campaigns.
  */
 export function seedState(): DemoState {
   const now = Date.now();
@@ -64,7 +65,7 @@ export function seedState(): DemoState {
   seedMcnChannelAssignments(channels, now);
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 9,
+    version: 10,
     accounts,
     otps: [],
     registrations: [],
