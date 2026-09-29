@@ -8,6 +8,7 @@ import { ProfileAvatar } from '../profile/ProfileAvatar';
 import { EmailVerifiedBadge } from '../shared/StatusBadges';
 import { ChangeEmailDialog } from './ChangeEmailDialog';
 import { EditBizProfileDialog } from './EditBizProfileDialog';
+import { PlanSection } from './PlanSection';
 
 /** Account header, laid out like the KOL/MCN ProfileHeader (without cover): same name + initials as the topbar. */
 function BizAccountHeader() {
@@ -65,6 +66,8 @@ export function BizAccountPage() {
           </dd>
         </div>
       </SectionCard>
+
+      <PlanSection />
 
       <EditBizProfileDialog open={editOpen} onOpenChange={setEditOpen} />
       <ChangeEmailDialog open={emailOpen} onOpenChange={setEmailOpen} />
