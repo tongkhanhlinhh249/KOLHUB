@@ -10,6 +10,7 @@ import {
   Link2,
   Mail,
   MapPin,
+  Megaphone,
   RotateCcw,
   ShieldCheck,
   User,
@@ -34,6 +35,8 @@ interface KolProfileSheetProps {
   onOpenChange(open: boolean): void;
   /** `name` is passed along so callers can title the save dialog without looking the KOL up. */
   onSave(kolId: string, name?: string): void;
+  /** "Mời vào chiến dịch" (campaign booking beta); hidden when not given. */
+  onInvite?(kolId: string, name?: string): void;
 }
 
 async function copy(text: string, done: string) {
@@ -105,7 +108,7 @@ const TAB_TRIGGER =
  * Only KolPublicProfile fields are rendered (BR-58): no personal info, booking price/services,
  * violations, livestream course, phone/address, and no messaging/booking actions.
  */
-export function KolProfileSheet({ kolId, saved, onOpenChange, onSave }: KolProfileSheetProps) {
+export function KolProfileSheet({ kolId, saved, onOpenChange, onSave, onInvite }: KolProfileSheetProps) {
   const [profile, setProfile] = useState<KolPublicProfile | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(false);
@@ -384,10 +387,22 @@ export function KolProfileSheet({ kolId, saved, onOpenChange, onSave }: KolProfi
         )}
 
         {kolId && !notFound && (
-          <div className="shrink-0 border-t border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6">
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:flex-row sm:justify-end sm:px-6">
+            {onInvite && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full sm:w-auto sm:px-5"
+                disabled={!profile || loading}
+                onClick={() => onInvite(kolId, profile?.displayName)}
+              >
+                <Megaphone aria-hidden />
+                Mời vào chiến dịch
+              </Button>
+            )}
             <Button
               type="button"
-              className="h-11 w-full sm:ml-auto sm:flex sm:w-auto sm:px-6"
+              className="h-11 w-full sm:w-auto sm:px-6"
               disabled={!profile || loading}
               onClick={() => onSave(kolId, profile?.displayName)}
             >

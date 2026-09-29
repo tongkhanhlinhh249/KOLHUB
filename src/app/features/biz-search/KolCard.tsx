@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkCheck, MapPin, ShieldCheck } from 'lucide-react';
+import { Bookmark, BookmarkCheck, MapPin, Megaphone, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -24,10 +24,12 @@ interface KolCardProps {
   saved: boolean;
   onView(): void;
   onSave(): void;
+  /** "Mời vào chiến dịch" icon button; hidden when not given. */
+  onInvite?(): void;
 }
 
 /** Compact search result card (trimmed from CreatorCard: field medals kept; no actions menu, engagement, reports). */
-export function KolCard({ kol, saved, onView, onSave }: KolCardProps) {
+export function KolCard({ kol, saved, onView, onSave, onInvite }: KolCardProps) {
   return (
     <Card className="gap-4 p-4">
       <div className="flex min-w-0 items-start gap-3">
@@ -85,6 +87,19 @@ export function KolCard({ kol, saved, onView, onSave }: KolCardProps) {
         >
           {saved ? <BookmarkCheck className="text-primary" aria-hidden /> : <Bookmark aria-hidden />}
         </Button>
+        {onInvite && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="size-11 md:size-10"
+            aria-label={`Mời ${kol.displayName} vào chiến dịch`}
+            title="Mời vào chiến dịch"
+            onClick={onInvite}
+          >
+            <Megaphone aria-hidden />
+          </Button>
+        )}
       </div>
     </Card>
   );

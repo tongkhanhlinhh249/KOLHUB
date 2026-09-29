@@ -1,4 +1,4 @@
-import { Bookmark, BookmarkCheck, MapPin, ShieldCheck } from 'lucide-react';
+import { Bookmark, BookmarkCheck, MapPin, Megaphone, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -13,6 +13,8 @@ interface KolListRowProps {
   saved: boolean;
   onView(): void;
   onSave(): void;
+  /** "Mời vào chiến dịch" icon button; hidden when not given. */
+  onInvite?(): void;
 }
 
 /**
@@ -29,10 +31,10 @@ const UNDER_INFO = 'md:ml-[7.25rem] lg:ml-0';
 const MEDIA = `flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5 lg:shrink-0 ${UNDER_INFO}`;
 /** < sm: two tiles share the row; sm+: fixed squares like the reference. */
 const THUMB = 'w-[calc(50%-0.25rem)] max-w-40 shrink-0 sm:w-24 md:w-28 lg:w-24 xl:w-28';
-const ACTIONS = `flex gap-2 lg:w-44 lg:shrink-0 ${UNDER_INFO}`;
+const ACTIONS = `flex gap-2 lg:w-52 lg:shrink-0 ${UNDER_INFO}`;
 
 /** Full-width search result row (list view), modelled on the old CreatorCard horizontal layout. Public fields only (BR-58). */
-export function KolListRow({ kol, saved, onView, onSave }: KolListRowProps) {
+export function KolListRow({ kol, saved, onView, onSave, onInvite }: KolListRowProps) {
   const videos = kol.latestVideos.slice(0, 2);
   return (
     <Card className="gap-0 p-4 md:p-5">
@@ -114,6 +116,19 @@ export function KolListRow({ kol, saved, onView, onSave }: KolListRowProps) {
           >
             {saved ? <BookmarkCheck className="text-primary" aria-hidden /> : <Bookmark aria-hidden />}
           </Button>
+          {onInvite && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-11 shrink-0"
+              aria-label={`Mời ${kol.displayName} vào chiến dịch`}
+              title="Mời vào chiến dịch"
+              onClick={onInvite}
+            >
+              <Megaphone aria-hidden />
+            </Button>
+          )}
         </div>
       </div>
     </Card>

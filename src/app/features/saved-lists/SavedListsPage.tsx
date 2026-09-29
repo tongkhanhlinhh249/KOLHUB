@@ -27,6 +27,7 @@ import {
 } from '../../services';
 import { KolProfileSheet } from '../biz-search/KolProfileSheet';
 import { SaveToListsDialog } from '../biz-search/SaveToListsDialog';
+import { InviteToCampaignDialog, type InviteTarget } from '../campaigns/InviteToCampaignDialog';
 import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { SortSelect } from '../filters/SortSelect';
@@ -102,6 +103,7 @@ export function SavedListsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [noteRow, setNoteRow] = useState<SavedListRow | null>(null);
   const [saveTarget, setSaveTarget] = useState<{ kolId: string; name: string } | null>(null);
+  const [inviteTargets, setInviteTargets] = useState<InviteTarget[] | null>(null);
   const warnedDs = useRef<string | null>(null);
 
   const setParam = useCallback(
@@ -360,7 +362,9 @@ export function SavedListsPage() {
         saved
         onOpenChange={(o) => !o && setParam('kol', null)}
         onSave={(kolId, name) => setSaveTarget({ kolId, name: name ?? rowName(kolId) })}
+        onInvite={(kolId, name) => setInviteTargets([{ kolId, name: name ?? rowName(kolId) }])}
       />
+      <InviteToCampaignDialog targets={inviteTargets} onOpenChange={(o) => !o && setInviteTargets(null)} />
       <SaveToListsDialog
         kolId={saveTarget?.kolId ?? null}
         kolName={saveTarget?.name ?? ''}
@@ -465,6 +469,11 @@ export function SavedListsPage() {
                 onMove={(target) => void moveKols(selectedIds, target)}
                 onRemove={() => void removeKols(selectedIds)}
                 onClear={() => setSelected(new Set())}
+                onInvite={() =>
+                  setInviteTargets(
+                    (rows ?? []).filter((r) => selected.has(r.kolId) && r.status !== 'UNAVAILABLE').map((r) => ({ kolId: r.kolId, name: r.displayName })),
+                  )
+                }
               />
             </div>
           ) : (
@@ -504,6 +513,7 @@ export function SavedListsPage() {
             onEditNote={setNoteRow}
             onRemove={(ids) => void removeKols(ids)}
             onMove={(ids, target) => void moveKols(ids, target)}
+            onInvite={(r) => setInviteTargets([{ kolId: r.kolId, name: r.displayName }])}
           />
         )}
       </>

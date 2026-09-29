@@ -15,6 +15,7 @@ import { KolCard, KolCardSkeleton } from './KolCard';
 import { KolListRow, KolListRowSkeleton } from './KolListRow';
 import { KolProfileSheet } from './KolProfileSheet';
 import { SaveToListsDialog } from './SaveToListsDialog';
+import { InviteToCampaignDialog, type InviteTarget } from '../campaigns/InviteToCampaignDialog';
 import { createLatestOnly } from './latestOnly';
 import { SearchFilters } from './SearchFilters';
 import { SearchPagination } from './SearchPagination';
@@ -124,6 +125,9 @@ export function SearchPage() {
       return sp;
     });
   const [saveTarget, setSaveTarget] = useState<{ kolId: string; name: string } | null>(null);
+  const [inviteTargets, setInviteTargets] = useState<InviteTarget[] | null>(null);
+  const openInvite = (kolId: string, name?: string) =>
+    setInviteTargets([{ kolId, name: name ?? result?.items.find((k) => k.kolId === kolId)?.displayName ?? kolId }]);
   const openSave = (kolId: string, name?: string) =>
     setSaveTarget({ kolId, name: name ?? result?.items.find((k) => k.kolId === kolId)?.displayName ?? kolId });
   const onSaved = (kolId: string, inAnyList: boolean) =>
@@ -221,6 +225,7 @@ export function SearchPage() {
                     saved={savedIds.has(k.kolId)}
                     onView={() => openProfile(k.kolId)}
                     onSave={() => openSave(k.kolId, k.displayName)}
+                    onInvite={() => openInvite(k.kolId, k.displayName)}
                   />
                 </li>
               ))}
@@ -234,6 +239,7 @@ export function SearchPage() {
                   saved={savedIds.has(k.kolId)}
                   onView={() => openProfile(k.kolId)}
                   onSave={() => openSave(k.kolId, k.displayName)}
+                  onInvite={() => openInvite(k.kolId, k.displayName)}
                 />
               ))}
             </div>
@@ -247,6 +253,7 @@ export function SearchPage() {
         saved={profileId !== null && savedIds.has(profileId)}
         onOpenChange={(open) => !open && closeProfile()}
         onSave={openSave}
+        onInvite={openInvite}
       />
       <SaveToListsDialog
         kolId={saveTarget?.kolId ?? null}
@@ -254,6 +261,7 @@ export function SearchPage() {
         onOpenChange={(open) => !open && setSaveTarget(null)}
         onSaved={onSaved}
       />
+      <InviteToCampaignDialog targets={inviteTargets} onOpenChange={(open) => !open && setInviteTargets(null)} />
     </div>
   );
 }

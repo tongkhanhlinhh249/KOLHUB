@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactNode } from 'react';
-import { ArrowRightLeft, Eye, MoreHorizontal, NotebookPen, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Eye, Megaphone, MoreHorizontal, NotebookPen, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -29,6 +29,8 @@ export interface RowHandlers {
   onEditNote(row: SavedListRow): void;
   onRemove(kolIds: string[]): void;
   onMove(kolIds: string[], targetId: string): void;
+  /** "Mời vào chiến dịch" (campaign booking beta); hidden when not given. */
+  onInvite?(row: SavedListRow): void;
 }
 
 interface ListItemsTableProps extends RowHandlers {
@@ -161,7 +163,7 @@ function MoveItems({ otherLists, onPick }: { otherLists: SavedListSummary[]; onP
   );
 }
 
-function RowMenu({ row, otherLists, onEditNote, onRemove, onMove, className }: { row: SavedListRow; otherLists: SavedListSummary[]; className?: string } & Omit<RowHandlers, 'onView'>) {
+function RowMenu({ row, otherLists, onEditNote, onRemove, onMove, onInvite, className }: { row: SavedListRow; otherLists: SavedListSummary[]; className?: string } & Omit<RowHandlers, 'onView'>) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -170,6 +172,12 @@ function RowMenu({ row, otherLists, onEditNote, onRemove, onMove, className }: {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {onInvite && canView(row) && (
+          <DropdownMenuItem onSelect={() => onInvite(row)}>
+            <Megaphone aria-hidden />
+            Mời vào chiến dịch
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={() => onEditNote(row)}>
           <NotebookPen aria-hidden />
           Sửa ghi chú

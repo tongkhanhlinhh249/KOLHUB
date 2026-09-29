@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChevronDown, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, ChevronDown, Megaphone, Trash2, X } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import {
   DropdownMenu,
@@ -15,10 +15,12 @@ interface BulkBarProps {
   onMove(targetId: string): void;
   onRemove(): void;
   onClear(): void;
+  /** "Mời vào chiến dịch" for the checked KOLs; hidden when not given. */
+  onInvite?(): void;
 }
 
 /** Actions on the checked KOLs; replaces the "Hiển thị n/N" line while something is selected. */
-export function BulkBar({ count, otherLists, onMove, onRemove, onClear }: BulkBarProps) {
+export function BulkBar({ count, otherLists, onMove, onRemove, onClear, onInvite }: BulkBarProps) {
   return (
     <div
       role="region"
@@ -28,6 +30,12 @@ export function BulkBar({ count, otherLists, onMove, onRemove, onClear }: BulkBa
       <span className="mr-1 text-sm font-semibold text-primary tabular-nums" aria-live="polite">
         Đã chọn {count}
       </span>
+      {onInvite && (
+        <Button type="button" variant="outline" size="sm" className="h-11 bg-card md:h-8" onClick={onInvite}>
+          <Megaphone aria-hidden />
+          Mời vào chiến dịch
+        </Button>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" size="sm" className="h-11 bg-card md:h-8">

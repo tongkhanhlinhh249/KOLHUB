@@ -3,15 +3,18 @@ import { useSearchParams } from 'react-router';
 import { savedListService } from '../../services';
 import { KolProfileSheet } from '../biz-search/KolProfileSheet';
 import { SaveToListsDialog } from '../biz-search/SaveToListsDialog';
+import { InviteToCampaignDialog, type InviteTarget } from '../campaigns/InviteToCampaignDialog';
 
 /**
- * KOL detail sheet driven by `?kol=<kolId>` plus the "Lưu vào danh sách" dialog, for Brand pages
- * other than the search (Danh sách kênh, Danh sách vi phạm). Returns helpers and the elements to render.
+ * KOL detail sheet driven by `?kol=<kolId>` plus the "Lưu vào danh sách" and "Mời vào chiến dịch" dialogs,
+ * for Brand pages other than the search (Danh sách kênh, Danh sách vi phạm, Chiến dịch). Returns helpers and
+ * the elements to render. `invite: false` hides "Mời vào chiến dịch" (e.g. inside a campaign).
  */
-export function useBrandKolSheet() {
+export function useBrandKolSheet({ invite = true }: { invite?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [saveTarget, setSaveTarget] = useState<{ kolId: string; name: string } | null>(null);
+  const [inviteTargets, setInviteTargets] = useState<InviteTarget[] | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -40,6 +43,7 @@ export function useBrandKolSheet() {
       return sp;
     });
   const openSave = useCallback((kolId: string, name?: string) => setSaveTarget({ kolId, name: name ?? kolId }), []);
+  const openInvite = useCallback((kolId: string, name?: string) => setInviteTargets([{ kolId, name: name ?? kolId }]), []);
   const onSaved = (kolId: string, inAnyList: boolean) =>
     setSavedIds((prev) => {
       const next = new Set(prev);
@@ -56,6 +60,7 @@ export function useBrandKolSheet() {
         saved={profileId !== null && savedIds.has(profileId)}
         onOpenChange={(open) => !open && closeKol()}
         onSave={openSave}
+        onInvite={invite ? openInvite : undefined}
       />
       <SaveToListsDialog
         kolId={saveTarget?.kolId ?? null}
@@ -63,7 +68,8 @@ export function useBrandKolSheet() {
         onOpenChange={(open) => !open && setSaveTarget(null)}
         onSaved={onSaved}
       />
+      {invite && <InviteToCampaignDialog targets={inviteTargets} onOpenChange={(open) => !open && setInviteTargets(null)} />}
     </>
   );
-  return { openKol, openSave, savedIds, elements };
+  return { openKol, openSave, openInvite, savedIds, elements };
 }
