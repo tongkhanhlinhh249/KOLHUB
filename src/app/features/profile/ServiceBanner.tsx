@@ -23,25 +23,29 @@ function ServiceCard({
   title: string;
   text: string;
   icon: LucideIcon;
-  tone: 'primary' | 'dark';
+  tone: 'primary' | 'neutral';
   children: ReactNode;
 }) {
   return (
     <section
       aria-labelledby={id}
+      // Soft tinted surfaces (light background, dark text); only the button carries the strong primary colour.
       className={cn(
-        'relative overflow-hidden rounded-[8px] p-4 shadow-sm',
-        tone === 'primary'
-          ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground'
-          : 'bg-foreground text-background',
+        'relative overflow-hidden rounded-[8px] border p-4 text-foreground',
+        tone === 'primary' ? 'border-primary/20 bg-gradient-to-br from-primary/10 to-primary/[0.03]' : 'border-border bg-muted/50',
       )}
     >
-      <Icon className="pointer-events-none absolute -right-4 -bottom-4 size-24 opacity-15" aria-hidden />
-      <p className="text-[11px] font-semibold tracking-widest uppercase opacity-85">{eyebrow}</p>
+      <Icon
+        className={cn('pointer-events-none absolute -right-4 -bottom-4 size-24', tone === 'primary' ? 'text-primary/15' : 'text-foreground/[0.07]')}
+        aria-hidden
+      />
+      <p className={cn('text-[11px] font-semibold tracking-widest uppercase', tone === 'primary' ? 'text-primary' : 'text-muted-foreground')}>
+        {eyebrow}
+      </p>
       <h2 id={id} className="mt-1 text-base leading-snug font-bold">
         {title}
       </h2>
-      <p className="mt-1 text-sm opacity-90">{text}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{text}</p>
       <div className="relative mt-3">{children}</div>
     </section>
   );
@@ -59,7 +63,7 @@ export function ServiceBanner() {
         icon={ShieldCheck}
         tone="primary"
       >
-        <Button asChild variant="secondary" className="h-11 rounded-[8px] bg-white text-primary hover:bg-white/90 md:h-9">
+        <Button asChild className="h-11 rounded-[8px] md:h-9">
           <Link to={`${SAFETY_BASE}/video`}>
             Kiểm tra video
             <ArrowRight aria-hidden />
@@ -72,9 +76,9 @@ export function ServiceBanner() {
         title="An toàn thương hiệu khi hợp tác"
         text="Tư vấn giải pháp bảo vệ thương hiệu cùng KOL xác thực."
         icon={BadgeCheck}
-        tone="dark"
+        tone="neutral"
       >
-        <Button asChild className="h-11 rounded-[8px] md:h-9">
+        <Button asChild variant="outline" className="h-11 rounded-[8px] bg-card md:h-9">
           <a href={`tel:${HOTLINE}`}>
             <Phone aria-hidden />
             Liên hệ ngay {HOTLINE_SHOWN}
