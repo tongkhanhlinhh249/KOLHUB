@@ -33,7 +33,7 @@ import {
   type SupplierRef,
   type SupplierType,
 } from '../campaign-types';
-import type { Channel, KolProfile, McnProfile } from '../profile-types';
+import { MAX_FILE_BYTES, type Channel, type KolProfile, type McnProfile, type StoredFile } from '../profile-types';
 import { KolhubError } from '../types';
 import type { DemoState, StoredAccount } from './db';
 import { isFreeEmail } from './auth';
@@ -125,6 +125,28 @@ export function isDeliverableType(v: unknown): v is DeliverableType {
 const isQty = (n: unknown) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= DELIVERABLE_QTY_MAX;
 export const isPrice = (n: unknown) => Number.isSafeInteger(n) && (n as number) > 0;
 
+/** "Ảnh chiến dịch" types (JPG / PNG / WebP), each ≤ MAX_FILE_BYTES. */
+export const CAMPAIGN_COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+/** A valid campaign cover (4803 `cover` otherwise); returns a clean copy. */
+export function checkCampaignCover(f: unknown): StoredFile {
+  const x = f as Partial<StoredFile> | null;
+  if (
+    !x ||
+    typeof x !== 'object' ||
+    typeof x.name !== 'string' ||
+    typeof x.type !== 'string' ||
+    !CAMPAIGN_COVER_TYPES.includes(x.type) ||
+    typeof x.size !== 'number' ||
+    !(x.size >= 0) ||
+    x.size > MAX_FILE_BYTES ||
+    (x.thumbnail !== undefined && typeof x.thumbnail !== 'string')
+  ) {
+    throw bad('cover');
+  }
+  return { name: x.name, type: x.type, size: x.size, ...(x.thumbnail ? { thumbnail: x.thumbnail } : {}) };
+}
+
 /** Normalizes and type-checks the given fields (a partial patch is fine); throws 4803 with `field`. */
 export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Campaign> & { applyDeadline?: string | undefined } {
   const out: Partial<Campaign> = {};
@@ -177,6 +199,9 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
     const v = input.applyDeadline;
     if (v !== undefined && v !== null && v !== '' && !isIsoDate(v)) throw bad('applyDeadline');
     out.applyDeadline = v || undefined;
+  }
+  if ('cover' in input) {
+    out.cover = input.cover == null ? undefined : checkCampaignCover(input.cover);
   }
   return out;
 }
@@ -444,6 +469,7 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     applicationCount: own.filter((b) => b.origin === 'APPLICATION' && isOccupying(effectiveStatus(b, c, now))).length,
   };
   if (c.applyDeadline) item.applyDeadline = c.applyDeadline;
+  if (c.cover) item.cover = { ...c.cover };
   const mine = viewerId ? own.find((b) => b.supplierAccountId === viewerId && isOccupying(effectiveStatus(b, c, now))) : undefined;
   if (mine) item.myBooking = { id: mine.id, status: effectiveStatus(mine, c, now), origin: mine.origin };
   return item;

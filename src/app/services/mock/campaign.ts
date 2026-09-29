@@ -128,6 +128,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (clean.startDate) c.startDate = clean.startDate;
     if (clean.endDate) c.endDate = clean.endDate;
     if (clean.applyDeadline) c.applyDeadline = clean.applyDeadline;
+    if (clean.cover) c.cover = clean.cover;
     save(c);
     return view(c.id);
   }
@@ -140,7 +141,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (c.status !== 'DRAFT' && c.status !== 'OPEN') throw new KolhubError('KOLHUB-4802');
     const clean = sanitizeCampaignInput(patch ?? {});
     const next: Campaign = { ...c, ...clean, updatedAt: now() };
-    for (const k of ['startDate', 'endDate', 'applyDeadline'] as const) if (next[k] === undefined) delete next[k];
+    for (const k of ['startDate', 'endDate', 'applyDeadline', 'cover'] as const) if (next[k] === undefined) delete next[k];
     if (next.status === 'OPEN') validateForOpen(next, now());
     save(next);
     return view(id);

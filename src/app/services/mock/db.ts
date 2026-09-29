@@ -56,11 +56,12 @@ export interface PendingRegistration {
  * v8: no more links — MCN channels are assigned directly to approved KOLs (`Channel.assignedKolAccountId`).
  * v9: campaign booking beta — `campaigns`, `bookings`, `brandPlans`.
  * v10: Sàn v2 — `savedCampaigns` (supplier bookmarks) and 4 more marketplace campaigns in the seed.
+ * v11: campaign cover image (`Campaign.cover`) on every seeded campaign.
  */
-export const DB_VERSION = 10;
+export const DB_VERSION = 11;
 
 export interface DemoState {
-  version: 10;
+  version: 11;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];

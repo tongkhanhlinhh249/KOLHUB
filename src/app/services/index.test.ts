@@ -43,4 +43,5 @@ test('dịch vụ chiến dịch / booking / gói được export (beta)', async
   expect(PLANS[0].name).toBe('Dùng thử');
   expect(BOOKING_STATUS_LABEL.CONTENT_REVIEW).toBe('Chờ duyệt nội dung');
   expect(msg('KOLHUB-4803', { field: 'budget' })).toBe('Ngân sách không hợp lệ hoặc còn trống.');
+  expect(msg('KOLHUB-4803', { field: 'cover' })).toBe('Ảnh chiến dịch phải là JPG, PNG hoặc WebP, tối đa 10 MB.');
 });

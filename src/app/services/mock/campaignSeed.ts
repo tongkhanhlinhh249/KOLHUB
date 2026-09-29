@@ -1,8 +1,9 @@
 // Seed v9: campaign booking beta — campaigns of the two demo brands, bookings with Sao Việt Media and Khánh Vy.
 // Seed v10 (Sàn v2): 4 more marketplace campaigns with varied fit, and saved campaigns of the two suppliers.
+// Seed v11: every campaign has a cover image ("Ảnh chiến dịch").
 import type { Platform } from '../bizTypes';
 import type { Booking, BookingEvent, Campaign, ContentSubmission, SavedCampaign } from '../campaign-types';
-import type { Channel } from '../profile-types';
+import type { Channel, StoredFile } from '../profile-types';
 import { isoDay, postMetrics } from './campaignRules';
 import { VERIFIED_MCN_ACCOUNT_ID, VERIFIED_MCN_ID } from './mcnSeed';
 import { scanVideoFile } from './safety';
@@ -46,6 +47,15 @@ export const SEED_BOOKING = {
   application: 'bk-seed-application',
 } as const;
 
+/**
+ * "Ảnh chiến dịch" of a seeded campaign: a generic stock photo from the sample image pool (matched by its photo id),
+ * requested at 800 px wide for the 16:9 card. Falls back to the first pool image.
+ */
+function coverOf(photoId: string, slug: string): StoredFile {
+  const url = IMAGE_POOL.find((u) => u.includes(photoId)) ?? IMAGE_POOL[0];
+  return { name: `anh-chien-dich-${slug}.jpg`, type: 'image/jpeg', size: 420_000, thumbnail: url.replace(/([?&])w=\d+/, '$1w=800') };
+}
+
 function campaign(base: Omit<Campaign, 'createdAt' | 'updatedAt'> & { createdAt: number; updatedAt?: number }): Campaign {
   return { ...base, updatedAt: base.updatedAt ?? base.createdAt };
 }
@@ -58,6 +68,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
   // --- demo brand ---
   const running = campaign({
     id: SEED_CAMPAIGN.running,
+    cover: coverOf('1549733539', 'running'),
     brandAccountId: SEED_BRAND_ID,
     name: 'Ra mắt sữa hạt vị mới',
     objective: 'Tăng nhận biết dòng sữa hạt vị mới với nhóm khách hàng gia đình trẻ.',
@@ -84,6 +95,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const marketplace = campaign({
     id: SEED_CAMPAIGN.marketplace,
+    cover: coverOf('1618480066690', 'marketplace'),
     brandAccountId: SEED_BRAND_ID,
     name: 'Tuần lễ ẩm thực mùa thu',
     objective: 'Lan toả các món ăn mùa thu dùng sản phẩm sữa và tăng lượt ghé cửa hàng.',
@@ -109,6 +121,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const draft = campaign({
     id: SEED_CAMPAIGN.draft,
+    cover: coverOf('1684247969270', 'draft'),
     brandAccountId: SEED_BRAND_ID,
     name: 'Tri ân khách hàng cuối năm',
     objective: 'Cảm ơn khách hàng thân thiết, giới thiệu hộp quà Tết.',
@@ -126,6 +139,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
   // --- agency (marketplace only) ---
   const fashion = campaign({
     id: SEED_CAMPAIGN.agencyFashion,
+    cover: coverOf('1558722199', 'agencyFashion'),
     brandAccountId: SEED_AGENCY_ID,
     name: 'Bộ sưu tập thời trang thu đông',
     objective: 'Giới thiệu bộ sưu tập thu đông cho khách hàng nữ 18–30 tuổi.',
@@ -149,6 +163,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const english = campaign({
     id: SEED_CAMPAIGN.agencyEnglish,
+    cover: coverOf('1758521540376', 'agencyEnglish'),
     brandAccountId: SEED_AGENCY_ID,
     name: 'Trải nghiệm ứng dụng học tiếng Anh',
     objective: 'Tăng lượt tải ứng dụng học tiếng Anh cho học sinh, sinh viên.',
@@ -169,6 +184,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const travel = campaign({
     id: SEED_CAMPAIGN.agencyTravel,
+    cover: coverOf('1698521688714', 'agencyTravel'),
     brandAccountId: SEED_AGENCY_ID,
     name: 'Khám phá du lịch miền Trung',
     objective: 'Quảng bá tour 4 ngày 3 đêm Đà Nẵng – Hội An – Huế.',
@@ -192,6 +208,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
   // --- v10: more marketplace campaigns (varied platforms, categories, budgets and deadlines) ---
   const yogurt = campaign({
     id: SEED_CAMPAIGN.yogurt,
+    cover: coverOf('1641851962761', 'yogurt'),
     brandAccountId: SEED_BRAND_ID,
     name: 'Sữa chua uống cho dân văn phòng',
     objective: 'Đưa sữa chua uống vào thói quen giữa giờ của nhân viên văn phòng.',
@@ -212,6 +229,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const livestream = campaign({
     id: SEED_CAMPAIGN.livestream,
+    cover: coverOf('1585049303349', 'livestream'),
     brandAccountId: SEED_BRAND_ID,
     name: 'Livestream bếp nhà cuối tuần',
     objective: 'Bán hàng trực tiếp combo sữa và nguyên liệu làm bánh qua livestream.',
@@ -235,6 +253,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const headphones = campaign({
     id: SEED_CAMPAIGN.agencyHeadphones,
+    cover: coverOf('1772587003187', 'agencyHeadphones'),
     brandAccountId: SEED_AGENCY_ID,
     name: 'Đánh giá tai nghe không dây mới',
     objective: 'Tạo nội dung đánh giá chi tiết cho dòng tai nghe không dây sắp mở bán.',
@@ -255,6 +274,7 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
 
   const challenge = campaign({
     id: SEED_CAMPAIGN.agencyChallenge,
+    cover: coverOf('1733945761533', 'agencyChallenge'),
     brandAccountId: SEED_AGENCY_ID,
     name: 'Thử thách 30 ngày nói tiếng Anh',
     objective: 'Lan toả thói quen luyện nói tiếng Anh mỗi ngày cho người đi làm trẻ.',

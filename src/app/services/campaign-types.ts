@@ -66,6 +66,11 @@ export interface Campaign {
   deliverables: Deliverable[];
   contentRules: string;
   visibility: CampaignVisibility;
+  /**
+   * "Ảnh chiến dịch": cover shown on the marketplace card / detail (16:9). JPG, PNG or WebP ≤ 10 MB;
+   * `thumbnail` is a data URL (uploads) or an image URL (seed).
+   */
+  cover?: StoredFile;
   /** 'YYYY-MM-DD', last day suppliers may apply / respond (end of that local day). */
   applyDeadline?: string;
   status: CampaignStatus;
@@ -92,6 +97,8 @@ export interface CampaignInput {
   visibility?: CampaignVisibility;
   /** null clears it. */
   applyDeadline?: string | null;
+  /** JPG / PNG / WebP ≤ 10 MB (4803 `cover` otherwise); null removes it. */
+  cover?: StoredFile | null;
 }
 export type CampaignPatch = Partial<CampaignInput>;
 
@@ -214,6 +221,8 @@ export interface MarketplaceCampaign {
   deliverables: Deliverable[];
   contentRules: string;
   applyDeadline?: string;
+  /** "Ảnh chiến dịch" (16:9 cover), when the brand added one. */
+  cover?: StoredFile;
   publishedAt: number;
   brand: { company: string };
   /** Applications received (any status except withdrawn/expired/declined). */

@@ -228,6 +228,8 @@ function campaignFieldLabel(field?: string): string {
       return 'Chế độ hiển thị';
     case 'applyDeadline':
       return 'Hạn nhận đề xuất';
+    case 'cover':
+      return 'Ảnh chiến dịch';
     case 'note':
       return 'Ghi chú';
     case 'title':
@@ -254,6 +256,7 @@ function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4802':
       return 'Chiến dịch không còn ở trạng thái cho phép thao tác này. Vui lòng tải lại.';
     case 'KOLHUB-4803':
+      if (meta?.field === 'cover') return 'Ảnh chiến dịch phải là JPG, PNG hoặc WebP, tối đa 10 MB.';
       return `${campaignFieldLabel(meta?.field)} không hợp lệ hoặc còn trống.`;
     case 'KOLHUB-4804':
       return 'Không tìm thấy booking. Có thể booking đã bị xoá hoặc bạn không có quyền xem.';

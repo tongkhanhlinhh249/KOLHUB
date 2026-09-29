@@ -40,6 +40,17 @@ describe('seed v9 — chiến dịch & booking', () => {
     expect(s.savedCampaigns.filter((x) => x.accountId === SEED_KHANHVY_ID).map((x) => x.campaignId)).toEqual([SEED_CAMPAIGN.agencyEnglish]);
   });
 
+  test('v11 — mọi chiến dịch mẫu có ảnh chiến dịch (ảnh JPG từ kho ảnh mẫu), các chiến dịch trên Sàn không trùng ảnh', () => {
+    expect(s.campaigns).toHaveLength(10);
+    for (const c of s.campaigns) {
+      expect(c.cover).toMatchObject({ type: 'image/jpeg' });
+      expect(c.cover!.thumbnail).toMatch(/^https:\/\//);
+      expect(c.cover!.size).toBeLessThanOrEqual(10 * 1024 * 1024);
+    }
+    const open = s.campaigns.filter((c) => isAcceptingApplications(c, now));
+    expect(new Set(open.map((c) => c.cover!.thumbnail)).size).toBe(open.length);
+  });
+
   test('chiến dịch RUNNING: booking với Sao Việt ở CONTENT_REVIEW (có KOL Safety), VERIFIED chờ thanh toán, COMPLETED', () => {
     const review = booking(SEED_BOOKING.review);
     expect(review).toMatchObject({ campaignId: SEED_CAMPAIGN.running, supplierAccountId: SAOVIET, supplierType: 'MCN', status: 'CONTENT_REVIEW' });

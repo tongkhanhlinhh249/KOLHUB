@@ -123,6 +123,34 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     await expect(svc.update(SEED_CAMPAIGN.running, { name: 'Đổi tên' })).rejects.toMatchObject({ code: 'KOLHUB-4802' });
   });
 
+  test('ảnh chiến dịch: JPG/PNG/WebP ≤ 10 MB; sai định dạng / quá lớn → 4803 cover; null xoá ảnh', async () => {
+    const cover = { name: 'bia.webp', type: 'image/webp', size: 2_000_000, thumbnail: 'data:image/jpeg;base64,AAA' };
+    const c = await svc.create({ name: 'Có ảnh', cover });
+    expect(c.cover).toEqual(cover);
+    expect((await svc.get(c.id)).cover).toEqual(cover);
+    await expect(svc.create({ name: 'A', cover: { name: 'a.gif', type: 'image/gif', size: 10 } })).rejects.toMatchObject({
+      code: 'KOLHUB-4803',
+      meta: { field: 'cover' },
+    });
+    await expect(
+      svc.update(c.id, { cover: { name: 'a.png', type: 'image/png', size: 10 * 1024 * 1024 + 1 } }),
+    ).rejects.toMatchObject({ meta: { field: 'cover' } });
+    const png = { name: 'b.png', type: 'image/png', size: 10 * 1024 * 1024 };
+    expect((await svc.update(c.id, { cover: png })).cover).toEqual(png);
+    expect((await svc.update(c.id, { name: 'Đổi tên' })).cover).toEqual(png);
+    const cleared = await svc.update(c.id, { cover: null });
+    expect(cleared.cover).toBeUndefined();
+    expect('cover' in cleared).toBe(false);
+  });
+
+  test('ảnh chiến dịch hiện trên Sàn (danh sách + chi tiết)', async () => {
+    const cover = { name: 'moi.jpg', type: 'image/jpeg', size: 500_000, thumbnail: 'data:image/jpeg;base64,BBB' };
+    await svc.update(SEED_CAMPAIGN.marketplace, { cover });
+    as(null);
+    expect((await svc.listMarketplace()).find((m) => m.id === SEED_CAMPAIGN.marketplace)!.cover).toEqual(cover);
+    expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace)).cover).toEqual(cover);
+  });
+
   test('danh sách: lọc trạng thái, từ khoá không dấu, thống kê booking', async () => {
     const all = await svc.listMine();
     expect(all.map((c) => c.id).sort()).toEqual(
