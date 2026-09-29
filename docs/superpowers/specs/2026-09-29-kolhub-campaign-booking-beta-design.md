@@ -181,12 +181,12 @@ Không có kênh liên quan nào → điểm 0. Điểm làm tròn, kẹp 0–10
 - `listSaved(filters)` — chiến dịch đã lưu **còn nhận đề xuất**, cùng bộ lọc/sort với `listMarketplace` (chiến dịch hết hạn tự rời danh sách, bản ghi vẫn giữ). `MarketplaceCampaign.saved` cho biết đã lưu.
 - UI: nút biểu tượng lưu trên thẻ và nút "Lưu/Đã lưu" ở chân trang chi tiết; toast "Đã lưu chiến dịch" / "Đã bỏ lưu chiến dịch".
 
-### 11.3 Tab trên `/san-chien-dich`
+### 11.3 Tab trên Sàn (`/san`, trước đây `/san-chien-dich`)
 
 `?tab=` — "Tất cả" (mặc định, không ghi vào URL) · `da-luu` "Đã lưu" · `da-ung-tuyen` "Đã ứng tuyển". Bộ lọc (từ khoá, lĩnh vực, nền tảng, ngân sách, sắp xếp) giữ nguyên khi đổi tab; `?sap-xep=` bỏ trống = "Phù hợp nhất". Tab Đã lưu / Đã ứng tuyển có số đếm (không lọc).
 
-- `listApplied(filters)` → `AppliedCampaign[] { booking, campaign }`: mọi booking **APPLICATION** của người xem (mọi trạng thái, kể cả đã rút/hết hạn), kèm chiến dịch (`accepting: false` nếu đã ngừng nhận đề xuất). Lời mời (INVITE) không nằm ở đây — xem `/booking`. KOL/MCN chưa duyệt → danh sách rỗng.
-- Thẻ "Đã ứng tuyển": trạng thái booking (nhãn phía NCC), giá đề xuất, ngân sách, hạn phản hồi (khi còn chờ) hoặc thời điểm cập nhật; bấm mở booking `/booking?booking=<id>`.
+- `listApplied(filters)` → `AppliedCampaign[] { booking, campaign }`: mọi booking **APPLICATION** của người xem (mọi trạng thái, kể cả đã rút/hết hạn), kèm chiến dịch (`accepting: false` nếu đã ngừng nhận đề xuất). Lời mời (INVITE) không nằm ở đây — xem trang "Chiến dịch" `/chien-dich-cua-toi` (trước đây `/booking`). KOL/MCN chưa duyệt → danh sách rỗng.
+- Thẻ "Đã ứng tuyển": trạng thái booking (nhãn phía NCC), giá đề xuất, ngân sách, hạn phản hồi (khi còn chờ) hoặc thời điểm cập nhật; bấm mở booking `/chien-dich-cua-toi?booking=<id>`.
 
 ### 11.4 Sửa / rút đề xuất
 
@@ -210,3 +210,27 @@ Thêm 4 chiến dịch OPEN trên Sàn (tổng 8):
 | `cmp-seed-thu-thach-tieng-anh` "Thử thách 30 ngày nói tiếng Anh" | Newbrand Agency | 4 Video TikTok + 1 Livestream Facebook | Giáo dục, Lifestyle | 250 tr | 20 ngày |
 
 Kết quả mẫu: **Sao Việt Media** khớp 100% "Tuần lễ ẩm thực mùa thu" và "Sữa chua uống…", 0% "Livestream bếp nhà…" (không có kênh Facebook hợp lệ); **Khánh Vy** khớp 100% "Trải nghiệm ứng dụng học tiếng Anh", 82% "Thử thách 30 ngày…" (thiếu kênh TikTok cho 4 video). Đã lưu sẵn: Sao Việt — du lịch miền Trung, sữa chua uống; Khánh Vy — ứng dụng học tiếng Anh.
+
+## 12. Đường dẫn & điều hướng (29/09/2026)
+
+Quyết định: "Sàn chiến dịch sẽ là 1 slug riêng. Còn MCN và KOL nhận và quản lý chiến dịch"; Sàn có trong khối "Vai trò" của bảng demo; sidebar Nhãn hàng/Agency được nhóm lại.
+
+| Đường dẫn | Ai vào được | Ghi chú |
+|---|---|---|
+| `/san` | Mọi vai trò, **kể cả khách** (`PUBLIC_PATHS`, guard không bao giờ chuyển hướng) | Layout riêng `MarketplaceLayout` (ngoài khung app): header Sàn (logo → `/san`, "Sàn chiến dịch", ô tìm kiếm `?q=`, khách: Đăng nhập/Đăng ký; đã đăng nhập: avatar + "Vào KOLHUB" về trang chính của vai trò; Nhãn hàng thêm "Đăng chiến dịch" → `/chien-dich/tao`), nội dung rộng tối đa 1200px, footer. Chi tiết chiến dịch: Sheet `?chien-dich=<id>`. Đổi vai trò/đăng xuất khi đang ở Sàn thì ở lại Sàn. |
+| `/san-chien-dich` | Mọi vai trò | Chuyển hướng sang `/san` (giữ query). |
+| `/chien-dich-cua-toi` | KOL, MCN | Trang "Chiến dịch" của NCC (trước đây "Booking"): lời mời, đề xuất ứng tuyển, booking đang thực hiện; `?tab=` giai đoạn, `?booking=<id>` mở chi tiết. |
+| `/booking` | KOL, MCN | Chuyển hướng sang `/chien-dich-cua-toi` (giữ query). |
+
+Góc nhìn trên Sàn (`marketplaceViewerOf(role)`):
+
+- **Khách**: danh sách + chi tiết (trường brief công khai, ngân sách, khối Nhãn hàng); không có mức phù hợp, lưu, tab; sắp xếp mặc định "Mới nhất". Nút "Đăng nhập để ứng tuyển" → `/dang-nhap?returnTo=/san?chien-dich=<id>` (đăng nhập xong quay lại đúng chiến dịch).
+- **KOL/MCN**: như §11 — "Phù hợp nhất" mặc định, lưu, tab Tất cả / Đã lưu / Đã ứng tuyển, ứng tuyển, sửa/rút đề xuất; hồ sơ chưa duyệt thấy thông báo và chỉ xem/lưu.
+- **Nhãn hàng**: chỉ đọc (cờ `mine`), chỉ "Tất cả"; chiến dịch của mình có nhãn "Của bạn" + "Quản lý chiến dịch" → `/chien-dich/<id>`.
+
+Dịch vụ: `listMarketplace` / `getMarketplaceItem` cho phép khách (không phiên) như góc nhìn Nhãn hàng — không `match` / `saved` / `myBooking`, `mine: false`; lưu / Đã lưu / Đã ứng tuyển / ứng tuyển vẫn chỉ KOL/MCN (4806).
+
+Menu:
+
+- KOL/MCN, nhóm "Hợp tác": **Chiến dịch** (`/chien-dich-cua-toi`) · **Sàn chiến dịch** (`/san`, rời khung app sang layout Sàn). Thanh tab điện thoại: Tổng quan · Chiến dịch · Sàn · Ứng dụng + Thêm.
+- Nhãn hàng/Agency: **Tìm KOL** (Tìm kiếm KOL, Danh sách kênh, Danh sách đã lưu) · **Hợp tác** (Chiến dịch `/chien-dich`, Sàn chiến dịch `/san`) · **Kiểm duyệt** (Ứng dụng, Danh sách vi phạm) · **Tài khoản** (Tài khoản doanh nghiệp). Thanh tab điện thoại giữ 4 tab (Tìm KOL, Chiến dịch, Kênh, Đã lưu) + Thêm (Sàn chiến dịch, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp).
