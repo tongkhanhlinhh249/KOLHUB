@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
-import { ArrowRight, BadgeCheck, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, BadgeCheck, Phone, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { cn } from '../../components/ui/utils';
-import { SAFETY_BASE } from '../../auth/roles';
+import { SAFETY_TOOL_URL } from '../apps/safetyTool';
 
 const HOTLINE = '0888138888';
 const HOTLINE_SHOWN = '0888 138 888';
@@ -64,10 +63,11 @@ export function ServiceBanner() {
         tone="primary"
       >
         <Button asChild className="h-11 rounded-[8px] md:h-9">
-          <Link to={`${SAFETY_BASE}/video`}>
-            Kiểm tra video
-            <ArrowRight aria-hidden />
-          </Link>
+          <a href={SAFETY_TOOL_URL} target="_blank" rel="noopener noreferrer">
+            Mở KOL Safety
+            <ArrowUpRight aria-hidden />
+            <span className="sr-only">(mở tab mới)</span>
+          </a>
         </Button>
       </ServiceCard>
       <ServiceCard

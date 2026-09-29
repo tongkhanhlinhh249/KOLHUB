@@ -26,6 +26,7 @@ import { ChannelDirectoryPage } from './features/channel-directory/ChannelDirect
 // --- MCN ↔ KOL ---
 import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
 // --- campaign booking (KOL/MCN supplier side) ---
+import { AppsPage } from './features/apps/AppsPage';
 import { MarketplacePage } from './features/supplier-booking/MarketplacePage';
 import { BookingsPage } from './features/supplier-booking/BookingsPage';
 // --- campaign booking (Brand) ---
@@ -75,17 +76,18 @@ export const router = createBrowserRouter([
         children: [
           profileRoutes('ho-so-kol', 'KOL'),
           profileRoutes('ho-so-mcn', 'MCN', [{ path: 'kol', element: <McnKolsPage /> }]),
-          { path: 'kol-safety', element: <Navigate to="/kiem-duyet/video" replace /> },
+          { path: 'kol-safety', element: <Navigate to="/ung-dung" replace /> },
           {
             path: 'kiem-duyet',
             children: [
-              { index: true, element: <Navigate to="/kiem-duyet/video" replace /> },
+              { index: true, element: <Navigate to="/ung-dung" replace /> },
               { path: 'video', element: <VideoCheckPage /> },
               { path: 'vi-pham', element: <OwnerViolationsPage /> },
               { path: ':platform', element: <ChannelMonitorPage /> },
               { path: ':platform/:monitorId', element: <ChannelMonitorDetail /> },
             ],
           },
+          { path: 'ung-dung', element: <AppsPage /> },
           { path: 'san-chien-dich', element: <MarketplacePage /> },
           { path: 'booking', element: <BookingsPage /> },
           { path: 'tim-kiem-kol', element: <SearchPage /> },

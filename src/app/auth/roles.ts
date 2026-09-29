@@ -1,8 +1,8 @@
 import {
   LayoutDashboard,
+  LayoutGrid,
   BookMarked,
   Building2,
-  Clapperboard,
   Handshake,
   IdCard,
   LogIn,
@@ -10,14 +10,12 @@ import {
   MonitorPlay,
   Search,
   ShieldAlert,
-  ShieldCheck,
   Store,
   UserPlus,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import type { Account, AccountType, RoleKey } from '../services/types';
-import { FacebookGlyph, TikTokGlyph, YouTubeGlyph } from '../components/icons/brandGlyphs';
 
 export interface MenuItem {
   icon: LucideIcon;
@@ -54,8 +52,8 @@ export interface BottomNavConfig {
 
 export const GUEST_PATHS = ['/dang-ky', '/dang-nhap', '/quen-mat-khau'];
 
-/** Second sidebar group of KOL/MCN: video pre-check and channel monitoring. */
-export const SAFETY_GROUP = 'Kiểm duyệt (KOL Safety)';
+/** Sidebar group of KOL/MCN: review apps (external KOL Safety / Brand Safety tool) + own violations. */
+export const SAFETY_GROUP = 'Kiểm duyệt';
 export const SAFETY_BASE = '/kiem-duyet';
 /** Legacy path of the old "KOL Safety" placeholder; redirects to the video pre-check. */
 export const LEGACY_SAFETY_PATH = '/kol-safety';
@@ -64,6 +62,9 @@ export const VIOLATIONS_PATH = `${SAFETY_BASE}/vi-pham`;
 export const BRAND_VIOLATIONS_PATH = '/vi-pham-kol';
 /** Brand list of verified channels (one row per channel). */
 export const CHANNEL_DIRECTORY_PATH = '/danh-sach-kenh';
+
+/** App launcher: KOL Safety / Brand Safety tiles that open the external review tool. */
+export const APPS_PATH = '/ung-dung';
 
 /** Brand campaigns (campaign booking beta): list, /tao, /:id, /:id/sua. */
 export const CAMPAIGNS_PATH = '/chien-dich';
@@ -76,14 +77,12 @@ const BRAND_BOTTOM_NAV: BottomNavConfig = {
     { icon: MonitorPlay, label: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
     { icon: BookMarked, label: 'Đã lưu', path: '/danh-sach-da-luu' },
   ],
-  more: [BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep'],
+  more: [APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep'],
 };
 
+/** Video/channel checks now live in the external tool (via "Ứng dụng"); the in-app mock pages stay routable only. */
 const SAFETY_MENU: MenuItem[] = [
-  { icon: Clapperboard, label: 'Kiểm tra video trước khi đăng', shortLabel: 'Video', path: `${SAFETY_BASE}/video`, group: SAFETY_GROUP },
-  { icon: TikTokGlyph, label: 'Kiểm duyệt kênh TikTok', shortLabel: 'TikTok', path: `${SAFETY_BASE}/tiktok`, group: SAFETY_GROUP },
-  { icon: FacebookGlyph, label: 'Kiểm duyệt kênh Facebook', shortLabel: 'Facebook', path: `${SAFETY_BASE}/facebook`, group: SAFETY_GROUP },
-  { icon: YouTubeGlyph, label: 'Kiểm duyệt kênh YouTube', shortLabel: 'YouTube', path: `${SAFETY_BASE}/youtube`, group: SAFETY_GROUP },
+  { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH, group: SAFETY_GROUP },
   { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
 ];
 
@@ -118,15 +117,10 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
     items: [
       { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
       { icon: Handshake, label: 'Booking', path: SUPPLIER_BOOKING_PATH },
-      { icon: Clapperboard, label: 'Video', path: `${SAFETY_BASE}/video` },
-      {
-        icon: ShieldCheck,
-        label: 'Kiểm duyệt',
-        path: `${SAFETY_BASE}/tiktok`,
-        match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
-      },
+      { icon: Store, label: 'Sàn', path: MARKETPLACE_PATH },
+      { icon: LayoutGrid, label: 'Ứng dụng', path: APPS_PATH },
     ],
-    more: [MARKETPLACE_PATH, ...extraMore, `${base}/kenh`, `${base}/thong-tin`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
+    more: [...extraMore, `${base}/kenh`, `${base}/thong-tin`, VIOLATIONS_PATH],
   };
 }
 
@@ -163,6 +157,7 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
       { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: CAMPAIGNS_PATH },
       { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
       { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu' },
+      { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH },
       { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
       { icon: Building2, label: 'Tài khoản doanh nghiệp', shortLabel: 'Doanh nghiệp', path: '/tai-khoan-doanh-nghiep' },
     ],
@@ -257,6 +252,7 @@ const DESCRIPTIONS: Record<string, string> = {
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
   '/kiem-duyet/vi-pham': 'Vi phạm nội dung trên các kênh của bạn: xem chi tiết, khắc phục hoặc khiếu nại',
   '/vi-pham-kol': 'Vi phạm đã được xác nhận của các KOL có kênh xác thực',
+  '/ung-dung': 'KOL Safety và Brand Safety: mở công cụ kiểm duyệt nội dung',
   '/kiem-duyet/video': 'Tải video lên để phát hiện vi phạm trước khi đăng',
   '/kiem-duyet/tiktok': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',
   '/kiem-duyet/facebook': 'Kết nối kênh, rồi bấm vào kênh để xem sức khoẻ và bắt đầu quét.',
