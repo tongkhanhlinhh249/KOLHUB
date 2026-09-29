@@ -25,6 +25,9 @@ import { BrandViolationsPage } from './features/violations/BrandViolationsPage';
 import { ChannelDirectoryPage } from './features/channel-directory/ChannelDirectoryPage';
 // --- MCN ↔ KOL ---
 import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
+// --- campaign booking (KOL/MCN supplier side) ---
+import { MarketplacePage } from './features/supplier-booking/MarketplacePage';
+import { BookingsPage } from './features/supplier-booking/BookingsPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
@@ -79,6 +82,8 @@ export const router = createBrowserRouter([
               { path: ':platform/:monitorId', element: <ChannelMonitorDetail /> },
             ],
           },
+          { path: 'san-chien-dich', element: <MarketplacePage /> },
+          { path: 'booking', element: <BookingsPage /> },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           { path: 'danh-sach-kenh', element: <ChannelDirectoryPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },

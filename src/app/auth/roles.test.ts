@@ -106,8 +106,13 @@ const SAFETY_ROWS = [
   ['Danh sách vi phạm', 'Vi phạm', '/kiem-duyet/vi-pham', 'Kiểm duyệt (KOL Safety)'],
 ];
 
+const COLLAB_ROWS = [
+  ['Sàn chiến dịch', 'Sàn', '/san-chien-dich', 'Hợp tác'],
+  ['Booking', 'Booking', '/booking', 'Hợp tác'],
+];
+
 describe('bottomNavOf', () => {
-  test('KOL/MCN: 4 tab + "Thêm" (MCN: Quản lý KOL; thông tin hồ sơ, Facebook, YouTube, vi phạm)', () => {
+  test('KOL/MCN: 4 tab + "Thêm" (Sàn chiến dịch; MCN: Quản lý KOL; kênh, thông tin hồ sơ, Facebook, YouTube, vi phạm)', () => {
     for (const [role, base] of [
       ['kolhub.user.kol', '/ho-so-kol'],
       ['kolhub.user.mcn', '/ho-so-mcn'],
@@ -115,12 +120,14 @@ describe('bottomNavOf', () => {
       const nav = bottomNavOf(role);
       expect(nav.items.map((i) => [i.label, i.path])).toEqual([
         ['Tổng quan', `${base}/tong-quan`],
-        ['Kênh', `${base}/kenh`],
+        ['Booking', '/booking'],
         ['Video', '/kiem-duyet/video'],
         ['Kiểm duyệt', '/kiem-duyet/tiktok'],
       ]);
       expect(nav.more.map((m) => m.label)).toEqual([
+        'Sàn chiến dịch',
         ...(role === 'kolhub.user.mcn' ? ['Quản lý KOL'] : []),
+        'Quản lý kênh',
         'Thông tin hồ sơ',
         'Kiểm duyệt kênh Facebook',
         'Kiểm duyệt kênh YouTube',
@@ -150,7 +157,7 @@ describe('bottomNavOf', () => {
     for (const p of ['/kiem-duyet/tiktok', '/kiem-duyet/facebook', '/kiem-duyet/youtube/mon-1'])
       expect(isNavActive(p, tab)).toBe(true);
     expect(isNavActive('/kiem-duyet/video', tab)).toBe(false);
-    expect(isNavActive('/ho-so-kol/kenh/', bottomNavOf('kolhub.user.kol').items[1])).toBe(true);
+    expect(isNavActive('/booking/', bottomNavOf('kolhub.user.kol').items[1])).toBe(true);
     expect(isNavActive('/ho-so-kol/tong-quan', bottomNavOf('kolhub.user.kol').items[0])).toBe(true);
   });
 });
@@ -171,6 +178,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       ['Tổng quan hồ sơ', 'Tổng quan', '/ho-so-kol/tong-quan', 'Hồ sơ KOL'],
       ['Thông tin hồ sơ', 'Hồ sơ', '/ho-so-kol/thong-tin', 'Hồ sơ KOL'],
       ['Quản lý kênh', 'Kênh', '/ho-so-kol/kenh', 'Hồ sơ KOL'],
+      ...COLLAB_ROWS,
       ...SAFETY_ROWS,
     ]);
     expect(ROLE_CONFIG['kolhub.user.mcn'].menu.map((m) => [m.label, m.shortLabel, m.path, m.group])).toEqual([
@@ -178,6 +186,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       ['Thông tin hồ sơ', 'Hồ sơ', '/ho-so-mcn/thong-tin', 'Hồ sơ MCN'],
       ['Quản lý kênh', 'Kênh', '/ho-so-mcn/kenh', 'Hồ sơ MCN'],
       ['Quản lý KOL', 'KOL', '/ho-so-mcn/kol', 'Hồ sơ MCN'],
+      ...COLLAB_ROWS,
       ...SAFETY_ROWS,
     ]);
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => m.path)).toEqual([
@@ -189,6 +198,13 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     ]);
   });
   test('getPageMeta', () => {
+    expect(getPageMeta('/san-chien-dich?chien-dich=x', 'kolhub.user.mcn')).toEqual({
+      title: 'Sàn chiến dịch',
+      group: 'Tổ chức/MCN',
+      description: 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',
+    });
+    expect(getPageMeta('/booking', 'kolhub.user.kol')).toMatchObject({ title: 'Booking', group: 'Cá nhân/KOL' });
+    expect(resolveAccess('kolhub.user.biz', '/san-chien-dich')).toMatchObject({ allow: false, reason: 'forbidden' });
     expect(getPageMeta('/ho-so-kol/thong-tin#lien-he')).toEqual({
       title: 'Thông tin hồ sơ',
       group: 'Cá nhân/KOL',

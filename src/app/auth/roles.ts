@@ -3,12 +3,14 @@ import {
   BookMarked,
   Building2,
   Clapperboard,
+  Handshake,
   IdCard,
   LogIn,
   MonitorPlay,
   Search,
   ShieldAlert,
   ShieldCheck,
+  Store,
   UserPlus,
   Users,
   type LucideIcon,
@@ -90,16 +92,28 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
   ];
 }
 
+/** KOL/MCN "Hợp tác" group (campaign booking beta): marketplace + bookings with Brands. */
+export const COLLAB_GROUP = 'Hợp tác';
+export const MARKETPLACE_PATH = '/san-chien-dich';
+export const SUPPLIER_BOOKING_PATH = '/booking';
+const COLLAB_MENU: MenuItem[] = [
+  { icon: Store, label: 'Sàn chiến dịch', shortLabel: 'Sàn', path: MARKETPLACE_PATH, group: COLLAB_GROUP },
+  { icon: Handshake, label: 'Booking', shortLabel: 'Booking', path: SUPPLIER_BOOKING_PATH, group: COLLAB_GROUP },
+];
+
 /** MCN only: KOLs the MCN's channels are assigned to (group "Hồ sơ MCN"). */
 export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
 const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
 
-/** 9–10 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` listed first). */
+/**
+ * 11–12 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; Sàn chiến dịch and `extraMore` first).
+ * Booking takes the tab of "Kênh" (channel setup is reached from Tổng quan / Thêm).
+ */
 function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
   return {
     items: [
       { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
-      { icon: MonitorPlay, label: 'Kênh', path: `${base}/kenh` },
+      { icon: Handshake, label: 'Booking', path: SUPPLIER_BOOKING_PATH },
       { icon: Clapperboard, label: 'Video', path: `${SAFETY_BASE}/video` },
       {
         icon: ShieldCheck,
@@ -108,7 +122,7 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
         match: [`${SAFETY_BASE}/tiktok`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`],
       },
     ],
-    more: [...extraMore, `${base}/thong-tin`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
+    more: [MARKETPLACE_PATH, ...extraMore, `${base}/kenh`, `${base}/thong-tin`, `${SAFETY_BASE}/facebook`, `${SAFETY_BASE}/youtube`, VIOLATIONS_PATH],
   };
 }
 
@@ -126,14 +140,14 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.user.kol': {
     label: 'Cá nhân/KOL',
     home: '/ho-so-kol/tong-quan',
-    menu: [...profileMenu('/ho-so-kol', 'Hồ sơ KOL', IdCard), ...SAFETY_MENU],
+    menu: [...profileMenu('/ho-so-kol', 'Hồ sơ KOL', IdCard), ...COLLAB_MENU, ...SAFETY_MENU],
     areas: ['/ho-so-kol', ...CREATOR_AREAS],
     bottomNav: creatorBottomNav('/ho-so-kol'),
   },
   'kolhub.user.mcn': {
     label: 'Tổ chức/MCN',
     home: '/ho-so-mcn/tong-quan',
-    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), MCN_KOLS_ITEM, ...SAFETY_MENU],
+    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), MCN_KOLS_ITEM, ...COLLAB_MENU, ...SAFETY_MENU],
     areas: ['/ho-so-mcn', ...CREATOR_AREAS],
     bottomNav: creatorBottomNav('/ho-so-mcn', [MCN_KOLS_PATH]),
   },
@@ -230,6 +244,8 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/thong-tin': 'Thông tin tổ chức, Giấy chứng nhận ĐKDN, liên hệ và nhân sự quản lý',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/ho-so-mcn/kol': 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',
+  '/san-chien-dich': 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',
+  '/booking': 'Lời mời và đề xuất với Nhãn hàng: thương lượng giá, nộp nội dung, xác nhận thanh toán',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
