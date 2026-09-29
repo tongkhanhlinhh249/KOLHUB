@@ -147,7 +147,7 @@ export function CampaignDetailSheet({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-foreground">
                     {c.myBooking
-                      ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${BOOKING_STATUS_LABEL[c.myBooking.status]}`
+                      ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${c.myBooking.status === 'SENT' ? 'Lời mời mới' : BOOKING_STATUS_LABEL[c.myBooking.status]}`
                       : 'Bạn đã ứng tuyển · Chờ Nhãn hàng phản hồi'}
                   </p>
                   <Link to={bookingDetailPath(myBookingId)} className={buttonVariants({ className: 'h-11 md:h-9' })}>
