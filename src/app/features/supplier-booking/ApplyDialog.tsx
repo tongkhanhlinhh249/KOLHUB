@@ -7,15 +7,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
-import { BOOKING_NOTE_MAX, campaignService, type BookingView, type MarketplaceCampaign, type SupplierType } from '../../services';
+import { BOOKING_NOTE_MAX, bookingService, campaignService, type BookingView, type MarketplaceCampaign, type SupplierType } from '../../services';
 import { ItemsEditor, useProposalSources } from './ItemsEditor';
 import { errText } from './parts';
-import { initialRows, rowsValid, toProposalItems, validateRows, type ItemDraft, type ItemErrors } from './proposalItems';
+import { initialRows, rowsFromItems, rowsValid, toProposalItems, validateRows, type ItemDraft, type ItemErrors } from './proposalItems';
 import { deliverablesSummary, formatVnd, formatVndInput, parseVndInput } from './supplierBooking';
 
 /**
  * "Ứng tuyển" a marketplace campaign: proposal lines (MCN: managed KOL + channel assigned to that KOL;
  * KOL: own verified channels), total price and a note → campaignService.apply.
+ * With `editing` (an APPLIED application): prefilled "Sửa đề xuất" → bookingService.updateApplication.
  */
 export function ApplyDialog({
   open,
@@ -24,6 +25,7 @@ export function ApplyDialog({
   accountId,
   supplierType,
   onApplied,
+  editing,
 }: {
   open: boolean;
   onOpenChange(open: boolean): void;
@@ -31,6 +33,7 @@ export function ApplyDialog({
   accountId: string;
   supplierType: SupplierType;
   onApplied(booking: BookingView): void;
+  editing?: BookingView | null;
 }) {
   const id = useId();
   const sources = useProposalSources(accountId, supplierType, campaign.platforms, open);
@@ -47,18 +50,18 @@ export function ApplyDialog({
       seeded.current = false;
       return;
     }
-    setPrice('');
-    setNote('');
+    setPrice(editing ? formatVndInput(String(editing.price)) : '');
+    setNote(editing?.note ?? '');
     setTried(false);
     setError(null);
-  }, [open]);
+  }, [open, editing]);
 
-  // Seed the rows once the supplier's channels are known.
+  // Seed the rows once the supplier's channels are known (edit: the application's current items).
   useEffect(() => {
     if (!open || seeded.current || sources.loading) return;
     seeded.current = true;
-    setRows(initialRows(supplierType, campaign.deliverables, sources.channelsFor()));
-  }, [open, sources, supplierType, campaign.deliverables]);
+    setRows(editing ? rowsFromItems(editing.items) : initialRows(supplierType, campaign.deliverables, sources.channelsFor()));
+  }, [open, sources, supplierType, campaign.deliverables, editing]);
 
   const errors: ItemErrors[] | undefined = tried ? validateRows(rows, supplierType) : undefined;
   const priceValue = parseVndInput(price);
@@ -72,12 +75,14 @@ export function ApplyDialog({
     if (rows.length === 0 || !rowsValid(validateRows(rows, supplierType)) || priceValue <= 0) return;
     setBusy(true);
     try {
-      const booking = await campaignService.apply(campaign.id, {
+      const proposal = {
         items: toProposalItems(rows, supplierType),
         price: priceValue,
         ...(note.trim() ? { note: note.trim() } : {}),
-      });
-      toast.success('Đã gửi đề xuất ứng tuyển', { description: `${campaign.name} — chờ Nhãn hàng phản hồi.` });
+      };
+      const booking = editing ? await bookingService.updateApplication(editing.id, proposal) : await campaignService.apply(campaign.id, proposal);
+      if (editing) toast.success('Đã cập nhật đề xuất', { description: `${campaign.name} — Nhãn hàng sẽ thấy đề xuất mới.` });
+      else toast.success('Đã gửi đề xuất ứng tuyển', { description: `${campaign.name} — chờ Nhãn hàng phản hồi.` });
       onApplied(booking);
       onOpenChange(false);
     } catch (e) {
@@ -91,7 +96,7 @@ export function ApplyDialog({
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="flex max-h-[90dvh] max-w-[calc(100%-2rem)] flex-col gap-4 sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Ứng tuyển chiến dịch</DialogTitle>
+          <DialogTitle>{editing ? 'Sửa đề xuất ứng tuyển' : 'Ứng tuyển chiến dịch'}</DialogTitle>
           <DialogDescription className="break-words">
             {campaign.name} · {campaign.brand.company}
           </DialogDescription>
@@ -164,7 +169,7 @@ export function ApplyDialog({
           </Button>
           <Button type="button" className="h-11 md:h-9" disabled={busy || sources.loading || !hasOptions || rows.length === 0} onClick={() => void submit()}>
             {busy && <Loader2 className="animate-spin" aria-hidden />}
-            Gửi đề xuất
+            {editing ? 'Lưu thay đổi' : 'Gửi đề xuất'}
           </Button>
         </DialogFooter>
       </DialogContent>

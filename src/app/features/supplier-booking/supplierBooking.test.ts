@@ -12,8 +12,14 @@ import {
   formatDayRange,
   formatVnd,
   formatVndInput,
+  MARKETPLACE_TABS,
   marketplaceDetailPath,
+  marketplaceTabParam,
+  matchLabel,
+  matchTone,
+  memberSinceText,
   mergeMarketplaceParams,
+  parseMarketplaceTab,
   needsSupplier,
   nextStepText,
   parseBookingTab,
@@ -162,9 +168,25 @@ describe('tham số URL', () => {
       CATS,
     );
     expect(q).toEqual({ keyword: 'trà', category: 'Ẩm thực', platform: 'tiktok', budget: '50-100', sort: 'budget' });
-    expect(parseMarketplaceParams(new URLSearchParams('linh-vuc=X&nen-tang=ig&ngan-sach=1&sap-xep=z'), CATS)).toEqual({ sort: 'newest' });
-    const next = mergeMarketplaceParams(new URLSearchParams('chien-dich=c1&q=a'), { sort: 'newest', platform: 'youtube' });
-    expect(next.toString()).toBe('chien-dich=c1&nen-tang=youtube');
+    expect(parseMarketplaceParams(new URLSearchParams('linh-vuc=X&nen-tang=ig&ngan-sach=1&sap-xep=z'), CATS)).toEqual({ sort: 'match' });
+    const next = mergeMarketplaceParams(new URLSearchParams('chien-dich=c1&q=a&tab=da-luu'), { sort: 'match', platform: 'youtube' });
+    expect(next.toString()).toBe('chien-dich=c1&tab=da-luu&nen-tang=youtube');
+    expect(mergeMarketplaceParams(new URLSearchParams(), { sort: 'newest' }).toString()).toBe('sap-xep=newest');
+  });
+  test('Sàn: tab ?tab= (mặc định Tất cả), nhãn mức phù hợp', () => {
+    expect(parseMarketplaceTab(new URLSearchParams('tab=da-luu'))).toBe('da-luu');
+    expect(parseMarketplaceTab(new URLSearchParams('tab=da-ung-tuyen'))).toBe('da-ung-tuyen');
+    expect(parseMarketplaceTab(new URLSearchParams('tab=x'))).toBe('tat-ca');
+    expect(parseMarketplaceTab(new URLSearchParams())).toBe('tat-ca');
+    expect(MARKETPLACE_TABS.map((t) => t.label)).toEqual(['Tất cả', 'Đã lưu', 'Đã ứng tuyển']);
+    expect(withParam(new URLSearchParams('q=a'), 'tab', marketplaceTabParam('tat-ca')).toString()).toBe('q=a');
+    expect(withParam(new URLSearchParams('q=a'), 'tab', marketplaceTabParam('da-luu')).toString()).toBe('q=a&tab=da-luu');
+    expect(matchLabel(86)).toBe('Khớp 86%');
+    expect([matchTone(86), matchTone(70), matchTone(55), matchTone(40), matchTone(12)]).toEqual(['success', 'success', 'info', 'info', 'neutral']);
+  });
+  test('Sàn: ngày tham gia KOLHUB', () => {
+    expect(memberSinceText('2026-09-01T08:00:00.000Z')).toBe('Tháng 9/2026');
+    expect(memberSinceText('')).toBe('');
   });
   test('Sàn: query → bộ lọc dịch vụ (khoảng ngân sách)', () => {
     expect(toMarketplaceFilters({ sort: 'deadline', budget: '50-100', keyword: 'x' })).toEqual({

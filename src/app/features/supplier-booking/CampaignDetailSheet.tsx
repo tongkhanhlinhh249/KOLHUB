@@ -1,14 +1,26 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, Building2, RotateCcw } from 'lucide-react';
+import { AlertCircle, Building2, Loader2, Pencil, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
-import { BOOKING_STATUS_LABEL, campaignService, type BookingView, type OwnerType, type ProfileStatus } from '../../services';
+import { cn } from '../../components/ui/utils';
+import {
+  BOOKING_NOTE_MAX,
+  BOOKING_STATUS_LABEL,
+  bookingService,
+  campaignService,
+  type BookingView,
+  type OwnerType,
+  type ProfileStatus,
+} from '../../services';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
 import { MyBookingBadge } from './MarketplaceCampaignCard';
+import { BrandInfoBlock, MatchDetails, SaveButton } from './MarketplaceParts';
 import { CategoryChips, CountdownText, errText, Fact, LongText, PlatformIcons, SheetSection } from './parts';
 import {
   bookingDetailPath,
@@ -39,10 +51,33 @@ export function CampaignDetailSheet({
   const c = q.data && q.data.id === campaignId ? q.data : null;
   const [applyOpen, setApplyOpen] = useState(false);
   const [applied, setApplied] = useState<BookingView | null>(null);
+  const [editing, setEditing] = useState<BookingView | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const now = Date.now();
   const countdown = c ? deadlineCountdown(c.applyDeadline, now) : null;
   const closed = !!countdown?.passed;
   const myBookingId = c?.myBooking?.id ?? (applied && applied.campaignId === c?.id ? applied.id : undefined);
+  // Sàn v2: an application the brand has not answered yet can be edited or withdrawn here.
+  const editable = access.approved && c?.myBooking?.origin === 'APPLICATION' && c.myBooking.status === 'APPLIED';
+
+  const startEdit = async () => {
+    if (!c?.myBooking) return;
+    setLoadingEdit(true);
+    try {
+      const b = await bookingService.get(c.myBooking.id);
+      if (!b.allowedActions.includes('EDIT_APPLICATION')) {
+        toast.error('Nhãn hàng đã phản hồi, không thể sửa đề xuất nữa.');
+        return;
+      }
+      setEditing(b);
+      setApplyOpen(true);
+    } catch (e) {
+      toast.error(errText(e));
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
 
   return (
     <Sheet open={campaignId !== null} onOpenChange={(o) => !o && onClose()}>
@@ -92,6 +127,12 @@ export function CampaignDetailSheet({
               </div>
 
               <div className="space-y-6 p-4 sm:p-6">
+                {c.match && (
+                  <SheetSection title="Phù hợp với bạn">
+                    <MatchDetails match={c.match} />
+                  </SheetSection>
+                )}
+
                 <dl className="grid grid-cols-2 gap-4 rounded-[8px] border border-border p-4 @lg:grid-cols-4">
                   <Fact label="Ngân sách">
                     <span className="font-semibold text-primary tabular-nums">{formatVnd(c.budget)}</span>
@@ -139,29 +180,59 @@ export function CampaignDetailSheet({
                 <SheetSection title="Quy định nội dung">
                   <LongText text={c.contentRules} />
                 </SheetSection>
+
+                {c.brandInfo && (
+                  <SheetSection title="Nhãn hàng">
+                    <BrandInfoBlock info={c.brandInfo} />
+                  </SheetSection>
+                )}
               </div>
             </div>
 
-            <div className="shrink-0 space-y-3 border-t border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6">
+            <div className="@container shrink-0 space-y-3 border-t border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6">
               {myBookingId ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 @lg:flex-row @lg:items-center @lg:justify-between">
                   <p className="text-sm text-foreground">
                     {c.myBooking
                       ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${c.myBooking.status === 'SENT' ? 'Lời mời mới' : BOOKING_STATUS_LABEL[c.myBooking.status]}`
                       : 'Bạn đã ứng tuyển · Chờ Nhãn hàng phản hồi'}
                   </p>
-                  <Link to={bookingDetailPath(myBookingId)} className={buttonVariants({ className: 'h-11 md:h-9' })}>
-                    Xem booking
-                  </Link>
+                  <div className="grid grid-cols-2 gap-2 @lg:flex @lg:items-center">
+                    {editable && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-11 text-destructive hover:text-destructive md:h-9"
+                          onClick={() => setWithdrawOpen(true)}
+                        >
+                          Rút đề xuất
+                        </Button>
+                        <Button type="button" variant="outline" className="h-11 md:h-9" disabled={loadingEdit} onClick={() => void startEdit()}>
+                          {loadingEdit ? <Loader2 className="animate-spin" aria-hidden /> : <Pencil aria-hidden />}
+                          Sửa đề xuất
+                        </Button>
+                      </>
+                    )}
+                    <Link to={bookingDetailPath(myBookingId)} className={buttonVariants({ className: cn('h-11 md:h-9', editable && 'col-span-2') })}>
+                      Xem booking
+                    </Link>
+                  </div>
                 </div>
               ) : !access.approved ? (
-                <SupplierGate ownerType={access.ownerType} status={access.status} compact />
+                <div className="space-y-3">
+                  <SupplierGate ownerType={access.ownerType} status={access.status} compact />
+                  {c.accepting !== false && <SaveButton campaignId={c.id} saved={!!c.saved} name={c.name} className="w-full @lg:w-auto" />}
+                </div>
               ) : (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                  {closed && <p className="text-sm text-muted-foreground sm:mr-auto">Chiến dịch đã hết hạn nhận đề xuất.</p>}
-                  <Button type="button" className="h-11 md:h-9" disabled={closed} onClick={() => setApplyOpen(true)}>
-                    Ứng tuyển
-                  </Button>
+                <div className="flex flex-col gap-2 @lg:flex-row @lg:items-center @lg:justify-end">
+                  {closed && <p className="text-sm text-muted-foreground @lg:mr-auto">Chiến dịch đã hết hạn nhận đề xuất.</p>}
+                  <div className="grid grid-cols-2 gap-2 @lg:flex">
+                    <SaveButton campaignId={c.id} saved={!!c.saved} name={c.name} />
+                    <Button type="button" className="h-11 md:h-9" disabled={closed} onClick={() => setApplyOpen(true)}>
+                      Ứng tuyển
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -169,11 +240,35 @@ export function CampaignDetailSheet({
             {access.approved && (
               <ApplyDialog
                 open={applyOpen}
-                onOpenChange={setApplyOpen}
+                onOpenChange={(o) => {
+                  setApplyOpen(o);
+                  if (!o) setEditing(null);
+                }}
                 campaign={c}
                 accountId={access.accountId}
                 supplierType={access.ownerType}
                 onApplied={setApplied}
+                editing={editing}
+              />
+            )}
+
+            {editable && c.myBooking && (
+              <ReasonDialog
+                open={withdrawOpen}
+                onOpenChange={setWithdrawOpen}
+                title="Rút đề xuất ứng tuyển"
+                description="Nhãn hàng sẽ không thể chấp nhận đề xuất này nữa. Bạn có thể ứng tuyển lại khi chiến dịch còn nhận đề xuất."
+                label="Lý do (không bắt buộc)"
+                placeholder="Nêu ngắn gọn lý do…"
+                confirmLabel="Rút đề xuất"
+                minLength={0}
+                maxLength={BOOKING_NOTE_MAX}
+                destructive
+                onConfirm={async (text) => {
+                  await bookingService.cancel(c.myBooking!.id, text || undefined);
+                  setApplied(null);
+                  toast.success('Đã rút đề xuất', { description: c.name });
+                }}
               />
             )}
           </>

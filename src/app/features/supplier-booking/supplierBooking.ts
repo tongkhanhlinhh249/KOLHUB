@@ -271,6 +271,7 @@ const ACTION: Record<BookingAction, string> = {
   APPLIED: 'gửi đề xuất ứng tuyển',
   COUNTERED: 'đề xuất giá',
   ITEMS_ASSIGNED: 'cập nhật KOL/kênh',
+  APPLICATION_UPDATED: 'sửa đề xuất ứng tuyển',
   ACCEPTED: 'chốt booking',
   DECLINED: 'từ chối',
   CANCELLED: 'huỷ booking',
@@ -321,10 +322,10 @@ const SORT_KEYS = MARKETPLACE_SORTS.map((s) => s.key);
 const PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
 const BUDGET_KEYS = BUDGET_RANGES.map((b) => b.key);
 
-/** ?q=…&linh-vuc=…&nen-tang=tiktok&ngan-sach=50-100&sap-xep=budget (unknown values → defaults). */
+/** ?q=…&linh-vuc=…&nen-tang=tiktok&ngan-sach=50-100&sap-xep=budget (unknown values → defaults; sort "Phù hợp nhất"). */
 export function parseMarketplaceParams(p: URLSearchParams, categories: readonly string[]): MarketplaceQuery {
   const sort = p.get('sap-xep') as MarketplaceSort | null;
-  const q: MarketplaceQuery = { sort: sort && SORT_KEYS.includes(sort) ? sort : 'newest' };
+  const q: MarketplaceQuery = { sort: sort && SORT_KEYS.includes(sort) ? sort : 'match' };
   const kw = p.get('q')?.trim();
   if (kw) q.keyword = kw;
   const cat = p.get('linh-vuc');
@@ -344,8 +345,44 @@ export function mergeMarketplaceParams(prev: URLSearchParams, q: MarketplaceQuer
   set('linh-vuc', q.category);
   set('nen-tang', q.platform);
   set('ngan-sach', q.budget);
-  set('sap-xep', q.sort === 'newest' ? undefined : q.sort);
+  set('sap-xep', q.sort === 'match' ? undefined : q.sort);
   return next;
+}
+
+// --- Sàn v2: tabs, match, brand ---
+
+export type MarketplaceTab = 'tat-ca' | 'da-luu' | 'da-ung-tuyen';
+export const MARKETPLACE_TABS: { key: MarketplaceTab; label: string }[] = [
+  { key: 'tat-ca', label: 'Tất cả' },
+  { key: 'da-luu', label: 'Đã lưu' },
+  { key: 'da-ung-tuyen', label: 'Đã ứng tuyển' },
+];
+const MARKETPLACE_TAB_KEYS = MARKETPLACE_TABS.map((t) => t.key);
+
+/** ?tab=da-luu | da-ung-tuyen (default "Tất cả", not written to the URL). */
+export function parseMarketplaceTab(p: URLSearchParams): MarketplaceTab {
+  const t = p.get('tab') as MarketplaceTab | null;
+  return t && MARKETPLACE_TAB_KEYS.includes(t) ? t : 'tat-ca';
+}
+
+/** Value of ?tab= for `withParam` (null = default tab). */
+export const marketplaceTabParam = (t: MarketplaceTab): string | null => (t === 'tat-ca' ? null : t);
+
+/** "Khớp 86%". */
+export const matchLabel = (score: number) => `Khớp ${Math.round(score)}%`;
+
+/** ≥ 70 strong fit, ≥ 40 partial, below: weak. */
+export function matchTone(score: number): Tone {
+  if (score >= 70) return 'success';
+  if (score >= 40) return 'info';
+  return 'neutral';
+}
+
+/** Account createdAt (ISO) → "Tháng 9/2026" ('' when invalid). */
+export function memberSinceText(iso: string): string {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
 export const marketplaceFilterCount = (q: MarketplaceQuery) => [q.category, q.platform, q.budget].filter(Boolean).length;
