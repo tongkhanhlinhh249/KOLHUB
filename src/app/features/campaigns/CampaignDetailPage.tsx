@@ -197,7 +197,7 @@ export function CampaignDetailPage() {
     },
     close: {
       title: 'Đóng chiến dịch?',
-      text: 'Chiến dịch chuyển sang Đã kết thúc. Lời mời và đề xuất chưa chốt sẽ bị huỷ. Chỉ đóng được khi không còn booking đang thực hiện.',
+      text: 'Chiến dịch chuyển sang Hoàn tất. Lời mời và đề xuất chưa chốt sẽ bị huỷ. Chỉ đóng được khi không còn booking đang thực hiện.',
       label: 'Đóng chiến dịch',
     },
     cancel: {

@@ -92,9 +92,11 @@ describe('nhóm tab và trạng thái', () => {
     expect(tabOf(b('NEGOTIATING', { awaiting: 'SUPPLIER' }))).toBe('can-xu-ly');
     expect(tabOf(b('APPLIED', { awaiting: 'BRAND' }))).toBe('dang-trao-doi');
     expect(tabOf(b('NEGOTIATING', { awaiting: 'BRAND' }))).toBe('dang-trao-doi');
-    for (const s of ['ACCEPTED', 'IN_PRODUCTION', 'CONTENT_REVIEW', 'CONTENT_APPROVED', 'PUBLISHED'] as const)
-      expect(tabOf(b(s))).toBe('dang-thuc-hien');
+    // Something to deliver now → Cần xử lý (same rule as the "cần bạn xử lý" count); waiting on the brand → by stage.
+    for (const s of ['ACCEPTED', 'IN_PRODUCTION', 'CONTENT_APPROVED', 'PUBLISHED'] as const) expect(tabOf(b(s))).toBe('can-xu-ly');
+    expect(tabOf(b('CONTENT_REVIEW'))).toBe('dang-thuc-hien');
     expect(tabOf(b('VERIFIED'))).toBe('cho-thanh-toan');
+    expect(tabOf(b('VERIFIED', { payment: { brandMarkedAt: 1 } }))).toBe('can-xu-ly');
     expect(tabOf(b('COMPLETED'))).toBe('hoan-tat');
     for (const s of ['DECLINED', 'CANCELLED', 'EXPIRED'] as const) expect(tabOf(b(s))).toBe('da-dong');
   });

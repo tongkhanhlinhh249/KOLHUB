@@ -146,14 +146,17 @@ export const BOOKING_TABS: { key: BookingTab; label: string }[] = [
   { key: 'da-dong', label: 'Đã đóng' },
 ];
 
-type TabInput = Pick<BookingView, 'status' | 'awaiting'>;
+type TabInput = Pick<BookingView, 'status' | 'awaiting' | 'payment'>;
 
 /**
  * Stage of a booking for the supplier (each booking in exactly one tab):
- * pre-deal waiting for the supplier → Cần xử lý; waiting for the brand → Đang trao đổi;
+ * anything the supplier must act on now (needsSupplier: answer, deliver a draft/post, confirm a payment)
+ * → Cần xử lý, so the tab always matches the "N cần bạn xử lý" count; otherwise by stage:
+ * pre-deal waiting for the brand → Đang trao đổi;
  * ACCEPTED … PUBLISHED → Đang thực hiện; VERIFIED → Chờ thanh toán; COMPLETED → Hoàn tất; DECLINED / CANCELLED / EXPIRED → Đã đóng.
  */
 export function tabOf(b: TabInput): BookingTab {
+  if (needsSupplier(b)) return 'can-xu-ly';
   switch (b.status) {
     case 'SENT':
     case 'APPLIED':

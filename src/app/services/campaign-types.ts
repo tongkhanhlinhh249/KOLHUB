@@ -41,7 +41,7 @@ export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
   DRAFT: 'Bản nháp',
   OPEN: 'Đang mở',
   RUNNING: 'Đang chạy',
-  COMPLETED: 'Đã kết thúc',
+  COMPLETED: 'Hoàn tất',
   CANCELLED: 'Đã huỷ',
 };
 
