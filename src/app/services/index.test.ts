@@ -34,3 +34,13 @@ test('safetyService được export cùng các kiểu KOL Safety', async () => {
   expect(typeof safetyService.uploadVideo).toBe('function');
   expect(MONITOR_PLATFORMS).toEqual(['tiktok', 'facebook', 'youtube']);
 });
+
+test('dịch vụ chiến dịch / booking / gói được export (beta)', async () => {
+  const { campaignService, bookingService, planService, PLANS, BOOKING_STATUS_LABEL, errorMessage: msg } = await import('./index');
+  expect(typeof campaignService.inviteKols).toBe('function');
+  expect(typeof bookingService.submitDraft).toBe('function');
+  expect(planService.listPlans()).toHaveLength(3);
+  expect(PLANS[0].name).toBe('Dùng thử');
+  expect(BOOKING_STATUS_LABEL.CONTENT_REVIEW).toBe('Chờ duyệt nội dung');
+  expect(msg('KOLHUB-4803', { field: 'budget' })).toBe('Ngân sách không hợp lệ hoặc còn trống.');
+});

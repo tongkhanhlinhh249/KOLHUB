@@ -6,6 +6,7 @@ import { emptyKolProfile, emptyMcnProfile } from './profileRules';
 import { seedSafety } from './safetySeed';
 import { seedViolations } from './violationSeed';
 import { seedMcnChannelAssignments } from './mcnKolSeed';
+import { seedCampaigns } from './campaignSeed';
 
 const SEED_CREATED_AT = '2026-09-01T08:00:00.000Z';
 const SEED_T = Date.parse(SEED_CREATED_AT);
@@ -43,6 +44,8 @@ const SEED_BIZ_NEW: Account = {
  * v4 adds KOL Safety data (videos + monitored channels) for the two verified demo accounts; v5 adds violations;
  * v6: monitors of profile channels (any status) keep that channel's follower count.
  * v8: Sao Việt Media assigns 6 of its 12 channels to KOL-2026-0011…0015 (no invites / links).
+ * v9: campaign booking beta — 3 campaigns of the demo brand (bookings with Sao Việt Media and Khánh Vy),
+ * 3 marketplace campaigns of the new agency; every brand on the default "Dùng thử" plan.
  */
 export function seedState(): DemoState {
   const now = Date.now();
@@ -61,7 +64,7 @@ export function seedState(): DemoState {
   seedMcnChannelAssignments(channels, now);
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 8,
+    version: 9,
     accounts,
     otps: [],
     registrations: [],
@@ -81,5 +84,8 @@ export function seedState(): DemoState {
     ...seedSafety(channels, now),
     // v5: violations (Khánh Vy, Sao Việt Media and a few sample KOLs).
     violations: seedViolations(kolProfiles, channels, now),
+    // v9: campaign booking beta.
+    ...seedCampaigns(channels, now),
+    brandPlans: {},
   };
 }

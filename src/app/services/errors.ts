@@ -151,12 +151,12 @@ function safetyMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4509':
       return 'Video đang được kiểm tra, vui lòng đợi kết quả.';
     default:
-      return violationMessage(code);
+      return violationMessage(code, meta);
   }
 }
 
 // --- violations ---
-function violationMessage(code: ErrorCode): string {
+function violationMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
   switch (code) {
     case 'KOLHUB-4601':
       return 'Không tìm thấy vi phạm. Có thể mục này đã bị xoá.';
@@ -183,12 +183,12 @@ function violationMessage(code: ErrorCode): string {
     case 'KOLHUB-4612':
       return 'Vui lòng chọn loại vi phạm.';
     default:
-      return mcnKolMessage(code);
+      return mcnKolMessage(code, meta);
   }
 }
 
 // --- MCN ↔ KOL ---
-function mcnKolMessage(code: ErrorCode): string {
+function mcnKolMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
   switch (code) {
     case 'KOLHUB-4701':
       return 'Không thể gán kênh khi hồ sơ MCN đang xét duyệt hoặc đã bị từ chối.';
@@ -198,6 +198,91 @@ function mcnKolMessage(code: ErrorCode): string {
       return 'Không tìm thấy kênh của MCN. Có thể kênh đã bị gỡ.';
     case 'KOLHUB-4704':
       return 'Vui lòng chọn ít nhất một kênh.';
+    default:
+      return campaignMessage(code, meta);
+  }
+}
+
+// --- campaign booking (beta) ---
+function campaignFieldLabel(field?: string): string {
+  switch (field) {
+    case 'name':
+      return 'Tên chiến dịch';
+    case 'objective':
+      return 'Mục tiêu chiến dịch';
+    case 'brief':
+      return 'Brief';
+    case 'budget':
+      return 'Ngân sách';
+    case 'dates':
+      return 'Thời gian chạy';
+    case 'platforms':
+      return 'Nền tảng';
+    case 'categories':
+      return 'Lĩnh vực';
+    case 'deliverables':
+      return 'Hạng mục nội dung';
+    case 'contentRules':
+      return 'Quy định nội dung';
+    case 'visibility':
+      return 'Chế độ hiển thị';
+    case 'applyDeadline':
+      return 'Hạn nhận đề xuất';
+    case 'note':
+      return 'Ghi chú';
+    case 'title':
+      return 'Tiêu đề nội dung';
+    case 'file':
+      return 'Tệp hoặc link nội dung';
+    case 'item':
+      return 'Hạng mục của booking';
+    case 'feedback':
+      return 'Góp ý chỉnh sửa';
+    case 'comment':
+      return 'Nhận xét';
+    case 'contractFile':
+      return 'Tệp hợp đồng';
+    default:
+      return 'Thông tin';
+  }
+}
+
+function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
+  switch (code) {
+    case 'KOLHUB-4801':
+      return 'Không tìm thấy chiến dịch. Có thể chiến dịch đã bị huỷ hoặc không còn hiển thị.';
+    case 'KOLHUB-4802':
+      return 'Chiến dịch không còn ở trạng thái cho phép thao tác này. Vui lòng tải lại.';
+    case 'KOLHUB-4803':
+      return `${campaignFieldLabel(meta?.field)} không hợp lệ hoặc còn trống.`;
+    case 'KOLHUB-4804':
+      return 'Không tìm thấy booking. Có thể booking đã bị xoá hoặc bạn không có quyền xem.';
+    case 'KOLHUB-4805':
+      return 'Booking không còn ở trạng thái cho phép thao tác này. Vui lòng tải lại.';
+    case 'KOLHUB-4806':
+      return 'Tính năng này chỉ dành cho KOL/MCN có hồ sơ đã được duyệt.';
+    case 'KOLHUB-4807':
+      return 'Bạn đã có đề xuất hoặc lời mời đang hoạt động cho chiến dịch này.';
+    case 'KOLHUB-4808':
+      return 'Chiến dịch đã hết hạn nhận đề xuất.';
+    case 'KOLHUB-4809':
+      return 'KOL hoặc kênh không hợp lệ: kênh phải đã xác thực, đang hoạt động, thuộc nền tảng của chiến dịch và thuộc quyền quản lý của bạn.';
+    case 'KOLHUB-4810':
+      return 'Giá phải là số tiền lớn hơn 0 (VND).';
+    case 'KOLHUB-4811':
+      return 'Link bài đăng không hợp lệ hoặc không thuộc nền tảng đã chốt.';
+    case 'KOLHUB-4812':
+      return 'Vui lòng chọn ít nhất một KOL.';
+    case 'KOLHUB-4813':
+      return 'Không tìm thấy nội dung. Có thể nội dung đã được xử lý.';
+    case 'KOLHUB-4814':
+      return 'Vui lòng chọn từ 1 đến 5 sao.';
+    case 'KOLHUB-4815':
+      return 'Bạn đã đánh giá booking này.';
+    case 'KOLHUB-4816':
+      return 'Vui lòng nhập lý do huỷ.';
+    case 'KOLHUB-4817':
+      return 'Chiến dịch còn booking đang thực hiện. Hãy hoàn tất hoặc huỷ các booking đó trước.';
     default:
       return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }

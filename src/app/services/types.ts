@@ -88,7 +88,25 @@ export type ErrorCode =
   | 'KOLHUB-4701'
   | 'KOLHUB-4702'
   | 'KOLHUB-4703'
-  | 'KOLHUB-4704';
+  | 'KOLHUB-4704'
+  // --- campaign booking (beta) ---
+  | 'KOLHUB-4801'
+  | 'KOLHUB-4802'
+  | 'KOLHUB-4803'
+  | 'KOLHUB-4804'
+  | 'KOLHUB-4805'
+  | 'KOLHUB-4806'
+  | 'KOLHUB-4807'
+  | 'KOLHUB-4808'
+  | 'KOLHUB-4809'
+  | 'KOLHUB-4810'
+  | 'KOLHUB-4811'
+  | 'KOLHUB-4812'
+  | 'KOLHUB-4813'
+  | 'KOLHUB-4814'
+  | 'KOLHUB-4815'
+  | 'KOLHUB-4816'
+  | 'KOLHUB-4817';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;

@@ -121,3 +121,17 @@ import { createDemoService } from './mock/demo';
 
 export const demoService = createDemoService({ db, now: Date.now });
 export type { DemoService } from './mock/demo';
+// --- campaign booking (beta) ---
+import { createCampaignService } from './mock/campaign';
+import { createBookingService } from './mock/booking';
+import { createPlanService } from './mock/plans';
+
+export const campaignService = createCampaignService({ db, now: Date.now });
+export const bookingService = createBookingService({ db, now: Date.now });
+export const planService = createPlanService({ db });
+export * from './campaign-types';
+export type { CampaignService } from './mock/campaign';
+export type { BookingService } from './mock/booking';
+export type { PlanService } from './mock/plans';
+export { postMatchesPlatform, platformOfLink, isAcceptingApplications } from './mock/campaignRules';
+export { SEED_BOOKING, SEED_CAMPAIGN } from './mock/campaignSeed';

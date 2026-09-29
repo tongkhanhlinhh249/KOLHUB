@@ -18,6 +18,8 @@ import type {
 import type { SafetyMonitor, SafetyVideo } from '../safety-types';
 // --- violations ---
 import type { Violation } from '../violation-types';
+// --- campaign booking (beta) ---
+import type { Booking, Campaign, PlanKey } from '../campaign-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -52,11 +54,12 @@ export interface PendingRegistration {
  * v6: seeded monitors of profile channels carry that channel's follower count.
  * v7: MCN ↔ KOL links (`mcnKolLinks`) and MCN channels assigned to linked KOLs.
  * v8: no more links — MCN channels are assigned directly to approved KOLs (`Channel.assignedKolAccountId`).
+ * v9: campaign booking beta — `campaigns`, `bookings`, `brandPlans`.
  */
-export const DB_VERSION = 8;
+export const DB_VERSION = 9;
 
 export interface DemoState {
-  version: 8;
+  version: 9;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -79,6 +82,11 @@ export interface DemoState {
   safetyMonitors: SafetyMonitor[];
   // --- violations ---
   violations: Violation[];
+  // --- campaign booking (beta) ---
+  campaigns: Campaign[];
+  bookings: Booking[];
+  /** Brand account id → plan; absent = DEFAULT_PLAN (TRIAL). */
+  brandPlans: Record<string, { plan: PlanKey; since: number }>;
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
