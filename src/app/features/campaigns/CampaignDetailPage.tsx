@@ -8,6 +8,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { bookingService, campaignService, KolhubError, type CampaignView } from '../../services';
 import { brandLockedView } from '../shared/BrandLocked';
+import { CampaignCover } from '../shared/CampaignCover';
 import { useBrandKolSheet } from '../shared/BrandKolSheet';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ConfirmAction, useBookingActions } from './BookingActions';
@@ -51,22 +52,27 @@ function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm
   return (
     <Card className="gap-4 p-4 md:p-5">
       <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-start @3xl:justify-between">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <CampaignStatusBadge status={c.status} />
-            <VisibilityLabel visibility={c.visibility} />
-          </div>
-          <h2 className="text-lg font-semibold break-words text-foreground md:text-xl">{c.name}</h2>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="tabular-nums">{formatDateRange(c.startDate, c.endDate)}</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="tabular-nums">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập ngân sách'}</span>
-            </span>
-            <PlatformIcons platforms={c.platforms} />
+        <div className="flex min-w-0 items-start gap-3 @lg:gap-4">
+          {c.cover && (
+            <CampaignCover cover={c.cover} className="aspect-video w-24 shrink-0 rounded-[8px] border border-border @lg:w-40" iconClassName="size-5" />
+          )}
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <CampaignStatusBadge status={c.status} />
+              <VisibilityLabel visibility={c.visibility} />
+            </div>
+            <h2 className="text-lg font-semibold break-words text-foreground md:text-xl">{c.name}</h2>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="tabular-nums">{formatDateRange(c.startDate, c.endDate)}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="tabular-nums">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập ngân sách'}</span>
+              </span>
+              <PlatformIcons platforms={c.platforms} />
+            </div>
           </div>
         </div>
         {(acts.edit || acts.publish || acts.close || acts.cancel) && (

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, Check, Globe2, Loader2, Lock, Plus, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Globe2, ImagePlus, Loader2, Lock, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -23,12 +23,17 @@ import {
   type CampaignVisibility,
   type DeliverableType,
   type Platform,
+  type StoredFile,
 } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { brandLockedView } from '../shared/BrandLocked';
+import { CampaignCover } from '../shared/CampaignCover';
+import { formatFileSize, toStoredFile } from '../shared/files';
 import { fieldIcon } from '../shared/fieldIcons';
 import { CampaignStatusBadge, errText, LoadError } from './CampaignParts';
 import {
+  COVER_ACCEPT,
+  coverFileError,
   EMPTY_FORM,
   fieldErrorText,
   formFromCampaign,
@@ -210,6 +215,122 @@ function DeliverableEditor({
         </Button>
       </div>
     </li>
+  );
+}
+
+/**
+ * "Ảnh chiến dịch": 16:9 preview with "Đổi ảnh" / "Xoá ảnh", or a 16:9 drop zone. Picked files are checked
+ * (JPG/PNG/WebP ≤ 10 MB) and turned into a StoredFile with a ≤ 960 px JPEG thumbnail.
+ */
+function CoverField({
+  id,
+  value,
+  error,
+  onChange,
+  onError,
+}: {
+  id: string;
+  value: StoredFile | null;
+  error?: string;
+  onChange(v: StoredFile | null): void;
+  onError(message: string): void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
+
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    const bad = coverFileError(file);
+    if (bad) {
+      onError(bad);
+      return;
+    }
+    setReading(true);
+    try {
+      onChange(await toStoredFile(file, { maxSide: 960 }));
+    } finally {
+      setReading(false);
+      if (input.current) input.current.value = '';
+    }
+  };
+  const browse = () => input.current?.click();
+
+  return (
+    <div className="space-y-2">
+      <input
+        ref={input}
+        type="file"
+        accept={COVER_ACCEPT}
+        hidden
+        tabIndex={-1}
+        onChange={(e) => void pick(e.target.files?.[0])}
+      />
+      {value ? (
+        <div className="space-y-2">
+          <CampaignCover
+            cover={value}
+            alt="Ảnh chiến dịch đã chọn"
+            className="aspect-video w-full max-w-md rounded-[8px] border border-border"
+          />
+          <div className="flex max-w-md flex-wrap items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={value.name}>
+              {value.name} · {formatFileSize(value.size)}
+            </p>
+            <Button id={id} type="button" variant="outline" className="h-11 md:h-9" onClick={browse} disabled={reading} aria-describedby={error ? errorId : hintId}>
+              {reading ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />}
+              Đổi ảnh
+            </Button>
+            <Button type="button" variant="ghost" className="h-11 text-muted-foreground hover:text-destructive md:h-9" onClick={() => onChange(null)} disabled={reading}>
+              <Trash2 aria-hidden />
+              Xoá ảnh
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button
+          id={id}
+          type="button"
+          onClick={browse}
+          disabled={reading}
+          aria-describedby={error ? errorId : hintId}
+          aria-invalid={!!error || undefined}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            void pick(e.dataTransfer.files?.[0]);
+          }}
+          className={cn(
+            'flex aspect-video w-full max-w-md flex-col items-center justify-center gap-2 rounded-[8px] border-2 border-dashed p-4 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            error ? 'border-destructive/60' : dragOver ? 'border-primary bg-primary/5' : 'border-border bg-muted/40 hover:bg-muted',
+          )}
+        >
+          {reading ? (
+            <Loader2 className="size-7 animate-spin text-muted-foreground" aria-hidden />
+          ) : (
+            <ImagePlus className="size-7 text-muted-foreground" aria-hidden />
+          )}
+          <span className="text-sm font-medium text-foreground">{reading ? 'Đang xử lý ảnh…' : 'Tải ảnh lên'}</span>
+          <span className="text-xs text-muted-foreground">Bấm để chọn hoặc kéo thả ảnh vào đây</span>
+        </button>
+      )}
+      {error ? (
+        <p id={errorId} className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      ) : (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          JPG, PNG hoặc WebP, tối đa 10 MB. Nên dùng ảnh ngang tỉ lệ 16:9 (ví dụ 1600×900).
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -442,6 +563,16 @@ export function CampaignFormPage() {
               />
             )}
           </FormRow>
+        </Section>
+
+        <Section title="Ảnh chiến dịch" description="Hiển thị trên thẻ chiến dịch ở Sàn chiến dịch và trong danh sách của bạn. Không bắt buộc.">
+          <CoverField
+            id={fieldId('cover')}
+            value={values.cover}
+            error={errors.cover}
+            onChange={(v) => set('cover', v)}
+            onError={(message) => setErrors((e) => ({ ...e, cover: message }))}
+          />
         </Section>
 
         <Section title="Ngân sách và thời gian">

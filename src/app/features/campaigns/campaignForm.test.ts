@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { Campaign } from '../../services';
-import { EMPTY_FORM, fieldErrorText, formFromCampaign, formToInput, isFormField, newDeliverable, toggle } from './campaignForm';
+import { COVER_ERROR, coverFileError, EMPTY_FORM, fieldErrorText, formFromCampaign, formToInput, isFormField, newDeliverable, toggle } from './campaignForm';
 
 const campaign: Campaign = {
   id: 'c1',
@@ -52,6 +52,18 @@ describe('campaign form', () => {
       startDate: '',
       applyDeadline: '',
     });
+  });
+
+  test('ảnh chiến dịch: giữ khi sửa, null khi không có; kiểm tra định dạng / dung lượng trước khi đọc', () => {
+    const cover = { name: 'bia.jpg', type: 'image/jpeg', size: 1000, thumbnail: 'data:image/jpeg;base64,AA' };
+    expect(formFromCampaign({ ...campaign, cover }).cover).toEqual(cover);
+    expect(formToInput(formFromCampaign({ ...campaign, cover })).cover).toEqual(cover);
+    expect(formFromCampaign(campaign).cover).toBeNull();
+    expect(formToInput(EMPTY_FORM).cover).toBeNull();
+    expect(coverFileError({ type: 'image/webp', size: 10 * 1024 * 1024 })).toBeUndefined();
+    expect(coverFileError({ type: 'image/png', size: 10 * 1024 * 1024 + 1 })).toBe(COVER_ERROR);
+    expect(coverFileError({ type: 'image/gif', size: 10 })).toBe(COVER_ERROR);
+    expect(isFormField('cover')).toBe(true);
   });
 
   test('helpers', () => {

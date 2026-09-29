@@ -10,6 +10,7 @@ import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { SortSelect } from '../filters/SortSelect';
 import { brandLockedView } from '../shared/BrandLocked';
+import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { CampaignStatusBadge, EmptyBlock, LoadError, PlatformIcons, TodoMarker, VisibilityLabel } from './CampaignParts';
 import {
@@ -56,23 +57,30 @@ function CampaignRow({ c, pending }: { c: CampaignView; pending: number }) {
     >
       <Card className="@container gap-0 p-4 transition-colors group-hover:border-primary/40">
         <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-center @3xl:gap-6">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <h3 className="min-w-0 truncate font-semibold text-foreground group-hover:text-primary">{c.name}</h3>
-              <CampaignStatusBadge status={c.status} />
-              <VisibilityLabel visibility={c.visibility} />
-            </div>
-            {c.objective && <p className="line-clamp-1 text-sm text-muted-foreground">{c.objective}</p>}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="tabular-nums">{formatDateRange(c.startDate, c.endDate)}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="tabular-nums">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập ngân sách'}</span>
-              </span>
-              <PlatformIcons platforms={c.platforms} />
+          <div className="flex min-w-0 flex-1 items-start gap-3 @xl:items-center @xl:gap-4">
+            <CampaignCover
+              cover={c.cover}
+              className="hidden aspect-video w-24 shrink-0 rounded-[6px] @md:block @xl:w-32"
+              iconClassName="size-5"
+            />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h3 className="min-w-0 truncate font-semibold text-foreground group-hover:text-primary">{c.name}</h3>
+                <CampaignStatusBadge status={c.status} />
+                <VisibilityLabel visibility={c.visibility} />
+              </div>
+              {c.objective && <p className="line-clamp-1 text-sm text-muted-foreground">{c.objective}</p>}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="tabular-nums">{formatDateRange(c.startDate, c.endDate)}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="tabular-nums">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập ngân sách'}</span>
+                </span>
+                <PlatformIcons platforms={c.platforms} />
+              </div>
             </div>
           </div>
 
