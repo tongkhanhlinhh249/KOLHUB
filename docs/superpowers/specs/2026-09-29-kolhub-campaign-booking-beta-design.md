@@ -5,7 +5,7 @@
 | Phạm vi | Đợt 1: chỉ tầng dịch vụ (mock), chưa có UI |
 | Ngày | 29/09/2026 |
 | Mã nguồn | `src/app/services/campaign-types.ts`, `mock/campaign.ts`, `mock/booking.ts`, `mock/plans.ts`, `mock/campaignRules.ts`, `mock/campaignSeed.ts` |
-| DB | `DB_VERSION` 9: thêm `campaigns`, `bookings`, `brandPlans` |
+| DB | `DB_VERSION` 9: thêm `campaigns`, `bookings`, `brandPlans` · 10 (Sàn v2): thêm `savedCampaigns` |
 
 ## 1. Mục tiêu & quyết định sản phẩm
 
@@ -76,7 +76,7 @@ VERIFIED ─NB "Đã thanh toán"→ VERIFIED(đã ghi nhận) ─NCC "Đã nh�
 
 ## 6. Sàn chiến dịch (phía NCC)
 
-- `listMarketplace({ keyword, category, platform, budgetMin, budgetMax, sort })` — từ khoá không dấu trên tên/mục tiêu/brief/tên công ty; sort `newest` (mặc định, `publishedAt` giảm dần) · `budget` (giảm dần) · `deadline` (hạn gần nhất trước, không hạn ở cuối).
+- `listMarketplace({ keyword, category, platform, budgetMin, budgetMax, sort })` — từ khoá không dấu trên tên/mục tiêu/brief/tên công ty; sort `match` (mặc định từ Sàn v2, xem §11) · `newest` (`publishedAt` giảm dần) · `budget` (giảm dần) · `deadline` (hạn gần nhất trước, không hạn ở cuối).
 - `MarketplaceCampaign` không chứa `brandAccountId`/thống kê nội bộ; có `applicationCount` và `myBooking` (booking đang chiếm chỗ của người xem).
 - `apply(campaignId, { items, price, note })`: MCN chọn KOL mình đang quản lý + **kênh MCN đã gán cho KOL đó**; KOL độc lập chọn kênh của mình. Kênh phải xác thực, đang hoạt động, còn hạn, thuộc nền tảng chiến dịch (4809).
 
@@ -92,12 +92,16 @@ campaignService.inviteKols(campaignId, kolIds: string[], opts?: InviteOptions): 
 campaignService.listMarketplace(filters?: MarketplaceFilters): Promise<MarketplaceCampaign[]>
 campaignService.getMarketplaceItem(id): Promise<MarketplaceCampaign>
 campaignService.apply(campaignId, proposal: ApplyInput): Promise<BookingView>
+campaignService.saveCampaign(id) / unsaveCampaign(id): Promise<void>          // Sàn v2
+campaignService.listSaved(filters?: MarketplaceFilters): Promise<MarketplaceCampaign[]>
+campaignService.listApplied(filters?: MarketplaceFilters): Promise<AppliedCampaign[]>
 
 bookingService.listForBrand(filters?: BrandBookingFilters): Promise<BookingView[]>
 bookingService.listForSupplier(filters?: SupplierBookingFilters): Promise<BookingView[]>
 bookingService.get(id): Promise<BookingView>
 bookingService.counter(id, price, note?) / accept(id) / decline(id, note?) / cancel(id, note?)
 bookingService.assignItems(id, items: ProposalItemInput[])
+bookingService.updateApplication(id, proposal: ApplyInput)       // Sàn v2, chỉ khi APPLIED
 bookingService.submitDraft(id, DraftInput) / reviewContent(id, contentId, 'APPROVE' | 'REQUEST_CHANGES', feedback?)
 bookingService.submitPost(id, PostInput) / markPaid(id) / confirmPaid(id) / rate(id, stars, comment?)
 bookingService.setContractFile(id, file | null)
@@ -144,3 +148,65 @@ Mọi mutation trả view mới (đã tính trạng thái hiệu lực, `allowed
 ## 10. Ngoài phạm vi beta
 
 Ký quỹ/cổng thanh toán, hợp đồng điện tử, thuế, giới hạn theo gói, thông báo realtime, đồng bộ số liệu bài đăng định kỳ, hiển thị công khai đánh giá.
+
+## 11. Sàn v2 (29/09/2026)
+
+Tiếp tục phía nhà cung cấp của Sàn: gợi ý "Phù hợp với bạn", lưu chiến dịch, tab "Đã ứng tuyển", sửa/rút đề xuất, khối thông tin Nhãn hàng. Mã nguồn: `mock/campaignMatch.ts`, `mock/campaign.ts`, `mock/booking.ts` (`updateApplication`), `mock/campaignRules.ts` (`brandInfoOf`, `EDIT_APPLICATION`), `features/supplier-booking/*`.
+
+### 11.1 Mức phù hợp (`matchCampaign`)
+
+`matchCampaign(campaign, supplierContext) → { score 0–100, reasons[], missing[] }` — hàm thuần. `supplierMatchContext(state, accountId, now)` dựng ngữ cảnh:
+
+- **MCN**: kênh MCN có dấu xác thực còn hạn, đang hoạt động, **đã giao cho KOL đã duyệt** (chỉ những kênh này đưa được vào đề xuất, §6), kèm lĩnh vực hoạt động (`contact.fields`, không có thì `contact.category`) của KOL đó. Kênh MCN hợp lệ nhưng chưa giao cho KOL nào không được tính điểm; nếu nền tảng chỉ có loại kênh này, mục "Còn thiếu" nhắc "Kênh X của bạn chưa được giao cho KOL nào".
+- **KOL**: kênh của chính mình (xác thực, đang hoạt động) + lĩnh vực của hồ sơ.
+- Chỉ tính các kênh thuộc nền tảng của chiến dịch.
+
+| Thành phần | Trọng số | Cách tính | Lý do / còn thiếu |
+|---|---|---|---|
+| Nền tảng | 40 | tỉ lệ nền tảng chiến dịch có ≥ 1 kênh | "Có 3 kênh TikTok đã xác thực" / "Chưa có kênh YouTube đã xác thực" |
+| Lĩnh vực | 30 | số lĩnh vực chiến dịch khớp (không dấu, không phân biệt hoa thường), đủ điểm khi khớp 2 (hoặc tất cả nếu chiến dịch có < 2); chiến dịch không giới hạn lĩnh vực → đủ điểm | "Khớp lĩnh vực Ẩm thực" / "Chưa có KOL thuộc lĩnh vực …" (MCN), "Lĩnh vực của bạn chưa thuộc …" (KOL) |
+| Số lượng | 15 | mỗi kênh nhận tối đa `CHANNEL_CAPACITY` = 3 đơn vị cho mỗi dòng hạng mục; điểm = đơn vị đáp ứng được / tổng đơn vị | "Đáp ứng đủ số lượng hạng mục" / "Cần 6 Video TikTok, bạn có 1 kênh" |
+| Quy mô | 15 | ngân sách / tổng người theo dõi của các kênh liên quan trong khoảng 10–300 VND → 15; < 10 → 5; > 300 → 8 | "Quy mô kênh phù hợp với ngân sách" / "Ngân sách thấp so với quy mô kênh của bạn" / "Quy mô kênh nhỏ so với ngân sách chiến dịch" |
+
+Không có kênh liên quan nào → điểm 0. Điểm làm tròn, kẹp 0–100. Thứ tự lý do: lĩnh vực, nền tảng, số lượng, quy mô. Đây là gợi ý thô để sắp xếp, không chặn ứng tuyển.
+
+- `listMarketplace`, `listSaved`, `listApplied`, `getMarketplaceItem` trả `match` cho người xem (mọi KOL/MCN đã đăng nhập, kể cả hồ sơ chưa duyệt — thường được 0).
+- Sort `match` (mặc định): điểm giảm dần, bằng điểm thì mới đăng trước.
+- UI: nhãn "Khớp 86%" (xanh ≥ 70, cam ≥ 40, xám dưới 40); thẻ hiện 2 lý do đầu; chi tiết hiện mọi lý do và mục còn thiếu.
+
+### 11.2 Chiến dịch đã lưu
+
+- `DemoState.savedCampaigns: { accountId, campaignId, savedAt }[]` (DB v10; dữ liệu v9 được thay bằng seed như các lần nâng cấp trước).
+- `saveCampaign(id)` — mọi KOL/MCN đã đăng nhập (như xem Sàn); chỉ chiến dịch đang nhận đề xuất (4801); lặp lại không nhân đôi. `unsaveCampaign(id)` — không có thì bỏ qua. Tài khoản khác → 4806.
+- `listSaved(filters)` — chiến dịch đã lưu **còn nhận đề xuất**, cùng bộ lọc/sort với `listMarketplace` (chiến dịch hết hạn tự rời danh sách, bản ghi vẫn giữ). `MarketplaceCampaign.saved` cho biết đã lưu.
+- UI: nút biểu tượng lưu trên thẻ và nút "Lưu/Đã lưu" ở chân trang chi tiết; toast "Đã lưu chiến dịch" / "Đã bỏ lưu chiến dịch".
+
+### 11.3 Tab trên `/san-chien-dich`
+
+`?tab=` — "Tất cả" (mặc định, không ghi vào URL) · `da-luu` "Đã lưu" · `da-ung-tuyen` "Đã ứng tuyển". Bộ lọc (từ khoá, lĩnh vực, nền tảng, ngân sách, sắp xếp) giữ nguyên khi đổi tab; `?sap-xep=` bỏ trống = "Phù hợp nhất". Tab Đã lưu / Đã ứng tuyển có số đếm (không lọc).
+
+- `listApplied(filters)` → `AppliedCampaign[] { booking, campaign }`: mọi booking **APPLICATION** của người xem (mọi trạng thái, kể cả đã rút/hết hạn), kèm chiến dịch (`accepting: false` nếu đã ngừng nhận đề xuất). Lời mời (INVITE) không nằm ở đây — xem `/booking`. KOL/MCN chưa duyệt → danh sách rỗng.
+- Thẻ "Đã ứng tuyển": trạng thái booking (nhãn phía NCC), giá đề xuất, ngân sách, hạn phản hồi (khi còn chờ) hoặc thời điểm cập nhật; bấm mở booking `/booking?booking=<id>`.
+
+### 11.4 Sửa / rút đề xuất
+
+- `bookingService.updateApplication(bookingId, { items, price, note })` — chỉ NCC chủ booking, booking `origin = APPLICATION` ở trạng thái hiệu lực **APPLIED** (Nhãn hàng chưa phản hồi) → quyền `EDIT_APPLICATION` trong `allowedActions`; ngoài ra 4805 (sau khi Nhãn hàng trả giá, chốt, từ chối, hoặc đề xuất đã hết hạn / đã rút). Kiểm tra như `apply` (4812, 4809, 4803, 4810). Thay toàn bộ đề xuất (bỏ lời nhắn = rỗng), ghi lịch sử `APPLICATION_UPDATED` kèm giá/lời nhắn; **không gia hạn** hạn phản hồi (vẫn tính từ `createdAt`).
+- Rút = `bookingService.cancel` hiện có (UI: "Rút đề xuất", hộp xác nhận, lý do không bắt buộc).
+- UI chi tiết chiến dịch khi `myBooking` là đề xuất APPLIED: "Sửa đề xuất" (mở lại hộp Ứng tuyển, điền sẵn hạng mục/giá/lời nhắn, nút "Lưu thay đổi") và "Rút đề xuất".
+
+### 11.5 Khối "Nhãn hàng"
+
+`getMarketplaceItem` trả thêm `brandInfo` (`brandInfoOf`): tên công ty; `businessEmailVerified` (tài khoản BIZ đăng ký bằng email doanh nghiệp đã xác thực OTP — không thuộc tên miền miễn phí, BR-45); số chiến dịch đã đăng (đã từng OPEN); số booking đã hoàn tất trên KOLHUB; ngày tham gia (`account.createdAt`, hiển thị "Tháng M/YYYY"). Không có email, số điện thoại, người liên hệ hay đánh giá. Danh sách Sàn không kèm `brandInfo`.
+
+### 11.6 Dữ liệu mẫu (seed v10)
+
+Thêm 4 chiến dịch OPEN trên Sàn (tổng 8):
+
+| Id | Nhãn hàng | Nền tảng / hạng mục | Lĩnh vực | Ngân sách | Hạn ứng tuyển |
+|---|---|---|---|---|---|
+| `cmp-seed-sua-chua` "Sữa chua uống cho dân văn phòng" | Công ty Demo Sữa | 3 Video TikTok | Lifestyle, Ẩm thực | 45 tr | ngày mai (sắp hết hạn) |
+| `cmp-seed-livestream-bep` "Livestream bếp nhà cuối tuần" | Công ty Demo Sữa | 2 Livestream + 1 Bài đăng Facebook | Gia đình, Ẩm thực | 70 tr | 6 ngày |
+| `cmp-seed-tai-nghe` "Đánh giá tai nghe không dây mới" | Newbrand Agency | 2 Video YouTube (chỉ YouTube) | Công nghệ, Giải trí | 90 tr | 12 ngày |
+| `cmp-seed-thu-thach-tieng-anh` "Thử thách 30 ngày nói tiếng Anh" | Newbrand Agency | 4 Video TikTok + 1 Livestream Facebook | Giáo dục, Lifestyle | 250 tr | 20 ngày |
+
+Kết quả mẫu: **Sao Việt Media** khớp 100% "Tuần lễ ẩm thực mùa thu" và "Sữa chua uống…", 0% "Livestream bếp nhà…" (không có kênh Facebook hợp lệ); **Khánh Vy** khớp 100% "Trải nghiệm ứng dụng học tiếng Anh", 82% "Thử thách 30 ngày…" (thiếu kênh TikTok cho 4 video). Đã lưu sẵn: Sao Việt — du lịch miền Trung, sữa chua uống; Khánh Vy — ứng dụng học tiếng Anh.
