@@ -5,10 +5,8 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../auth/AuthContext';
 import { roleOf, safeReturnTo } from '../../auth/roles';
-import { authService, isValidEmail, isValidPhone, type Account, type AccountType } from '../../services';
-import { AccountTypeCards } from '../auth-shell/AccountTypeCards';
+import { authService, isValidEmail, isValidPhone, type Account } from '../../services';
 import { AuthLegalNote, AuthPageHeader } from '../auth-shell/AuthPageHeader';
-import { accountTypeFromQuery, QUERY_BY_TYPE, withAccountType } from '../auth-shell/accountTypeQuery';
 import { Field, splitError, type FieldErrors } from '../form/Field';
 import { OtpStep } from '../otp/OtpStep';
 import { looksLikePhone } from '../auth-shell/identifier';
@@ -28,14 +26,12 @@ function FormAlert({ message }: { message: string | null }) {
 /**
  * SCR-02 — one "Email hoặc số điện thoại" field (BR-07):
  *   email → password sign-in; phone → SMS OTP sign-in (KOL/MCN only).
- * The account-type cards are a UI hint only: the role still comes from the account,
- * and AccessGuard sends the user to their role home after sign-in.
+ * No account-type choice: the role comes from the account itself, and AccessGuard sends the user to
+ * their role home after sign-in (Brand accounts have no phone, so phone sign-in only finds KOL/MCN).
  */
 export function LoginPage() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const returnTo = params.get('returnTo');
-  const type = accountTypeFromQuery(params.get('loai'));
-  const isBiz = type === 'BIZ';
   const { setAccount } = useAuth();
 
   const [identifier, setIdentifier] = useState('');
@@ -63,18 +59,6 @@ export function LoginPage() {
     setFormError(null);
   };
 
-  const changeType = (t: AccountType) => {
-    reset();
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('loai', QUERY_BY_TYPE[t]);
-        return next;
-      },
-      { replace: true },
-    );
-  };
-
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     reset();
@@ -82,8 +66,7 @@ export function LoginPage() {
     if (!id) return setErrors({ identifier: REQUIRED });
 
     if (isPhone) {
-      // BR-07: phone sign-in is SMS OTP, only for KOL/MCN.
-      if (isBiz) return setErrors({ identifier: 'Nhãn hàng/Agency đăng nhập bằng email công ty.' });
+      // BR-07: phone sign-in is SMS OTP, only for KOL/MCN (the service rejects numbers without such an account).
       if (!isValidPhone(id)) return setErrors({ identifier: 'Số điện thoại không hợp lệ (ví dụ: 0912345678).' });
       setSubmitting(true);
       try {
@@ -98,7 +81,7 @@ export function LoginPage() {
     }
 
     const errs: FieldErrors = {};
-    if (!isValidEmail(id)) errs.identifier = isBiz ? 'Email công ty không hợp lệ.' : 'Email hoặc số điện thoại không hợp lệ.';
+    if (!isValidEmail(id)) errs.identifier = 'Email hoặc số điện thoại không hợp lệ.';
     if (!password) errs.password = REQUIRED;
     if (Object.keys(errs).length) return setErrors(errs);
 
@@ -131,8 +114,7 @@ export function LoginPage() {
 
   return (
     <div className="space-y-6">
-      <AuthPageHeader title="Chào mừng trở lại" subtitle="Chọn loại tài khoản để đăng nhập." />
-      <AccountTypeCards value={type} onChange={changeType} label="Loại tài khoản đăng nhập" />
+      <AuthPageHeader title="Chào mừng trở lại" subtitle="Đăng nhập bằng email hoặc số điện thoại đã đăng ký." />
 
       {returnTo?.startsWith('/') && !returnTo.startsWith('//') && (
         <Alert>
@@ -143,19 +125,19 @@ export function LoginPage() {
 
       <form onSubmit={submit} noValidate className="space-y-4">
         <Field
-          label={isBiz ? 'Email công ty' : 'Email hoặc số điện thoại'}
+          label="Email hoặc số điện thoại"
           type="text"
           autoComplete="username"
           autoCapitalize="none"
           spellCheck={false}
-          placeholder={isBiz ? 'ban@congty.vn' : 'ban@email.com hoặc 0912 345 678'}
+          placeholder="ban@email.com hoặc 0912 345 678"
           value={identifier}
           onChange={(e) => {
             setIdentifier(e.target.value);
             if (errors.identifier) setErrors((prev) => ({ ...prev, identifier: undefined }));
           }}
           error={errors.identifier}
-          hint={!isBiz && isPhone ? 'Chúng tôi sẽ gửi mã OTP qua SMS tới số này.' : undefined}
+          hint={isPhone ? 'Chúng tôi sẽ gửi mã OTP qua SMS tới số này.' : undefined}
         />
 
         {!isPhone && (
@@ -171,7 +153,7 @@ export function LoginPage() {
             />
             <div className="flex justify-end">
               <Link
-                to={withAccountType('/quen-mat-khau', type)}
+                to="/quen-mat-khau"
                 className="inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline md:min-h-8"
               >
                 Quên mật khẩu?
@@ -183,14 +165,14 @@ export function LoginPage() {
         <FormAlert message={formError} />
         <Button type="submit" className="h-11 w-full" disabled={submitting}>
           {submitting && <Loader2 className="animate-spin" aria-hidden />}
-          {isPhone && !isBiz ? 'Nhận mã OTP' : 'Đăng nhập'}
+          {isPhone ? 'Nhận mã OTP' : 'Đăng nhập'}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
         Chưa có tài khoản?{' '}
         <Link
-          to={withAccountType('/dang-ky', type)}
+          to="/dang-ky"
           className="inline-flex min-h-11 items-center font-medium text-primary hover:underline md:min-h-0"
         >
           Đăng ký
