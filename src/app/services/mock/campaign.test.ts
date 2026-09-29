@@ -58,11 +58,15 @@ describe('quyền truy cập', () => {
     await expect(svc.create({ name: 'X' })).rejects.toMatchObject({ code: 'KOLHUB-4016' });
   });
 
-  test('chức năng nhà cung cấp cần MCN/KOL đã duyệt (4806)', async () => {
+  test('ứng tuyển cần MCN/KOL đã duyệt (4806); xem Sàn: mọi KOL/MCN đã đăng nhập', async () => {
     as(BRAND);
     await expect(svc.listMarketplace()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
-    as(h.mcnId); // MCN hồ sơ DRAFT
-    await expect(svc.listMarketplace()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    as(null);
+    await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.agencyTravel)).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    as(h.mcnId); // MCN hồ sơ DRAFT: xem Sàn (chỉ đọc) được, ứng tuyển thì không
+    expect((await svc.listMarketplace()).length).toBeGreaterThan(0);
+    expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.agencyTravel)).myBooking).toBeUndefined();
+    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     as(h.kolId); // KOL hồ sơ DRAFT
     await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
   });

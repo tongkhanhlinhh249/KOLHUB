@@ -21,6 +21,7 @@
 - Mọi hàm lấy người thao tác từ phiên đăng nhập (`state.sessionAccountId`), **không nhận accountId từ UI** (trừ `planService.getCurrentPlan(accountId?)`).
 - Hàm Nhãn hàng: tài khoản BIZ (`currentBizAccount`, lỗi **4016**).
 - Hàm nhà cung cấp: MCN hồ sơ APPROVED, hoặc KOL hồ sơ APPROVED có KOL ID (`currentSupplier`, lỗi **4806**).
+  Ngoại lệ: `listMarketplace` / `getMarketplaceItem` cho mọi tài khoản KOL/MCN đã đăng nhập (xem Sàn chỉ đọc khi hồ sơ chưa duyệt); `apply` vẫn cần hồ sơ đã duyệt.
 - Hàm booking dùng chung cho hai bên: phiên BIZ là chủ booking → bên `BRAND`; nhà cung cấp là chủ booking → `SUPPLIER`; còn lại **4804** (không lộ việc booking tồn tại).
 - Mỗi thao tác kiểm tra `allowedActions(booking, trạng thái hiệu lực, bên)` — cùng danh sách trả về trong `BookingView.allowedActions` cho UI; sai → **4805**.
 

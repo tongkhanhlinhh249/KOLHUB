@@ -303,11 +303,21 @@ export function createCampaignService(deps: CampaignServiceDeps) {
 
   // --- Supplier (MCN / independent KOL with an APPROVED profile) ---
 
+  /**
+   * Who is browsing the marketplace: any signed-in KOL / MCN (read-only while the profile is not approved yet);
+   * applying still needs an approved profile (currentSupplier, 4806). Others → 4806.
+   */
+  function marketplaceViewer(state: DemoState): { accountId: string } {
+    const acc = state.sessionAccountId ? state.accounts.find((a) => a.id === state.sessionAccountId) : undefined;
+    if (acc?.type !== 'KOL' && acc?.type !== 'MCN') throw new KolhubError('KOLHUB-4806');
+    return { accountId: acc.id };
+  }
+
   /** Campaigns open for applications (MARKETPLACE, OPEN / RUNNING, deadline not passed). */
   async function listMarketplace(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
     await wait();
     const state = db.read();
-    const me = currentSupplier(state);
+    const me = marketplaceViewer(state);
     const t = now();
     const kw = normalizeText(filters.keyword ?? '');
     const items = state.campaigns
@@ -331,7 +341,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   async function getMarketplaceItem(id: string): Promise<MarketplaceCampaign> {
     await wait();
     const state = db.read();
-    const me = currentSupplier(state);
+    const me = marketplaceViewer(state);
     const t = now();
     const c = state.campaigns.find((x) => x.id === id);
     if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
