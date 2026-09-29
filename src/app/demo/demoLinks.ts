@@ -23,14 +23,15 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
       { label: 'Tìm kiếm KOL', path: '/tim-kiem-kol', account: 'biz-verified', hint: 'Lọc, xem hồ sơ, mời vào chiến dịch' },
       { label: 'Chiến dịch đang chạy', path: '/chien-dich/cmp-seed-sua-hat?tab=noi-dung', account: 'biz-verified', hint: 'Duyệt nội dung có KOL Safety' },
       { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Brief, đăng lên Sàn' },
+      { label: 'Sàn chiến dịch (góc nhìn Nhãn hàng)', path: '/san', account: 'biz-verified', hint: 'Chỉ xem; chiến dịch của bạn có nhãn "Của bạn"' },
       { label: 'Tài khoản & gói dịch vụ', path: '/tai-khoan-doanh-nghiep', account: 'biz-verified' },
     ],
   },
   {
     title: 'MCN',
     links: [
-      { label: 'Sàn chiến dịch', path: '/san-chien-dich', account: 'mcn-verified', hint: 'Phù hợp với bạn, ứng tuyển' },
-      { label: 'Booking cần xử lý', path: '/booking?tab=can-xu-ly', account: 'mcn-verified', hint: 'Nộp nháp, gửi link bài, xác nhận tiền' },
+      { label: 'Sàn chiến dịch', path: '/san', account: 'mcn-verified', hint: 'Phù hợp với bạn, ứng tuyển' },
+      { label: 'Chiến dịch cần xử lý', path: '/chien-dich-cua-toi?tab=can-xu-ly', account: 'mcn-verified', hint: 'Nộp nháp, gửi link bài, xác nhận tiền' },
       { label: 'Quản lý KOL', path: '/ho-so-mcn/kol', account: 'mcn-verified', hint: 'Gán kênh cho KOL' },
       { label: 'Tổng quan hồ sơ MCN', path: '/ho-so-mcn/tong-quan', account: 'mcn-verified' },
     ],
@@ -39,7 +40,7 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
     title: 'KOL',
     links: [
       { label: 'Tổng quan hồ sơ (đã xác thực)', path: '/ho-so-kol/tong-quan', account: 'kol-verified' },
-      { label: 'Lời mời hợp tác', path: '/booking', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },
+      { label: 'Lời mời hợp tác', path: '/chien-dich-cua-toi', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },
       { label: 'Hồ sơ mới → gửi xét duyệt', path: '/ho-so-kol/tong-quan', account: 'kol-new', hint: 'Dùng "Điền nhanh hồ sơ mẫu"' },
     ],
   },
