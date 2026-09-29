@@ -309,22 +309,43 @@ export function createCampaignService(deps: CampaignServiceDeps) {
 
   /**
    * Who is browsing the marketplace: any signed-in KOL / MCN (read-only while the profile is not approved yet);
-   * applying still needs an approved profile (currentSupplier, 4806). Others → 4806.
+   * applying still needs an approved profile (currentSupplier, 4806). With `allowBrand`, a BIZ account may browse
+   * read-only (listMarketplace / getMarketplaceItem only). Others (guests) → 4806.
    */
-  function marketplaceViewer(state: DemoState): { accountId: string } {
+  function marketplaceViewer(state: DemoState, opts: { allowBrand?: boolean } = {}): { accountId: string; brand: boolean } {
     const acc = state.sessionAccountId ? state.accounts.find((a) => a.id === state.sessionAccountId) : undefined;
+    if (acc && opts.allowBrand && acc.type === 'BIZ') return { accountId: acc.id, brand: true };
     if (acc?.type !== 'KOL' && acc?.type !== 'MCN') throw new KolhubError('KOLHUB-4806');
-    return { accountId: acc.id };
+    return { accountId: acc.id, brand: false };
   }
 
-  /** Marketplace card of `c` for the viewer: match, saved flag, accepting flag. */
-  function card(state: DemoState, c: Campaign, viewerId: string, ctx: SupplierMatchContext, saved: Set<string>, t: number): MarketplaceCampaign {
-    return {
-      ...toMarketplaceCampaign(state, c, viewerId, t),
-      match: matchCampaign(c, ctx),
+  /**
+   * Marketplace card of `c` for the viewer: match, saved flag, accepting flag, `mine`.
+   * Brand viewer (`ctx` null): no match, never saved, no myBooking (brands have no supplier bookings).
+   */
+  function card(
+    state: DemoState,
+    c: Campaign,
+    viewerId: string,
+    ctx: SupplierMatchContext | null,
+    saved: Set<string>,
+    t: number,
+  ): MarketplaceCampaign {
+    const item: MarketplaceCampaign = {
+      ...toMarketplaceCampaign(state, c, ctx ? viewerId : null, t),
       saved: saved.has(c.id),
       accepting: isAcceptingApplications(c, t),
+      mine: c.brandAccountId === viewerId,
     };
+    if (ctx) item.match = matchCampaign(c, ctx);
+    return item;
+  }
+
+  /** Viewer's match context + bookmarks (empty / null for a brand viewer). */
+  function viewerContext(state: DemoState, me: { accountId: string; brand: boolean }, t: number) {
+    return me.brand
+      ? { ctx: null, saved: new Set<string>() }
+      : { ctx: supplierMatchContext(state, me.accountId, t), saved: savedIds(state, me.accountId) };
   }
 
   const savedIds = (state: DemoState, accountId: string) =>
@@ -344,7 +365,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     return (m: MarketplaceCampaign) => !kw || normalizeText(`${m.name} ${m.objective} ${m.brief} ${m.brand.company}`).includes(kw);
   }
 
-  /** Sort (default 'match': score desc, then newest). */
+  /** Sort (default 'match': score desc, then newest — without match scores (brand viewer) that is just newest). */
   function compare(sort: MarketplaceFilters['sort'] = 'match') {
     const deadline = (m: MarketplaceCampaign) => (m.applyDeadline ? endOfDay(m.applyDeadline) : Infinity);
     return (a: MarketplaceCampaign, b: MarketplaceCampaign) => {
@@ -355,12 +376,15 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     };
   }
 
-  function marketplaceList(filters: MarketplaceFilters, only?: (c: Campaign, saved: Set<string>) => boolean): MarketplaceCampaign[] {
+  function marketplaceList(
+    filters: MarketplaceFilters,
+    only?: (c: Campaign, saved: Set<string>) => boolean,
+    allowBrand = false,
+  ): MarketplaceCampaign[] {
     const state = db.read();
-    const me = marketplaceViewer(state);
+    const me = marketplaceViewer(state, { allowBrand });
     const t = now();
-    const ctx = supplierMatchContext(state, me.accountId, t);
-    const saved = savedIds(state, me.accountId);
+    const { ctx, saved } = viewerContext(state, me, t);
     return state.campaigns
       .filter((c) => isAcceptingApplications(c, t))
       .filter((c) => !only || only(c, saved))
@@ -373,21 +397,23 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /**
    * Campaigns open for applications (MARKETPLACE, OPEN / RUNNING, deadline not passed), each with the viewer's
    * `match` ("Phù hợp với bạn") and `saved` flag. Default sort 'match'.
+   * BIZ accounts may browse read-only (no match / saved / myBooking; `mine` marks their own campaigns).
    */
   async function listMarketplace(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
     await wait();
-    return marketplaceList(filters);
+    return marketplaceList(filters, undefined, true);
   }
 
   /** Marketplace detail (+ match, saved, brand block); 4801 unless open for applications or the supplier has a booking on it. */
   async function getMarketplaceItem(id: string): Promise<MarketplaceCampaign> {
     await wait();
     const state = db.read();
-    const me = marketplaceViewer(state);
+    const me = marketplaceViewer(state, { allowBrand: true });
     const t = now();
     const c = state.campaigns.find((x) => x.id === id);
     if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
-    const item = card(state, c, me.accountId, supplierMatchContext(state, me.accountId, t), savedIds(state, me.accountId), t);
+    const { ctx, saved } = viewerContext(state, me, t);
+    const item = card(state, c, me.accountId, ctx, saved, t);
     if (!isAcceptingApplications(c, t) && !(c.visibility === 'MARKETPLACE' && item.myBooking)) throw new KolhubError('KOLHUB-4801');
     return { ...item, brandInfo: brandInfoOf(state, c.brandAccountId, t) };
   }

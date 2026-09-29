@@ -220,7 +220,7 @@ export interface MarketplaceCampaign {
   applicationCount: number;
   /** The viewer's own occupying booking on this campaign, if any (invite or application). */
   myBooking?: { id: string; status: BookingStatus; origin: BookingOrigin };
-  /** Fit for the viewer (listMarketplace / listSaved / getMarketplaceItem / listApplied). */
+  /** Fit for the viewer (listMarketplace / listSaved / getMarketplaceItem / listApplied); undefined for a brand viewer. */
   match?: CampaignMatch;
   /** The viewer bookmarked it ("Đã lưu"). */
   saved?: boolean;
@@ -228,6 +228,8 @@ export interface MarketplaceCampaign {
   accepting?: boolean;
   /** getMarketplaceItem only: the "Nhãn hàng" block. */
   brandInfo?: MarketplaceBrandInfo;
+  /** The viewer is the brand that owns this campaign (only ever true for a BIZ viewer). */
+  mine?: boolean;
 }
 
 /** "Đã ứng tuyển": one of the viewer's applications with its campaign. */

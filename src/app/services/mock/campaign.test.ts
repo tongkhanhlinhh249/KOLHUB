@@ -58,10 +58,9 @@ describe('quyền truy cập', () => {
     await expect(svc.create({ name: 'X' })).rejects.toMatchObject({ code: 'KOLHUB-4016' });
   });
 
-  test('ứng tuyển cần MCN/KOL đã duyệt (4806); xem Sàn: mọi KOL/MCN đã đăng nhập', async () => {
-    as(BRAND);
-    await expect(svc.listMarketplace()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+  test('ứng tuyển cần MCN/KOL đã duyệt (4806); xem Sàn: mọi KOL/MCN/Nhãn hàng đã đăng nhập', async () => {
     as(null);
+    await expect(svc.listMarketplace()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.agencyTravel)).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     as(h.mcnId); // MCN hồ sơ DRAFT: xem Sàn (chỉ đọc) được, ứng tuyển thì không
     expect((await svc.listMarketplace()).length).toBeGreaterThan(0);
@@ -413,6 +412,62 @@ describe('Sàn v2 — chiến dịch đã lưu', () => {
     as(h.mcnId);
     await svc.saveCampaign(SEED_CAMPAIGN.agencyTravel);
     expect((await svc.listSaved()).map((c) => c.id)).toEqual([SEED_CAMPAIGN.agencyTravel]);
+  });
+});
+
+describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
+  test('Nhãn hàng xem được danh sách: không match / saved / myBooking; mine = chiến dịch của mình', async () => {
+    as(BRAND);
+    const list = await svc.listMarketplace();
+    expect(list.map((c) => c.id)).toEqual([
+      SEED_CAMPAIGN.agencyHeadphones,
+      SEED_CAMPAIGN.livestream,
+      SEED_CAMPAIGN.agencyFashion,
+      SEED_CAMPAIGN.agencyChallenge,
+      SEED_CAMPAIGN.marketplace,
+      SEED_CAMPAIGN.agencyEnglish,
+      SEED_CAMPAIGN.yogurt,
+      SEED_CAMPAIGN.agencyTravel,
+    ]); // sort mặc định 'match' → mới nhất
+    for (const c of list) {
+      expect(c.match).toBeUndefined();
+      expect(c.saved).toBe(false);
+      expect(c.myBooking).toBeUndefined();
+      expect(c).not.toHaveProperty('brandAccountId');
+    }
+    expect(list.filter((c) => c.mine).map((c) => c.id).sort()).toEqual(
+      [SEED_CAMPAIGN.livestream, SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.yogurt].sort(),
+    );
+    expect(list.find((c) => c.id === SEED_CAMPAIGN.marketplace)!.applicationCount).toBe(1);
+    expect((await svc.listMarketplace({ sort: 'budget' })).map((c) => c.budget)).toEqual(
+      [...list.map((c) => c.budget)].sort((a, b) => b - a),
+    );
+  });
+
+  test('chi tiết: khối Nhãn hàng, mine đúng; chiến dịch không trên Sàn → 4801', async () => {
+    as(AGENCY);
+    const other = await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace);
+    expect(other).toMatchObject({ mine: false, saved: false });
+    expect(other.match).toBeUndefined();
+    expect(other.myBooking).toBeUndefined();
+    expect(other.brandInfo?.company).toBe('Công ty Demo Sữa');
+    expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.agencyTravel)).mine).toBe(true);
+    await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
+    await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.draft)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
+  });
+
+  test('Nhãn hàng không lưu / ứng tuyển / xem Đã lưu, Đã ứng tuyển (4806)', async () => {
+    as(BRAND);
+    await expect(svc.saveCampaign(SEED_CAMPAIGN.agencyTravel)).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.unsaveCampaign(SEED_CAMPAIGN.agencyTravel)).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.listSaved()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.listApplied()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+  });
+
+  test('nhà cung cấp: mine luôn false', async () => {
+    as(SAOVIET);
+    expect((await svc.listMarketplace()).every((c) => c.mine === false)).toBe(true);
   });
 });
 
