@@ -220,7 +220,7 @@ export interface MarketplaceCampaign {
   applicationCount: number;
   /** The viewer's own occupying booking on this campaign, if any (invite or application). */
   myBooking?: { id: string; status: BookingStatus; origin: BookingOrigin };
-  /** Fit for the viewer (listMarketplace / listSaved / getMarketplaceItem / listApplied); undefined for a brand viewer. */
+  /** Fit for the viewer (listMarketplace / listSaved / getMarketplaceItem / listApplied); undefined for a brand viewer or a guest. */
   match?: CampaignMatch;
   /** The viewer bookmarked it ("Đã lưu"). */
   saved?: boolean;

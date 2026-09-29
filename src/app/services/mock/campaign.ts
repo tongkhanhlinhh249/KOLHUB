@@ -309,12 +309,14 @@ export function createCampaignService(deps: CampaignServiceDeps) {
 
   /**
    * Who is browsing the marketplace: any signed-in KOL / MCN (read-only while the profile is not approved yet);
-   * applying still needs an approved profile (currentSupplier, 4806). With `allowBrand`, a BIZ account may browse
-   * read-only (listMarketplace / getMarketplaceItem only). Others (guests) → 4806.
+   * applying still needs an approved profile (currentSupplier, 4806). With `allowPublic`, a BIZ account or a guest
+   * (no session, accountId '') may browse read-only (listMarketplace / getMarketplaceItem only: public brief fields,
+   * no match / saved / myBooking). Otherwise guests and BIZ → 4806.
    */
-  function marketplaceViewer(state: DemoState, opts: { allowBrand?: boolean } = {}): { accountId: string; brand: boolean } {
+  function marketplaceViewer(state: DemoState, opts: { allowPublic?: boolean } = {}): { accountId: string; brand: boolean } {
     const acc = state.sessionAccountId ? state.accounts.find((a) => a.id === state.sessionAccountId) : undefined;
-    if (acc && opts.allowBrand && acc.type === 'BIZ') return { accountId: acc.id, brand: true };
+    if (opts.allowPublic && !acc) return { accountId: '', brand: true };
+    if (acc && opts.allowPublic && acc.type === 'BIZ') return { accountId: acc.id, brand: true };
     if (acc?.type !== 'KOL' && acc?.type !== 'MCN') throw new KolhubError('KOLHUB-4806');
     return { accountId: acc.id, brand: false };
   }
@@ -379,10 +381,10 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   function marketplaceList(
     filters: MarketplaceFilters,
     only?: (c: Campaign, saved: Set<string>) => boolean,
-    allowBrand = false,
+    allowPublic = false,
   ): MarketplaceCampaign[] {
     const state = db.read();
-    const me = marketplaceViewer(state, { allowBrand });
+    const me = marketplaceViewer(state, { allowPublic });
     const t = now();
     const { ctx, saved } = viewerContext(state, me, t);
     return state.campaigns
@@ -397,7 +399,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /**
    * Campaigns open for applications (MARKETPLACE, OPEN / RUNNING, deadline not passed), each with the viewer's
    * `match` ("Phù hợp với bạn") and `saved` flag. Default sort 'match'.
-   * BIZ accounts may browse read-only (no match / saved / myBooking; `mine` marks their own campaigns).
+   * BIZ accounts and guests may browse read-only (no match / saved / myBooking; `mine` marks a brand's own campaigns).
    */
   async function listMarketplace(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
     await wait();
@@ -408,7 +410,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   async function getMarketplaceItem(id: string): Promise<MarketplaceCampaign> {
     await wait();
     const state = db.read();
-    const me = marketplaceViewer(state, { allowBrand: true });
+    const me = marketplaceViewer(state, { allowPublic: true });
     const t = now();
     const c = state.campaigns.find((x) => x.id === id);
     if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
