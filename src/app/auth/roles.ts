@@ -6,6 +6,7 @@ import {
   Handshake,
   IdCard,
   LogIn,
+  Megaphone,
   MonitorPlay,
   Search,
   ShieldAlert,
@@ -64,15 +65,18 @@ export const BRAND_VIOLATIONS_PATH = '/vi-pham-kol';
 /** Brand list of verified channels (one row per channel). */
 export const CHANNEL_DIRECTORY_PATH = '/danh-sach-kenh';
 
-/** Brand: 5 menu items → 4 tabs + "Thêm" (Tài khoản doanh nghiệp). */
+/** Brand campaigns (campaign booking beta): list, /tao, /:id, /:id/sua. */
+export const CAMPAIGNS_PATH = '/chien-dich';
+
+/** Brand: 6 menu items → 4 tabs + "Thêm" (Danh sách vi phạm, Tài khoản doanh nghiệp). */
 const BRAND_BOTTOM_NAV: BottomNavConfig = {
   items: [
     { icon: Search, label: 'Tìm KOL', path: '/tim-kiem-kol' },
+    { icon: Megaphone, label: 'Chiến dịch', path: CAMPAIGNS_PATH },
     { icon: MonitorPlay, label: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
     { icon: BookMarked, label: 'Đã lưu', path: '/danh-sach-da-luu' },
-    { icon: ShieldAlert, label: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
   ],
-  more: ['/tai-khoan-doanh-nghiep'],
+  more: [BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep'],
 };
 
 const SAFETY_MENU: MenuItem[] = [
@@ -156,6 +160,7 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
     home: '/tim-kiem-kol',
     menu: [
       { icon: Search, label: 'Tìm kiếm KOL', shortLabel: 'Tìm KOL', path: '/tim-kiem-kol' },
+      { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: CAMPAIGNS_PATH },
       { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
       { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu' },
       { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
@@ -247,6 +252,7 @@ const DESCRIPTIONS: Record<string, string> = {
   '/san-chien-dich': 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',
   '/booking': 'Lời mời và đề xuất với Nhãn hàng: thương lượng giá, nộp nội dung, xác nhận thanh toán',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
+  '/chien-dich': 'Tạo chiến dịch, mời KOL/MCN, duyệt nội dung và theo dõi kết quả',
   '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
   '/danh-sach-da-luu': 'Các KOL bạn đã lưu theo danh sách',
   '/kiem-duyet/vi-pham': 'Vi phạm nội dung trên các kênh của bạn: xem chi tiết, khắc phục hoặc khiếu nại',
@@ -261,6 +267,14 @@ const DESCRIPTIONS: Record<string, string> = {
 const MONITOR_DETAIL = /^\/kiem-duyet\/(tiktok|facebook|youtube)\/[^/]+$/;
 const MONITOR_DETAIL_DESCRIPTION = 'Sức khoẻ kênh và kết quả quét video gần nhất';
 
+/** Sub-pages of /chien-dich (title stays "Chiến dịch"). */
+function campaignSubDescription(p: string): string | undefined {
+  if (p === `${CAMPAIGNS_PATH}/tao`) return 'Nhập brief, ngân sách, thời gian và hạng mục; lưu nháp hoặc đăng';
+  if (/^\/chien-dich\/[^/]+\/sua$/.test(p)) return 'Sửa thông tin chiến dịch (bản nháp hoặc đang mở)';
+  if (/^\/chien-dich\/[^/]+$/.test(p)) return 'Booking, đề xuất ứng tuyển, duyệt nội dung và báo cáo của chiến dịch';
+  return undefined;
+}
+
 const EXTRA_TITLES: Record<string, string> = { '/quen-mat-khau': 'Quên mật khẩu' };
 
 /**
@@ -273,7 +287,7 @@ export function getPageMeta(path: string, role?: RoleKey): { title: string; grou
   for (const r of order) {
     const item = ROLE_CONFIG[r].menu.find((m) => matches(p, m.path));
     if (item) {
-      const description = MONITOR_DETAIL.test(p) ? MONITOR_DETAIL_DESCRIPTION : DESCRIPTIONS[item.path];
+      const description = MONITOR_DETAIL.test(p) ? MONITOR_DETAIL_DESCRIPTION : (campaignSubDescription(p) ?? DESCRIPTIONS[item.path]);
       return { title: item.label, group: ROLE_CONFIG[r].label, ...(description ? { description } : {}) };
     }
   }

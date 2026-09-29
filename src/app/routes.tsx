@@ -28,6 +28,10 @@ import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
 // --- campaign booking (KOL/MCN supplier side) ---
 import { MarketplacePage } from './features/supplier-booking/MarketplacePage';
 import { BookingsPage } from './features/supplier-booking/BookingsPage';
+// --- campaign booking (Brand) ---
+import { CampaignsPage } from './features/campaigns/CampaignsPage';
+import { CampaignFormPage } from './features/campaigns/CampaignFormPage';
+import { CampaignDetailPage } from './features/campaigns/CampaignDetailPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
@@ -85,6 +89,15 @@ export const router = createBrowserRouter([
           { path: 'san-chien-dich', element: <MarketplacePage /> },
           { path: 'booking', element: <BookingsPage /> },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
+          {
+            path: 'chien-dich',
+            children: [
+              { index: true, element: <CampaignsPage /> },
+              { path: 'tao', element: <CampaignFormPage key="new" /> },
+              { path: ':id', element: <CampaignDetailPage /> },
+              { path: ':id/sua', element: <CampaignFormPage /> },
+            ],
+          },
           { path: 'danh-sach-kenh', element: <ChannelDirectoryPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },
           { path: 'vi-pham-kol', element: <BrandViolationsPage /> },

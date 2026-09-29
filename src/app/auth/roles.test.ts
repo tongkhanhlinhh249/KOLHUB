@@ -138,15 +138,16 @@ describe('bottomNavOf', () => {
         expect(resolveAccess(role, p)).toEqual({ allow: true });
     }
   });
-  test('Nhãn hàng: 4 tab + "Thêm" (Tài khoản doanh nghiệp); khách: mọi mục menu là tab', () => {
+  test('Nhãn hàng: 4 tab + "Thêm" (Danh sách vi phạm, Tài khoản doanh nghiệp); khách: mọi mục menu là tab', () => {
     const nav = bottomNavOf('kolhub.user.biz');
     expect(nav.items.map((i) => [i.label, i.path])).toEqual([
       ['Tìm KOL', '/tim-kiem-kol'],
+      ['Chiến dịch', '/chien-dich'],
       ['Kênh', '/danh-sach-kenh'],
       ['Đã lưu', '/danh-sach-da-luu'],
-      ['Vi phạm', '/vi-pham-kol'],
     ]);
-    expect(nav.more.map((m) => m.path)).toEqual(['/tai-khoan-doanh-nghiep']);
+    expect(nav.more.map((m) => m.path)).toEqual(['/vi-pham-kol', '/tai-khoan-doanh-nghiep']);
+    expect(isNavActive('/chien-dich/cmp-1/sua', nav.items[1])).toBe(true);
     for (const p of [...nav.items.map((i) => i.path), ...nav.more.map((m) => m.path)])
       expect(resolveAccess('kolhub.user.biz', p)).toEqual({ allow: true });
     expect(bottomNavOf('kolhub.guest').items).toHaveLength(2);
@@ -191,11 +192,24 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     ]);
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => m.path)).toEqual([
       '/tim-kiem-kol',
+      '/chien-dich',
       '/danh-sach-kenh',
       '/danh-sach-da-luu',
       '/vi-pham-kol',
       '/tai-khoan-doanh-nghiep',
     ]);
+  });
+  test('getPageMeta: Chiến dịch (Nhãn hàng) và các trang con', () => {
+    expect(getPageMeta('/chien-dich?trang-thai=dang-mo', 'kolhub.user.biz')).toEqual({
+      title: 'Chiến dịch',
+      group: 'Nhãn hàng/Agency',
+      description: 'Tạo chiến dịch, mời KOL/MCN, duyệt nội dung và theo dõi kết quả',
+    });
+    expect(getPageMeta('/chien-dich/tao').description).toMatch(/^Nhập brief/);
+    expect(getPageMeta('/chien-dich/cmp-1').description).toMatch(/^Booking, đề xuất/);
+    expect(getPageMeta('/chien-dich/cmp-1/sua')).toMatchObject({ title: 'Chiến dịch', description: 'Sửa thông tin chiến dịch (bản nháp hoặc đang mở)' });
+    expect(resolveAccess('kolhub.user.biz', '/chien-dich/cmp-1')).toEqual({ allow: true });
+    expect(resolveAccess('kolhub.user.kol', '/chien-dich')).toMatchObject({ allow: false, reason: 'forbidden' });
   });
   test('getPageMeta', () => {
     expect(getPageMeta('/san-chien-dich?chien-dich=x', 'kolhub.user.mcn')).toEqual({
