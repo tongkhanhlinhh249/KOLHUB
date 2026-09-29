@@ -14,6 +14,9 @@ import {
   formatVndInput,
   MARKETPLACE_TABS,
   marketplaceDetailPath,
+  loginToApplyPath,
+  brandCampaignPath,
+  marketplaceViewerOf,
   marketplaceTabParam,
   matchLabel,
   matchTone,
@@ -201,9 +204,17 @@ describe('tham số URL', () => {
   test('Booking: tab, link chi tiết', () => {
     expect(parseBookingTab(new URLSearchParams('tab=hoan-tat'))).toBe('hoan-tat');
     expect(parseBookingTab(new URLSearchParams('tab=x'))).toBe('can-xu-ly');
-    expect(bookingDetailPath('bk-1')).toBe('/booking?booking=bk-1');
-    expect(bookingDetailPath('bk-1', 'hoan-tat')).toBe('/booking?tab=hoan-tat&booking=bk-1');
-    expect(marketplaceDetailPath('c 1')).toBe('/san-chien-dich?chien-dich=c%201');
+    expect(bookingDetailPath('bk-1')).toBe('/chien-dich-cua-toi?booking=bk-1');
+    expect(bookingDetailPath('bk-1', 'hoan-tat')).toBe('/chien-dich-cua-toi?tab=hoan-tat&booking=bk-1');
+    expect(marketplaceDetailPath('c 1')).toBe('/san?chien-dich=c%201');
+    expect(loginToApplyPath('cmp-1')).toBe('/dang-nhap?returnTo=%2Fsan%3Fchien-dich%3Dcmp-1');
+    expect(brandCampaignPath('cmp-1')).toBe('/chien-dich/cmp-1');
+  });
+  test('marketplaceViewerOf: khách, KOL/MCN, Nhãn hàng', () => {
+    expect(marketplaceViewerOf('kolhub.guest')).toBe('guest');
+    expect(marketplaceViewerOf('kolhub.user.kol')).toBe('supplier');
+    expect(marketplaceViewerOf('kolhub.user.mcn')).toBe('supplier');
+    expect(marketplaceViewerOf('kolhub.user.biz')).toBe('brand');
     expect(withParam(new URLSearchParams('tab=a&booking=b'), 'booking', null).toString()).toBe('tab=a');
   });
 });

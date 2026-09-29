@@ -31,6 +31,7 @@ import {
   MARKETPLACE_TABS,
   marketplaceFilterCount,
   marketplaceTabParam,
+  marketplaceViewerOf,
   mergeMarketplaceParams,
   parseMarketplaceParams,
   parseMarketplaceTab,
@@ -39,7 +40,9 @@ import {
   withParam,
   type MarketplaceQuery,
   type MarketplaceTab,
+  type MarketplaceViewer,
 } from './supplierBooking';
+import { useAuth } from '../../auth/AuthContext';
 import { SupplierGate, useSupplierAccess } from './useSupplierAccess';
 
 /** FilterSelect variant whose options carry an icon (field icons, platform logos). */
@@ -116,23 +119,41 @@ const EMPTY: Record<MarketplaceTab, { icon: typeof Store; title: string; text: s
   },
 };
 
+const INTRO: Record<MarketplaceViewer, string> = {
+  guest: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN. Xem brief, ngân sách và hạng mục; đăng nhập để ứng tuyển.',
+  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, xếp theo mức phù hợp với bạn. Lưu lại hoặc gửi đề xuất ứng tuyển.',
+  brand: 'Xem các chiến dịch đang nhận đề xuất trên Sàn. Chiến dịch của bạn được đánh dấu "Của bạn".',
+};
+
+/** Sorts without "Phù hợp nhất" (no match score for guests / Brands). */
+const PUBLIC_SORTS = MARKETPLACE_SORTS.filter((s) => s.key !== 'match');
+
 /**
- * /san-chien-dich — campaigns open for applications. Any KOL/MCN can browse and save; only approved profiles apply.
- * Tabs `?tab=` (Tất cả · Đã lưu · Đã ứng tuyển), filters in the URL (default sort "Phù hợp nhất"),
- * `?chien-dich=<id>` opens the detail sheet.
+ * /san — the public Sàn chiến dịch (inside MarketplaceLayout; the keyword box lives in its header).
+ * KOL/MCN: tabs `?tab=` (Tất cả · Đã lưu · Đã ứng tuyển), default sort "Phù hợp nhất", save, apply (approved only).
+ * Guest / Brand: "Tất cả" only, read-only, default sort "Mới nhất". `?chien-dich=<id>` opens the detail sheet.
  */
 export function MarketplacePage() {
-  const access = useSupplierAccess();
+  const { role } = useAuth();
+  const viewer = marketplaceViewerOf(role);
+  const supplier = viewer === 'supplier';
+  const access = useSupplierAccess(supplier);
   const [params, setParams] = useSearchParams();
   const paramsKey = params.toString();
-  const query = useMemo(() => parseMarketplaceParams(new URLSearchParams(paramsKey), KOL_CATEGORIES), [paramsKey]);
-  const tab = parseMarketplaceTab(params);
+  const parsed = useMemo(() => parseMarketplaceParams(new URLSearchParams(paramsKey), KOL_CATEGORIES), [paramsKey]);
+  const query = useMemo<MarketplaceQuery>(
+    () => (!supplier && parsed.sort === 'match' ? { ...parsed, sort: 'newest' } : parsed),
+    [parsed, supplier],
+  );
+  const tab: MarketplaceTab = supplier ? parseMarketplaceTab(params) : 'tat-ca';
   const filtersKey = JSON.stringify(toMarketplaceFilters(query));
-  const q = useLiveQuery(() => loadTab(tab, JSON.parse(filtersKey)), [tab, filtersKey]);
-  // Unfiltered counts for the tab badges.
+  // `role` in the deps: reload when the demo switches account while staying on the Sàn.
+  const q = useLiveQuery(() => loadTab(tab, JSON.parse(filtersKey)), [tab, filtersKey, role]);
+  // Unfiltered counts for the tab badges (KOL/MCN only).
   const counts = useLiveQuery(
-    async () => ({ saved: (await campaignService.listSaved()).length, applied: (await campaignService.listApplied()).length }),
-    [],
+    async () =>
+      supplier ? { saved: (await campaignService.listSaved()).length, applied: (await campaignService.listApplied()).length } : null,
+    [supplier, role],
   );
   const detailId = params.get(MARKETPLACE_DETAIL_PARAM);
 
@@ -146,6 +167,7 @@ export function MarketplacePage() {
   const setTab = (t: string) => setParams((prev) => withParam(prev, 'tab', marketplaceTabParam(t as MarketplaceTab)), { replace: true });
 
   const chips: FilterChip[] = [];
+  if (query.keyword) chips.push({ key: 'keyword', label: `“${query.keyword}”`, remove: () => change({ keyword: undefined }) });
   if (query.category) chips.push({ key: 'category', label: query.category, remove: () => change({ category: undefined }) });
   if (query.platform) chips.push({ key: 'platform', label: platformName(query.platform), remove: () => change({ platform: undefined }) });
   if (query.budget)
@@ -161,7 +183,7 @@ export function MarketplacePage() {
   let body: ReactNode;
   if (!data && !q.error) {
     body = (
-      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải chiến dịch">
+      <div className="grid gap-3 @5xl:grid-cols-2" aria-busy="true" aria-label="Đang tải chiến dịch">
         {[0, 1, 2].map((i) => (
           <MarketplaceCampaignCardSkeleton key={i} />
         ))}
@@ -206,9 +228,9 @@ export function MarketplacePage() {
     );
   } else if (data?.tab === 'da-ung-tuyen') {
     body = (
-      <ul className="flex flex-col gap-3" aria-label="Đề xuất đã gửi">
+      <ul className="grid gap-3 @5xl:grid-cols-2" aria-label="Đề xuất đã gửi">
         {data.list.map((a) => (
-          <li key={a.booking.id}>
+          <li key={a.booking.id} className="min-w-0 [&>*]:h-full">
             <AppliedCampaignCard item={a} now={now} />
           </li>
         ))}
@@ -216,10 +238,10 @@ export function MarketplacePage() {
     );
   } else if (data) {
     body = (
-      <ul className="flex flex-col gap-3" aria-label={tab === 'da-luu' ? 'Chiến dịch đã lưu' : 'Chiến dịch đang nhận đề xuất'}>
+      <ul className="grid gap-3 @5xl:grid-cols-2" aria-label={tab === 'da-luu' ? 'Chiến dịch đã lưu' : 'Chiến dịch đang nhận đề xuất'}>
         {data.list.map((c) => (
-          <li key={c.id}>
-            <MarketplaceCampaignCard campaign={c} now={now} onOpen={() => openDetail(c.id)} />
+          <li key={c.id} className="min-w-0 [&>*]:h-full">
+            <MarketplaceCampaignCard campaign={c} now={now} onOpen={() => openDetail(c.id)} viewer={viewer} />
           </li>
         ))}
       </ul>
@@ -229,24 +251,31 @@ export function MarketplacePage() {
   const tabCount = (t: MarketplaceTab) => (t === 'da-luu' ? counts.data?.saved : t === 'da-ung-tuyen' ? counts.data?.applied : undefined);
 
   return (
-    <div className="@container mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
-      {!access.loading && !access.approved && <SupplierGate ownerType={access.ownerType} status={access.status} />}
-
-      <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="h-auto" aria-label="Danh sách chiến dịch">
-            {MARKETPLACE_TABS.map((t) => {
-              const n = tabCount(t.key);
-              return (
-                <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
-                  {t.label}
-                  {n !== undefined && <span className="rounded-full bg-background/70 px-1.5 text-xs text-muted-foreground tabular-nums">{n}</span>}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
+    <div className="@container w-full space-y-4">
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold text-foreground md:text-2xl">Chiến dịch đang tìm KOL</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">{INTRO[viewer]}</p>
       </div>
+
+      {supplier && !access.loading && !access.approved && <SupplierGate ownerType={access.ownerType} status={access.status} />}
+
+      {supplier && (
+        <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList className="h-auto" aria-label="Danh sách chiến dịch">
+              {MARKETPLACE_TABS.map((t) => {
+                const n = tabCount(t.key);
+                return (
+                  <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
+                    {t.label}
+                    {n !== undefined && <span className="rounded-full bg-background/70 px-1.5 text-xs text-muted-foreground tabular-nums">{n}</span>}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
 
       <FilterBar
         keyword={query.keyword}
@@ -284,8 +313,14 @@ export function MarketplacePage() {
         filterGridClass="grid-cols-3"
         inlineFilterClass="@4xl:w-40"
         renderSort={(className) => (
-          <SortSelect value={query.sort} options={MARKETPLACE_SORTS} onChange={(sort) => change({ sort })} className={className} />
+          <SortSelect
+            value={query.sort}
+            options={supplier ? MARKETPLACE_SORTS : PUBLIC_SORTS}
+            onChange={(sort) => change({ sort })}
+            className={className}
+          />
         )}
+        hideSearch
         sortClass="@4xl:w-60"
         filterCount={marketplaceFilterCount(query)}
         active={hasMarketplaceFilters(query)}
@@ -302,7 +337,7 @@ export function MarketplacePage() {
 
       {body}
 
-      <CampaignDetailSheet campaignId={detailId} onClose={() => openDetail(null)} access={access} />
+      <CampaignDetailSheet campaignId={detailId} onClose={() => openDetail(null)} access={access} viewer={viewer} />
     </div>
   );
 }

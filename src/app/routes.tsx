@@ -1,8 +1,10 @@
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
+import { createBrowserRouter, Navigate, useLocation, type RouteObject } from 'react-router';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AccessGuard } from './auth/AccessGuard';
 import { GuestLayout } from './layouts/GuestLayout';
+import { MarketplaceLayout } from './layouts/MarketplaceLayout';
+import { MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from './auth/roles';
 import { RegisterPage } from './features/register/RegisterPage';
 import { LoginPage } from './features/login/LoginPage';
 import { ForgotPasswordPage } from './features/login/ForgotPasswordPage';
@@ -36,6 +38,12 @@ import { CampaignDetailPage } from './features/campaigns/CampaignDetailPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
 const PHASE_3 = 'Màn hình này sẽ có ở Đợt 3 của bản demo.';
+
+/** Moved page: redirect keeping the query and hash (e.g. /booking?booking=… → /chien-dich-cua-toi?booking=…). */
+function MovedTo({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
 
 /** /ho-so-kol|mcn → first section (legacy ?tab= honoured); one route per section (sidebar item) + old section redirects. */
 function profileRoutes(path: string, ownerType: OwnerType, extra: RouteObject[] = []): RouteObject {
@@ -71,6 +79,9 @@ export const router = createBrowserRouter([
           { path: 'quen-mat-khau', element: <ForgotPasswordPage /> },
         ],
       },
+      // Sàn chiến dịch: public, own layout (outside the app shell).
+      { path: 'san', element: <MarketplaceLayout />, children: [{ index: true, element: <MarketplacePage /> }] },
+      { path: 'san-chien-dich', element: <MovedTo to={MARKETPLACE_PATH} /> },
       {
         element: <Layout />,
         children: [
@@ -88,8 +99,8 @@ export const router = createBrowserRouter([
             ],
           },
           { path: 'ung-dung', element: <AppsPage /> },
-          { path: 'san-chien-dich', element: <MarketplacePage /> },
-          { path: 'booking', element: <BookingsPage /> },
+          { path: 'chien-dich-cua-toi', element: <BookingsPage /> },
+          { path: 'booking', element: <MovedTo to={SUPPLIER_CAMPAIGNS_PATH} /> },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           {
             path: 'chien-dich',

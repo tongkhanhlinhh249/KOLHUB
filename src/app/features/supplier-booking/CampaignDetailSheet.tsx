@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, Building2, Loader2, Pencil, RotateCcw } from 'lucide-react';
+import { AlertCircle, Building2, Loader2, LogIn, Pencil, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
@@ -19,17 +19,20 @@ import {
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
-import { MyBookingBadge } from './MarketplaceCampaignCard';
+import { MineBadge, MyBookingBadge } from './MarketplaceCampaignCard';
 import { BrandInfoBlock, MatchDetails, SaveButton } from './MarketplaceParts';
 import { CategoryChips, CountdownText, errText, Fact, LongText, PlatformIcons, SheetSection } from './parts';
 import {
   bookingDetailPath,
+  brandCampaignPath,
   deadlineCountdown,
   deliverableLabel,
   formatDay,
   formatDayRange,
   formatVnd,
+  loginToApplyPath,
   platformName,
+  type MarketplaceViewer,
 } from './supplierBooking';
 import { SupplierGate } from './useSupplierAccess';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
@@ -37,16 +40,20 @@ import { PlatformIcon } from '../biz-search/PlatformIcon';
 /**
  * Marketplace campaign detail (?chien-dich=): brief, deliverables, content rules, dates and the
  * "Ứng tuyển" action — or the viewer's booking on it, or the profile gate when not approved.
+ * Guest: "Đăng nhập để ứng tuyển". Brand: read-only; own campaigns link to their campaign page.
  */
 export function CampaignDetailSheet({
   campaignId,
   onClose,
   access,
+  viewer = 'supplier',
 }: {
   campaignId: string | null;
   onClose(): void;
   access: { accountId: string; ownerType: OwnerType; status?: ProfileStatus; approved: boolean };
+  viewer?: MarketplaceViewer;
 }) {
+  const supplier = viewer === 'supplier';
   const q = useLiveQuery(() => (campaignId ? campaignService.getMarketplaceItem(campaignId) : Promise.resolve(null)), [campaignId]);
   const c = q.data && q.data.id === campaignId ? q.data : null;
   const [applyOpen, setApplyOpen] = useState(false);
@@ -59,7 +66,7 @@ export function CampaignDetailSheet({
   const closed = !!countdown?.passed;
   const myBookingId = c?.myBooking?.id ?? (applied && applied.campaignId === c?.id ? applied.id : undefined);
   // Sàn v2: an application the brand has not answered yet can be edited or withdrawn here.
-  const editable = access.approved && c?.myBooking?.origin === 'APPLICATION' && c.myBooking.status === 'APPLIED';
+  const editable = supplier && access.approved && c?.myBooking?.origin === 'APPLICATION' && c.myBooking.status === 'APPLIED';
 
   const startEdit = async () => {
     if (!c?.myBooking) return;
@@ -122,6 +129,7 @@ export function CampaignDetailSheet({
                 <h2 className="pr-8 text-lg font-semibold break-words text-foreground sm:text-xl">{c.name}</h2>
                 <div className="flex flex-wrap items-center gap-2">
                   {c.myBooking && <MyBookingBadge myBooking={c.myBooking} />}
+                  {c.mine && <MineBadge />}
                   <PlatformIcons platforms={c.platforms} withLabel />
                 </div>
               </div>
@@ -190,7 +198,11 @@ export function CampaignDetailSheet({
             </div>
 
             <div className="@container shrink-0 space-y-3 border-t border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:px-6">
-              {myBookingId ? (
+              {viewer === 'guest' ? (
+                <GuestFooter campaignId={c.id} closed={closed} />
+              ) : viewer === 'brand' ? (
+                <BrandFooter campaignId={c.id} mine={!!c.mine} />
+              ) : myBookingId ? (
                 <div className="flex flex-col gap-3 @lg:flex-row @lg:items-center @lg:justify-between">
                   <p className="text-sm text-foreground">
                     {c.myBooking
@@ -237,7 +249,7 @@ export function CampaignDetailSheet({
               )}
             </div>
 
-            {access.approved && (
+            {supplier && access.approved && (
               <ApplyDialog
                 open={applyOpen}
                 onOpenChange={(o) => {
@@ -275,5 +287,40 @@ export function CampaignDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Guest: public brief only; applying needs an account (returns to this campaign after login). */
+function GuestFooter({ campaignId, closed }: { campaignId: string; closed: boolean }) {
+  return (
+    <div className="flex flex-col gap-2 @lg:flex-row @lg:items-center @lg:justify-between">
+      <p className="text-sm text-muted-foreground">
+        {closed ? 'Chiến dịch đã hết hạn nhận đề xuất.' : 'Đăng nhập bằng tài khoản KOL hoặc MCN để ứng tuyển.'}{' '}
+        <Link to="/dang-ky" className="font-medium text-primary underline-offset-4 hover:underline">
+          Chưa có tài khoản? Đăng ký
+        </Link>
+      </p>
+      {!closed && (
+        <Link to={loginToApplyPath(campaignId)} className={buttonVariants({ className: 'h-11 w-full @lg:w-auto md:h-9' })}>
+          <LogIn aria-hidden />
+          Đăng nhập để ứng tuyển
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** Brand: the Sàn is read-only; own campaigns link to their management page. */
+function BrandFooter({ campaignId, mine }: { campaignId: string; mine: boolean }) {
+  if (!mine) {
+    return <p className="text-sm text-muted-foreground">Bạn đang xem Sàn với vai trò Nhãn hàng. Chỉ KOL/MCN mới gửi được đề xuất ứng tuyển.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-2 @lg:flex-row @lg:items-center @lg:justify-between">
+      <p className="text-sm text-foreground">Đây là chiến dịch của bạn. Xem đề xuất ứng tuyển và quản lý booking trong trang chiến dịch.</p>
+      <Link to={brandCampaignPath(campaignId)} className={buttonVariants({ className: 'h-11 w-full @lg:w-auto md:h-9' })}>
+        Quản lý chiến dịch
+      </Link>
+    </div>
   );
 }

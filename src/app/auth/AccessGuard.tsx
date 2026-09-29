@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
-import { GUEST_PATHS, ROLE_CONFIG, resolveAccess, safeReturnTo } from './roles';
+import { GUEST_PATHS, ROLE_CONFIG, isPublicPath, resolveAccess, safeReturnTo } from './roles';
 import type { RoleKey } from '../services';
 import { DemoPanel } from '../demo/DemoPanel';
 
@@ -13,6 +13,8 @@ function isGuestPage(pathname: string): boolean {
 /** Where to go right after the role changed (login, register, logout, demo switch). */
 function afterRoleChange(role: RoleKey, requested: string | null, pathname: string, search: string): string {
   if (requested && resolveAccess(role, requested).allow) return requested;
+  // Public Sàn: stay put whatever the new role is.
+  if (isPublicPath(pathname)) return pathname + search;
   if (role === 'kolhub.guest') return '/dang-nhap';
   if (isGuestPage(pathname)) return safeReturnTo(role, new URLSearchParams(search).get('returnTo'));
   return ROLE_CONFIG[role].home;
@@ -20,7 +22,7 @@ function afterRoleChange(role: RoleKey, requested: string | null, pathname: stri
 
 let forbiddenToastPending = false;
 
-/** Root route element: applies resolveAccess (BR-66..69) to every path. */
+/** Root route element: applies resolveAccess (BR-66..69) to every path; public paths (/san) are never redirected. */
 export function AccessGuard() {
   const { role, pendingRedirect, clearPendingRedirect } = useAuth();
   const { pathname, search } = useLocation();

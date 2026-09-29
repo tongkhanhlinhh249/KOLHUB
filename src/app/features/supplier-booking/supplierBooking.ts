@@ -16,8 +16,10 @@ import {
   type MarketplaceFilters,
   type MarketplaceSort,
   type Platform,
+  type RoleKey,
 } from '../../services';
 import type { Tone } from '../shared/StatusBadges';
+import { CAMPAIGNS_PATH, MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
 
 const DAY = 86_400_000;
 
@@ -423,16 +425,30 @@ export function defaultBookingTab(list: (TabInput & { id: string })[], linkedId?
 export const MARKETPLACE_DETAIL_PARAM = 'chien-dich';
 export const BOOKING_DETAIL_PARAM = 'booking';
 
-/** Link to a booking's detail sheet on /booking (its stage tab selected). */
+/** Link to a booking's detail sheet on the KOL/MCN "Chiến dịch" page /chien-dich-cua-toi (its stage tab selected). */
 export function bookingDetailPath(id: string, tab?: BookingTab): string {
   const p = new URLSearchParams();
   if (tab) p.set('tab', tab);
   p.set(BOOKING_DETAIL_PARAM, id);
-  return `/booking?${p.toString()}`;
+  return `${SUPPLIER_CAMPAIGNS_PATH}?${p.toString()}`;
 }
 
-/** Link to a campaign's detail sheet on /san-chien-dich. */
-export const marketplaceDetailPath = (id: string) => `/san-chien-dich?${MARKETPLACE_DETAIL_PARAM}=${encodeURIComponent(id)}`;
+/** Link to a campaign's detail sheet on the Sàn (/san). */
+export const marketplaceDetailPath = (id: string) => `${MARKETPLACE_PATH}?${MARKETPLACE_DETAIL_PARAM}=${encodeURIComponent(id)}`;
+
+/** Who is looking at the Sàn: guest (public brief only), KOL / MCN (match, save, apply) or Brand (read-only). */
+export type MarketplaceViewer = 'guest' | 'supplier' | 'brand';
+
+export function marketplaceViewerOf(role: RoleKey): MarketplaceViewer {
+  if (role === 'kolhub.guest') return 'guest';
+  return role === 'kolhub.user.biz' ? 'brand' : 'supplier';
+}
+
+/** Guest "Đăng nhập để ứng tuyển": log in, then come back to the campaign's detail on the Sàn. */
+export const loginToApplyPath = (campaignId: string) => `/dang-nhap?returnTo=${encodeURIComponent(marketplaceDetailPath(campaignId))}`;
+
+/** Brand's own campaign page (from "Của bạn" on the Sàn). */
+export const brandCampaignPath = (campaignId: string) => `${CAMPAIGNS_PATH}/${encodeURIComponent(campaignId)}`;
 
 /** Set or clear one param, keeping the others. */
 export function withParam(prev: URLSearchParams, key: string, value: string | null): URLSearchParams {

@@ -107,7 +107,7 @@ function BookingRowSkeleton() {
 }
 
 /**
- * /booking — invites and applications of the signed-in MCN / KOL grouped by stage tabs;
+ * /chien-dich-cua-toi ("Chiến dịch", was /booking) — invites and applications of the signed-in MCN / KOL grouped by stage tabs;
  * `?tab=` selects the stage, `?booking=<id>` opens the detail sheet.
  */
 export function BookingsPage() {
@@ -142,7 +142,7 @@ export function BookingsPage() {
           <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Handshake className="size-6" aria-hidden />
           </div>
-          <p className="font-semibold text-foreground">Booking sẽ xuất hiện ở đây</p>
+          <p className="font-semibold text-foreground">Chiến dịch của bạn sẽ xuất hiện ở đây</p>
           <p className="max-w-md text-sm text-muted-foreground">
             Lời mời từ Nhãn hàng và đề xuất bạn gửi từ Sàn chiến dịch được quản lý tại trang này sau khi hồ sơ được duyệt.
           </p>
@@ -157,7 +157,7 @@ export function BookingsPage() {
   let body: ReactNode;
   if (q.loading && !all) {
     body = (
-      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải booking">
+      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Đang tải chiến dịch">
         {[0, 1, 2].map((i) => (
           <BookingRowSkeleton key={i} />
         ))}
@@ -168,7 +168,7 @@ export function BookingsPage() {
       <Alert variant="destructive">
         <AlertCircle className="size-4" aria-hidden />
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>Không tải được danh sách booking.</span>
+          <span>Không tải được danh sách chiến dịch.</span>
           <Button type="button" variant="outline" size="sm" className="h-11 md:h-8" onClick={q.reload}>
             <RotateCcw aria-hidden />
             Thử lại
@@ -182,7 +182,7 @@ export function BookingsPage() {
         <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Handshake className="size-6" aria-hidden />
         </div>
-        <p className="font-semibold text-foreground">Chưa có booking nào</p>
+        <p className="font-semibold text-foreground">Chưa có chiến dịch nào</p>
         <p className="max-w-md text-sm text-muted-foreground">
           Ứng tuyển chiến dịch trên Sàn chiến dịch hoặc chờ lời mời từ Nhãn hàng. Mọi trao đổi giá, nội dung và thanh toán được theo dõi tại đây.
         </p>
@@ -213,7 +213,7 @@ export function BookingsPage() {
         <>
           <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
             <Tabs value={tab} onValueChange={setTab}>
-              <TabsList className="h-auto" aria-label="Giai đoạn booking">
+              <TabsList className="h-auto" aria-label="Giai đoạn chiến dịch">
                 {BOOKING_TABS.map((t) => (
                   <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
                     {t.label}
@@ -231,7 +231,7 @@ export function BookingsPage() {
             </Tabs>
           </div>
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {all.length} booking
+            {all.length} chiến dịch
             {needsCount > 0 && (
               <>
                 {' · '}

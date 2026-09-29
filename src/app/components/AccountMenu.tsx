@@ -17,13 +17,23 @@ import { cn } from './ui/utils';
  * Signed-in account (profile-driven identity, design §2.2) with "Đăng xuất".
  * `sidebar`: bottom of the sidebar (tablet/desktop) — name, ID and role, or only the avatar when collapsed.
  * `header`: avatar in the topbar on phones, where there is no sidebar.
+ * `market`: Sàn header — avatar, plus the account name from lg.
  */
-export function AccountMenu({ variant, collapsed = false }: { variant: 'sidebar' | 'header'; collapsed?: boolean }) {
+export function AccountMenu({
+  variant,
+  collapsed = false,
+  logoutTo = '/dang-nhap',
+}: {
+  variant: 'sidebar' | 'header' | 'market';
+  collapsed?: boolean;
+  /** Where to land after "Đăng xuất" (the Sàn keeps the user on the public Sàn). */
+  logoutTo?: string;
+}) {
   const { logout } = useAuth();
   const identity = useIdentity();
-  // AccessGuard sends the user to /dang-nhap once the role becomes guest.
-  const handleLogout = () => void logout('/dang-nhap');
-  const compact = variant === 'header' || collapsed;
+  // AccessGuard sends the user to `logoutTo` once the role becomes guest.
+  const handleLogout = () => void logout(logoutTo);
+  const compact = variant !== 'sidebar' || collapsed;
 
   return (
     <DropdownMenu>
@@ -34,10 +44,12 @@ export function AccountMenu({ variant, collapsed = false }: { variant: 'sidebar'
           className={cn(
             'flex items-center gap-2.5 rounded-md text-left transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
             variant === 'header' && 'min-h-11 rounded-full p-1',
+            variant === 'market' && 'min-h-11 rounded-full p-1 lg:pr-3',
             variant === 'sidebar' && (collapsed ? 'mx-auto size-10 justify-center' : 'w-full p-2'),
           )}
         >
           <IdentityAvatar identity={identity} className={variant === 'sidebar' && !collapsed ? 'size-9' : undefined} />
+          {variant === 'market' && <span className="hidden max-w-40 truncate text-sm font-medium text-foreground lg:block">{identity.name}</span>}
           {!compact && (
             <>
               <span className="min-w-0 flex-1">

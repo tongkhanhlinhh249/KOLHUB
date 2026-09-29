@@ -8,6 +8,7 @@ import { MatchPill, MatchReasons, SaveIconButton } from './MarketplaceParts';
 import { BookingStatusBadge, CategoryChips, CountdownText, PlatformIcons } from './parts';
 import {
   bookingDetailPath,
+  brandCampaignPath,
   deadlineCountdown,
   deliverablesSummary,
   expiryCountdown,
@@ -16,18 +17,19 @@ import {
   formatDayRange,
   formatVnd,
   priceText,
+  type MarketplaceViewer,
 } from './supplierBooking';
 
 /**
  * "Đã ứng tuyển" row: one of the viewer's applications with its campaign and booking status.
- * The title links to the booking (/booking?booking=…).
+ * The title links to the booking on the "Chiến dịch" page (/chien-dich-cua-toi?booking=…).
  */
 export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now: number }) {
   const { booking: b, campaign: c } = item;
   const pending = b.status === 'APPLIED' || b.status === 'NEGOTIATING';
   const expiry = pending ? expiryCountdown(b.expiresAt, now) : null;
   return (
-    <Card className="relative gap-3 rounded-[8px] p-4 transition-colors hover:border-primary/40 md:p-5">
+    <Card className="@container relative gap-3 rounded-[8px] p-4 transition-colors hover:border-primary/40 md:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <Building2 className="size-3.5 shrink-0" aria-hidden />
@@ -85,6 +87,11 @@ export function MyBookingBadge({ myBooking }: { myBooking: NonNullable<Marketpla
   return <ToneBadge tone="success">{myBooking.origin === 'APPLICATION' ? 'Đã ứng tuyển' : 'Đã được mời'}</ToneBadge>;
 }
 
+/** Brand viewer: the campaign is one of theirs. */
+export function MineBadge() {
+  return <ToneBadge tone="info">Của bạn</ToneBadge>;
+}
+
 /**
  * One marketplace campaign: brand, name, categories, platforms, deliverables, budget, dates, apply deadline
  * countdown and applications. The title is a stretched button that opens the detail sheet.
@@ -93,17 +100,18 @@ export function MarketplaceCampaignCard({
   campaign: c,
   now,
   onOpen,
-  canSave = true,
+  viewer = 'supplier',
 }: {
   campaign: MarketplaceCampaign;
   now: number;
   onOpen(): void;
-  /** Show the bookmark button (any signed-in KOL / MCN). */
-  canSave?: boolean;
+  /** Bookmark button for any signed-in KOL / MCN; Brand: "Của bạn" on own campaigns; guest: public card only. */
+  viewer?: MarketplaceViewer;
 }) {
+  const canSave = viewer === 'supplier';
   const countdown = deadlineCountdown(c.applyDeadline, now);
   return (
-    <Card className="relative gap-3 rounded-[8px] p-4 transition-colors hover:border-primary/40 md:p-5">
+    <Card className="@container relative gap-3 rounded-[8px] p-4 transition-colors hover:border-primary/40 md:p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 pt-0.5 md:pt-1">
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -112,6 +120,7 @@ export function MarketplaceCampaignCard({
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {c.myBooking && <MyBookingBadge myBooking={c.myBooking} />}
+            {c.mine && <MineBadge />}
             <PlatformIcons platforms={c.platforms} />
           </div>
         </div>
@@ -179,6 +188,16 @@ export function MarketplaceCampaignCard({
           </dd>
         </div>
       </dl>
+
+      {c.mine && (
+        <Link
+          to={brandCampaignPath(c.id)}
+          className="relative z-10 inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
+        >
+          Quản lý chiến dịch
+          <ChevronRight className="size-4" aria-hidden />
+        </Link>
+      )}
 
       {c.myBooking && (
         <Link

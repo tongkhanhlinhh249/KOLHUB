@@ -17,12 +17,15 @@ export interface SupplierAccess {
   loading: boolean;
 }
 
-/** Signed-in KOL / MCN and whether its profile lets it apply and handle bookings (spec §2, 4806). */
-export function useSupplierAccess(): SupplierAccess {
+/**
+ * Signed-in KOL / MCN and whether its profile lets it apply and handle bookings (spec §2, 4806).
+ * `enabled` false (guest / Brand on the public Sàn): no profile is loaded, never approved.
+ */
+export function useSupplierAccess(enabled = true): SupplierAccess {
   const { account } = useAuth();
   const accountId = account?.id ?? '';
   const ownerType: OwnerType = account?.type === 'MCN' ? 'MCN' : 'KOL';
-  const q = useLiveQuery(() => profileService.getProfile(accountId), [accountId]);
+  const q = useLiveQuery(() => (enabled ? profileService.getProfile(accountId) : Promise.resolve(null)), [accountId, enabled]);
   const profile = q.data?.profile;
   const approved = profile?.status === 'APPROVED' && (ownerType === 'MCN' || !!(profile as { kolId?: string }).kolId);
   return { accountId, ownerType, status: profile?.status, approved, loading: q.loading && !q.data };

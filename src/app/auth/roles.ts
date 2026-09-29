@@ -3,7 +3,6 @@ import {
   LayoutGrid,
   BookMarked,
   Building2,
-  Handshake,
   IdCard,
   LogIn,
   Megaphone,
@@ -52,6 +51,13 @@ export interface BottomNavConfig {
 
 export const GUEST_PATHS = ['/dang-ky', '/dang-nhap', '/quen-mat-khau'];
 
+/** Sàn chiến dịch: public space with its own layout (outside the app shell), open to every role incl. guests. */
+export const MARKETPLACE_PATH = '/san';
+/** Old in-shell marketplace path; redirects to MARKETPLACE_PATH (query kept). */
+export const LEGACY_MARKETPLACE_PATH = '/san-chien-dich';
+/** Paths every role (guests included) may open; the guard never redirects them. */
+export const PUBLIC_PATHS = [MARKETPLACE_PATH, LEGACY_MARKETPLACE_PATH];
+
 /** Sidebar group of KOL/MCN: review apps (external KOL Safety / Brand Safety tool) + own violations. */
 export const SAFETY_GROUP = 'Kiểm duyệt';
 export const SAFETY_BASE = '/kiem-duyet';
@@ -69,7 +75,7 @@ export const APPS_PATH = '/ung-dung';
 /** Brand campaigns (campaign booking beta): list, /tao, /:id, /:id/sua. */
 export const CAMPAIGNS_PATH = '/chien-dich';
 
-/** Brand: 6 menu items → 4 tabs + "Thêm" (Danh sách vi phạm, Tài khoản doanh nghiệp). */
+/** Brand: 8 menu items → 4 tabs + "Thêm" (Sàn chiến dịch, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp). */
 const BRAND_BOTTOM_NAV: BottomNavConfig = {
   items: [
     { icon: Search, label: 'Tìm KOL', path: '/tim-kiem-kol' },
@@ -77,7 +83,7 @@ const BRAND_BOTTOM_NAV: BottomNavConfig = {
     { icon: MonitorPlay, label: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
     { icon: BookMarked, label: 'Đã lưu', path: '/danh-sach-da-luu' },
   ],
-  more: [APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep'],
+  more: [MARKETPLACE_PATH, APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep'],
 };
 
 /** Video/channel checks now live in the external tool (via "Ứng dụng"); the in-app mock pages stay routable only. */
@@ -95,13 +101,19 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
   ];
 }
 
-/** KOL/MCN "Hợp tác" group (campaign booking beta): marketplace + bookings with Brands. */
+/**
+ * "Hợp tác" group (campaign booking beta). KOL/MCN: "Chiến dịch" (invites, applications and bookings they work on)
+ * + "Sàn chiến dịch" (leaves the shell for the public Sàn layout). Brand: own campaigns + the Sàn (read-only).
+ */
 export const COLLAB_GROUP = 'Hợp tác';
-export const MARKETPLACE_PATH = '/san-chien-dich';
-export const SUPPLIER_BOOKING_PATH = '/booking';
+/** KOL/MCN "Chiến dịch" page (was /booking). */
+export const SUPPLIER_CAMPAIGNS_PATH = '/chien-dich-cua-toi';
+/** Old path of the KOL/MCN page; redirects to SUPPLIER_CAMPAIGNS_PATH (query kept). */
+export const LEGACY_SUPPLIER_BOOKING_PATH = '/booking';
+const MARKETPLACE_ITEM: MenuItem = { icon: Store, label: 'Sàn chiến dịch', shortLabel: 'Sàn', path: MARKETPLACE_PATH, group: COLLAB_GROUP };
 const COLLAB_MENU: MenuItem[] = [
-  { icon: Store, label: 'Sàn chiến dịch', shortLabel: 'Sàn', path: MARKETPLACE_PATH, group: COLLAB_GROUP },
-  { icon: Handshake, label: 'Booking', shortLabel: 'Booking', path: SUPPLIER_BOOKING_PATH, group: COLLAB_GROUP },
+  { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH, group: COLLAB_GROUP },
+  MARKETPLACE_ITEM,
 ];
 
 /** MCN only: KOLs the MCN's channels are assigned to (group "Hồ sơ MCN"). */
@@ -109,14 +121,14 @@ export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
 const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
 
 /**
- * 11–12 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; Sàn chiến dịch and `extraMore` first).
- * Booking takes the tab of "Kênh" (channel setup is reached from Tổng quan / Thêm).
+ * 11–12 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` first).
+ * "Chiến dịch" takes the tab of "Kênh" (channel setup is reached from Tổng quan / Thêm).
  */
 function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
   return {
     items: [
       { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
-      { icon: Handshake, label: 'Booking', path: SUPPLIER_BOOKING_PATH },
+      { icon: Megaphone, label: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH },
       { icon: Store, label: 'Sàn', path: MARKETPLACE_PATH },
       { icon: LayoutGrid, label: 'Ứng dụng', path: APPS_PATH },
     ],
@@ -124,7 +136,19 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
   };
 }
 
-const CREATOR_AREAS = [SAFETY_BASE, LEGACY_SAFETY_PATH];
+/** Brand sidebar groups: find KOLs · collaborate · review · account. */
+const BRAND_MENU: MenuItem[] = [
+  { icon: Search, label: 'Tìm kiếm KOL', shortLabel: 'Tìm KOL', path: '/tim-kiem-kol', group: 'Tìm KOL' },
+  { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH, group: 'Tìm KOL' },
+  { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu', group: 'Tìm KOL' },
+  { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: CAMPAIGNS_PATH, group: COLLAB_GROUP },
+  MARKETPLACE_ITEM,
+  { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH, group: SAFETY_GROUP },
+  { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH, group: SAFETY_GROUP },
+  { icon: Building2, label: 'Tài khoản doanh nghiệp', shortLabel: 'Doanh nghiệp', path: '/tai-khoan-doanh-nghiep', group: 'Tài khoản' },
+];
+
+const CREATOR_AREAS = [SAFETY_BASE, LEGACY_SAFETY_PATH, LEGACY_SUPPLIER_BOOKING_PATH];
 
 export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.guest': {
@@ -152,15 +176,7 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.user.biz': {
     label: 'Nhãn hàng/Agency',
     home: '/tim-kiem-kol',
-    menu: [
-      { icon: Search, label: 'Tìm kiếm KOL', shortLabel: 'Tìm KOL', path: '/tim-kiem-kol' },
-      { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: CAMPAIGNS_PATH },
-      { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
-      { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu' },
-      { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH },
-      { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH },
-      { icon: Building2, label: 'Tài khoản doanh nghiệp', shortLabel: 'Doanh nghiệp', path: '/tai-khoan-doanh-nghiep' },
-    ],
+    menu: BRAND_MENU,
     bottomNav: BRAND_BOTTOM_NAV,
   },
 };
@@ -214,11 +230,16 @@ export function isNavActive(pathname: string, item: Pick<BottomNavItem, 'path' |
   return inPaths(cleanPath(pathname), item.match ?? [item.path]);
 }
 
+/** /san (and the legacy /san-chien-dich): open to every role, never redirected by the guard. */
+export function isPublicPath(path: string): boolean {
+  return inPaths(cleanPath(path), PUBLIC_PATHS);
+}
+
 /** Access rule shared by route guard, sidebar and bottom navigation (BR-66..69). */
 export function resolveAccess(role: RoleKey, path: string): Access {
   const p = cleanPath(path);
   const home = ROLE_CONFIG[role].home;
-  if (inPaths(p, allowedPaths(role))) return { allow: true };
+  if (isPublicPath(p) || inPaths(p, allowedPaths(role))) return { allow: true };
 
   const isUserPath = USER_ROLES.some((r) => inPaths(p, allowedPaths(r)));
   if (role === 'kolhub.guest') {
@@ -244,8 +265,8 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/thong-tin': 'Thông tin tổ chức, Giấy chứng nhận ĐKDN, liên hệ và nhân sự quản lý',
   '/ho-so-mcn/kenh': 'Thêm kênh, ảnh quản lý kênh và trạng thái dấu xác thực',
   '/ho-so-mcn/kol': 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',
-  '/san-chien-dich': 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',
-  '/booking': 'Lời mời và đề xuất với Nhãn hàng: thương lượng giá, nộp nội dung, xác nhận thanh toán',
+  '/san': 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',
+  '/chien-dich-cua-toi': 'Nhận lời mời, ứng tuyển và quản lý các chiến dịch đang thực hiện',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/chien-dich': 'Tạo chiến dịch, mời KOL/MCN, duyệt nội dung và theo dõi kết quả',
   '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
