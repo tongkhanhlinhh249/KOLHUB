@@ -12,6 +12,9 @@ import {
   formatDayRange,
   formatVnd,
   formatVndInput,
+  formatVndShort,
+  cardCategories,
+  cardMatchLine,
   MARKETPLACE_TABS,
   marketplaceDetailPath,
   loginToApplyPath,
@@ -53,6 +56,15 @@ describe('tiền', () => {
     expect(priceText(0)).toBe('Chờ báo giá');
     expect(priceText(15_000_000)).toBe('15.000.000 ₫');
   });
+  test('formatVndShort: triệu / tỷ gọn cho thẻ Sàn 3 cột', () => {
+    expect(formatVndShort(150_000_000)).toBe('150 triệu ₫');
+    expect(formatVndShort(12_500_000)).toBe('12,5 triệu ₫');
+    expect(formatVndShort(1_000_000)).toBe('1 triệu ₫');
+    expect(formatVndShort(1_250_000_000)).toBe('1,25 tỷ ₫');
+    expect(formatVndShort(2_000_000_000)).toBe('2 tỷ ₫');
+    expect(formatVndShort(999_999)).toBe('999.999 ₫');
+    expect(formatVndShort(0)).toBe('0 ₫');
+  });
   test('ô nhập giá: nhóm chữ số, bỏ ký tự khác, parse lại', () => {
     expect(formatVndInput('12000000')).toBe('12.000.000');
     expect(formatVndInput('12.000.0005')).toBe('120.000.005');
@@ -60,6 +72,23 @@ describe('tiền', () => {
     expect(formatVndInput('007')).toBe('7');
     expect(parseVndInput('12.000.000 ₫')).toBe(12_000_000);
     expect(parseVndInput('')).toBe(0);
+  });
+});
+
+describe('thẻ Sàn', () => {
+  test('cardCategories: tối đa 2 lĩnh vực + số còn lại', () => {
+    expect(cardCategories([])).toEqual({ shown: [], more: 0 });
+    expect(cardCategories(['Ẩm thực', 'Lifestyle'])).toEqual({ shown: ['Ẩm thực', 'Lifestyle'], more: 0 });
+    expect(cardCategories(['Ẩm thực', 'Lifestyle', 'Gia đình', 'Du lịch'])).toEqual({ shown: ['Ẩm thực', 'Lifestyle'], more: 2 });
+    expect(cardCategories(['Ẩm thực', 'Lifestyle', 'Gia đình'], 1)).toEqual({ shown: ['Ẩm thực'], more: 2 });
+  });
+  test('cardMatchLine: lý do đầu tiên, không có thì điều còn thiếu, không có nữa thì câu mặc định', () => {
+    expect(cardMatchLine({ score: 80, reasons: ['Khớp lĩnh vực Ẩm thực', 'B'], missing: ['X'] })).toEqual({ text: 'Khớp lĩnh vực Ẩm thực', kind: 'reason' });
+    expect(cardMatchLine({ score: 10, reasons: [], missing: ['Chưa có kênh YouTube đã xác thực'] })).toEqual({
+      text: 'Chưa có kênh YouTube đã xác thực',
+      kind: 'missing',
+    });
+    expect(cardMatchLine({ score: 0, reasons: [], missing: [] })).toEqual({ text: 'Chưa đủ dữ liệu để đánh giá mức phù hợp.', kind: 'missing' });
   });
 });
 

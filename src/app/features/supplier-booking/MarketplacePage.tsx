@@ -125,6 +125,9 @@ const INTRO: Record<MarketplaceViewer, string> = {
   brand: 'Xem các chiến dịch đang nhận đề xuất trên Sàn. Chiến dịch của bạn được đánh dấu "Của bạn".',
 };
 
+/** Card grid: 1 column on phones, 2 from 672 px of content (tablets), 3 from 1024 px. Items stretch to the row height. */
+const GRID = 'grid grid-cols-1 gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3';
+
 /** Sorts without "Phù hợp nhất" (no match score for guests / Brands). */
 const PUBLIC_SORTS = MARKETPLACE_SORTS.filter((s) => s.key !== 'match');
 
@@ -183,8 +186,8 @@ export function MarketplacePage() {
   let body: ReactNode;
   if (!data && !q.error) {
     body = (
-      <div className="grid gap-3 @5xl:grid-cols-2" aria-busy="true" aria-label="Đang tải chiến dịch">
-        {[0, 1, 2].map((i) => (
+      <div className={GRID} aria-busy="true" aria-label="Đang tải chiến dịch">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <MarketplaceCampaignCardSkeleton key={i} />
         ))}
       </div>
@@ -228,7 +231,7 @@ export function MarketplacePage() {
     );
   } else if (data?.tab === 'da-ung-tuyen') {
     body = (
-      <ul className="grid gap-3 @5xl:grid-cols-2" aria-label="Đề xuất đã gửi">
+      <ul className={GRID} aria-label="Đề xuất đã gửi">
         {data.list.map((a) => (
           <li key={a.booking.id} className="min-w-0 [&>*]:h-full">
             <AppliedCampaignCard item={a} now={now} />
@@ -238,7 +241,7 @@ export function MarketplacePage() {
     );
   } else if (data) {
     body = (
-      <ul className="grid gap-3 @5xl:grid-cols-2" aria-label={tab === 'da-luu' ? 'Chiến dịch đã lưu' : 'Chiến dịch đang nhận đề xuất'}>
+      <ul className={GRID} aria-label={tab === 'da-luu' ? 'Chiến dịch đã lưu' : 'Chiến dịch đang nhận đề xuất'}>
         {data.list.map((c) => (
           <li key={c.id} className="min-w-0 [&>*]:h-full">
             <MarketplaceCampaignCard campaign={c} now={now} onOpen={() => openDetail(c.id)} viewer={viewer} />

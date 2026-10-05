@@ -1,100 +1,156 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { Building2, ChevronRight, Users } from 'lucide-react';
+import { Building2, Check, ChevronRight, CircleAlert } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
-import type { AppliedCampaign, MarketplaceCampaign } from '../../services';
+import { cn } from '../../components/ui/utils';
+import type { AppliedCampaign, MarketplaceCampaign, StoredFile } from '../../services';
+import { CampaignCover } from '../shared/CampaignCover';
 import { ToneBadge } from '../shared/StatusBadges';
-import { MatchPill, MatchReasons, SaveIconButton } from './MarketplaceParts';
+import { MatchPill, SaveIconButton } from './MarketplaceParts';
 import { BookingStatusBadge, CategoryChips, CountdownText, PlatformIcons } from './parts';
 import {
   bookingDetailPath,
   brandCampaignPath,
+  cardMatchLine,
   deadlineCountdown,
-  deliverablesSummary,
   expiryCountdown,
   formatDateTime,
   formatDay,
-  formatDayRange,
   formatVnd,
+  formatVndShort,
   priceText,
   type MarketplaceViewer,
 } from './supplierBooking';
 
+/** Solid pill for badges laid over the cover image (tone tint replaced by a near-opaque background; dot keeps the tone). */
+const OVER_BG = 'bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85';
+const OVER_IMAGE = `${OVER_BG} text-foreground`;
+
 /**
- * "Đã ứng tuyển" row: one of the viewer's applications with its campaign and booking status.
- * The title links to the booking on the "Chiến dịch" page (/chien-dich-cua-toi?booking=…).
+ * Shared 3-column card frame: 16:9 cover on top (placeholder when none) with overlays, then a body that
+ * fills the rest so cards in a row share one height (the grid item stretches, see MarketplacePage).
+ */
+function CoverCard({
+  cover,
+  topLeft,
+  topRight,
+  children,
+}: {
+  cover?: StoredFile;
+  topLeft?: ReactNode;
+  topRight?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="relative h-full gap-0 overflow-hidden rounded-[8px] py-0 transition-colors hover:border-primary/40">
+      <div className="relative">
+        <CampaignCover cover={cover} className="aspect-video w-full" />
+        {topLeft && <div className="pointer-events-none absolute top-2 left-2 flex max-w-[calc(100%-4rem)] flex-wrap gap-1.5">{topLeft}</div>}
+        {topRight && <div className="absolute top-1.5 right-1.5 z-10">{topRight}</div>}
+      </div>
+      <div className="flex flex-1 flex-col gap-3 p-4">{children}</div>
+    </Card>
+  );
+}
+
+function BrandLine({ company }: { company: string }) {
+  return (
+    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <Building2 className="size-3.5 shrink-0" aria-hidden />
+      <span className="truncate font-medium text-foreground">{company}</span>
+    </p>
+  );
+}
+
+/** Title heading; the name inside is clamped to 2 lines (full name in the tooltip / accessible name). */
+const TITLE = 'text-base leading-snug font-semibold break-words text-foreground';
+/** Stretched hit area over the whole card (image included); controls above it use `relative z-10`. */
+const STRETCHED =
+  "block w-full text-left after:absolute after:inset-0 after:z-[1] after:rounded-[8px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset";
+
+function Fact({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-0 space-y-0.5', className)}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-medium text-foreground">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * "Đã ứng tuyển" card: the marketplace card frame with the booking status over the image, the proposed price,
+ * campaign budget, response deadline (or last update) and when it was sent. Links to the booking on the
+ * "Chiến dịch" page (/chien-dich-cua-toi?booking=…).
  */
 export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now: number }) {
   const { booking: b, campaign: c } = item;
   const pending = b.status === 'APPLIED' || b.status === 'NEGOTIATING';
   const expiry = pending ? expiryCountdown(b.expiresAt, now) : null;
   return (
-    <Card className="@container relative gap-3 rounded-[8px] p-4 transition-colors hover:border-primary/40 md:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <Building2 className="size-3.5 shrink-0" aria-hidden />
-          <span className="truncate font-medium text-foreground">{c.brand.company}</span>
-        </p>
-        <BookingStatusBadge booking={b} />
+    <CoverCard cover={c.cover} topLeft={<BookingStatusBadge booking={b} className={OVER_IMAGE} />}>
+      <div className="space-y-1">
+        <BrandLine company={c.brand.company} />
+        <h2 className={TITLE}>
+          <Link to={bookingDetailPath(b.id)} className={STRETCHED} title={c.name}>
+            <span className="line-clamp-2">{c.name}</span>
+          </Link>
+        </h2>
       </div>
-
-      <h2 className="text-base leading-snug font-semibold break-words text-foreground">
-        <Link
-          to={bookingDetailPath(b.id)}
-          className="after:absolute after:inset-0 after:rounded-[8px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-        >
-          {c.name}
-        </Link>
-      </h2>
 
       <div className="flex flex-wrap items-center gap-2">
         {c.match && <MatchPill match={c.match} />}
         <PlatformIcons platforms={c.platforms} />
-        {c.accepting === false && <span className="text-xs text-muted-foreground">Chiến dịch đã ngừng nhận đề xuất</span>}
       </div>
+      {c.accepting === false && <p className="text-xs text-muted-foreground">Chiến dịch đã ngừng nhận đề xuất</p>}
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-3 @2xl:grid-cols-4">
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Giá đề xuất</dt>
-          <dd className="text-sm font-semibold text-foreground tabular-nums">{priceText(b.price)}</dd>
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Ngân sách chiến dịch</dt>
-          <dd className="text-sm font-medium text-primary tabular-nums">{formatVnd(c.budget)}</dd>
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">{expiry ? 'Hạn phản hồi' : 'Cập nhật'}</dt>
-          <dd className="text-sm font-medium text-foreground">
-            {expiry ? <CountdownText countdown={expiry} className="text-sm" /> : formatDateTime(b.updatedAt)}
-          </dd>
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Gửi đề xuất</dt>
-          <dd className="text-sm font-medium text-foreground">{formatDateTime(b.createdAt)}</dd>
-        </div>
+      <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
+        <Fact label="Giá đề xuất">
+          <span className="font-semibold tabular-nums">{priceText(b.price)}</span>
+        </Fact>
+        <Fact label="Ngân sách">
+          <span className="text-primary tabular-nums" title={formatVnd(c.budget)}>
+            {formatVndShort(c.budget)}
+          </span>
+        </Fact>
+        <Fact label={expiry ? 'Hạn phản hồi' : 'Cập nhật'}>
+          {expiry ? <CountdownText countdown={expiry} className="text-sm" /> : <span className="tabular-nums">{formatDateTime(b.updatedAt)}</span>}
+        </Fact>
+        <Fact label="Gửi đề xuất">
+          <span className="tabular-nums">{formatDateTime(b.createdAt)}</span>
+        </Fact>
       </dl>
 
       <span className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-primary md:min-h-8" aria-hidden>
         Xem booking
         <ChevronRight className="size-4" />
       </span>
-    </Card>
+    </CoverCard>
   );
 }
 
 /** "Đã ứng tuyển" / "Đã được mời" state of the viewer on a campaign. */
-export function MyBookingBadge({ myBooking }: { myBooking: NonNullable<MarketplaceCampaign['myBooking']> }) {
-  return <ToneBadge tone="success">{myBooking.origin === 'APPLICATION' ? 'Đã ứng tuyển' : 'Đã được mời'}</ToneBadge>;
+export function MyBookingBadge({ myBooking, className }: { myBooking: NonNullable<MarketplaceCampaign['myBooking']>; className?: string }) {
+  return (
+    <ToneBadge tone="success" className={className}>
+      {myBooking.origin === 'APPLICATION' ? 'Đã ứng tuyển' : 'Đã được mời'}
+    </ToneBadge>
+  );
 }
 
 /** Brand viewer: the campaign is one of theirs. */
-export function MineBadge() {
-  return <ToneBadge tone="info">Của bạn</ToneBadge>;
+export function MineBadge({ className }: { className?: string }) {
+  return (
+    <ToneBadge tone="info" className={className}>
+      Của bạn
+    </ToneBadge>
+  );
 }
 
 /**
- * One marketplace campaign: brand, name, categories, platforms, deliverables, budget, dates, apply deadline
- * countdown and applications. The title is a stretched button that opens the detail sheet.
+ * One marketplace campaign, sized for the 3-column grid: 16:9 cover (state badges top-left, bookmark top-right
+ * for KOL/MCN), brand, 2-line title, "Khớp N%" + top reason (KOL/MCN), up to 2 categories + "+n", platforms,
+ * budget and apply deadline with "còn N ngày". The title is a stretched button that opens the detail sheet.
  */
 export function MarketplaceCampaignCard({
   campaign: c,
@@ -110,121 +166,117 @@ export function MarketplaceCampaignCard({
 }) {
   const canSave = viewer === 'supplier';
   const countdown = deadlineCountdown(c.applyDeadline, now);
+  const line = c.match ? cardMatchLine(c.match) : null;
+  const badges =
+    c.myBooking || c.mine ? (
+      <>
+        {c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
+        {c.mine && <MineBadge className={OVER_IMAGE} />}
+      </>
+    ) : undefined;
   return (
-    <Card className="@container relative gap-3 rounded-[8px] p-4 transition-colors hover:border-primary/40 md:p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2 pt-0.5 md:pt-1">
-          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <Building2 className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate font-medium text-foreground">{c.brand.company}</span>
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {c.myBooking && <MyBookingBadge myBooking={c.myBooking} />}
-            {c.mine && <MineBadge />}
-            <PlatformIcons platforms={c.platforms} />
-          </div>
-        </div>
-        {canSave && <SaveIconButton campaignId={c.id} saved={!!c.saved} name={c.name} className="-mt-2 -mr-2 md:-mt-1 md:-mr-1" />}
-      </div>
-
+    <CoverCard
+      cover={c.cover}
+      topLeft={badges}
+      topRight={
+        canSave && (
+          <SaveIconButton
+            campaignId={c.id}
+            saved={!!c.saved}
+            name={c.name}
+            className={cn('rounded-full md:size-9', OVER_BG, 'hover:bg-background', !c.saved && 'text-foreground/80 hover:text-foreground')}
+          />
+        )
+      }
+    >
       <div className="space-y-1">
-        <h2 className="text-base leading-snug font-semibold break-words text-foreground">
-          <button
-            type="button"
-            onClick={onOpen}
-            className="text-left after:absolute after:inset-0 after:rounded-[8px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-          >
-            {c.name}
+        <BrandLine company={c.brand.company} />
+        <h2 className={TITLE}>
+          <button type="button" onClick={onOpen} className={STRETCHED} title={c.name}>
+            <span className="line-clamp-2">{c.name}</span>
           </button>
         </h2>
-        {c.objective && <p className="line-clamp-2 text-sm break-words text-muted-foreground">{c.objective}</p>}
       </div>
 
-      {c.match && (
-        <div className="flex flex-col gap-2 rounded-[8px] bg-muted/50 p-3 @lg:flex-row @lg:items-start @lg:gap-3">
-          <MatchPill match={c.match} className="self-start" />
-          {c.match.reasons.length > 0 ? (
-            <MatchReasons match={c.match} max={2} className="min-w-0 flex-1" />
+      {c.match && line && (
+        <div className="flex min-w-0 items-center gap-2">
+          <MatchPill match={c.match} className="shrink-0" />
+          <p className={cn('flex min-w-0 items-center gap-1 text-xs', line.kind === 'reason' ? 'text-foreground' : 'text-muted-foreground')} title={line.text}>
+            {line.kind === 'reason' ? (
+              <Check className="size-3.5 shrink-0 text-chart-4" aria-hidden />
+            ) : (
+              <CircleAlert className="size-3.5 shrink-0 text-chart-5" aria-hidden />
+            )}
+            <span className="truncate">{line.text}</span>
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <CategoryChips categories={c.categories} max={2} className="min-w-0" />
+        <PlatformIcons platforms={c.platforms} className="ml-auto" />
+      </div>
+
+      <dl className="mt-auto grid grid-cols-2 gap-x-3 border-t border-border pt-3">
+        <Fact label="Ngân sách">
+          <span className="font-semibold text-primary tabular-nums" title={formatVnd(c.budget)}>
+            {formatVndShort(c.budget)}
+          </span>
+        </Fact>
+        <Fact label="Hạn ứng tuyển">
+          {c.applyDeadline ? (
+            <span className="flex flex-col">
+              <span className="tabular-nums">{formatDay(c.applyDeadline)}</span>
+              <CountdownText countdown={countdown} />
+            </span>
           ) : (
-            <p className="text-xs text-muted-foreground">{c.match.missing[0] ?? 'Chưa đủ dữ liệu để đánh giá mức phù hợp.'}</p>
+            'Không giới hạn'
+          )}
+        </Fact>
+      </dl>
+
+      {(c.mine || c.myBooking) && (
+        <div className="-mt-1 flex flex-wrap gap-x-4">
+          {c.mine && (
+            <Link
+              to={brandCampaignPath(c.id)}
+              className="relative z-10 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
+            >
+              Quản lý chiến dịch
+              <ChevronRight className="size-4" aria-hidden />
+            </Link>
+          )}
+          {c.myBooking && (
+            <Link
+              to={bookingDetailPath(c.myBooking.id)}
+              className="relative z-10 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
+            >
+              Xem booking của bạn
+              <ChevronRight className="size-4" aria-hidden />
+            </Link>
           )}
         </div>
       )}
-
-      <CategoryChips categories={c.categories} />
-
-      <p className="text-sm text-foreground">
-        <span className="text-muted-foreground">Hạng mục: </span>
-        {deliverablesSummary(c.deliverables)}
-      </p>
-
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-3 @2xl:grid-cols-4">
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Ngân sách</dt>
-          <dd className="text-sm font-semibold text-primary tabular-nums">{formatVnd(c.budget)}</dd>
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Thời gian</dt>
-          <dd className="text-sm font-medium text-foreground">{formatDayRange(c.startDate, c.endDate)}</dd>
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Hạn ứng tuyển</dt>
-          <dd className="flex flex-wrap items-center gap-x-2 text-sm font-medium text-foreground">
-            {c.applyDeadline ? (
-              <>
-                {formatDay(c.applyDeadline)}
-                <CountdownText countdown={countdown} />
-              </>
-            ) : (
-              'Không giới hạn'
-            )}
-          </dd>
-        </div>
-        <div className="min-w-0 space-y-0.5">
-          <dt className="text-xs text-muted-foreground">Đề xuất đã nhận</dt>
-          <dd className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-            <Users className="size-3.5 text-muted-foreground" aria-hidden />
-            {c.applicationCount}
-          </dd>
-        </div>
-      </dl>
-
-      {c.mine && (
-        <Link
-          to={brandCampaignPath(c.id)}
-          className="relative z-10 inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
-        >
-          Quản lý chiến dịch
-          <ChevronRight className="size-4" aria-hidden />
-        </Link>
-      )}
-
-      {c.myBooking && (
-        <Link
-          to={bookingDetailPath(c.myBooking.id)}
-          className="relative z-10 inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
-        >
-          Xem booking của bạn
-          <ChevronRight className="size-4" aria-hidden />
-        </Link>
-      )}
-    </Card>
+    </CoverCard>
   );
 }
 
 export function MarketplaceCampaignCardSkeleton() {
   return (
-    <Card className="gap-3 rounded-[8px] p-4 md:p-5" aria-hidden>
-      <Skeleton className="h-4 w-40" />
-      <Skeleton className="h-5 w-3/4" />
-      <Skeleton className="h-4 w-full" />
-      <div className="flex gap-2">
-        <Skeleton className="h-7 w-20 rounded-full" />
-        <Skeleton className="h-7 w-24 rounded-full" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
-        <Skeleton className="h-9" />
-        <Skeleton className="h-9" />
+    <Card className="h-full gap-0 overflow-hidden rounded-[8px] py-0" aria-hidden>
+      <Skeleton className="aspect-video w-full rounded-none" />
+      <div className="space-y-3 p-4">
+        <Skeleton className="h-3.5 w-32" />
+        <Skeleton className="h-5 w-11/12" />
+        <Skeleton className="h-5 w-2/3" />
+        <div className="flex gap-2">
+          <Skeleton className="h-7 w-20 rounded-full" />
+          <Skeleton className="h-7 w-24 rounded-full" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 border-t border-border pt-3">
+          <Skeleton className="h-9" />
+          <Skeleton className="h-9" />
+        </div>
       </div>
     </Card>
   );

@@ -16,6 +16,7 @@ import {
   type OwnerType,
   type ProfileStatus,
 } from '../../services';
+import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
@@ -36,6 +37,17 @@ import {
 } from './supplierBooking';
 import { SupplierGate } from './useSupplierAccess';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
+
+/**
+ * The sheet's built-in close button (last child of the content) as a round, near-opaque 44 px button (36 px from md)
+ * so it stays visible over the cover image.
+ */
+const CLOSE_OVER_IMAGE = [
+  '[&>button:last-child]:top-2 [&>button:last-child]:right-2 [&>button:last-child]:z-20',
+  '[&>button:last-child]:flex [&>button:last-child]:size-11 md:[&>button:last-child]:size-9',
+  '[&>button:last-child]:items-center [&>button:last-child]:justify-center [&>button:last-child]:rounded-full',
+  '[&>button:last-child]:bg-background/90 [&>button:last-child]:opacity-100 [&>button:last-child]:shadow-sm',
+].join(' ');
 
 /**
  * Marketplace campaign detail (?chien-dich=): brief, deliverables, content rules, dates and the
@@ -88,7 +100,7 @@ export function CampaignDetailSheet({
 
   return (
     <Sheet open={campaignId !== null} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-xl lg:max-w-2xl">
+      <SheetContent side="right" className={cn('flex w-full flex-col gap-0 p-0 sm:max-w-xl lg:max-w-2xl', CLOSE_OVER_IMAGE)}>
         <SheetHeader className="sr-only">
           <SheetTitle>{c ? c.name : 'Chi tiết chiến dịch'}</SheetTitle>
           <SheetDescription>Brief, hạng mục, quy định nội dung và thời gian của chiến dịch.</SheetDescription>
@@ -121,7 +133,8 @@ export function CampaignDetailSheet({
         {c && (
           <>
             <div className="@container min-h-0 flex-1 overflow-y-auto">
-              <div className="space-y-2 border-b border-border bg-muted/50 px-4 pt-12 pb-5 sm:px-6 sm:pt-6">
+              {c.cover && <CampaignCover cover={c.cover} alt={`Ảnh chiến dịch ${c.name}`} className="aspect-video w-full" />}
+              <div className={cn('space-y-2 border-b border-border bg-muted/50 px-4 pb-5 sm:px-6', c.cover ? 'pt-4 sm:pt-5' : 'pt-12 sm:pt-6')}>
                 <p className="flex items-center gap-1.5 pr-8 text-sm text-muted-foreground">
                   <Building2 className="size-4 shrink-0" aria-hidden />
                   <span className="truncate font-medium text-foreground">{c.brand.company}</span>

@@ -10,6 +10,7 @@ import {
   type BookingEvent,
   type BookingStatus,
   type BookingView,
+  type CampaignMatch,
   type Deliverable,
   type DeliverableType,
   type KolCategory,
@@ -31,6 +32,15 @@ const DAY = 86_400_000;
 export function formatVnd(n: number): string {
   const v = Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
   return `${String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '.')} ₫`;
+}
+
+/** Compact budget for the 3-column Sàn card: 150000000 → "150 triệu ₫", 1250000000 → "1,25 tỷ ₫"; below 1 triệu → formatVnd. */
+export function formatVndShort(n: number): string {
+  const v = Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
+  const unit = v >= 1_000_000_000 ? { d: 1_000_000_000, w: 'tỷ' } : v >= 1_000_000 ? { d: 1_000_000, w: 'triệu' } : null;
+  if (!unit) return formatVnd(v);
+  const x = Math.round((v / unit.d) * 100) / 100;
+  return `${String(x).replace('.', ',')} ${unit.w} ₫`;
 }
 
 /** Price field text: "12.000.000" while typing (digits only, grouped); '' when empty. */
@@ -456,4 +466,19 @@ export function withParam(prev: URLSearchParams, key: string, value: string | nu
   if (value) next.set(key, value);
   else next.delete(key);
   return next;
+}
+
+// ---------------------------------------------------------------------------
+// Sàn card (3-column grid)
+// ---------------------------------------------------------------------------
+
+/** Categories shown on a card (first `max`) and how many are hidden behind "+n". */
+export function cardCategories(categories: KolCategory[], max = 2): { shown: KolCategory[]; more: number } {
+  return { shown: categories.slice(0, max), more: Math.max(0, categories.length - max) };
+}
+
+/** The one match line of a card: top reason, else what is missing most, else a neutral note. */
+export function cardMatchLine(match: CampaignMatch): { text: string; kind: 'reason' | 'missing' } {
+  if (match.reasons[0]) return { text: match.reasons[0], kind: 'reason' };
+  return { text: match.missing[0] ?? 'Chưa đủ dữ liệu để đánh giá mức phù hợp.', kind: 'missing' };
 }

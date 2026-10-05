@@ -7,7 +7,7 @@ import { PlatformIcon, platformLabel } from '../biz-search/PlatformIcon';
 import { initials } from '../biz-search/format';
 import { fieldIcon } from '../shared/fieldIcons';
 import { ToneBadge } from '../shared/StatusBadges';
-import { statusTone, supplierStatusLabel, type Countdown } from './supplierBooking';
+import { cardCategories, statusTone, supplierStatusLabel, type Countdown } from './supplierBooking';
 
 export const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
@@ -53,19 +53,28 @@ export function CountdownText({ countdown, prefix, className }: { countdown: Cou
   );
 }
 
-export function CategoryChips({ categories, className }: { categories: KolCategory[]; className?: string }) {
+/** Category chips; with `max`, only the first `max` then a "+n" chip (full list in its title / accessible label). */
+export function CategoryChips({ categories, className, max }: { categories: KolCategory[]; className?: string; max?: number }) {
   if (categories.length === 0) return null;
+  const { shown, more } = max === undefined ? { shown: categories, more: 0 } : cardCategories(categories, max);
+  const rest = categories.slice(shown.length);
   return (
     <ul className={cn('flex flex-wrap gap-1.5', className)} aria-label="Lĩnh vực">
-      {categories.map((c) => {
+      {shown.map((c) => {
         const Icon = fieldIcon(c);
         return (
-          <li key={c} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted px-2.5 text-xs font-medium text-foreground">
-            <Icon className="size-3.5 text-muted-foreground" aria-hidden />
-            {c}
+          <li key={c} className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full bg-muted px-2.5 text-xs font-medium text-foreground">
+            <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate">{c}</span>
           </li>
         );
       })}
+      {more > 0 && (
+        <li className="inline-flex h-7 items-center rounded-full bg-muted px-2 text-xs font-medium text-muted-foreground" title={rest.join(', ')}>
+          <span aria-hidden>+{more}</span>
+          <span className="sr-only">và {rest.join(', ')}</span>
+        </li>
+      )}
     </ul>
   );
 }
