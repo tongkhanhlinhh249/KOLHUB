@@ -19,7 +19,7 @@ import type { SafetyMonitor, SafetyVideo } from '../safety-types';
 // --- violations ---
 import type { Violation } from '../violation-types';
 // --- campaign booking (beta) ---
-import type { Booking, Campaign, PlanKey, SavedCampaign } from '../campaign-types';
+import type { Booking, Campaign, CampaignQA, PlanKey, SavedCampaign } from '../campaign-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -57,11 +57,13 @@ export interface PendingRegistration {
  * v9: campaign booking beta — `campaigns`, `bookings`, `brandPlans`.
  * v10: Sàn v2 — `savedCampaigns` (supplier bookmarks) and 4 more marketplace campaigns in the seed.
  * v11: campaign cover image (`Campaign.cover`) on every seeded campaign.
+ * v12: "Tuyển nhiều KOL" (open recruitment) campaigns, rewards, survey / terms, Workflow, regions and the public
+ * campaign Q&A (`campaignQuestions`).
  */
-export const DB_VERSION = 11;
+export const DB_VERSION = 12;
 
 export interface DemoState {
-  version: 11;
+  version: 12;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -92,6 +94,9 @@ export interface DemoState {
   // --- Sàn v2 ---
   /** Marketplace bookmarks, one row per (supplier account, campaign). */
   savedCampaigns: SavedCampaign[];
+  // --- Tuyển nhiều KOL ---
+  /** Public Q&A of marketplace campaigns ("Hỏi đáp"). */
+  campaignQuestions: CampaignQA[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

@@ -106,7 +106,10 @@ export type ErrorCode =
   | 'KOLHUB-4814'
   | 'KOLHUB-4815'
   | 'KOLHUB-4816'
-  | 'KOLHUB-4817';
+  | 'KOLHUB-4817'
+  | 'KOLHUB-4818'
+  | 'KOLHUB-4819'
+  | 'KOLHUB-4820';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;
@@ -118,6 +121,10 @@ export interface KolhubErrorMeta {
   // --- KOL Safety ---
   /** Display name of a platform, e.g. "TikTok" (KOLHUB-4505/4506). */
   platformLabel?: string;
+  // --- open recruitment ---
+  /** KOLHUB-4818: slots of the campaign and how many are still free. */
+  slots?: number;
+  remaining?: number;
 }
 
 /** Business error carrying a KOLHUB-xxxx code; message is the Vietnamese text from errorMessage(). */

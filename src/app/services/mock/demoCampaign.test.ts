@@ -116,7 +116,11 @@ describe('chế độ demo: quản lý chiến dịch', () => {
 
   test('danh sách chiến dịch và booking: chiến dịch có booking lên đầu, ai cần thao tác tiếp', async () => {
     const list = await demo.listCampaigns();
-    expect(list.slice(0, 2).map((c) => c.id).sort()).toEqual([SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.running].sort());
+    const firstEmpty = list.findIndex((c) => c.bookingCount === 0);
+    expect(list.slice(0, firstEmpty).map((c) => c.id).sort()).toEqual(
+      [SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.running, SEED_CAMPAIGN.recruitSelecting, SEED_CAMPAIGN.recruitPosting].sort(),
+    );
+    expect(list.slice(firstEmpty).every((c) => c.bookingCount === 0)).toBe(true);
     expect(list.find((c) => c.id === SEED_CAMPAIGN.running)).toMatchObject({ bookingCount: 4, brandEmail: expect.any(String) });
     const rows = await demo.listBookings(SEED_CAMPAIGN.running);
     expect(rows).toHaveLength(4);
@@ -146,5 +150,78 @@ describe('chế độ demo: quản lý chiến dịch', () => {
     expect((await svc.get(SEED_BOOKING.khanhVyInvite)).viewer).toBe('SUPPLIER');
     expect(h.db.read().sessionAccountId).toBe(BRAND);
     for (const p of ['tiktok', 'youtube', 'facebook'] as const) expect(postMatchesPlatform(samplePostUrl(p, '@kenh', 'x'), p)).toBe(true);
+  });
+});
+
+describe('chế độ demo: Tuyển nhiều KOL', () => {
+  const recruitSteps = (id: string) => {
+    const s = h.db.read();
+    const b = s.bookings.find((x) => x.id === id)!;
+    const c = s.campaigns.find((x) => x.id === b.campaignId)!;
+    return demoSteps(b, statusOf(id), { campaign: c, now: h.now() });
+  };
+  const ofCampaign = (id: string) => h.db.read().bookings.filter((b) => b.campaignId === id);
+
+  test('ứng viên mẫu → sang Chọn lọc → chọn đủ suất → Đăng bài: gửi / nhận sản phẩm, nộp nháp, đăng, hoàn tất', async () => {
+    const cid = SEED_CAMPAIGN.livestream; // Ứng tuyển, có sản phẩm, Duyệt nháp bật
+    expect(await demo.simulateApplicants(cid, 3)).toBeGreaterThan(0);
+    const applied = ofCampaign(cid);
+    expect(applied.every((b) => b.status === 'APPLIED' && b.price === 0 && !!b.application?.shipping)).toBe(true);
+    expect(applied.some((b) => b.supplierAccountId === 'acc-kol-2026-0001')).toBe(true); // Khánh Vy (đăng nhập demo) đi đầu
+    expect(recruitSteps(applied[0].id).primary).toBeUndefined();
+    expect(recruitSteps(applied[0].id).waiting).toMatch(/Chọn lọc/);
+    await expect(demo.pickWinners(cid)).rejects.toMatchObject({ code: 'KOLHUB-4819' });
+
+    expect(await demo.advancePhase(cid)).toBe('SELECT');
+    expect(recruitSteps(applied[0].id).primary?.key).toBe('SELECT');
+    const picked = await demo.pickWinners(cid);
+    expect(picked).toBe(applied.length); // 5 suất ≥ số ứng viên
+    expect((await demo.listCampaigns()).find((c) => c.id === cid)).toMatchObject({ selected: applied.length, waiting: 0, phase: 'SELECT' });
+
+    expect(await demo.advancePhase(cid)).toBe('POST');
+    const id = applied[0].id;
+    const flow: [string, string][] = [
+      ['PRODUCT_SENT', 'ACCEPTED'],
+      ['PRODUCT_RECEIVED', 'ACCEPTED'],
+      ['SUBMIT_DRAFT', 'CONTENT_REVIEW'],
+      ['APPROVE_CONTENT', 'CONTENT_APPROVED'],
+      ['SUBMIT_POST', 'VERIFIED'],
+      ['MARK_PAID', 'VERIFIED'],
+      ['CONFIRM_PAID', 'COMPLETED'],
+    ];
+    for (const [key, status] of flow) {
+      expect(recruitSteps(id).primary?.key).toBe(key);
+      await demo.run(id, key as never);
+      expect(statusOf(id)).toBe(status);
+    }
+    expect(stored(id).shipment).toMatchObject({ sentAt: expect.any(Number), receivedAt: expect.any(Number) });
+    expect(await demo.advancePhase(cid)).toBe('REVIEW');
+    expect(await demo.advancePhase(cid)).toBe('ENDED');
+    await expect(demo.advancePhase(cid)).rejects.toMatchObject({ code: 'KOLHUB-4819' });
+  });
+
+  test('Workflow tắt: được chọn → đăng thẳng (không có bước nháp); bật/tắt Duyệt nháp từ demo', async () => {
+    const cid = SEED_CAMPAIGN.agencyChallenge; // Duyệt nháp tắt, chỉ tiền mặt
+    await demo.simulateApplicants(cid, 1);
+    await demo.advancePhase(cid);
+    await demo.pickWinners(cid);
+    const id = ofCampaign(cid)[0].id;
+    expect(statusOf(id)).toBe('ACCEPTED');
+    expect(recruitSteps(id).primary).toMatchObject({ key: 'SUBMIT_POST', label: expect.stringContaining('không duyệt nháp') });
+    await demo.run(id, 'SUBMIT_POST');
+    expect(statusOf(id)).toBe('VERIFIED');
+    expect(stored(id).contents.some((c) => c.kind === 'DRAFT')).toBe(false);
+
+    expect(await demo.toggleDraftReview(cid)).toBe(true);
+    expect(await demo.toggleDraftReview(cid)).toBe(false);
+  });
+
+  test('chọn / không chọn ngay trên hàng booking trong giai đoạn Chọn lọc', async () => {
+    const waiting = ofCampaign(SEED_CAMPAIGN.recruitSelecting).filter((b) => b.status === 'APPLIED');
+    await demo.run(waiting[0].id, 'SELECT');
+    expect(statusOf(waiting[0].id)).toBe('ACCEPTED');
+    await demo.run(waiting[1].id, 'DECLINE');
+    expect(statusOf(waiting[1].id)).toBe('DECLINED');
+    expect(stored(waiting[1].id).history.at(-1)!.action).toBe('NOT_SELECTED');
   });
 });

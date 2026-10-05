@@ -10,13 +10,17 @@ import type {
   CampaignFilters,
   CampaignInput,
   CampaignPatch,
+  CampaignQA,
+  CampaignQAView,
   CampaignView,
   InviteOptions,
   InviteResult,
   MarketplaceCampaign,
   MarketplaceFilters,
+  SelectionResult,
   SupplierMatchContext,
 } from '../campaign-types';
+import { QA_ANSWER_MAX, QA_QUESTION_MAX } from '../campaign-types';
 import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
@@ -30,18 +34,24 @@ import {
   inviteDeliverable,
   isAcceptingApplications,
   isInProgress,
+  isListedOnMarketplace,
   isOccupying,
   isPreAccept,
   isPrice,
   resolveItems,
+  applySelection,
+  checkSlots,
   routeKol,
   sanitizeCampaignInput,
+  selectedCount,
   toBookingView,
   toCampaignView,
   toMarketplaceCampaign,
   validateForOpen,
 } from './campaignRules';
 import { normalizeText, publicKolOf } from './directory';
+import { profileDisplayName } from './identity';
+import { campaignType, checkApplication, deriveRecruitmentFields, isRecruit, recruitPhase } from './recruitment';
 import { matchCampaign, supplierMatchContext } from './campaignMatch';
 
 export interface CampaignServiceDeps {
@@ -121,6 +131,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       deliverables: clean.deliverables ?? [],
       contentRules: clean.contentRules ?? '',
       visibility: clean.visibility ?? 'PRIVATE',
+      type: clean.type ?? 'BOOKING',
       status: 'DRAFT',
       createdAt: t,
       updatedAt: t,
@@ -129,6 +140,10 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (clean.endDate) c.endDate = clean.endDate;
     if (clean.applyDeadline) c.applyDeadline = clean.applyDeadline;
     if (clean.cover) c.cover = clean.cover;
+    for (const k of ['recruitment', 'draftReview', 'regions', 'target', 'survey', 'terms'] as const) {
+      if (clean[k] !== undefined) (c as unknown as Record<string, unknown>)[k] = clean[k];
+    }
+    deriveRecruitmentFields(c);
     save(c);
     return view(c.id);
   }
@@ -140,9 +155,15 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const c = structuredClone(ownCampaign(state, id));
     if (c.status !== 'DRAFT' && c.status !== 'OPEN') throw new KolhubError('KOLHUB-4802');
     const clean = sanitizeCampaignInput(patch ?? {});
-    const next: Campaign = { ...c, ...clean, updatedAt: now() };
-    for (const k of ['startDate', 'endDate', 'applyDeadline', 'cover'] as const) if (next[k] === undefined) delete next[k];
-    if (next.status === 'OPEN') validateForOpen(next, now());
+    const t = now();
+    const mine = state.bookings.filter((b) => b.campaignId === id);
+    // The type decides how bookings work: it cannot change once there are bookings.
+    if (clean.type && campaignType(clean) !== campaignType(c) && mine.length > 0) throw new KolhubError('KOLHUB-4803', { field: 'type' });
+    const next: Campaign = { ...c, ...clean, updatedAt: t };
+    for (const k of ['startDate', 'endDate', 'applyDeadline', 'cover', 'recruitment', 'target'] as const) if (next[k] === undefined) delete next[k];
+    deriveRecruitmentFields(next);
+    if (isRecruit(next) && next.recruitment.slots < selectedCount(state, next, t)) throw new KolhubError('KOLHUB-4803', { field: 'slots' });
+    if (next.status === 'OPEN') validateForOpen(next, t);
     save(next);
     return view(id);
   }
@@ -159,7 +180,8 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const c = structuredClone(ownCampaign(db.read(), id));
     if (c.status !== 'DRAFT') throw new KolhubError('KOLHUB-4802');
     const t = now();
-    validateForOpen(c, t);
+    deriveRecruitmentFields(c);
+    validateForOpen(c, t, true);
     open(c, t);
     save(c);
     return view(id);
@@ -212,6 +234,8 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const state = db.read();
     const c = structuredClone(ownCampaign(state, campaignId));
     if (c.status !== 'DRAFT' && c.status !== 'OPEN' && c.status !== 'RUNNING') throw new KolhubError('KOLHUB-4802');
+    // "Tuyển nhiều KOL": KOL/MCN apply on the Sàn and the brand picks; no private invites.
+    if (campaignType(c) === 'OPEN_RECRUITMENT') throw new KolhubError('KOLHUB-4802');
     const ids = [...new Set((kolIds ?? []).map((k) => (k ?? '').trim()).filter(Boolean))];
     if (ids.length === 0) throw new KolhubError('KOLHUB-4812');
     if (opts.price !== undefined && !isPrice(opts.price)) throw new KolhubError('KOLHUB-4810');
@@ -357,6 +381,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** Filters on the campaign itself (category / platform / budget); the keyword is matched on the card. */
   function campaignFilter(filters: MarketplaceFilters) {
     return (c: Campaign) =>
+      (!filters.type || campaignType(c) === filters.type) &&
       (!filters.category || c.categories.includes(filters.category)) &&
       (!filters.platform || c.platforms.includes(filters.platform)) &&
       (filters.budgetMin === undefined || c.budget >= filters.budgetMin) &&
@@ -368,10 +393,15 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     return (m: MarketplaceCampaign) => !kw || normalizeText(`${m.name} ${m.objective} ${m.brief} ${m.brand.company}`).includes(kw);
   }
 
-  /** Sort (default 'match': score desc, then newest — without match scores (brand viewer) that is just newest). */
+  /**
+   * Sort (default 'match': score desc, then newest — without match scores (brand viewer) that is just newest).
+   * Campaigns still taking applications come first; open-recruitment campaigns past "Ứng tuyển" follow.
+   */
   function compare(sort: MarketplaceFilters['sort'] = 'match') {
-    const deadline = (m: MarketplaceCampaign) => (m.applyDeadline ? endOfDay(m.applyDeadline) : Infinity);
+    const deadline = (m: MarketplaceCampaign) => (m.applyDeadline && m.accepting !== false ? endOfDay(m.applyDeadline) : Infinity);
     return (a: MarketplaceCampaign, b: MarketplaceCampaign) => {
+      const open = Number(b.accepting !== false) - Number(a.accepting !== false);
+      if (open) return open;
       if (sort === 'budget') return b.budget - a.budget || b.publishedAt - a.publishedAt;
       if (sort === 'deadline') return deadline(a) - deadline(b) || b.publishedAt - a.publishedAt;
       if (sort === 'match') return (b.match?.score ?? 0) - (a.match?.score ?? 0) || b.publishedAt - a.publishedAt;
@@ -389,7 +419,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const t = now();
     const { ctx, saved } = viewerContext(state, me, t);
     return state.campaigns
-      .filter((c) => isAcceptingApplications(c, t))
+      .filter((c) => isListedOnMarketplace(c, t))
       .filter((c) => !only || only(c, saved))
       .filter(campaignFilter(filters))
       .map((c) => card(state, c, me.accountId, ctx, saved, t))
@@ -417,7 +447,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
     const { ctx, saved } = viewerContext(state, me, t);
     const item = card(state, c, me.accountId, ctx, saved, t);
-    if (!isAcceptingApplications(c, t) && !(c.visibility === 'MARKETPLACE' && item.myBooking)) throw new KolhubError('KOLHUB-4801');
+    if (!isListedOnMarketplace(c, t) && !(c.visibility === 'MARKETPLACE' && item.myBooking)) throw new KolhubError('KOLHUB-4801');
     return { ...item, brandInfo: brandInfoOf(state, c.brandAccountId, t) };
   }
 
@@ -429,7 +459,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const state = db.read();
     const me = marketplaceViewer(state);
     const c = state.campaigns.find((x) => x.id === id);
-    if (!c || !isAcceptingApplications(c, now())) throw new KolhubError('KOLHUB-4801');
+    if (!c || !isListedOnMarketplace(c, now())) throw new KolhubError('KOLHUB-4801');
     if (state.savedCampaigns.some((x) => x.accountId === me.accountId && x.campaignId === id)) return;
     db.update((s) => {
       s.savedCampaigns.push({ accountId: me.accountId, campaignId: id, savedAt: now() });
@@ -481,6 +511,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
           createdAt: v.createdAt,
           updatedAt: v.updatedAt,
           allowedActions: v.allowedActions,
+          campaign: v.campaign,
         };
         if (v.awaiting) booking.awaiting = v.awaiting;
         if (v.expiresAt !== undefined) booking.expiresAt = v.expiresAt;
@@ -506,8 +537,12 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       throw new KolhubError('KOLHUB-4807');
     }
     const items = resolveItems(state, me, c, proposal?.items ?? [], t, newId);
-    if (!isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
+    // "Tuyển nhiều KOL": fixed reward, no quote.
+    const recruit = isRecruit(c);
+    if (!recruit && !isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
+    const price = recruit ? 0 : proposal.price!;
     const note = checkNote(proposal.note);
+    const application = checkApplication(c, proposal, t);
     const b: Booking = {
       id: newId(),
       campaignId: c.id,
@@ -516,13 +551,14 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       supplierAccountId: me.accountId,
       origin: 'APPLICATION',
       items,
-      price: proposal.price,
+      price,
       note,
       status: 'APPLIED',
       awaiting: 'BRAND',
-      history: [{ at: t, by: 'SUPPLIER', action: 'APPLIED', price: proposal.price, ...(note ? { note } : {}) }],
+      history: [{ at: t, by: 'SUPPLIER', action: 'APPLIED', ...(price ? { price } : {}), ...(note ? { note } : {}) }],
       contents: [],
       payment: {},
+      ...(application ? { application } : {}),
       createdAt: t,
       updatedAt: t,
     };
@@ -530,6 +566,155 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       s.bookings.push(b);
     });
     return toBookingView(db.read(), b, 'SUPPLIER', t);
+  }
+
+  // --- "Tuyển nhiều KOL": picking applicants (brand) ---
+
+  /** The brand's open-recruitment campaign and the APPLIED applications among `bookingIds` (4801 / 4802 / 4805). */
+  function selection(campaignId: string, bookingIds: string[]) {
+    const state = db.read();
+    const c = ownCampaign(state, campaignId);
+    if (!isRecruit(c) || (c.status !== 'OPEN' && c.status !== 'RUNNING')) throw new KolhubError('KOLHUB-4802');
+    const t = now();
+    const ids = [...new Set((bookingIds ?? []).filter(Boolean))];
+    if (ids.length === 0) throw new KolhubError('KOLHUB-4812');
+    for (const id of ids) {
+      const b = state.bookings.find((x) => x.id === id && x.campaignId === c.id);
+      if (!b) throw new KolhubError('KOLHUB-4804');
+      if (b.origin !== 'APPLICATION' || effectiveStatus(b, c, t) !== 'APPLIED') throw new KolhubError('KOLHUB-4805');
+    }
+    return { state, c, t, ids };
+  }
+
+  function selectionResult(campaignId: string, ids: string[], t: number): SelectionResult {
+    const after = db.read();
+    const c = after.campaigns.find((x) => x.id === campaignId)!;
+    return {
+      bookings: ids.map((id) => toBookingView(after, after.bookings.find((b) => b.id === id)!, 'BRAND', t)),
+      selected: selectedCount(after, c, t),
+      slots: c.recruitment?.slots ?? 0,
+    };
+  }
+
+  /**
+   * Picks applicants during "Chọn lọc" (4819 otherwise): each becomes ACCEPTED at the fixed reward (price = cash,
+   * reward snapshot), skipping negotiation; the campaign becomes RUNNING. All-or-nothing within the free slots (4818).
+   */
+  async function selectApplicants(campaignId: string, bookingIds: string[]): Promise<SelectionResult> {
+    await wait();
+    const { state, c, t, ids } = selection(campaignId, bookingIds);
+    if (recruitPhase(c, t) !== 'SELECT') throw new KolhubError('KOLHUB-4819');
+    checkSlots(state, c, ids.length, t);
+    db.update((s) => applySelection(s, c.id, ids, t));
+    return selectionResult(c.id, ids, t);
+  }
+
+  /** Declines applicants ("Không được chọn") during "Ứng tuyển" or "Chọn lọc" (4819 otherwise). */
+  async function rejectApplicants(campaignId: string, bookingIds: string[], note?: string): Promise<SelectionResult> {
+    await wait();
+    const { c, t, ids } = selection(campaignId, bookingIds);
+    const phase = recruitPhase(c, t);
+    if (phase !== 'APPLY' && phase !== 'SELECT') throw new KolhubError('KOLHUB-4819');
+    const n = checkNote(note) || 'Không được chọn';
+    db.update((s) => {
+      for (const id of ids) {
+        const b = s.bookings.find((x) => x.id === id)!;
+        b.status = 'DECLINED';
+        delete b.awaiting;
+        b.updatedAt = t;
+        b.history.push({ at: t, by: 'BRAND', action: 'NOT_SELECTED', note: n });
+      }
+    });
+    return selectionResult(c.id, ids, t);
+  }
+
+  /** "Chốt danh sách" during "Chọn lọc": every applicant not picked yet becomes "Không được chọn". */
+  async function finalizeSelection(campaignId: string): Promise<SelectionResult> {
+    await wait();
+    const state = db.read();
+    const c = ownCampaign(state, campaignId);
+    if (!isRecruit(c)) throw new KolhubError('KOLHUB-4802');
+    const t = now();
+    if (recruitPhase(c, t) !== 'SELECT') throw new KolhubError('KOLHUB-4819');
+    const ids = state.bookings
+      .filter((b) => b.campaignId === c.id && b.origin === 'APPLICATION' && effectiveStatus(b, c, t) === 'APPLIED')
+      .map((b) => b.id);
+    if (ids.length === 0) return selectionResult(c.id, [], t);
+    return rejectApplicants(campaignId, ids);
+  }
+
+  // --- public Q&A ("Hỏi đáp") ---
+
+  function qaView(q: CampaignQA, viewerId: string): CampaignQAView {
+    const v: CampaignQAView = { id: q.id, askerName: q.askerName, question: q.question, createdAt: q.createdAt, mine: !!viewerId && q.askerAccountId === viewerId };
+    if (q.answer) {
+      v.answer = q.answer;
+      v.answeredAt = q.answeredAt;
+    }
+    return v;
+  }
+
+  /**
+   * Q&A of a marketplace campaign, for anyone (guests included): answered questions, plus the viewer's own
+   * unanswered ones; the owning brand sees every question. Unanswered first for the brand, then newest first.
+   */
+  async function listQuestions(campaignId: string): Promise<CampaignQAView[]> {
+    await wait();
+    const state = db.read();
+    const me = marketplaceViewer(state, { allowPublic: true });
+    const c = state.campaigns.find((x) => x.id === campaignId);
+    if (!c || c.status === 'DRAFT' || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
+    const owner = !!me.accountId && c.brandAccountId === me.accountId;
+    return state.campaignQuestions
+      .filter((q) => q.campaignId === c.id && (owner || !!q.answer || (!!me.accountId && q.askerAccountId === me.accountId)))
+      .sort((a, b) => (owner ? Number(!!a.answer) - Number(!!b.answer) : 0) || b.createdAt - a.createdAt)
+      .map((q) => qaView(q, me.accountId));
+  }
+
+  /** A signed-in KOL / MCN asks a public question on a campaign shown on the Sàn (4806 guests / brands, 4801). */
+  async function askQuestion(campaignId: string, text: string): Promise<CampaignQAView> {
+    await wait();
+    const state = db.read();
+    const me = marketplaceViewer(state);
+    const t = now();
+    const c = state.campaigns.find((x) => x.id === campaignId);
+    if (!c || !isListedOnMarketplace(c, t)) throw new KolhubError('KOLHUB-4801');
+    const question = (text ?? '').normalize('NFC').trim();
+    if (!question || [...question].length > QA_QUESTION_MAX) throw new KolhubError('KOLHUB-4803', { field: 'question' });
+    const acc = state.accounts.find((a) => a.id === me.accountId)!;
+    const profile =
+      acc.type === 'MCN' ? state.mcnProfiles.find((p) => p.accountId === acc.id) : state.kolProfiles.find((p) => p.accountId === acc.id);
+    const q: CampaignQA = {
+      id: newId(),
+      campaignId: c.id,
+      askerAccountId: me.accountId,
+      askerName: (profile && profileDisplayName(profile)) || acc.fullName || (acc.type === 'MCN' ? 'MCN' : 'KOL'),
+      question,
+      createdAt: t,
+    };
+    db.update((s) => {
+      s.campaignQuestions.push(q);
+    });
+    return qaView(q, me.accountId);
+  }
+
+  /** The owning brand answers (or edits its answer to) a question (4016 non-BIZ, 4820 unknown / another brand's). */
+  async function answerQuestion(questionId: string, text: string): Promise<CampaignQAView> {
+    await wait();
+    const state = db.read();
+    const acc = currentBizAccount(state);
+    const q = state.campaignQuestions.find((x) => x.id === questionId);
+    const c = q ? state.campaigns.find((x) => x.id === q.campaignId) : undefined;
+    if (!q || !c || c.brandAccountId !== acc.id) throw new KolhubError('KOLHUB-4820');
+    const answer = (text ?? '').normalize('NFC').trim();
+    if (!answer || [...answer].length > QA_ANSWER_MAX) throw new KolhubError('KOLHUB-4803', { field: 'answer' });
+    const t = now();
+    db.update((s) => {
+      const x = s.campaignQuestions.find((y) => y.id === questionId)!;
+      x.answer = answer;
+      x.answeredAt = t;
+    });
+    return qaView({ ...q, answer, answeredAt: t }, acc.id);
   }
 
   return {
@@ -548,6 +733,12 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     unsaveCampaign,
     listSaved,
     listApplied,
+    selectApplicants,
+    rejectApplicants,
+    finalizeSelection,
+    listQuestions,
+    askQuestion,
+    answerQuestion,
   };
 }
 

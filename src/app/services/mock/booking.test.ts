@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { createBookingService } from './booking';
 import { createCampaignService } from './campaign';
-import { SEED_BOOKING, SEED_CAMPAIGN } from './campaignSeed';
+import { SEED_BOOKING, SEED_CAMPAIGN, SEED_RECRUIT_BOOKING } from './campaignSeed';
 import { VERIFIED_MCN_ACCOUNT_ID as SAOVIET } from './mcnSeed';
 import { createPlanService } from './plans';
 import { makeHarness, type Harness } from './testHarness';
@@ -71,9 +71,11 @@ describe('xem booking & quyền sở hữu', () => {
   test('MCN thấy booking của mình, lọc theo nguồn / trạng thái; không thấy ngân sách chiến dịch', async () => {
     as(SAOVIET);
     const all = await svc.listForSupplier();
-    expect(all).toHaveLength(4);
-    expect((await svc.listForSupplier({ origin: 'APPLICATION' })).map((b) => b.id)).toEqual([SEED_BOOKING.application]);
-    expect((await svc.listForSupplier({ status: ['VERIFIED', 'COMPLETED'] })).map((b) => b.status).sort()).toEqual(['COMPLETED', 'VERIFIED']);
+    expect(all).toHaveLength(6);
+    expect((await svc.listForSupplier({ origin: 'APPLICATION' })).map((b) => b.id).sort()).toEqual(
+      [SEED_BOOKING.application, SEED_RECRUIT_BOOKING.saoVietApplied, SEED_RECRUIT_BOOKING.saoVietVerified].sort(),
+    );
+    expect((await svc.listForSupplier({ status: ['VERIFIED', 'COMPLETED'] })).map((b) => b.status).sort()).toEqual(['COMPLETED', 'VERIFIED', 'VERIFIED']);
     const b = all[0];
     expect(b.viewer).toBe('SUPPLIER');
     expect(b.campaign).not.toHaveProperty('budget');
@@ -201,7 +203,7 @@ describe('hết hạn (tính khi đọc)', () => {
     });
     as(BRAND);
     expect((await svc.get(SEED_BOOKING.application)).status).toBe('EXPIRED');
-    expect(await svc.listForBrand({ status: 'APPLIED' })).toEqual([]);
+    expect((await svc.listForBrand({ status: 'APPLIED' })).filter((b) => b.campaignId === SEED_CAMPAIGN.marketplace)).toEqual([]);
   });
 });
 
@@ -314,7 +316,8 @@ describe('hợp đồng, đếm huy hiệu, gói dịch vụ', () => {
 
   test('huy hiệu Nhãn hàng / MCN / KOL theo seed', async () => {
     as(BRAND);
-    expect(await svc.brandCounts()).toEqual({ newApplications: 1, awaitingBrand: 1, pendingReviews: 1, toPay: 1 });
+    // 1 proposal on "Tuần lễ ẩm thực mùa thu" + 4 applicants waiting to be picked on the open-recruitment campaign.
+    expect(await svc.brandCounts()).toEqual({ newApplications: 5, awaitingBrand: 5, pendingReviews: 1, toPay: 1 });
     as(SAOVIET);
     expect(await svc.supplierCounts()).toEqual({ newInvites: 0, awaitingSupplier: 0, toDeliver: 0, toConfirmPayment: 0, openMarketplace: 8 });
     as(KHANHVY);

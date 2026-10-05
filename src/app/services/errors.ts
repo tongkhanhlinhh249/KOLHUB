@@ -238,6 +238,36 @@ function campaignFieldLabel(field?: string): string {
       return 'Tệp hoặc link nội dung';
     case 'item':
       return 'Hạng mục của booking';
+    case 'type':
+      return 'Loại chiến dịch';
+    case 'slots':
+      return 'Số suất';
+    case 'reward':
+      return 'Phần thưởng';
+    case 'product':
+      return 'Sản phẩm tặng';
+    case 'timeline':
+      return 'Lịch trình 4 giai đoạn';
+    case 'draftReview':
+      return 'Duyệt nháp';
+    case 'regions':
+      return 'Khu vực';
+    case 'target':
+      return 'Điều kiện tham gia';
+    case 'survey':
+      return 'Câu hỏi khảo sát';
+    case 'terms':
+      return 'Điều khoản';
+    case 'answers':
+      return 'Câu trả lời khảo sát';
+    case 'shipping':
+      return 'Địa chỉ nhận sản phẩm';
+    case 'phone':
+      return 'Số điện thoại nhận hàng';
+    case 'question':
+      return 'Câu hỏi';
+    case 'answer':
+      return 'Câu trả lời';
     case 'feedback':
       return 'Góp ý chỉnh sửa';
     case 'comment':
@@ -286,6 +316,14 @@ function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Vui lòng nhập lý do huỷ.';
     case 'KOLHUB-4817':
       return 'Chiến dịch còn booking đang thực hiện. Hãy hoàn tất hoặc huỷ các booking đó trước.';
+    case 'KOLHUB-4818':
+      return meta?.slots !== undefined
+        ? `Vượt số suất của chiến dịch: chỉ còn ${String(meta.remaining ?? 0)} trên ${String(meta.slots)} suất.`
+        : 'Vượt số suất của chiến dịch.';
+    case 'KOLHUB-4819':
+      return 'Chiến dịch không ở giai đoạn cho phép thao tác này (ví dụ: chỉ chọn ứng viên trong giai đoạn Chọn lọc).';
+    case 'KOLHUB-4820':
+      return 'Không tìm thấy câu hỏi hoặc bạn không có quyền trả lời.';
     default:
       return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
   }

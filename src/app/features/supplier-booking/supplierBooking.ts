@@ -297,6 +297,10 @@ const ACTION: Record<BookingAction, string> = {
   CONTRACT_ATTACHED: 'đính kèm hợp đồng',
   CONTRACT_REMOVED: 'gỡ hợp đồng',
   RATED: 'gửi đánh giá',
+  SELECTED: 'chọn bạn tham gia chiến dịch',
+  NOT_SELECTED: 'không chọn đề xuất này',
+  PRODUCT_SENT: 'đã gửi sản phẩm',
+  PRODUCT_RECEIVED: 'đã nhận sản phẩm',
 };
 
 /** "Nhãn hàng đề xuất giá" / "Bạn nộp bản nháp" / "Hệ thống xác minh bài đăng". */

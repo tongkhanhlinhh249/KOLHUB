@@ -1,13 +1,18 @@
 // Seed v9: campaign booking beta — campaigns of the two demo brands, bookings with Sao Việt Media and Khánh Vy.
 // Seed v10 (Sàn v2): 4 more marketplace campaigns with varied fit, and saved campaigns of the two suppliers.
 // Seed v11: every campaign has a cover image ("Ảnh chiến dịch").
+// Seed v12: "Tuyển nhiều KOL" — livestream / tai nghe / thử thách tiếng Anh become open recruitment, plus one campaign
+// in "Chọn lọc" and one in "Đăng bài" (see recruitSeed.ts), and public Q&A.
 import type { Platform } from '../bizTypes';
-import type { Booking, BookingEvent, Campaign, ContentSubmission, SavedCampaign } from '../campaign-types';
+import type { Booking, BookingEvent, Campaign, CampaignQA, ContentSubmission, SavedCampaign } from '../campaign-types';
 import type { Channel, StoredFile } from '../profile-types';
 import { isoDay, postMetrics } from './campaignRules';
 import { VERIFIED_MCN_ACCOUNT_ID, VERIFIED_MCN_ID } from './mcnSeed';
 import { scanVideoFile } from './safety';
 import { IMAGE_POOL } from './socialListening';
+import { SEED_RECRUIT, seedRecruitment } from './recruitSeed';
+
+export { SEED_RECRUIT, SEED_RECRUIT_BOOKING } from './recruitSeed';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -37,6 +42,11 @@ export const SEED_CAMPAIGN = {
   agencyHeadphones: 'cmp-seed-tai-nghe',
   /** Agency, TikTok + Facebook livestream, education. */
   agencyChallenge: 'cmp-seed-thu-thach-tieng-anh',
+  // v12 ("Tuyển nhiều KOL"; livestream, agencyHeadphones and agencyChallenge are open recruitment too)
+  /** Demo brand, open recruitment in "Chọn lọc" with applicants to pick. */
+  recruitSelecting: SEED_RECRUIT.selecting,
+  /** Agency, open recruitment in "Đăng bài", Workflow off. */
+  recruitPosting: SEED_RECRUIT.posting,
 } as const;
 
 export const SEED_BOOKING = {
@@ -60,7 +70,10 @@ function campaign(base: Omit<Campaign, 'createdAt' | 'updatedAt'> & { createdAt:
   return { ...base, updatedAt: base.updatedAt ?? base.createdAt };
 }
 
-export function seedCampaigns(channels: Channel[], now: number): { campaigns: Campaign[]; bookings: Booking[]; savedCampaigns: SavedCampaign[] } {
+export function seedCampaigns(
+  channels: Channel[],
+  now: number,
+): { campaigns: Campaign[]; bookings: Booking[]; savedCampaigns: SavedCampaign[]; campaignQuestions: CampaignQA[] } {
   const day = (n: number) => isoDay(now + n * DAY);
   const ago = (days: number, hours = 0) => now - days * DAY - hours * HOUR;
   const followers = (id: string) => channels.find((c) => c.id === id)?.stats?.followers ?? 0;
@@ -503,9 +516,19 @@ export function seedCampaigns(channels: Channel[], now: number): { campaigns: Ca
     updatedAt: ago(2),
   };
 
+  const campaigns = [running, marketplace, draft, fashion, english, travel, yogurt, livestream, headphones, challenge];
+  const recruit = seedRecruitment(
+    campaigns,
+    channels,
+    now,
+    { livestream: livestream.id, headphones: headphones.id, challenge: challenge.id, brand: SEED_BRAND_ID, agency: SEED_AGENCY_ID },
+    coverOf,
+  );
+
   return {
-    campaigns: [running, marketplace, draft, fashion, english, travel, yogurt, livestream, headphones, challenge],
-    bookings: [review, verified, completed, khanhVy, application],
+    campaigns: [...campaigns, ...recruit.campaigns],
+    bookings: [review, verified, completed, khanhVy, application, ...recruit.bookings],
+    campaignQuestions: recruit.questions,
     savedCampaigns: [
       { accountId: SAOVIET, campaignId: travel.id, savedAt: ago(1) },
       { accountId: SAOVIET, campaignId: yogurt.id, savedAt: ago(0, 3) },

@@ -65,7 +65,7 @@ export function seedState(): DemoState {
   seedMcnChannelAssignments(channels, now);
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 11,
+    version: 12,
     accounts,
     otps: [],
     registrations: [],

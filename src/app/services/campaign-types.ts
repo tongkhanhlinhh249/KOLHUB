@@ -45,6 +45,229 @@ export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
   CANCELLED: 'Đã huỷ',
 };
 
+// ---------------------------------------------------------------------------
+// Campaign type: "Booking riêng" (negotiated) or "Tuyển nhiều KOL" (open recruitment, REVU-style)
+// ---------------------------------------------------------------------------
+
+/**
+ * BOOKING: invite / apply with a price, then negotiate (default; campaigns without `type`).
+ * OPEN_RECRUITMENT: fixed reward per KOL, N slots, a 4-phase timeline (Ứng tuyển → Chọn lọc → Đăng bài → Đánh giá);
+ * KOL/MCN apply without a quote and the brand picks up to N winners during "Chọn lọc".
+ */
+export type CampaignType = 'BOOKING' | 'OPEN_RECRUITMENT';
+export const CAMPAIGN_TYPES: { key: CampaignType; label: string; description: string }[] = [
+  { key: 'BOOKING', label: 'Booking riêng', description: 'Mời hoặc nhận đề xuất từ KOL/MCN, thương lượng giá cho từng booking.' },
+  {
+    key: 'OPEN_RECRUITMENT',
+    label: 'Tuyển nhiều KOL',
+    description: 'Phần thưởng cố định cho mỗi KOL, tuyển N suất theo lịch 4 giai đoạn. KOL/MCN ứng tuyển không cần báo giá.',
+  },
+];
+export const CAMPAIGN_TYPE_LABEL: Record<CampaignType, string> = { BOOKING: 'Booking riêng', OPEN_RECRUITMENT: 'Tuyển nhiều KOL' };
+
+/** Slots of an open-recruitment campaign: 1–RECRUIT_SLOTS_MAX. */
+export const RECRUIT_SLOTS_MAX = 500;
+export const PRODUCT_NAME_MAX = 150;
+export const PRODUCT_NOTE_MAX = 500;
+
+/** Product given to each selected KOL (record only: the brand ships it outside KOL Hub). */
+export interface ProductReward {
+  name: string;
+  /** VND, > 0. */
+  value: number;
+  note?: string;
+}
+
+/** Reward per selected KOL: cash and/or a product (at least one). */
+export interface CampaignReward {
+  /** VND per KOL, ≥ 0 (0 = product only). */
+  cash: number;
+  product?: ProductReward;
+}
+
+/**
+ * The 4 phases as local-day ranges ('YYYY-MM-DD', inclusive), in order without overlap:
+ * applyStart ≤ applyEnd < selectStart ≤ selectEnd < postStart ≤ postEnd < reviewStart ≤ reviewEnd.
+ * '' = not set yet (drafts only).
+ */
+export interface RecruitmentTimeline {
+  applyStart: string;
+  applyEnd: string;
+  selectStart: string;
+  selectEnd: string;
+  postStart: string;
+  postEnd: string;
+  reviewStart: string;
+  reviewEnd: string;
+}
+
+export interface Recruitment {
+  /** Number of KOL/MCN the brand will pick (0 = not set yet, drafts only). */
+  slots: number;
+  reward: CampaignReward;
+  timeline: RecruitmentTimeline;
+}
+
+/** Current phase of an open-recruitment campaign (a gap between two phases belongs to the next one). */
+export type RecruitPhase = 'UPCOMING' | 'APPLY' | 'SELECT' | 'POST' | 'REVIEW' | 'ENDED';
+export type RecruitMilestone = Exclude<RecruitPhase, 'UPCOMING' | 'ENDED'>;
+export const RECRUIT_MILESTONES: { key: RecruitMilestone; label: string; start: keyof RecruitmentTimeline; end: keyof RecruitmentTimeline }[] = [
+  { key: 'APPLY', label: 'Ứng tuyển', start: 'applyStart', end: 'applyEnd' },
+  { key: 'SELECT', label: 'Chọn lọc', start: 'selectStart', end: 'selectEnd' },
+  { key: 'POST', label: 'Đăng bài', start: 'postStart', end: 'postEnd' },
+  { key: 'REVIEW', label: 'Đánh giá', start: 'reviewStart', end: 'reviewEnd' },
+];
+export const RECRUIT_PHASE_LABEL: Record<RecruitPhase, string> = {
+  UPCOMING: 'Sắp mở',
+  APPLY: 'Ứng tuyển',
+  SELECT: 'Chọn lọc',
+  POST: 'Đăng bài',
+  REVIEW: 'Đánh giá',
+  ENDED: 'Đã kết thúc',
+};
+
+// --- survey, terms, target ---
+
+export const SURVEY_MAX = 10;
+export const TERMS_MAX = 10;
+export const SURVEY_TEXT_MAX = 300;
+export const ANSWER_MAX = 1000;
+
+/** A question the applicant answers in the apply form (short text). */
+export interface SurveyQuestion {
+  id: string;
+  text: string;
+  required: boolean;
+}
+
+/** A term the applicant must tick to apply. */
+export interface CampaignTerm {
+  id: string;
+  text: string;
+}
+
+/** Terms prefilled in a new campaign. */
+export const DEFAULT_TERMS: string[] = [
+  'Giữ bài đăng ở chế độ công khai tối thiểu 6 tháng.',
+  'Cho phép Nhãn hàng dùng lại bài đăng để quảng bá trên kênh của Nhãn hàng.',
+];
+
+export type TargetGender = 'ANY' | 'FEMALE' | 'MALE';
+export const TARGET_GENDER_LABEL: Record<TargetGender, string> = { ANY: 'Không giới hạn', FEMALE: 'Nữ', MALE: 'Nam' };
+export const TARGET_AGE_MIN = 16;
+export const TARGET_AGE_MAX = 80;
+
+/** "Điều kiện tham gia" (shown to applicants; the categories live on the campaign). */
+export interface CampaignTarget {
+  ageMin?: number;
+  ageMax?: number;
+  gender?: TargetGender;
+  /** Followers of the publishing channel, ≥ 0. */
+  minFollowers?: number;
+}
+
+/** Provinces / cities of Việt Nam (34 after the 2025 merger) for regions and shipping addresses. */
+export const VN_PROVINCES = [
+  'Hà Nội',
+  'TP. Hồ Chí Minh',
+  'Hải Phòng',
+  'Đà Nẵng',
+  'Cần Thơ',
+  'Huế',
+  'An Giang',
+  'Bắc Ninh',
+  'Cà Mau',
+  'Cao Bằng',
+  'Đắk Lắk',
+  'Điện Biên',
+  'Đồng Nai',
+  'Đồng Tháp',
+  'Gia Lai',
+  'Hà Tĩnh',
+  'Hưng Yên',
+  'Khánh Hoà',
+  'Lai Châu',
+  'Lâm Đồng',
+  'Lạng Sơn',
+  'Lào Cai',
+  'Nghệ An',
+  'Ninh Bình',
+  'Phú Thọ',
+  'Quảng Ngãi',
+  'Quảng Ninh',
+  'Quảng Trị',
+  'Sơn La',
+  'Tây Ninh',
+  'Thái Nguyên',
+  'Thanh Hoá',
+  'Tuyên Quang',
+  'Vĩnh Long',
+] as const;
+
+export const SHIPPING_ADDRESS_MAX = 300;
+
+/** Where the brand ships the product reward (required to apply when the campaign gives a product). */
+export interface ShippingInfo {
+  province: string;
+  address: string;
+  /** Normalized Vietnamese mobile number. */
+  phone: string;
+}
+
+export interface ApplicationAnswer {
+  questionId: string;
+  /** The question as asked (kept if the brand edits it later). */
+  question: string;
+  answer: string;
+}
+
+/** What the applicant filled in besides the proposal: survey answers, accepted terms, shipping. */
+export interface ApplicationDetails {
+  answers: ApplicationAnswer[];
+  /** Texts of the terms ticked (all of them). */
+  acceptedTerms: string[];
+  termsAcceptedAt?: number;
+  shipping?: ShippingInfo;
+}
+
+/** Record-only shipping of the product reward. */
+export interface ProductShipment {
+  /** Brand marked "Đã gửi sản phẩm". */
+  sentAt?: number;
+  /** Supplier confirmed "Đã nhận sản phẩm". */
+  receivedAt?: number;
+}
+
+// --- public Q&A ---
+
+export const QA_QUESTION_MAX = 500;
+export const QA_ANSWER_MAX = 1000;
+
+/** A public question on a marketplace campaign; visible to everyone once the brand answered it. */
+export interface CampaignQA {
+  id: string;
+  campaignId: string;
+  askerAccountId: string;
+  /** Display name of the KOL / MCN who asked. */
+  askerName: string;
+  question: string;
+  answer?: string;
+  answeredAt?: number;
+  createdAt: number;
+}
+
+/** Q&A as a viewer sees it (no account id). */
+export interface CampaignQAView {
+  id: string;
+  askerName: string;
+  question: string;
+  answer?: string;
+  answeredAt?: number;
+  createdAt: number;
+  /** Asked by the viewer (unanswered questions are only shown to the asker and the brand). */
+  mine: boolean;
+}
+
 export const CAMPAIGN_NAME_MAX = 150;
 export const CAMPAIGN_TEXT_MAX = 5000;
 export const BOOKING_NOTE_MAX = 1000;
@@ -73,6 +296,20 @@ export interface Campaign {
   cover?: StoredFile;
   /** 'YYYY-MM-DD', last day suppliers may apply / respond (end of that local day). */
   applyDeadline?: string;
+  /** Absent = BOOKING. */
+  type?: CampaignType;
+  /** OPEN_RECRUITMENT only: slots, reward per KOL and the 4-phase timeline. */
+  recruitment?: Recruitment;
+  /** "Duyệt nháp" (Workflow): KOL submits a draft for review before posting. Absent = on. */
+  draftReview?: boolean;
+  /** Provinces the campaign targets; empty / absent = "Toàn quốc". */
+  regions?: string[];
+  /** "Điều kiện tham gia". */
+  target?: CampaignTarget;
+  /** Survey questions of the apply form. */
+  survey?: SurveyQuestion[];
+  /** Terms the applicant must accept. */
+  terms?: CampaignTerm[];
   status: CampaignStatus;
   /** First time the campaign became OPEN. */
   publishedAt?: number;
@@ -99,6 +336,19 @@ export interface CampaignInput {
   applyDeadline?: string | null;
   /** JPG / PNG / WebP ≤ 10 MB (4803 `cover` otherwise); null removes it. */
   cover?: StoredFile | null;
+  /** Cannot change once the campaign has bookings (4803 `type`). */
+  type?: CampaignType;
+  /**
+   * OPEN_RECRUITMENT: dates / budget / apply deadline / visibility are derived from it (start = applyStart,
+   * end = reviewEnd, applyDeadline = applyEnd, budget = slots × (cash + product value), MARKETPLACE).
+   */
+  recruitment?: Recruitment | null;
+  draftReview?: boolean;
+  regions?: string[];
+  target?: CampaignTarget | null;
+  /** Questions without `id` get one. */
+  survey?: { id?: string; text: string; required: boolean }[];
+  terms?: { id?: string; text: string }[];
 }
 export type CampaignPatch = Partial<CampaignInput>;
 
@@ -155,6 +405,8 @@ export interface MarketplaceFilters {
   keyword?: string;
   category?: KolCategory;
   platform?: Platform;
+  /** "Booking riêng" / "Tuyển nhiều KOL". */
+  type?: CampaignType;
   /** VND, inclusive. */
   budgetMin?: number;
   budgetMax?: number;
@@ -239,11 +491,24 @@ export interface MarketplaceCampaign {
   brandInfo?: MarketplaceBrandInfo;
   /** The viewer is the brand that owns this campaign (only ever true for a BIZ viewer). */
   mine?: boolean;
+  type: CampaignType;
+  /** OPEN_RECRUITMENT only. */
+  recruitment?: Recruitment;
+  /** OPEN_RECRUITMENT only: current phase. */
+  phase?: RecruitPhase;
+  /** OPEN_RECRUITMENT only: applicants picked so far (selected, in progress or completed). */
+  selectedCount?: number;
+  draftReview: boolean;
+  /** Empty = Toàn quốc. */
+  regions: string[];
+  target?: CampaignTarget;
+  survey: SurveyQuestion[];
+  terms: CampaignTerm[];
 }
 
 /** "Đã ứng tuyển": one of the viewer's applications with its campaign. */
 export interface AppliedCampaign {
-  booking: Pick<BookingView, 'id' | 'status' | 'awaiting' | 'payment' | 'price' | 'origin' | 'expiresAt' | 'createdAt' | 'updatedAt' | 'allowedActions'>;
+  booking: Pick<BookingView, 'id' | 'status' | 'awaiting' | 'payment' | 'price' | 'origin' | 'expiresAt' | 'createdAt' | 'updatedAt' | 'allowedActions' | 'campaign'>;
   campaign: MarketplaceCampaign;
 }
 
@@ -343,7 +608,13 @@ export type BookingAction =
   | 'PAYMENT_CONFIRMED'
   | 'CONTRACT_ATTACHED'
   | 'CONTRACT_REMOVED'
-  | 'RATED';
+  | 'RATED'
+  /** Open recruitment: picked by the brand (→ ACCEPTED at the fixed reward). */
+  | 'SELECTED'
+  /** Open recruitment: not picked (→ DECLINED, "Không được chọn"). */
+  | 'NOT_SELECTED'
+  | 'PRODUCT_SENT'
+  | 'PRODUCT_RECEIVED';
 
 export interface BookingEvent {
   at: number;
@@ -429,6 +700,12 @@ export interface Booking {
   payment: BookingPayment;
   /** Internal ratings: `brand` = given by the brand (of the supplier), `supplier` = given by the supplier. */
   ratings?: { brand?: BookingRating; supplier?: BookingRating };
+  /** Survey answers, accepted terms and shipping address given when applying. */
+  application?: ApplicationDetails;
+  /** Open recruitment: the campaign reward when the applicant was picked (price = reward.cash). */
+  reward?: CampaignReward;
+  /** Product reward shipping (record only). */
+  shipment?: ProductShipment;
   acceptedAt?: number;
   completedAt?: number;
   createdAt: number;
@@ -450,7 +727,13 @@ export type BookingActionKey =
   | 'MARK_PAID'
   | 'CONFIRM_PAID'
   | 'RATE'
-  | 'ATTACH_CONTRACT';
+  | 'ATTACH_CONTRACT'
+  /** Brand picks an open-recruitment applicant (during "Chọn lọc", within the slots). */
+  | 'SELECT'
+  /** Brand records "Đã gửi sản phẩm". */
+  | 'MARK_PRODUCT_SENT'
+  /** Supplier records "Đã nhận sản phẩm". */
+  | 'CONFIRM_PRODUCT_RECEIVED';
 
 export interface SupplierRef {
   type: SupplierType;
@@ -476,6 +759,12 @@ export interface BookingCampaignSummary {
   platforms: Platform[];
   deliverables: Deliverable[];
   brand: BrandRef;
+  type: CampaignType;
+  /** OPEN_RECRUITMENT only. */
+  recruitment?: Recruitment;
+  phase?: RecruitPhase;
+  draftReview: boolean;
+  regions: string[];
 }
 
 export interface BookingChannelRef {
@@ -549,9 +838,24 @@ export interface ProposalItemInput {
 
 export interface ApplyInput {
   items: ProposalItemInput[];
-  /** Total VND. */
-  price: number;
+  /** Total VND (BOOKING; ignored for OPEN_RECRUITMENT, which has a fixed reward). */
+  price?: number;
   note?: string;
+  /** Survey answers by question id (required questions must be answered; 4803 `answers`). */
+  answers?: Record<string, string>;
+  /** Ids of the accepted terms: all of them are required (4803 `terms`). */
+  acceptedTerms?: string[];
+  /** Required when the campaign rewards a product (4803 `shipping` / `phone`). */
+  shipping?: ShippingInfo;
+}
+
+/** Result of a bulk pick / reject on an open-recruitment campaign. */
+export interface SelectionResult {
+  /** Bookings changed by this call (brand view). */
+  bookings: BookingView[];
+  /** Picked so far after this call. */
+  selected: number;
+  slots: number;
 }
 
 export interface DraftInput {

@@ -14,7 +14,7 @@ const ROLE = {
   'kol-verified': 'kolhub.user.kol',
 } as const;
 
-test('mỗi chiến dịch / booking có booking mở được bằng tài khoản demo đúng vai trò', async () => {
+test('mỗi chiến dịch có booking mở được bằng tài khoản demo đúng vai trò (booking của KOL/MCN demo)', async () => {
   const svc = createDemoCampaignService({ db: createDb(null, seedState), now: Date.now, delay: false });
   const campaigns = (await svc.listCampaigns()).filter((c) => c.bookingCount > 0);
   expect(campaigns.length).toBeGreaterThan(0);
@@ -22,10 +22,13 @@ test('mỗi chiến dịch / booking có booking mở được bằng tài kho�
     const link = brandCampaignLink(c.id, c.brandEmail);
     expect(link, c.name).not.toBeNull();
     expect(resolveAccess(ROLE[link!.account], link!.path.split('?')[0])).toEqual({ allow: true });
-    for (const r of await svc.listBookings(c.id)) {
+    const rows = await svc.listBookings(c.id);
+    // Every campaign has at least one booking of a demo supplier; sample KOLs (applicants) have no demo login.
+    expect(rows.some((r) => supplierBookingLink(r.view.id, r.supplierEmail, r.view.supplier.name)), c.name).toBe(true);
+    for (const r of rows) {
       const s = supplierBookingLink(r.view.id, r.supplierEmail, r.view.supplier.name);
-      expect(s, r.view.id).not.toBeNull();
-      expect(['kol-verified', 'mcn-verified']).toContain(s!.account);
+      if (!s) continue;
+      expect(['kol-verified', 'mcn-verified']).toContain(s.account);
       expect(resolveAccess(ROLE[s!.account], s!.path.split('?')[0])).toEqual({ allow: true });
       expect(s!.path).toContain(`booking=${r.view.id}`);
     }

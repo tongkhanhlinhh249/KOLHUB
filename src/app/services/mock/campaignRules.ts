@@ -41,6 +41,20 @@ import { currentBizAccount } from './bizSession';
 import { isSearchableChannel, publicKolOf } from './directory';
 import { profileDisplayName } from './identity';
 import { safetyHash } from './safety';
+import {
+  campaignType,
+  checkRecruitment,
+  checkRegions,
+  checkSurvey,
+  checkTarget,
+  checkTerms,
+  draftReviewOn,
+  endOfLocalDay,
+  isRecruit,
+  phaseOfTimeline,
+  recruitPhase,
+  validateRecruitmentForOpen,
+} from './recruitment';
 
 const DAY = 86_400_000;
 
@@ -203,12 +217,35 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
   if ('cover' in input) {
     out.cover = input.cover == null ? undefined : checkCampaignCover(input.cover);
   }
+  // --- open recruitment, workflow, conditions, apply form ---
+  if ('type' in input && input.type !== undefined) {
+    if (input.type !== 'BOOKING' && input.type !== 'OPEN_RECRUITMENT') throw bad('type');
+    out.type = input.type;
+  }
+  if ('recruitment' in input) out.recruitment = input.recruitment == null ? undefined : checkRecruitment(input.recruitment);
+  if ('draftReview' in input && input.draftReview !== undefined) {
+    if (typeof input.draftReview !== 'boolean') throw bad('draftReview');
+    out.draftReview = input.draftReview;
+  }
+  if ('regions' in input) out.regions = checkRegions(input.regions ?? []);
+  if ('target' in input) out.target = checkTarget(input.target);
+  if ('survey' in input) out.survey = checkSurvey(input.survey ?? []);
+  if ('terms' in input) out.terms = checkTerms(input.terms ?? []);
   return out;
 }
 
-/** Everything an OPEN campaign needs (publish, invite from DRAFT, edit while OPEN). */
-export function validateForOpen(c: Campaign, now: number): void {
+/**
+ * Everything an OPEN campaign needs (publish, invite from DRAFT, edit while OPEN). Open recruitment: the
+ * recruitment block (slots, reward, ordered timeline; `publishing` also needs the apply phase not over yet).
+ */
+export function validateForOpen(c: Campaign, now: number, publishing = false): void {
   if (!c.name) throw bad('name');
+  if (c.type === 'OPEN_RECRUITMENT') {
+    validateRecruitmentForOpen(c, now, publishing);
+    if (c.platforms.length === 0) throw bad('platforms');
+    if (c.deliverables.length === 0 || c.deliverables.some((d) => !c.platforms.includes(d.platform))) throw bad('deliverables');
+    return;
+  }
   if (!isPrice(c.budget)) throw bad('budget');
   if (!c.startDate || !c.endDate || c.startDate > c.endDate || endOfDay(c.endDate) < now) throw bad('dates');
   if (c.platforms.length === 0) throw bad('platforms');
@@ -232,16 +269,25 @@ export const isInProgress = (s: BookingStatus) => IN_PROGRESS_STATUSES.includes(
 export const isOccupying = (s: BookingStatus) => !CLOSED_STATUSES.includes(s);
 export const isTerminal = (s: BookingStatus) => CLOSED_STATUSES.includes(s) || s === 'COMPLETED';
 
-/** SENT / APPLIED expire 7 days after creation or at the end of the campaign's applyDeadline, whichever is first. */
+/** An application to an open-recruitment campaign (no negotiation; picked or not by the brand). */
+export const isRecruitApplication = (b: Pick<Booking, 'origin'>, c: Campaign | undefined) => b.origin === 'APPLICATION' && isRecruit(c);
+
+/**
+ * SENT / APPLIED expire 7 days after creation or at the end of the campaign's applyDeadline, whichever is first.
+ * Open recruitment: an application waits until the end of "Chọn lọc" (selectEnd).
+ */
 export function expiresAtOf(b: Booking, c: Campaign | undefined): number | undefined {
   if (b.status !== 'SENT' && b.status !== 'APPLIED') return undefined;
+  if (isRecruitApplication(b, c) && c!.recruitment!.timeline.selectEnd) return endOfLocalDay(c!.recruitment!.timeline.selectEnd);
   const byAge = b.createdAt + BOOKING_EXPIRY_DAYS * DAY;
   return c?.applyDeadline ? Math.min(byAge, endOfDay(c.applyDeadline)) : byAge;
 }
 
+/** Past expiry: EXPIRED, or DECLINED ("Không được chọn") for an open-recruitment application not picked in time. */
 export function effectiveStatus(b: Booking, c: Campaign | undefined, now: number): BookingStatus {
   const exp = expiresAtOf(b, c);
-  return exp !== undefined && now > exp ? 'EXPIRED' : b.status;
+  if (exp === undefined || now <= exp) return b.status;
+  return isRecruitApplication(b, c) ? 'DECLINED' : 'EXPIRED';
 }
 
 /** Every item has an APPROVED draft for it (a draft without itemId covers the whole booking). */
@@ -257,10 +303,35 @@ export function postsCoverItems(b: Booking): boolean {
   return b.items.every((it) => posts.some((x) => x.itemId === it.id));
 }
 
-/** The single source of truth for who may do what, used by views (allowedActions) and every mutation. */
-export function allowedActions(b: Booking, status: BookingStatus, party: BookingParty): BookingActionKey[] {
+/** Campaign context of `allowedActions` (open recruitment phase, "Duyệt nháp"). */
+export interface ActionContext {
+  campaign?: Campaign;
+  now?: number;
+}
+
+/**
+ * The single source of truth for who may do what, used by views (allowedActions) and every mutation.
+ * Open-recruitment applications: no negotiation — the brand picks (SELECT) or declines during "Chọn lọc"
+ * (declining also during "Ứng tuyển"); the supplier may edit while "Ứng tuyển" lasts and withdraw until picked.
+ * "Duyệt nháp" off: the supplier posts directly (SUBMIT_POST from ACCEPTED / IN_PRODUCTION, no drafts).
+ * Product reward: brand MARK_PRODUCT_SENT, then supplier CONFIRM_PRODUCT_RECEIVED (record only).
+ */
+export function allowedActions(b: Booking, status: BookingStatus, party: BookingParty, ctx: ActionContext = {}): BookingActionKey[] {
   const out: BookingActionKey[] = [];
-  if (isPreAccept(status)) {
+  const c = ctx.campaign;
+  const recruit = isRecruitApplication(b, c);
+  const review = draftReviewOn(c);
+  if (recruit && isPreAccept(status)) {
+    const phase = recruitPhase(c!, ctx.now ?? Date.now());
+    if (party === 'BRAND' && status === 'APPLIED') {
+      if (phase === 'SELECT') out.push('SELECT');
+      if (phase === 'APPLY' || phase === 'SELECT') out.push('DECLINE');
+    }
+    if (party === 'SUPPLIER') {
+      out.push('CANCEL');
+      if (status === 'APPLIED' && phase === 'APPLY') out.push('EDIT_APPLICATION');
+    }
+  } else if (isPreAccept(status)) {
     if (b.awaiting === party) {
       out.push('ACCEPT', 'COUNTER', 'DECLINE');
       if (party === 'SUPPLIER') out.push('ASSIGN_ITEMS');
@@ -272,20 +343,29 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
   }
   if (isInProgress(status) && !b.payment.brandMarkedAt) out.push('CANCEL');
   if (party === 'SUPPLIER') {
-    if (status === 'ACCEPTED' || status === 'IN_PRODUCTION' || status === 'CONTENT_REVIEW') out.push('SUBMIT_DRAFT');
-    if (status === 'CONTENT_APPROVED' || status === 'PUBLISHED') out.push('SUBMIT_POST');
+    if (review) {
+      if (status === 'ACCEPTED' || status === 'IN_PRODUCTION' || status === 'CONTENT_REVIEW') out.push('SUBMIT_DRAFT');
+      if (status === 'CONTENT_APPROVED' || status === 'PUBLISHED') out.push('SUBMIT_POST');
+    } else if (['ACCEPTED', 'IN_PRODUCTION', 'CONTENT_APPROVED', 'PUBLISHED'].includes(status)) {
+      out.push('SUBMIT_POST');
+    }
     if (status === 'VERIFIED' && b.payment.brandMarkedAt && !b.payment.supplierConfirmedAt) out.push('CONFIRM_PAID');
   } else {
     if (status === 'CONTENT_REVIEW') out.push('REVIEW_CONTENT');
     if (status === 'VERIFIED' && !b.payment.brandMarkedAt) out.push('MARK_PAID');
+  }
+  if (b.reward?.product) {
+    const sent = !!b.shipment?.sentAt;
+    if (party === 'BRAND' && !sent && isInProgress(status)) out.push('MARK_PRODUCT_SENT');
+    if (party === 'SUPPLIER' && sent && !b.shipment?.receivedAt && (isInProgress(status) || status === 'COMPLETED')) out.push('CONFIRM_PRODUCT_RECEIVED');
   }
   if (status === 'COMPLETED' && !(party === 'BRAND' ? b.ratings?.brand : b.ratings?.supplier)) out.push('RATE');
   if (!isTerminal(status)) out.push('ATTACH_CONTRACT');
   return out;
 }
 
-export function requireAction(b: Booking, status: BookingStatus, party: BookingParty, action: BookingActionKey): void {
-  if (!allowedActions(b, status, party).includes(action)) throw new KolhubError('KOLHUB-4805');
+export function requireAction(b: Booking, status: BookingStatus, party: BookingParty, action: BookingActionKey, ctx: ActionContext = {}): void {
+  if (!allowedActions(b, status, party, ctx).includes(action)) throw new KolhubError('KOLHUB-4805');
 }
 
 // ---------------------------------------------------------------------------
@@ -442,11 +522,62 @@ export function toCampaignView(state: DemoState, c: Campaign, now: number): Camp
   return { ...structuredClone(c), brand: brandRef(acc, c.brandAccountId), stats: campaignStats(state, c, now) };
 }
 
-/** OPEN / RUNNING marketplace campaign whose applyDeadline and endDate have not passed. */
+/**
+ * OPEN / RUNNING marketplace campaign whose applyDeadline and endDate have not passed.
+ * Open recruitment: only while its "Ứng tuyển" phase lasts.
+ */
 export function isAcceptingApplications(c: Campaign, now: number): boolean {
   if (c.visibility !== 'MARKETPLACE' || (c.status !== 'OPEN' && c.status !== 'RUNNING')) return false;
+  if (c.type === 'OPEN_RECRUITMENT') return isRecruit(c) && phaseOfTimeline(c.recruitment.timeline, now) === 'APPLY';
   if (!c.endDate || endOfDay(c.endDate) < now) return false;
   return !c.applyDeadline || endOfDay(c.applyDeadline) >= now;
+}
+
+/**
+ * Shown on the Sàn: accepting applications, or an OPEN / RUNNING open-recruitment campaign that is not over yet
+ * (upcoming, in "Chọn lọc", "Đăng bài" or "Đánh giá" — read-only, with its phase on the card).
+ */
+export function isListedOnMarketplace(c: Campaign, now: number): boolean {
+  if (isAcceptingApplications(c, now)) return true;
+  if (!isRecruit(c) || c.visibility !== 'MARKETPLACE' || (c.status !== 'OPEN' && c.status !== 'RUNNING')) return false;
+  return phaseOfTimeline(c.recruitment.timeline, now) !== 'ENDED';
+}
+
+/**
+ * Marks `ids` as picked on `state` (in place): ACCEPTED at the campaign's fixed reward (price = cash, reward snapshot),
+ * history SELECTED; the campaign becomes RUNNING. Callers check the phase, statuses and free slots first.
+ */
+export function applySelection(state: DemoState, campaignId: string, ids: string[], t: number): void {
+  const c = state.campaigns.find((x) => x.id === campaignId)!;
+  const reward = structuredClone(c.recruitment!.reward);
+  for (const id of ids) {
+    const b = state.bookings.find((x) => x.id === id)!;
+    b.status = 'ACCEPTED';
+    delete b.awaiting;
+    b.price = reward.cash;
+    b.reward = structuredClone(reward);
+    b.acceptedAt = t;
+    b.updatedAt = t;
+    b.history.push({ at: t, by: 'BRAND', action: 'SELECTED', ...(reward.cash ? { price: reward.cash } : {}) });
+  }
+  if (c.status === 'OPEN') c.status = 'RUNNING';
+  c.updatedAt = t;
+}
+
+/** Free slots of an open-recruitment campaign; 4818 when `wanted` does not fit. */
+export function checkSlots(state: DemoState, c: Campaign, wanted: number, now: number): void {
+  const slots = c.recruitment?.slots ?? 0;
+  const remaining = slots - selectedCount(state, c, now);
+  if (wanted > remaining) throw new KolhubError('KOLHUB-4818', { slots, remaining: Math.max(0, remaining) });
+}
+
+/** Picked applicants of an open-recruitment campaign (ACCEPTED or later, not cancelled). */
+export function selectedCount(state: DemoState, c: Campaign, now: number): number {
+  return state.bookings.filter((b) => {
+    if (b.campaignId !== c.id || b.origin !== 'APPLICATION') return false;
+    const st = effectiveStatus(b, c, now);
+    return isInProgress(st) || st === 'COMPLETED';
+  }).length;
 }
 
 export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: string | null, now: number): MarketplaceCampaign {
@@ -467,9 +598,20 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     publishedAt: c.publishedAt ?? c.createdAt,
     brand: { company: brandRef(acc, c.brandAccountId).company },
     applicationCount: own.filter((b) => b.origin === 'APPLICATION' && isOccupying(effectiveStatus(b, c, now))).length,
+    type: campaignType(c),
+    draftReview: draftReviewOn(c),
+    regions: [...(c.regions ?? [])],
+    survey: (c.survey ?? []).map((q) => ({ ...q })),
+    terms: (c.terms ?? []).map((t) => ({ ...t })),
   };
   if (c.applyDeadline) item.applyDeadline = c.applyDeadline;
   if (c.cover) item.cover = { ...c.cover };
+  if (c.target) item.target = { ...c.target };
+  if (isRecruit(c)) {
+    item.recruitment = structuredClone(c.recruitment);
+    item.phase = phaseOfTimeline(c.recruitment.timeline, now);
+    item.selectedCount = selectedCount(state, c, now);
+  }
   const mine = viewerId ? own.find((b) => b.supplierAccountId === viewerId && isOccupying(effectiveStatus(b, c, now))) : undefined;
   if (mine) item.myBooking = { id: mine.id, status: effectiveStatus(mine, c, now), origin: mine.origin };
   return item;
@@ -506,8 +648,11 @@ function supplierRef(state: DemoState, b: Booking): SupplierRef {
   return ref;
 }
 
-function campaignSummary(state: DemoState, c: Campaign): BookingCampaignSummary {
+function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCampaignSummary {
   const out: BookingCampaignSummary = {
+    type: campaignType(c),
+    draftReview: draftReviewOn(c),
+    regions: [...(c.regions ?? [])],
     id: c.id,
     name: c.name,
     objective: c.objective,
@@ -525,6 +670,10 @@ function campaignSummary(state: DemoState, c: Campaign): BookingCampaignSummary 
   if (c.startDate) out.startDate = c.startDate;
   if (c.endDate) out.endDate = c.endDate;
   if (c.applyDeadline) out.applyDeadline = c.applyDeadline;
+  if (isRecruit(c)) {
+    out.recruitment = structuredClone(c.recruitment);
+    out.phase = phaseOfTimeline(c.recruitment.timeline, now);
+  }
   return out;
 }
 
@@ -547,8 +696,8 @@ export function toBookingView(state: DemoState, b: Booking, party: BookingParty,
     ...rest,
     status,
     viewer: party,
-    allowedActions: allowedActions(b, status, party),
-    campaign: campaignSummary(state, c),
+    allowedActions: allowedActions(b, status, party, { campaign: c, now }),
+    campaign: campaignSummary(state, c, now),
     supplier: supplierRef(state, b),
     items: items.map((it) => itemView(state, it, now)),
   };
@@ -556,7 +705,7 @@ export function toBookingView(state: DemoState, b: Booking, party: BookingParty,
     const exp = expiresAtOf(b, c);
     if (exp !== undefined) view.expiresAt = exp;
   }
-  if (status === 'EXPIRED') delete view.awaiting;
+  if (status === 'EXPIRED' || status === 'DECLINED') delete view.awaiting;
   const mine = party === 'BRAND' ? ratings?.brand : ratings?.supplier;
   if (mine) view.myRating = mine;
   return view;

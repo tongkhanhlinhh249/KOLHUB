@@ -10,7 +10,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   const campaign = (id: string) => s.campaigns.find((c) => c.id === id)!;
   const booking = (id: string) => s.bookings.find((b) => b.id === id)!;
 
-  test('Nhãn hàng demo: 1 RUNNING riêng tư, 3 OPEN trên Sàn, 1 DRAFT; agency: 5 OPEN trên Sàn', () => {
+  test('Nhãn hàng demo: 1 RUNNING riêng tư, 3 OPEN trên Sàn, 1 DRAFT, 1 tuyển nhiều KOL đang chọn lọc; agency: 5 OPEN + 1 đang đăng bài', () => {
     const mine = s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID);
     expect(mine.map((c) => [c.status, c.visibility])).toEqual([
       ['RUNNING', 'PRIVATE'],
@@ -18,12 +18,14 @@ describe('seed v9 — chiến dịch & booking', () => {
       ['DRAFT', 'PRIVATE'],
       ['OPEN', 'MARKETPLACE'],
       ['OPEN', 'MARKETPLACE'],
+      ['RUNNING', 'MARKETPLACE'],
     ]);
     const agency = s.campaigns.filter((c) => c.brandAccountId === SEED_AGENCY_ID);
-    expect(agency).toHaveLength(5);
-    expect(agency.every((c) => c.status === 'OPEN' && c.visibility === 'MARKETPLACE' && isAcceptingApplications(c, now))).toBe(true);
+    expect(agency).toHaveLength(6);
+    const agencyOpen = agency.filter((c) => c.id !== SEED_CAMPAIGN.recruitPosting);
+    expect(agencyOpen.every((c) => c.status === 'OPEN' && c.visibility === 'MARKETPLACE' && isAcceptingApplications(c, now))).toBe(true);
     expect(new Set(agency.map((c) => c.categories[0])).size).toBeGreaterThanOrEqual(4);
-    expect(new Set(agency.map((c) => c.budget)).size).toBe(5);
+    expect(new Set(agency.map((c) => c.budget)).size).toBe(6);
     expect(s.brandPlans).toEqual({});
   });
 
@@ -41,7 +43,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   });
 
   test('v11 — mọi chiến dịch mẫu có ảnh chiến dịch (ảnh JPG từ kho ảnh mẫu), các chiến dịch trên Sàn không trùng ảnh', () => {
-    expect(s.campaigns).toHaveLength(10);
+    expect(s.campaigns).toHaveLength(12);
     for (const c of s.campaigns) {
       expect(c.cover).toMatchObject({ type: 'image/jpeg' });
       expect(c.cover!.thumbnail).toMatch(/^https:\/\//);

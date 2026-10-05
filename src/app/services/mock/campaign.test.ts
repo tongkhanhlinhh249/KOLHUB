@@ -79,6 +79,7 @@ describe('quyền truy cập', () => {
         SEED_CAMPAIGN.agencyTravel,
         SEED_CAMPAIGN.agencyHeadphones,
         SEED_CAMPAIGN.agencyChallenge,
+        SEED_CAMPAIGN.recruitPosting,
       ].sort(),
     );
     await expect(svc.get(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
@@ -154,10 +155,17 @@ describe('tạo, sửa, đăng chiến dịch', () => {
   test('danh sách: lọc trạng thái, từ khoá không dấu, thống kê booking', async () => {
     const all = await svc.listMine();
     expect(all.map((c) => c.id).sort()).toEqual(
-      [SEED_CAMPAIGN.draft, SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.running, SEED_CAMPAIGN.yogurt, SEED_CAMPAIGN.livestream].sort(),
+      [
+        SEED_CAMPAIGN.draft,
+        SEED_CAMPAIGN.marketplace,
+        SEED_CAMPAIGN.running,
+        SEED_CAMPAIGN.yogurt,
+        SEED_CAMPAIGN.livestream,
+        SEED_CAMPAIGN.recruitSelecting,
+      ].sort(),
     );
-    expect((await svc.listMine({ status: ['OPEN', 'RUNNING'] })).map((c) => c.status).sort()).toEqual(['OPEN', 'OPEN', 'OPEN', 'RUNNING']);
-    expect((await svc.listMine({ keyword: 'sua hat' })).map((c) => c.id)).toEqual([SEED_CAMPAIGN.running]);
+    expect((await svc.listMine({ status: ['OPEN', 'RUNNING'] })).map((c) => c.status).sort()).toEqual(['OPEN', 'OPEN', 'OPEN', 'RUNNING', 'RUNNING']);
+    expect((await svc.listMine({ keyword: 'sua hat' })).map((c) => c.id).sort()).toEqual([SEED_CAMPAIGN.running, SEED_CAMPAIGN.recruitSelecting].sort());
     const running = all.find((c) => c.id === SEED_CAMPAIGN.running)!;
     expect(running.stats).toMatchObject({ total: 4, invited: 1, inProgress: 2, pendingReview: 1, completed: 1, committed: 105_000_000 });
     expect(running.brand).toMatchObject({ company: 'Công ty Demo Sữa' });
@@ -241,7 +249,7 @@ describe('mời KOL — quy tắc định tuyến', () => {
 describe('Sàn chiến dịch', () => {
   beforeEach(() => as(SAOVIET));
 
-  test('chỉ hiện chiến dịch MARKETPLACE đang nhận đề xuất; sort newest = mới nhất trước', async () => {
+  test('chỉ hiện chiến dịch MARKETPLACE đang nhận đề xuất (+ Tuyển nhiều KOL đang chọn lọc / đăng bài, xếp sau); sort newest = mới nhất trước', async () => {
     const list = await svc.listMarketplace({ sort: 'newest' });
     expect(list.map((c) => c.id)).toEqual([
       SEED_CAMPAIGN.agencyHeadphones,
@@ -252,7 +260,10 @@ describe('Sàn chiến dịch', () => {
       SEED_CAMPAIGN.agencyEnglish,
       SEED_CAMPAIGN.yogurt,
       SEED_CAMPAIGN.agencyTravel,
+      SEED_CAMPAIGN.recruitSelecting,
+      SEED_CAMPAIGN.recruitPosting,
     ]);
+    expect(list.filter((c) => c.accepting === false).map((c) => c.phase)).toEqual(['SELECT', 'POST']);
     const mine = list.find((c) => c.id === SEED_CAMPAIGN.marketplace)!;
     expect(mine.myBooking).toEqual({ id: SEED_BOOKING.application, status: 'APPLIED', origin: 'APPLICATION' });
     expect(mine.applicationCount).toBe(1);
@@ -266,20 +277,38 @@ describe('Sàn chiến dịch', () => {
       SEED_CAMPAIGN.agencyEnglish,
     ]);
     expect((await svc.listMarketplace({ platform: 'facebook' })).map((c) => c.id).sort()).toEqual(
-      [SEED_CAMPAIGN.agencyFashion, SEED_CAMPAIGN.agencyTravel, SEED_CAMPAIGN.livestream, SEED_CAMPAIGN.agencyChallenge].sort(),
+      [
+        SEED_CAMPAIGN.agencyFashion,
+        SEED_CAMPAIGN.agencyTravel,
+        SEED_CAMPAIGN.livestream,
+        SEED_CAMPAIGN.agencyChallenge,
+        SEED_CAMPAIGN.recruitSelecting,
+        SEED_CAMPAIGN.recruitPosting,
+      ].sort(),
     );
     expect((await svc.listMarketplace({ budgetMin: 100_000_000, budgetMax: 160_000_000 })).map((c) => c.budget).sort()).toEqual([
       120_000_000, 150_000_000,
     ]);
     expect((await svc.listMarketplace({ keyword: 'mien trung' })).map((c) => c.id)).toEqual([SEED_CAMPAIGN.agencyTravel]);
-    expect((await svc.listMarketplace({ keyword: 'newbrand' })).length).toBe(5);
+    expect((await svc.listMarketplace({ keyword: 'newbrand' })).length).toBe(6);
+    // Open recruitment budget = slots × (cash + product value): 5 × 14M, 6 × 15M, 10 × 25M; 3 × 5.5M and 4 × 2.45M (past "Ứng tuyển", last).
     expect((await svc.listMarketplace({ sort: 'budget' })).map((c) => c.budget)).toEqual([
-      250_000_000, 200_000_000, 150_000_000, 120_000_000, 90_000_000, 80_000_000, 70_000_000, 45_000_000,
+      250_000_000, 200_000_000, 150_000_000, 120_000_000, 90_000_000, 80_000_000, 70_000_000, 45_000_000, 16_500_000, 9_800_000,
     ]);
     const byDeadline = (await svc.listMarketplace({ sort: 'deadline' })).map((c) => c.id);
     expect(byDeadline[0]).toBe(SEED_CAMPAIGN.yogurt);
     expect(byDeadline[1]).toBe(SEED_CAMPAIGN.agencyFashion);
-    expect(byDeadline.at(-1)).toBe(SEED_CAMPAIGN.agencyTravel);
+    expect(byDeadline.slice(-3)).toEqual([SEED_CAMPAIGN.agencyTravel, SEED_CAMPAIGN.recruitSelecting, SEED_CAMPAIGN.recruitPosting]);
+    expect((await svc.listMarketplace({ type: 'OPEN_RECRUITMENT' })).map((c) => c.id).sort()).toEqual(
+      [
+        SEED_CAMPAIGN.livestream,
+        SEED_CAMPAIGN.agencyHeadphones,
+        SEED_CAMPAIGN.agencyChallenge,
+        SEED_CAMPAIGN.recruitSelecting,
+        SEED_CAMPAIGN.recruitPosting,
+      ].sort(),
+    );
+    expect((await svc.listMarketplace({ type: 'BOOKING' })).every((c) => c.type === 'BOOKING')).toBe(true);
   });
 
   test('hết hạn nhận đề xuất / riêng tư / bản nháp → không hiện, chi tiết 4801', async () => {
@@ -344,8 +373,10 @@ describe('Sàn v2 — phù hợp với bạn', () => {
   test('mặc định sắp xếp theo điểm phù hợp; mỗi chiến dịch có match (điểm, lý do, còn thiếu)', async () => {
     as(SAOVIET);
     const list = await svc.listMarketplace();
-    expect(list).toHaveLength(8);
-    const scores = list.map((c) => c.match!.score);
+    expect(list).toHaveLength(10);
+    const accepting = list.filter((c) => c.accepting);
+    expect(accepting).toHaveLength(8);
+    const scores = accepting.map((c) => c.match!.score);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
     const yogurt = list.find((c) => c.id === SEED_CAMPAIGN.yogurt)!;
     expect(yogurt.match).toEqual({
@@ -356,7 +387,7 @@ describe('Sàn v2 — phù hợp với bạn', () => {
     const live = list.find((c) => c.id === SEED_CAMPAIGN.livestream)!;
     expect(live.match!.score).toBe(0);
     expect(live.match!.missing).toContain('Chưa có kênh Facebook đã xác thực');
-    expect(list.at(-1)!.id).toBe(SEED_CAMPAIGN.livestream);
+    expect(accepting.at(-1)!.id).toBe(SEED_CAMPAIGN.livestream);
     // Cùng điểm → mới hơn trước
     expect(list[0].match!.score).toBe(100);
   });
@@ -383,12 +414,12 @@ describe('Sàn v2 — phù hợp với bạn', () => {
     expect(c.brandInfo).toEqual({
       company: 'Công ty TNHH Newbrand Agency',
       businessEmailVerified: true,
-      campaignsPosted: 5,
+      campaignsPosted: 6,
       completedBookings: 0,
       memberSince: h.db.read().accounts.find((a) => a.id === AGENCY)!.createdAt,
     });
     const own = await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace);
-    expect(own.brandInfo).toMatchObject({ company: 'Công ty Demo Sữa', campaignsPosted: 4, completedBookings: 1 });
+    expect(own.brandInfo).toMatchObject({ company: 'Công ty Demo Sữa', campaignsPosted: 5, completedBookings: 1 });
     expect(JSON.stringify(own.brandInfo)).not.toMatch(/@|password|acc-biz/);
     expect((await svc.listMarketplace())[0]).not.toHaveProperty('brandInfo');
   });
@@ -456,7 +487,9 @@ describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
       SEED_CAMPAIGN.agencyEnglish,
       SEED_CAMPAIGN.yogurt,
       SEED_CAMPAIGN.agencyTravel,
-    ]); // sort mặc định 'match' → mới nhất
+      SEED_CAMPAIGN.recruitSelecting,
+      SEED_CAMPAIGN.recruitPosting,
+    ]); // sort mặc định 'match' → mới nhất (chiến dịch đã qua giai đoạn ứng tuyển xếp sau)
     for (const c of list) {
       expect(c.match).toBeUndefined();
       expect(c.saved).toBe(false);
@@ -464,7 +497,7 @@ describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
       expect(c).not.toHaveProperty('brandAccountId');
     }
     expect(list.filter((c) => c.mine).map((c) => c.id).sort()).toEqual(
-      [SEED_CAMPAIGN.livestream, SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.yogurt].sort(),
+      [SEED_CAMPAIGN.livestream, SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.yogurt, SEED_CAMPAIGN.recruitSelecting].sort(),
     );
     expect(list.find((c) => c.id === SEED_CAMPAIGN.marketplace)!.applicationCount).toBe(1);
     expect((await svc.listMarketplace({ sort: 'budget' })).map((c) => c.budget)).toEqual(
@@ -535,8 +568,10 @@ describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
 describe('Sàn v2 — đã ứng tuyển', () => {
   test('đề xuất của tôi trên mọi chiến dịch, kèm trạng thái booking; không gồm lời mời', async () => {
     as(SAOVIET);
-    const list = await svc.listApplied();
-    expect(list).toHaveLength(1);
+    const all = await svc.listApplied();
+    // + 2 open-recruitment applications (one waiting in "Chọn lọc", one picked and verified).
+    expect(all).toHaveLength(3);
+    const list = all.filter((x) => x.campaign.type === 'BOOKING');
     expect(list[0].booking).toMatchObject({ id: SEED_BOOKING.application, status: 'APPLIED', origin: 'APPLICATION', price: 60_000_000 });
     expect(list[0].booking.allowedActions).toContain('EDIT_APPLICATION');
     expect(list[0].campaign).toMatchObject({ id: SEED_CAMPAIGN.marketplace, accepting: true });

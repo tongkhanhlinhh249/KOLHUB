@@ -10,6 +10,7 @@ import type {
   BookingView,
   BrandBookingCounts,
   BrandBookingFilters,
+  Campaign,
   ContentSubmission,
   DraftInput,
   PostInput,
@@ -25,12 +26,15 @@ import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
 import {
+  applySelection,
   checkNote,
+  checkSlots,
   currentSupplier,
   draftsCoverItems,
   effectiveStatus,
   isAcceptingApplications,
   isPrice,
+  isRecruitApplication,
   matchesStatus,
   partyOf,
   platformOfLink,
@@ -42,6 +46,7 @@ import {
   toBookingView,
 } from './campaignRules';
 import { scanVideoFile } from './safety';
+import { checkApplication, isRecruit } from './recruitment';
 
 export interface BookingServiceDeps {
   db: Db;
@@ -55,7 +60,7 @@ const CONTRACT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'applicati
 const CONTRACT_MAX_BYTES = 10 * 1024 * 1024;
 const DEFAULT_DRAFT_SEC = 60;
 
-type Ctx = { state: DemoState; booking: Booking; party: BookingParty; status: BookingStatus; t: number };
+type Ctx = { state: DemoState; booking: Booking; party: BookingParty; status: BookingStatus; t: number; campaign?: Campaign };
 
 export function createBookingService(deps: BookingServiceDeps) {
   const { db, now } = deps;
@@ -75,12 +80,12 @@ export function createBookingService(deps: BookingServiceDeps) {
     const party = partyOf(state, booking);
     const t = now();
     const c = state.campaigns.find((x) => x.id === booking.campaignId);
-    return { state, booking, party, status: effectiveStatus(booking, c, t), t };
+    return { state, booking, party, status: effectiveStatus(booking, c, t), t, campaign: c };
   }
 
   function guard(id: string, action: BookingActionKey): Ctx {
     const ctx = load(id);
-    requireAction(ctx.booking, ctx.status, ctx.party, action);
+    requireAction(ctx.booking, ctx.status, ctx.party, action, { campaign: ctx.campaign, now: ctx.t });
     return ctx;
   }
 
@@ -170,16 +175,28 @@ export function createBookingService(deps: BookingServiceDeps) {
     });
   }
 
-  /** The awaited party refuses → DECLINED. */
+  /** The awaited party refuses → DECLINED. Open recruitment: the brand does not pick the applicant ("Không được chọn"). */
   async function decline(id: string, note?: string): Promise<BookingView> {
     await wait();
     const ctx = guard(id, 'DECLINE');
     const n = checkNote(note);
+    const recruit = isRecruitApplication(ctx.booking, ctx.campaign);
     return commit(ctx, (b) => {
       b.status = 'DECLINED';
       delete b.awaiting;
-      b.history.push({ at: ctx.t, by: ctx.party, action: 'DECLINED', ...(n ? { note: n } : {}) });
+      if (recruit) b.history.push({ at: ctx.t, by: 'BRAND', action: 'NOT_SELECTED', note: n || 'Không được chọn' });
+      else b.history.push({ at: ctx.t, by: ctx.party, action: 'DECLINED', ...(n ? { note: n } : {}) });
     });
+  }
+
+  /** Open recruitment: the brand picks this applicant during "Chọn lọc" (SELECT) within the free slots (4818). */
+  async function select(id: string): Promise<BookingView> {
+    await wait();
+    const ctx = guard(id, 'SELECT');
+    checkSlots(ctx.state, ctx.campaign!, 1, ctx.t);
+    db.update((s) => applySelection(s, ctx.campaign!.id, [id], ctx.t));
+    const after = db.read();
+    return toBookingView(after, after.bookings.find((x) => x.id === id)!, ctx.party, ctx.t);
   }
 
   /**
@@ -223,13 +240,18 @@ export function createBookingService(deps: BookingServiceDeps) {
     const me = currentSupplier(ctx.state);
     const c = ctx.state.campaigns.find((x) => x.id === ctx.booking.campaignId)!;
     const items = resolveItems(ctx.state, me, c, proposal?.items ?? [], ctx.t, newId);
-    if (!isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
+    const recruit = isRecruit(c);
+    if (!recruit && !isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
+    const price = recruit ? 0 : proposal.price!;
     const note = checkNote(proposal.note);
+    const application = checkApplication(c, proposal, ctx.t);
     return commit(ctx, (b) => {
       b.items = items;
-      b.price = proposal.price;
+      b.price = price;
       b.note = note;
-      b.history.push({ at: ctx.t, by: 'SUPPLIER', action: 'APPLICATION_UPDATED', price: proposal.price, ...(note ? { note } : {}) });
+      if (application) b.application = application;
+      else delete b.application;
+      b.history.push({ at: ctx.t, by: 'SUPPLIER', action: 'APPLICATION_UPDATED', ...(price ? { price } : {}), ...(note ? { note } : {}) });
     });
   }
 
@@ -330,12 +352,39 @@ export function createBookingService(deps: BookingServiceDeps) {
 
   // --- payment (record only) ---
 
+  /** Brand marks paid. Nothing to pay (product-only reward, price 0): the brand's confirmation completes the booking. */
   async function markPaid(id: string): Promise<BookingView> {
     await wait();
     const ctx = guard(id, 'MARK_PAID');
     return commit(ctx, (b) => {
       b.payment.brandMarkedAt = ctx.t;
       b.history.push({ at: ctx.t, by: 'BRAND', action: 'PAYMENT_MARKED', price: b.price });
+      if (b.price === 0) {
+        b.status = 'COMPLETED';
+        b.completedAt = ctx.t;
+      }
+    });
+  }
+
+  // --- product reward (record only) ---
+
+  /** Brand records "Đã gửi sản phẩm" (any time while the booking is in progress). */
+  async function markProductSent(id: string): Promise<BookingView> {
+    await wait();
+    const ctx = guard(id, 'MARK_PRODUCT_SENT');
+    return commit(ctx, (b) => {
+      b.shipment = { ...(b.shipment ?? {}), sentAt: ctx.t };
+      b.history.push({ at: ctx.t, by: 'BRAND', action: 'PRODUCT_SENT', note: b.reward?.product?.name });
+    });
+  }
+
+  /** Supplier records "Đã nhận sản phẩm" after the brand marked it sent. */
+  async function confirmProductReceived(id: string): Promise<BookingView> {
+    await wait();
+    const ctx = guard(id, 'CONFIRM_PRODUCT_RECEIVED');
+    return commit(ctx, (b) => {
+      b.shipment = { ...(b.shipment ?? {}), receivedAt: ctx.t };
+      b.history.push({ at: ctx.t, by: 'SUPPLIER', action: 'PRODUCT_RECEIVED', note: b.reward?.product?.name });
     });
   }
 
@@ -359,7 +408,7 @@ export function createBookingService(deps: BookingServiceDeps) {
     const ctx = load(id);
     const mine = ctx.party === 'BRAND' ? ctx.booking.ratings?.brand : ctx.booking.ratings?.supplier;
     if (ctx.status === 'COMPLETED' && mine) throw new KolhubError('KOLHUB-4815');
-    requireAction(ctx.booking, ctx.status, ctx.party, 'RATE');
+    requireAction(ctx.booking, ctx.status, ctx.party, 'RATE', { campaign: ctx.campaign, now: ctx.t });
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new KolhubError('KOLHUB-4814');
     const text = checkNote(comment, 'comment');
     return commit(ctx, (b) => {
@@ -415,6 +464,7 @@ export function createBookingService(deps: BookingServiceDeps) {
     counter,
     accept,
     decline,
+    select,
     cancel,
     updateApplication,
     assignItems,
@@ -423,6 +473,8 @@ export function createBookingService(deps: BookingServiceDeps) {
     submitPost,
     markPaid,
     confirmPaid,
+    markProductSent,
+    confirmProductReceived,
     rate,
     setContractFile,
     brandCounts,

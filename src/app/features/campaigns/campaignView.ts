@@ -396,6 +396,10 @@ const ACTION_LABEL: Record<BookingAction, string> = {
   CONTRACT_ATTACHED: 'Đính kèm hợp đồng',
   CONTRACT_REMOVED: 'Gỡ tệp hợp đồng',
   RATED: 'Đánh giá',
+  SELECTED: 'Chọn tham gia chiến dịch',
+  NOT_SELECTED: 'Không được chọn',
+  PRODUCT_SENT: 'Đã gửi sản phẩm',
+  PRODUCT_RECEIVED: 'Đã nhận sản phẩm',
 };
 
 export function historyLabel(action: BookingAction): string {
