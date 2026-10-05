@@ -135,3 +135,8 @@ export type { BookingService } from './mock/booking';
 export type { PlanService } from './mock/plans';
 export { postMatchesPlatform, platformOfLink, isAcceptingApplications } from './mock/campaignRules';
 export { SEED_BOOKING, SEED_CAMPAIGN } from './mock/campaignSeed';
+// --- demo: campaign simulator (Demo Panel only) ---
+import { createDemoCampaignService } from './mock/demoCampaign';
+
+export const demoCampaignService = createDemoCampaignService({ db, now: Date.now });
+export type { DemoCampaignService, DemoActor, DemoStep, DemoStepKey, DemoSteps, DemoCampaignOption, DemoBookingRow } from './mock/demoCampaign';
