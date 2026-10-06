@@ -156,3 +156,20 @@ export const inboxService = createInboxService({ db, now: Date.now });
 export * from './inbox-types';
 export type { InboxService, InboxCounts } from './mock/inbox';
 export { checkMessage } from './mock/inbox';
+// --- KOL Safety – Tổng hợp kênh (30 nội dung đã quét) ---
+import { createKolSafetyReportService } from './mock/kolSafetyReport';
+
+export const kolSafetyReportService = createKolSafetyReportService({ db, now: Date.now });
+export * from './kol-safety-report-types';
+export type { KolSafetyReportService } from './mock/kolSafetyReport';
+export {
+  CATEGORY_LABEL,
+  CONTENT_CATEGORIES,
+  filterContents,
+  formatTimestamp,
+  REPORT_SIZE,
+  REPORT_VERDICT_LABEL,
+  reportCsv,
+  SEVERITY_LABEL,
+  summarizeReport,
+} from './mock/kolSafetyReport';

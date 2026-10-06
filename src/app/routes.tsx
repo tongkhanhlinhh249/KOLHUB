@@ -20,6 +20,7 @@ import type { OwnerType } from './services';
 import { VideoCheckPage } from './features/safety/VideoCheckPage';
 import { ChannelMonitorPage } from './features/safety/ChannelMonitorPage';
 import { ChannelMonitorDetail } from './features/safety/ChannelMonitorDetail';
+import { KolSafetyReportPage } from './features/safety/KolSafetyReportPage';
 // --- violations ---
 import { OwnerViolationsPage } from './features/violations/OwnerViolationsPage';
 import { BrandViolationsPage } from './features/violations/BrandViolationsPage';
@@ -104,6 +105,7 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="/ung-dung" replace /> },
               { path: 'video', element: <VideoCheckPage /> },
               { path: 'vi-pham', element: <OwnerViolationsPage /> },
+              { path: 'kol-safety', element: <KolSafetyReportPage /> },
               { path: ':platform', element: <ChannelMonitorPage /> },
               { path: ':platform/:monitorId', element: <ChannelMonitorDetail /> },
             ],

@@ -16,6 +16,7 @@ import type {
 } from '../profile-types';
 // --- KOL Safety ---
 import type { SafetyMonitor, SafetyVideo } from '../safety-types';
+import type { KolSafetyReportState } from '../kol-safety-report-types';
 // --- violations ---
 import type { Violation } from '../violation-types';
 // --- campaign booking (beta) ---
@@ -110,6 +111,8 @@ export interface DemoState {
   threadReads: ThreadRead[];
   /** Read state of the notification center (notifications themselves are derived). */
   notificationReads: NotificationReadState[];
+  // --- KOL Safety – Tổng hợp kênh (optional: created on first "Quét lại" / share, no seed change) ---
+  kolSafetyReports?: KolSafetyReportState[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

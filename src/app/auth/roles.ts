@@ -73,6 +73,8 @@ export const CHANNEL_DIRECTORY_PATH = '/danh-sach-kenh';
 
 /** App launcher: KOL Safety / Brand Safety tiles that open the external review tool. */
 export const APPS_PATH = '/ung-dung';
+/** KOL Safety – Tổng hợp kênh (demo in-app page opened from "Ứng dụng"); KOL/MCN via the SAFETY_BASE area. */
+export const KOL_SAFETY_PATH = `${SAFETY_BASE}/kol-safety`;
 
 /** Brand campaigns (campaign booking beta): list, /tao, /:id, /:id/sua. */
 export const CAMPAIGNS_PATH = '/chien-dich';
@@ -304,12 +306,22 @@ function campaignSubDescription(p: string): string | undefined {
 
 const EXTRA_TITLES: Record<string, string> = { '/quen-mat-khau': 'Quên mật khẩu' };
 
+/** In-app pages of "Ứng dụng" (not menu items): own title, group = the role's label. */
+const APP_PAGES: Record<string, { title: string; description: string }> = {
+  [KOL_SAFETY_PATH]: {
+    title: 'KOL Safety – Tổng hợp kênh',
+    description: 'Tổng hợp 30 nội dung đã quét gần nhất của kênh: điểm an toàn, vấn đề theo danh mục và khuyến nghị',
+  },
+};
+
 /**
  * Page title/group for the header. `role` (optional) picks the owning group when
  * a path belongs to several roles (e.g. /kiem-duyet/video); otherwise the first owner wins.
  */
 export function getPageMeta(path: string, role?: RoleKey): { title: string; group: string; description?: string } {
   const p = cleanPath(path);
+  const app = APP_PAGES[p];
+  if (app) return { ...app, group: ROLE_CONFIG[role && role !== 'kolhub.guest' ? role : 'kolhub.user.kol'].label };
   const order = role ? [role, ...ROLE_KEYS.filter((r) => r !== role)] : ROLE_KEYS;
   for (const r of order) {
     const item = ROLE_CONFIG[r].menu.find((m) => matches(p, m.path));

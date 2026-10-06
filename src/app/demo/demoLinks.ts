@@ -57,6 +57,12 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
       },
       { label: 'Bài đã đăng', path: '/bai-da-dang', account: 'kol-verified', hint: 'Số liệu, đánh giá, Hiện trên hồ sơ' },
       { label: 'Thu nhập', path: '/thu-nhap', account: 'kol-verified', hint: 'Đã nhận, đang chờ, giá trị sản phẩm' },
+      {
+        label: 'KOL Safety – tổng hợp 30 nội dung',
+        path: '/kiem-duyet/kol-safety',
+        account: 'kol-verified',
+        hint: 'Điểm an toàn kênh, vấn đề theo danh mục, quét lại, xuất CSV',
+      },
       { label: 'Lời mời hợp tác', path: '/chien-dich-cua-toi', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },
       {
         label: 'Đã được chọn (Tuyển nhiều KOL)',
