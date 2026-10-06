@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertCircle, Building2, Handshake, RotateCcw } from 'lucide-react';
+import { AlertCircle, Building2, Filter, Handshake, RotateCcw, X } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -31,6 +31,7 @@ import {
   type BookingTab,
 } from './supplierBooking';
 import { SupplierGate, useSupplierAccess } from './useSupplierAccess';
+import { PIPELINE_STAGES, parseStageParam, stageOf, STAGE_PARAM } from '../creator/workspace';
 
 const EMPTY: Record<BookingTab, string> = {
   'can-xu-ly': 'Không có lời mời hay đề xuất giá nào đang chờ bạn.',
@@ -120,7 +121,8 @@ function BookingRowSkeleton() {
 
 /**
  * /chien-dich-cua-toi ("Chiến dịch", was /booking) — invites and applications of the signed-in MCN / KOL grouped by stage tabs;
- * `?tab=` selects the stage, `?booking=<id>` opens the detail sheet.
+ * `?tab=` selects the stage, `?booking=<id>` opens the detail sheet. `?giai-doan=` (from the pipeline on "Tổng quan hồ sơ")
+ * filters across tabs by pipeline stage until a tab is picked or the filter is cleared.
  */
 export function BookingsPage() {
   const access = useSupplierAccess();
@@ -131,10 +133,13 @@ export function BookingsPage() {
   // No ?tab=: the linked booking's stage, else "Cần xử lý" when it has items, else the first non-empty stage.
   const tab = params.has('tab') ? parseBookingTab(params) : defaultBookingTab(all ?? [], detailId);
   const counts = useMemo(() => countByTab(all ?? []), [all]);
-  const rows = useMemo(() => (all ?? []).filter((b) => tabOf(b) === tab), [all, tab]);
+  const stage = parseStageParam(params);
+  const stageLabel = PIPELINE_STAGES.find((s) => s.key === stage)?.label;
+  const rows = useMemo(() => (all ?? []).filter((b) => (stage ? stageOf(b) === stage : tabOf(b) === tab)), [all, tab, stage]);
   const now = Date.now();
 
-  const setTab = (t: string) => setParams((prev) => withParam(prev, 'tab', t), { replace: true });
+  const setTab = (t: string) => setParams((prev) => withParam(withParam(prev, STAGE_PARAM, null), 'tab', t), { replace: true });
+  const clearStage = () => setParams((prev) => withParam(prev, STAGE_PARAM, null), { replace: true });
   const openDetail = (id: string | null) => setParams((prev) => withParam(prev, BOOKING_DETAIL_PARAM, id));
 
   if (access.loading) {
@@ -204,10 +209,14 @@ export function BookingsPage() {
       </div>
     );
   } else if (rows.length === 0) {
-    body = <p className="rounded-[8px] border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">{EMPTY[tab]}</p>;
+    body = (
+      <p className="rounded-[8px] border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+        {stageLabel ? `Không có chiến dịch nào ở giai đoạn "${stageLabel}".` : EMPTY[tab]}
+      </p>
+    );
   } else {
     body = (
-      <ul className="flex flex-col gap-3" aria-label={BOOKING_TABS.find((t) => t.key === tab)?.label}>
+      <ul className="flex flex-col gap-3" aria-label={stageLabel ?? BOOKING_TABS.find((t) => t.key === tab)?.label}>
         {rows.map((b) => (
           <li key={b.id}>
             <BookingRow booking={b} now={now} onOpen={() => openDetail(b.id)} />
@@ -224,7 +233,7 @@ export function BookingsPage() {
       {all && all.length > 0 && (
         <>
           <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
-            <Tabs value={tab} onValueChange={setTab}>
+            <Tabs value={stage ? '' : tab} onValueChange={setTab}>
               <TabsList className="h-auto" aria-label="Giai đoạn chiến dịch">
                 {BOOKING_TABS.map((t) => (
                   <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
@@ -242,6 +251,18 @@ export function BookingsPage() {
               </TabsList>
             </Tabs>
           </div>
+          {stageLabel && (
+            <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+              <Filter className="size-4 shrink-0 text-primary" aria-hidden />
+              <span className="text-foreground">
+                Giai đoạn: <span className="font-semibold">{stageLabel}</span> · {rows.length} chiến dịch
+              </span>
+              <Button type="button" variant="ghost" size="sm" className="ml-auto h-11 md:h-8" onClick={clearStage}>
+                <X aria-hidden />
+                Bỏ lọc
+              </Button>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground" aria-live="polite">
             {all.length} chiến dịch
             {needsCount > 0 && (
