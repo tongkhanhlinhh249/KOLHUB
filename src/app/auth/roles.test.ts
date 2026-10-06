@@ -350,3 +350,20 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     expect(getPageMeta('/quen-mat-khau')).toMatchObject({ title: 'Quên mật khẩu', group: 'Khách' });
   });
 });
+
+describe('KOL Safety – Tổng hợp kênh (/kiem-duyet/kol-safety)', () => {
+  test('KOL và MCN vào được; Nhãn hàng bị chặn; khách → Đăng nhập', () => {
+    expect(resolveAccess('kolhub.user.kol', '/kiem-duyet/kol-safety')).toEqual({ allow: true });
+    expect(resolveAccess('kolhub.user.mcn', '/kiem-duyet/kol-safety?kenh=ch-1')).toEqual({ allow: true });
+    expect(resolveAccess('kolhub.user.biz', '/kiem-duyet/kol-safety')).toMatchObject({ allow: false, reason: 'forbidden' });
+    expect(resolveAccess('kolhub.guest', '/kiem-duyet/kol-safety')).toMatchObject({ allow: false, reason: 'login' });
+  });
+  test('tiêu đề riêng, nhóm theo vai trò', () => {
+    expect(getPageMeta('/kiem-duyet/kol-safety', 'kolhub.user.kol')).toMatchObject({
+      title: 'KOL Safety – Tổng hợp kênh',
+      group: 'Cá nhân/KOL',
+    });
+    expect(getPageMeta('/kiem-duyet/kol-safety/', 'kolhub.user.mcn')).toMatchObject({ group: 'Tổ chức/MCN' });
+    expect(getPageMeta('/kiem-duyet/kol-safety').description).toMatch(/30 nội dung/);
+  });
+});
