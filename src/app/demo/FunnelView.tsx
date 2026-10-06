@@ -17,13 +17,13 @@ export function FunnelView() {
   const rows = useLiveQuery(async () => (subject ? funnelService.get(subject) : []), [subject]);
 
   return (
-    <DemoPanelSection title="Phễu" description="Thời điểm hoàn thành từng bước của một hành trình đăng ký.">
+    <DemoPanelSection title="Phễu đăng ký" description="Thời điểm hoàn thành từng bước của một hành trình.">
       {!list.length ? (
         <p className="text-xs text-muted-foreground">Chưa có hành trình nào. Hãy đăng ký một tài khoản KOL mới.</p>
       ) : (
         <div className="space-y-3">
           <Select value={subject} onValueChange={setPicked}>
-            <SelectTrigger className="h-10" aria-label="Chọn hành trình">
+            <SelectTrigger className="h-11 w-full md:h-10" aria-label="Chọn hành trình">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

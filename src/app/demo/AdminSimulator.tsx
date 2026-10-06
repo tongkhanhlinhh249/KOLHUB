@@ -430,13 +430,17 @@ function VerifiedChannels({ channels }: { channels: AdminQueue['verifiedChannels
   );
 }
 
-/** Demo Panel block "Giả lập Admin": review profiles, channels, changes and eKYC cases. */
+/** Admin tab block "Duyệt hồ sơ": review profiles, channels, changes and eKYC cases. */
 export function AdminSimulator() {
   const q = useLiveQuery(() => reviewService.listAdminQueue(), []);
   const data = q.data;
 
   return (
-    <DemoPanelSection title="Giả lập Admin" description="Thao tác thay cho quản trị viên; kết quả gửi email/SMS giả tới người dùng.">
+    <DemoPanelSection
+      title="Duyệt hồ sơ"
+      count={data ? data.profiles.length + data.changes.length + data.ekycCases.length : undefined}
+      description="Thay Admin duyệt hồ sơ, thay đổi và case eKYC; gửi email/SMS giả."
+    >
       {!data ? (
         <div className="space-y-2" aria-busy="true">
           <Skeleton className="h-16 w-full" />

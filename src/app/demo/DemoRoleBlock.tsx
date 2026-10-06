@@ -7,7 +7,7 @@ import { IdentityAvatar } from '../components/IdentityAvatar';
 import { useIdentity } from '../auth/useIdentity';
 import { MARKETPLACE_PATH, isPublicPath } from '../auth/roles';
 import type { DemoAccountKey } from '../services';
-import { DemoPanelSection } from './DemoPanelSection';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useRoleSwitch } from './RoleSwitcher';
 
 /** Role icon for a new account, a check badge for every verified one. */
@@ -21,7 +21,10 @@ const ICONS: Record<DemoAccountKey, LucideIcon> = {
   'biz-verified': BadgeCheck,
 };
 
-/** Who is signed in + quick switch between the guest and the sample accounts (the only role switcher in the app). */
+/**
+ * Compact "Vai trò" header: who is signed in, a switch to the guest or any sample account (the only role switcher
+ * in the app) and the public Sàn seen with the current role.
+ */
 export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
   const identity = useIdentity();
   const { options, current, busy, switchTo } = useRoleSwitch(onDone);
@@ -30,11 +33,8 @@ export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
   const onSan = isPublicPath(pathname);
 
   return (
-    <DemoPanelSection
-      title="Vai trò"
-      description="Đăng nhập nhanh bằng tài khoản mẫu của từng vai trò, hoặc mở Sàn chiến dịch (trang công khai) với tài khoản hiện tại."
-    >
-      <div className="mb-3 flex items-center gap-3 rounded-lg border border-border bg-muted/40 p-2.5">
+    <section aria-label="Vai trò" className="space-y-2 rounded-xl border border-border bg-muted/40 p-3">
+      <div className="flex items-center gap-2.5">
         <IdentityAvatar identity={identity} className="size-9" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-foreground">{identity.name}</p>
@@ -44,53 +44,49 @@ export function DemoRoleBlock({ onDone }: { onDone?: () => void }) {
           {identity.roleLabel}
         </Badge>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {options.map((o) => {
-          const active = o.key === current?.key;
-          const Icon = ICONS[o.key];
-          return (
-            <Button
-              key={o.key}
-              type="button"
-              variant={active ? 'default' : 'outline'}
-              aria-pressed={active}
-              disabled={busy !== null}
-              onClick={() => void switchTo(o.key)}
-              className={cn(
-                'h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left',
-                o.key === 'guest' && 'col-span-2',
-                !active && 'border-primary/30 text-primary hover:border-primary hover:bg-primary/10 hover:text-primary',
-              )}
-            >
-              {busy === o.key ? <Loader2 className="animate-spin" aria-hidden /> : <Icon aria-hidden />}
-              {o.label}
-            </Button>
-          );
-        })}
-        {/* Not a role: the public Sàn, seen as whoever is signed in now (guest, KOL/MCN or Nhãn hàng). */}
+      <div className="flex gap-2">
+        <Select value={current?.key ?? 'guest'} onValueChange={(v) => void switchTo(v as DemoAccountKey)} disabled={busy !== null}>
+          <SelectTrigger className="h-11 min-w-0 flex-1 bg-background md:h-9" aria-label="Đổi vai trò">
+            {busy ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                Đang chuyển…
+              </span>
+            ) : (
+              <SelectValue />
+            )}
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((o) => {
+              const Icon = ICONS[o.key];
+              return (
+                <SelectItem key={o.key} value={o.key}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span className="truncate">{o.label}</span>
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        {/* Not a role: the public Sàn, seen as whoever is signed in now. */}
         <Button
           type="button"
           variant={onSan ? 'default' : 'outline'}
           aria-pressed={onSan}
           disabled={busy !== null}
+          title={`Mở Sàn chiến dịch (trang công khai) với vai trò ${identity.roleLabel}`}
+          className={cn('h-11 shrink-0 px-3 md:h-9', !onSan && 'bg-background')}
           onClick={() => {
             navigate(MARKETPLACE_PATH);
             onDone?.();
           }}
-          className={cn(
-            'col-span-2 h-auto min-h-11 justify-start whitespace-normal px-3 py-2 text-left',
-            !onSan && 'border-dashed border-primary/40 text-primary hover:border-primary hover:bg-primary/10 hover:text-primary',
-          )}
         >
           <Store aria-hidden />
-          <span className="min-w-0">
-            <span className="block">Mở Sàn chiến dịch</span>
-            <span className={cn('block text-xs font-normal', onSan ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
-              Trang công khai · giữ vai trò {identity.roleLabel}
-            </span>
-          </span>
+          Mở Sàn
         </Button>
       </div>
-    </DemoPanelSection>
+    </section>
   );
 }

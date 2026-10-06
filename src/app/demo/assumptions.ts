@@ -26,3 +26,10 @@ export const ASSUMPTIONS: { question: string; decision: string }[] = [
   },
   { question: '2, 3, 4, 8, 10', decision: 'Không ảnh hưởng prototype (nhà cung cấp, API, đa tài khoản)' },
 ];
+
+/** Phase-3 (Nhãn hàng/Agency) decisions not already covered by ASSUMPTIONS above. */
+export const PHASE_3_ASSUMPTIONS = [
+  'Quy mô tính theo tổng người theo dõi của các kênh còn dấu: Nano < 10K · Micro 10K–100K · Mid 100K–500K · Macro 500K–1M · Mega ≥ 1M.',
+  'Danh sách kênh: mỗi kênh đã xác thực (còn dấu, đang hoạt động, KOL đã duyệt) là một dòng; quy mô tính theo người theo dõi của chính kênh đó; kênh của MCN không hiện.',
+  'Chỉ lưu được KOL đang hiện trong tìm kiếm; KOL đã lưu rồi mất dấu vẫn ở lại danh sách (BR-62).',
+];

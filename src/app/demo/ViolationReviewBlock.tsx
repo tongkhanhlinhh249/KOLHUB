@@ -126,7 +126,11 @@ export function ViolationReviewBlock() {
   const ui = decision ? DECISION_UI[decision.kind] : null;
 
   return (
-    <DemoPanelSection title="Duyệt báo cáo vi phạm" description="Thay Admin xác minh vi phạm và xử lý khiếu nại của KOL/MCN.">
+    <DemoPanelSection
+      title="Báo cáo vi phạm"
+      count={q.data ? q.data.pending.length + q.data.appealed.length : undefined}
+      description="Thay Admin xác minh vi phạm và xử lý khiếu nại."
+    >
       {!q.data ? (
         <div className="space-y-2" aria-busy="true">
           <Skeleton className="h-16 w-full" />

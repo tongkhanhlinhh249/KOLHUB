@@ -1,17 +1,6 @@
 import { useState } from 'react';
-import { ArrowRight, ChevronRight, FastForward, Loader2, RotateCcw, UserCheck, UserPlus } from 'lucide-react';
+import { ArrowRight, ChevronRight, FastForward, Loader2, UserCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '../components/ui/alert-dialog';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
@@ -22,16 +11,19 @@ import { formatPrice } from '../features/campaigns/campaignView';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
 import { DemoPanelSection } from './DemoPanelSection';
 import { actorName, brandCampaignLink, supplierBookingLink } from './campaignSimulator';
+import { groupSteps, SIDE_LABEL, type CampaignSide, type RoleTab } from './demoTabs';
 import { useDemoOpen } from './useDemoOpen';
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Không thực hiện được bước này.');
 
 /**
- * "Quản lý chiến dịch": drive a campaign's bookings step by step on behalf of either side, without switching
- * accounts. Steps run through the real booking service (same rules, KOL Safety scan on drafts); every open screen
- * reloads on its own because the demo store is observable.
+ * "Chiến dịch" of a role tab: a shared campaign picker plus each booking's steps, grouped by who acts (the tab's
+ * side first). Steps run on behalf of either side without switching accounts, through the real booking service
+ * (same rules, KOL Safety scan on drafts); open screens reload on their own because the demo store is observable.
+ * The brand tab also has the campaign-level controls (Tuyển nhiều KOL, Workflow); KOL / MCN tabs list only their
+ * own kind of booking.
  */
-export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
+export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone(): void }) {
   const campaigns = useLiveQuery(() => demoCampaignService.listCampaigns(), []);
   const [picked, setPicked] = useState<string | null>(null);
   const list = campaigns.data ?? [];
@@ -40,8 +32,11 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
   const bookings = useLiveQuery(() => (campaignId ? demoCampaignService.listBookings(campaignId) : Promise.resolve([])), [campaignId]);
   const { open, busy: opening } = useDemoOpen(onDone);
   const [running, setRunning] = useState<string | null>(null);
-  const [resetting, setResetting] = useState(false);
-  const locked = running !== null || opening !== null || resetting;
+  const locked = running !== null || opening !== null;
+  const brandTab = tab === 'biz';
+  const side: CampaignSide = brandTab ? 'BRAND' : 'SUPPLIER';
+  const supplierType = tab === 'kol' ? 'KOL' : tab === 'mcn' ? 'MCN' : null;
+  const rows = (bookings.data ?? []).filter((r) => !supplierType || r.view.supplier.type === supplierType);
 
   const run = async (row: DemoBookingRow, step: DemoStep) => {
     setRunning(`${row.view.id}:${step.key}`);
@@ -55,28 +50,20 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
     }
   };
 
-  const reset = async () => {
-    setResetting(true);
-    try {
-      await demoCampaignService.resetCampaigns();
-      toast.success('Đã khôi phục chiến dịch mẫu.');
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  const brandLink = campaign
-    ? brandCampaignLink(
-        campaign.id,
-        campaign.brandEmail,
-        campaign.type === 'OPEN_RECRUITMENT' && (campaign.phase === 'APPLY' || campaign.phase === 'SELECT') ? 'ung-tuyen' : 'booking',
-      )
-    : null;
+  const brandLink =
+    campaign && brandTab
+      ? brandCampaignLink(
+          campaign.id,
+          campaign.brandEmail,
+          campaign.type === 'OPEN_RECRUITMENT' && (campaign.phase === 'APPLY' || campaign.phase === 'SELECT') ? 'ung-tuyen' : 'booking',
+        )
+      : null;
 
   return (
     <DemoPanelSection
-      title="Quản lý chiến dịch"
-      description="Chạy từng bước thay cho Nhãn hàng hoặc KOL/MCN mà không cần đổi tài khoản. Màn đang mở tự cập nhật."
+      title="Giả lập chiến dịch"
+      count={bookings.data ? rows.length : undefined}
+      description="Chạy từng bước thay cho bất kỳ bên nào, không cần đổi tài khoản."
     >
       {campaigns.loading && !campaigns.data ? (
         <Skeleton className="h-10 w-full" />
@@ -106,13 +93,13 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
           {brandLink && (
             <Button type="button" variant="outline" size="sm" className="h-9" disabled={locked} onClick={() => void open(brandLink)}>
               {opening === brandLink.label ? <Loader2 className="animate-spin" aria-hidden /> : <ArrowRight aria-hidden />}
-              Mở chiến dịch (Nhãn hàng)
+              Mở chiến dịch
             </Button>
           )}
         </div>
       )}
 
-      {campaign && <CampaignControls campaign={campaign} locked={locked} />}
+      {campaign && brandTab && <CampaignControls campaign={campaign} locked={locked} />}
 
       <div className="space-y-2">
         {bookings.loading && !bookings.data ? (
@@ -120,45 +107,29 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
             <Skeleton className="h-28 w-full" />
             <Skeleton className="h-28 w-full" />
           </>
-        ) : !bookings.data?.length ? (
+        ) : !rows.length ? (
           <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-            {campaign?.type === 'OPEN_RECRUITMENT'
-              ? 'Chưa có ứng viên. Bấm “Thêm 3 ứng viên mẫu” trong giai đoạn Ứng tuyển.'
-              : 'Chiến dịch này chưa có booking. Mời KOL từ trang chiến dịch hoặc chọn chiến dịch khác.'}
+            {supplierType && bookings.data?.length
+              ? `Chiến dịch này chưa có booking của ${supplierType}. Chọn chiến dịch khác.`
+              : campaign?.type === 'OPEN_RECRUITMENT'
+                ? brandTab
+                  ? 'Chưa có ứng viên. Bấm “Thêm 3 ứng viên mẫu” trong giai đoạn Ứng tuyển.'
+                  : 'Chưa có ứng viên. Thêm ứng viên mẫu ở tab Nhãn hàng.'
+                : 'Chiến dịch này chưa có booking. Mời KOL từ trang chiến dịch hoặc chọn chiến dịch khác.'}
           </p>
         ) : (
-          bookings.data.map((row) => (
-            <BookingRow key={row.view.id} row={row} running={running} locked={locked} opening={opening} onRun={run} onOpen={open} />
+          rows.map((row) => (
+            <BookingRow key={row.view.id} row={row} side={side} running={running} locked={locked} opening={opening} onRun={run} onOpen={open} />
           ))
         )}
       </div>
-
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button type="button" variant="ghost" className="h-11 w-full md:h-9" disabled={locked}>
-            {resetting ? <Loader2 className="animate-spin" aria-hidden /> : <RotateCcw aria-hidden />}
-            Khôi phục chiến dịch mẫu
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Khôi phục chiến dịch mẫu?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Mọi chiến dịch, booking và chiến dịch đã lưu trở về dữ liệu mẫu ban đầu. Tài khoản, hồ sơ và phiên đăng nhập được giữ nguyên.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void reset()}>Khôi phục</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </DemoPanelSection>
   );
 }
 
 function BookingRow({
   row,
+  side,
   running,
   locked,
   opening,
@@ -166,6 +137,7 @@ function BookingRow({
   onOpen,
 }: {
   row: DemoBookingRow;
+  side: CampaignSide;
   running: string | null;
   locked: boolean;
   opening: string | null;
@@ -177,6 +149,7 @@ function BookingRow({
   const kols = [...new Set(view.items.map((i) => i.displayName))].join(', ');
   const supplierLink = supplierBookingLink(view.id, row.supplierEmail, supplierName);
   const isRunning = (s: DemoStep) => running === `${view.id}:${s.key}`;
+  const groups = groupSteps(steps, side);
 
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
@@ -208,36 +181,41 @@ function BookingRow({
         )}
       </p>
 
-      {steps.primary && (
-        <Button type="button" className="h-11 w-full justify-start md:h-9" disabled={locked} onClick={() => onRun(row, steps.primary!)}>
-          {isRunning(steps.primary) ? <Loader2 className="animate-spin" aria-hidden /> : <ChevronRight aria-hidden />}
-          <span className="truncate">{steps.primary.label}</span>
-        </Button>
-      )}
-
-      {(steps.secondary.length > 0 || supplierLink) && (
-        <div className="flex flex-wrap gap-1.5">
-          {steps.secondary.map((s) => (
-            <Button
-              key={s.key}
-              type="button"
-              variant="outline"
-              size="sm"
-              className={`h-9 ${s.key === 'DECLINE' ? 'text-destructive hover:text-destructive' : ''}`}
-              disabled={locked}
-              onClick={() => onRun(row, s)}
-            >
-              {isRunning(s) && <Loader2 className="animate-spin" aria-hidden />}
-              {s.label}
-            </Button>
-          ))}
-          {supplierLink && (
-            <Button type="button" variant="ghost" size="sm" className="h-9" disabled={locked} onClick={() => onOpen(supplierLink)}>
-              {opening === supplierLink.label ? <Loader2 className="animate-spin" aria-hidden /> : <ArrowRight aria-hidden />}
-              Mở góc nhìn KOL/MCN
+      {groups.map((g) => (
+        <div key={g.side} className="space-y-1.5">
+          <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{SIDE_LABEL[g.side]}</p>
+          {g.primary && (
+            <Button type="button" className="h-11 w-full justify-start md:h-9" disabled={locked} onClick={() => onRun(row, g.primary!)}>
+              {isRunning(g.primary) ? <Loader2 className="animate-spin" aria-hidden /> : <ChevronRight aria-hidden />}
+              <span className="truncate">{g.primary.label}</span>
             </Button>
           )}
+          {g.secondary.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {g.secondary.map((s) => (
+                <Button
+                  key={s.key}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={`h-9 ${s.key === 'DECLINE' ? 'text-destructive hover:text-destructive' : ''}`}
+                  disabled={locked}
+                  onClick={() => onRun(row, s)}
+                >
+                  {isRunning(s) && <Loader2 className="animate-spin" aria-hidden />}
+                  {s.label}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
+      ))}
+
+      {supplierLink && side === 'SUPPLIER' && (
+        <Button type="button" variant="ghost" size="sm" className="h-9" disabled={locked} onClick={() => onOpen(supplierLink)}>
+          {opening === supplierLink.label ? <Loader2 className="animate-spin" aria-hidden /> : <ArrowRight aria-hidden />}
+          Mở góc nhìn {supplierName}
+        </Button>
       )}
     </div>
   );

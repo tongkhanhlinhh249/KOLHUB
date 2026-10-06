@@ -12,6 +12,8 @@ export interface DemoLink {
 
 export interface DemoLinkGroup {
   title: string;
+  /** Demo panel tab showing this group. */
+  tab: 'biz' | 'kol' | 'mcn';
   links: DemoLink[];
 }
 
@@ -19,6 +21,7 @@ export interface DemoLinkGroup {
 export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
   {
     title: 'Nhãn hàng / Agency',
+    tab: 'biz',
     links: [
       { label: 'Tìm kiếm KOL', path: '/tim-kiem-kol', account: 'biz-verified', hint: 'Lọc, xem hồ sơ, mời vào chiến dịch' },
       { label: 'Hồ sơ KOL có Bài đã đăng', path: '/tim-kiem-kol?kol=KOL-2026-0001', account: 'biz-verified', hint: 'Khánh Vy: mục Bài đã đăng trong Chi tiết' },
@@ -38,6 +41,7 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
   },
   {
     title: 'MCN',
+    tab: 'mcn',
     links: [
       { label: 'Sàn chiến dịch', path: '/san', account: 'mcn-verified', hint: 'Phù hợp với bạn, ứng tuyển' },
       { label: 'Chiến dịch cần xử lý', path: '/chien-dich-cua-toi?tab=can-xu-ly', account: 'mcn-verified', hint: 'Nộp nháp, gửi link bài, xác nhận tiền' },
@@ -51,6 +55,7 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
   },
   {
     title: 'KOL',
+    tab: 'kol',
     links: [
       { label: 'Tổng quan hồ sơ (đã xác thực)', path: '/ho-so-kol/tong-quan', account: 'kol-verified', hint: 'Giai đoạn chiến dịch, việc cần làm, đã lưu' },
       {

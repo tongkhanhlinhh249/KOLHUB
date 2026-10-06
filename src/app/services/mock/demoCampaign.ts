@@ -1,4 +1,4 @@
-// Demo-only campaign simulator (Demo Panel "Quản lý chiến dịch"). Drives a booking one step at a time on behalf of
+// Demo-only campaign simulator (Demo Panel "Giả lập chiến dịch"). Drives a booking one step at a time on behalf of
 // either side WITHOUT switching the signed-in account: every step runs the real booking service against a db view
 // whose session is the acting party, so all rules (allowedActions, 4805/4809/4810/4811…) and KOL Safety scans apply.
 import type { Platform } from '../bizTypes';
