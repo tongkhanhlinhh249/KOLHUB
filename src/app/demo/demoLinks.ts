@@ -21,6 +21,7 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
     title: 'Nhãn hàng / Agency',
     links: [
       { label: 'Tìm kiếm KOL', path: '/tim-kiem-kol', account: 'biz-verified', hint: 'Lọc, xem hồ sơ, mời vào chiến dịch' },
+      { label: 'Hồ sơ KOL có Bài đã đăng', path: '/tim-kiem-kol?kol=KOL-2026-0001', account: 'biz-verified', hint: 'Khánh Vy: mục Bài đã đăng trong Chi tiết' },
       { label: 'Chiến dịch đang chạy', path: '/chien-dich/cmp-seed-sua-hat?tab=noi-dung', account: 'biz-verified', hint: 'Duyệt nội dung có KOL Safety' },
       { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Booking riêng hoặc Tuyển nhiều KOL' },
       {
@@ -39,13 +40,17 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
       { label: 'Sàn chiến dịch', path: '/san', account: 'mcn-verified', hint: 'Phù hợp với bạn, ứng tuyển' },
       { label: 'Chiến dịch cần xử lý', path: '/chien-dich-cua-toi?tab=can-xu-ly', account: 'mcn-verified', hint: 'Nộp nháp, gửi link bài, xác nhận tiền' },
       { label: 'Quản lý KOL', path: '/ho-so-mcn/kol', account: 'mcn-verified', hint: 'Gán kênh cho KOL' },
+      { label: 'Bài đã đăng', path: '/bai-da-dang', account: 'mcn-verified', hint: 'Bài của các KOL thuộc MCN, bật/tắt Hiện trên hồ sơ' },
+      { label: 'Thu nhập', path: '/thu-nhap', account: 'mcn-verified', hint: 'Theo tháng và theo KOL' },
       { label: 'Tổng quan hồ sơ MCN', path: '/ho-so-mcn/tong-quan', account: 'mcn-verified' },
     ],
   },
   {
     title: 'KOL',
     links: [
-      { label: 'Tổng quan hồ sơ (đã xác thực)', path: '/ho-so-kol/tong-quan', account: 'kol-verified' },
+      { label: 'Tổng quan hồ sơ (đã xác thực)', path: '/ho-so-kol/tong-quan', account: 'kol-verified', hint: 'Giai đoạn chiến dịch, việc cần làm, đã lưu' },
+      { label: 'Bài đã đăng', path: '/bai-da-dang', account: 'kol-verified', hint: 'Số liệu, đánh giá, Hiện trên hồ sơ' },
+      { label: 'Thu nhập', path: '/thu-nhap', account: 'kol-verified', hint: 'Đã nhận, đang chờ, giá trị sản phẩm' },
       { label: 'Lời mời hợp tác', path: '/chien-dich-cua-toi', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },
       {
         label: 'Đã được chọn (Tuyển nhiều KOL)',

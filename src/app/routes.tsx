@@ -31,6 +31,8 @@ import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
 import { AppsPage } from './features/apps/AppsPage';
 import { MarketplacePage } from './features/supplier-booking/MarketplacePage';
 import { BookingsPage } from './features/supplier-booking/BookingsPage';
+import { PortfolioPage } from './features/creator/PortfolioPage';
+import { EarningsPage } from './features/creator/EarningsPage';
 // --- campaign booking (Brand) ---
 import { CampaignsPage } from './features/campaigns/CampaignsPage';
 import { CampaignFormPage } from './features/campaigns/CampaignFormPage';
@@ -101,6 +103,8 @@ export const router = createBrowserRouter([
           { path: 'ung-dung', element: <AppsPage /> },
           { path: 'chien-dich-cua-toi', element: <BookingsPage /> },
           { path: 'booking', element: <MovedTo to={SUPPLIER_CAMPAIGNS_PATH} /> },
+          { path: 'bai-da-dang', element: <PortfolioPage /> },
+          { path: 'thu-nhap', element: <EarningsPage /> },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           {
             path: 'chien-dich',

@@ -4,6 +4,7 @@ import {
   BookMarked,
   Building2,
   IdCard,
+  Images,
   LogIn,
   Megaphone,
   MonitorPlay,
@@ -12,6 +13,7 @@ import {
   Store,
   UserPlus,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import type { Account, AccountType, RoleKey } from '../services/types';
@@ -110,10 +112,16 @@ export const COLLAB_GROUP = 'Hợp tác';
 export const SUPPLIER_CAMPAIGNS_PATH = '/chien-dich-cua-toi';
 /** Old path of the KOL/MCN page; redirects to SUPPLIER_CAMPAIGNS_PATH (query kept). */
 export const LEGACY_SUPPLIER_BOOKING_PATH = '/booking';
+/** KOL/MCN "Bài đã đăng": verified posts from bookings, each with "Hiện trên hồ sơ". */
+export const PORTFOLIO_PATH = '/bai-da-dang';
+/** KOL/MCN "Thu nhập": record-only ledger of cash / product rewards (payment happens outside KOL Hub). */
+export const EARNINGS_PATH = '/thu-nhap';
 const MARKETPLACE_ITEM: MenuItem = { icon: Store, label: 'Sàn chiến dịch', shortLabel: 'Sàn', path: MARKETPLACE_PATH, group: COLLAB_GROUP };
 const COLLAB_MENU: MenuItem[] = [
   { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH, group: COLLAB_GROUP },
   MARKETPLACE_ITEM,
+  { icon: Images, label: 'Bài đã đăng', shortLabel: 'Bài đăng', path: PORTFOLIO_PATH, group: COLLAB_GROUP },
+  { icon: Wallet, label: 'Thu nhập', shortLabel: 'Thu nhập', path: EARNINGS_PATH, group: COLLAB_GROUP },
 ];
 
 /** MCN only: KOLs the MCN's channels are assigned to (group "Hồ sơ MCN"). */
@@ -121,7 +129,7 @@ export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
 const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
 
 /**
- * 11–12 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` first).
+ * 13–14 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` first, then Bài đã đăng, Thu nhập).
  * "Chiến dịch" takes the tab of "Kênh" (channel setup is reached from Tổng quan / Thêm).
  */
 function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
@@ -132,7 +140,7 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
       { icon: Store, label: 'Sàn', path: MARKETPLACE_PATH },
       { icon: LayoutGrid, label: 'Ứng dụng', path: APPS_PATH },
     ],
-    more: [...extraMore, `${base}/kenh`, `${base}/thong-tin`, VIOLATIONS_PATH],
+    more: [...extraMore, PORTFOLIO_PATH, EARNINGS_PATH, `${base}/kenh`, `${base}/thong-tin`, VIOLATIONS_PATH],
   };
 }
 
@@ -267,6 +275,8 @@ const DESCRIPTIONS: Record<string, string> = {
   '/ho-so-mcn/kol': 'Gán kênh của MCN cho KOL và xem KOL đang phụ trách kênh',
   '/san': 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',
   '/chien-dich-cua-toi': 'Nhận lời mời, ứng tuyển và quản lý các chiến dịch đang thực hiện',
+  '/bai-da-dang': 'Các bài đăng đã xác minh trong chiến dịch; chọn bài hiện trên hồ sơ cho Nhãn hàng xem',
+  '/thu-nhap': 'Theo dõi tiền và sản phẩm nhận từ chiến dịch (chỉ ghi nhận, thanh toán ngoài KOL Hub)',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/chien-dich': 'Tạo chiến dịch, mời KOL/MCN, duyệt nội dung và theo dõi kết quả',
   '/danh-sach-kenh': 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',

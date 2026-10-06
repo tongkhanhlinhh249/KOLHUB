@@ -100,6 +100,26 @@ describe('resolveAccess', () => {
     });
     expect(resolveAccess('kolhub.user.kol', '/chien-dich')).toMatchObject({ allow: false, reason: 'forbidden' });
   });
+  test('Bài đã đăng (/bai-da-dang) và Thu nhập (/thu-nhap): KOL/MCN; Nhãn hàng → forbidden; khách → Đăng nhập', () => {
+    for (const r of ['kolhub.user.kol', 'kolhub.user.mcn'] as const)
+      for (const p of ['/bai-da-dang', '/bai-da-dang?nen-tang=tiktok&thoi-gian=90-ngay', '/thu-nhap', '/thu-nhap/'])
+        expect(resolveAccess(r, p), `${r} ${p}`).toEqual({ allow: true });
+    for (const p of ['/bai-da-dang', '/thu-nhap']) {
+      expect(resolveAccess('kolhub.user.biz', p)).toEqual({ allow: false, redirect: '/tim-kiem-kol', reason: 'forbidden' });
+      expect(resolveAccess('kolhub.guest', p)).toMatchObject({ allow: false, reason: 'login' });
+    }
+    expect(getPageMeta('/bai-da-dang', 'kolhub.user.kol')).toEqual({
+      title: 'Bài đã đăng',
+      group: 'Cá nhân/KOL',
+      description: 'Các bài đăng đã xác minh trong chiến dịch; chọn bài hiện trên hồ sơ cho Nhãn hàng xem',
+    });
+    expect(getPageMeta('/thu-nhap', 'kolhub.user.mcn')).toEqual({
+      title: 'Thu nhập',
+      group: 'Tổ chức/MCN',
+      description: 'Theo dõi tiền và sản phẩm nhận từ chiến dịch (chỉ ghi nhận, thanh toán ngoài KOL Hub)',
+    });
+    expect(safeReturnTo('kolhub.user.kol', '/thu-nhap')).toBe('/thu-nhap');
+  });
   test('dấu / cuối vẫn khớp', () => expect(resolveAccess('kolhub.user.biz', '/danh-sach-da-luu/')).toEqual({ allow: true }));
 });
 
@@ -129,10 +149,12 @@ const SAFETY_ROWS = [
 const COLLAB_ROWS = [
   ['Chiến dịch', 'Chiến dịch', '/chien-dich-cua-toi', 'Hợp tác'],
   ['Sàn chiến dịch', 'Sàn', '/san', 'Hợp tác'],
+  ['Bài đã đăng', 'Bài đăng', '/bai-da-dang', 'Hợp tác'],
+  ['Thu nhập', 'Thu nhập', '/thu-nhap', 'Hợp tác'],
 ];
 
 describe('bottomNavOf', () => {
-  test('KOL/MCN: 4 tab (Tổng quan, Chiến dịch, Sàn, Ứng dụng) + "Thêm" (MCN: Quản lý KOL; kênh, thông tin hồ sơ, vi phạm)', () => {
+  test('KOL/MCN: 4 tab (Tổng quan, Chiến dịch, Sàn, Ứng dụng) + "Thêm" (MCN: Quản lý KOL; bài đã đăng, thu nhập, kênh, thông tin hồ sơ, vi phạm)', () => {
     for (const [role, base] of [
       ['kolhub.user.kol', '/ho-so-kol'],
       ['kolhub.user.mcn', '/ho-so-mcn'],
@@ -146,6 +168,8 @@ describe('bottomNavOf', () => {
       ]);
       expect(nav.more.map((m) => m.label)).toEqual([
         ...(role === 'kolhub.user.mcn' ? ['Quản lý KOL'] : []),
+        'Bài đã đăng',
+        'Thu nhập',
         'Quản lý kênh',
         'Thông tin hồ sơ',
         'Danh sách vi phạm',
