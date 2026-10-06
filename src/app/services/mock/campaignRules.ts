@@ -677,7 +677,7 @@ function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCam
   return out;
 }
 
-function itemView(state: DemoState, it: BookingItem, now: number): BookingItemView {
+export function itemView(state: DemoState, it: BookingItem, now: number): BookingItemView {
   const profile = state.kolProfiles.find((p) => p.accountId === it.kolAccountId);
   const kol = profile ? publicKolOf(profile, state.channels, now) : null;
   const view: BookingItemView = { ...it, kol, displayName: kol?.displayName || (profile && profileDisplayName(profile)) || it.kolId };

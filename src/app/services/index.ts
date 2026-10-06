@@ -142,3 +142,10 @@ import { createDemoCampaignService } from './mock/demoCampaign';
 
 export const demoCampaignService = createDemoCampaignService({ db, now: Date.now });
 export type { DemoCampaignService, DemoActor, DemoStep, DemoStepKey, DemoSteps, DemoCampaignOption, DemoBookingRow } from './mock/demoCampaign';
+// --- "Bài đã đăng" (portfolio) ---
+import { createPortfolioService } from './mock/portfolio';
+
+export const portfolioService = createPortfolioService({ db, now: Date.now });
+export * from './portfolio-types';
+export type { PortfolioService } from './mock/portfolio';
+export { SEED_HISTORY } from './mock/campaignSeed';
