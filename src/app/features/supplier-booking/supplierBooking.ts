@@ -22,6 +22,7 @@ import {
   type Platform,
   type RoleKey,
 } from '../../services';
+import type { AriaSort } from '../shared/tableView';
 import type { Tone } from '../shared/StatusBadges';
 import { RECRUIT_STAGE_LABEL, recruitStage, recruitStageTone } from '../shared/recruitView';
 import { CAMPAIGNS_PATH, INTERESTED_PATH, MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
@@ -478,6 +479,63 @@ export function defaultBookingTab(list: (TabInput & { id: string })[], linkedId?
   const counts = countByTab(list);
   if (counts['can-xu-ly'] > 0) return 'can-xu-ly';
   return BOOKING_TABS.find((t) => counts[t.key] > 0)?.key ?? 'can-xu-ly';
+}
+
+// ---------------------------------------------------------------------------
+// "Bảng" view: short "Cần bạn" reason, deadline, sortable columns (?sap-xep=han | gia)
+// ---------------------------------------------------------------------------
+
+/** Short reason for the "Cần bạn" pill, or null when the supplier has nothing to do. */
+export function supplierTodoLabel(
+  b: Pick<BookingView, 'status' | 'awaiting' | 'payment' | 'allowedActions'> & { origin?: BookingOrigin; campaign?: { type?: CampaignType } },
+): string | null {
+  if (!needsSupplier(b)) return null;
+  if (b.status === 'SENT') return 'Trả lời lời mời';
+  if (b.status === 'APPLIED' || b.status === 'NEGOTIATING') return 'Trả lời giá';
+  if (b.allowedActions.includes('CONFIRM_PAID')) return 'Xác nhận nhận tiền';
+  if (b.allowedActions.includes('SUBMIT_DRAFT')) return 'Nộp bản nháp';
+  if (b.allowedActions.includes('SUBMIT_POST')) return 'Gửi link bài đăng';
+  if (b.allowedActions.includes('CONFIRM_PRODUCT_RECEIVED')) return 'Xác nhận nhận hàng';
+  return 'Cần xử lý';
+}
+
+const PRE_DEAL: BookingStatus[] = ['SENT', 'APPLIED', 'NEGOTIATING'];
+
+/** Deadline that still matters: the expiry of an invite / application not decided yet (else undefined). */
+export function bookingDeadline(b: Pick<BookingView, 'status' | 'expiresAt'>): number | undefined {
+  return PRE_DEAL.includes(b.status) ? b.expiresAt : undefined;
+}
+
+export type SupplierSort = 'updated' | 'deadline' | 'price';
+const SUPPLIER_SORT_PARAM: Record<SupplierSort, string> = { updated: '', deadline: 'han', price: 'gia' };
+
+/** ?sap-xep=han | gia (default: updated, newest first). */
+export function parseSupplierSort(p: URLSearchParams): SupplierSort {
+  const v = p.get('sap-xep');
+  return (Object.keys(SUPPLIER_SORT_PARAM) as SupplierSort[]).find((k) => v && SUPPLIER_SORT_PARAM[k] === v) ?? 'updated';
+}
+
+export const supplierSortValue = (s: SupplierSort): string | null => SUPPLIER_SORT_PARAM[s] || null;
+
+export type SupplierColumn = 'price' | 'deadline' | 'updated';
+export const SUPPLIER_COLUMN_SORT: Record<SupplierColumn, { sort: SupplierSort; dir: Exclude<AriaSort, 'none'> }> = {
+  price: { sort: 'price', dir: 'descending' },
+  deadline: { sort: 'deadline', dir: 'ascending' },
+  updated: { sort: 'updated', dir: 'descending' },
+};
+
+/** updated: newest first · deadline: soonest pending deadline first (none last) · price: highest first. Ties → newest. */
+export function sortSupplierBookings<T extends Pick<BookingView, 'status' | 'expiresAt' | 'price' | 'updatedAt'>>(list: T[], sort: SupplierSort): T[] {
+  return [...list].sort((a, b) => {
+    if (sort === 'deadline') {
+      const x = bookingDeadline(a) ?? Infinity;
+      const y = bookingDeadline(b) ?? Infinity;
+      if (x !== y) return x < y ? -1 : 1;
+    } else if (sort === 'price' && a.price !== b.price) {
+      return b.price - a.price;
+    }
+    return b.updatedAt - a.updatedAt;
+  });
 }
 
 /** Old Sàn detail param (/san?chien-dich=<id>); redirected to /san/<id> (see legacyMarketplaceRedirect). */

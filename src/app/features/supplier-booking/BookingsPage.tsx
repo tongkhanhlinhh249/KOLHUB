@@ -1,32 +1,28 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { AlertCircle, Building2, Filter, Handshake, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, Filter, Handshake, RotateCcw, X } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { cn } from '../../components/ui/utils';
-import { bookingService, type BookingView } from '../../services';
+import { bookingService } from '../../services';
 import { MARKETPLACE_PATH } from '../../auth/roles';
-import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { CampaignCover } from '../shared/CampaignCover';
-import { RecruitStageStepper } from '../shared/RecruitParts';
-import { recruitStage, rewardShort } from '../shared/recruitView';
+import { BulkBar, useMediaQuery, ViewToggle } from '../shared/DataTable';
+import { StepTabs } from '../shared/StepTabs';
+import { parseListView, TABLE_DEFAULT_QUERY, VIEW_PARAM, withListView } from '../shared/tableView';
 import { BookingDetailSheet } from './BookingDetailSheet';
-import { BookingStatusBadge, CountdownText, KolAvatarStack, NeedsYouMarker, OriginBadge } from './parts';
+import { BookingCardGrid, BookingTable } from './BookingListViews';
 import {
   BOOKING_DETAIL_PARAM,
   BOOKING_TABS,
   countByTab,
   defaultBookingTab,
-  expiryCountdown,
-  formatDateTime,
-  isRecruitBooking,
   needsSupplier,
   parseBookingTab,
-  priceText,
+  parseSupplierSort,
+  sortSupplierBookings,
+  supplierSortValue,
   tabOf,
   withParam,
   type BookingTab,
@@ -42,75 +38,6 @@ const EMPTY: Record<BookingTab, string> = {
   'hoan-tat': 'Chưa có booking nào hoàn tất.',
   'da-dong': 'Không có booking nào bị từ chối, huỷ hoặc hết hạn.',
 };
-
-function BookingRow({ booking: b, now, onOpen }: { booking: BookingView; now: number; onOpen(): void }) {
-  const needs = needsSupplier(b);
-  const platforms = [...new Set(b.items.map((i) => i.channel?.platform ?? i.platform))];
-  const pre = ['SENT', 'APPLIED', 'NEGOTIATING'].includes(b.status);
-  const kols = new Set(b.items.map((i) => i.kolAccountId)).size;
-  const recruit = isRecruitBooking(b);
-  const reward = b.reward ?? b.campaign.recruitment?.reward;
-  return (
-    <Card className={cn('@container relative gap-3 p-4 transition-colors hover:border-primary/40 md:p-5', needs && 'border-primary/40')}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <Building2 className="size-3.5 shrink-0" aria-hidden />
-          <span className="truncate font-medium text-foreground">{b.campaign.brand.company}</span>
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {needs && <NeedsYouMarker />}
-          <OriginBadge origin={b.origin} />
-          <BookingStatusBadge booking={b} />
-        </div>
-      </div>
-      <div className="flex items-start gap-3 @xl:gap-4">
-        <CampaignCover cover={b.campaign.cover} className="aspect-video w-20 shrink-0 rounded-[6px] @xl:w-28" iconClassName="size-5" />
-        <div className="min-w-0 flex-1 space-y-2">
-          <h2 className="text-base leading-snug font-semibold break-words text-foreground">
-            <button
-              type="button"
-              onClick={onOpen}
-              className="text-left after:absolute after:inset-0 after:rounded-[8px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-            >
-              {b.campaign.name}
-            </button>
-          </h2>
-          {recruit && <RecruitStageStepper stage={recruitStage(b)} className="max-w-md" />}
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <KolAvatarStack items={b.items} />
-          <div className="min-w-0 text-xs text-muted-foreground">
-            <p className="text-foreground">
-              {kols} KOL · {b.items.length} hạng mục
-            </p>
-            <p className="flex items-center gap-1">
-              {platforms.map((p) => (
-                <PlatformIcon key={p} platform={p} className="size-4" />
-              ))}
-              {b.items.some((i) => !i.channelId) && <span className="text-destructive">Thiếu kênh</span>}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-0.5 text-right">
-          {recruit && reward ? (
-            <p className="text-sm font-semibold text-foreground tabular-nums">{rewardShort(reward)}</p>
-          ) : (
-            <p className={cn('text-sm font-semibold tabular-nums', b.price > 0 ? 'text-foreground' : 'text-muted-foreground')}>{priceText(b.price)}</p>
-          )}
-          {recruit && pre && b.expiresAt !== undefined ? (
-            <p className="text-xs text-muted-foreground">Kết quả trước {formatDateTime(b.expiresAt)}</p>
-          ) : pre && b.expiresAt !== undefined ? (
-            <CountdownText countdown={expiryCountdown(b.expiresAt, now)} prefix="Hạn phản hồi" />
-          ) : (
-            <p className="text-xs text-muted-foreground">Cập nhật {formatDateTime(b.updatedAt)}</p>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 function BookingRowSkeleton() {
   return (
@@ -141,12 +68,22 @@ export function BookingsPage() {
   const counts = useMemo(() => countByTab(all ?? []), [all]);
   const stage = parseStageParam(params);
   const stageLabel = PIPELINE_STAGES.find((s) => s.key === stage)?.label;
-  const rows = useMemo(() => (all ?? []).filter((b) => (stage ? stageOf(b) === stage : tabOf(b) === tab)), [all, tab, stage]);
+  const sort = parseSupplierSort(params);
+  const rows = useMemo(
+    () => sortSupplierBookings((all ?? []).filter((b) => (stage ? stageOf(b) === stage : tabOf(b) === tab)), sort),
+    [all, tab, stage, sort],
+  );
   const now = Date.now();
+  const isDesktop = useMediaQuery(TABLE_DEFAULT_QUERY);
+  const view = parseListView(params.get(VIEW_PARAM), isDesktop);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selectedCount = view === 'table' ? rows.filter((b) => selected.has(b.id)).length : 0;
+  const listLabel = stageLabel ?? BOOKING_TABS.find((t) => t.key === tab)?.label ?? 'Chiến dịch';
 
   const setTab = (t: string) => setParams((prev) => withParam(withParam(prev, STAGE_PARAM, null), 'tab', t), { replace: true });
   const clearStage = () => setParams((prev) => withParam(prev, STAGE_PARAM, null), { replace: true });
   const openDetail = (id: string | null) => setParams((prev) => withParam(prev, BOOKING_DETAIL_PARAM, id));
+  const setSort = (s: typeof sort) => setParams((prev) => withParam(prev, 'sap-xep', supplierSortValue(s)), { replace: true });
 
   if (access.loading) {
     return (
@@ -221,42 +158,40 @@ export function BookingsPage() {
       </p>
     );
   } else {
-    body = (
-      <ul className="flex flex-col gap-3" aria-label={stageLabel ?? BOOKING_TABS.find((t) => t.key === tab)?.label}>
-        {rows.map((b) => (
-          <li key={b.id}>
-            <BookingRow booking={b} now={now} onOpen={() => openDetail(b.id)} />
-          </li>
-        ))}
-      </ul>
-    );
+    body =
+      view === 'table' ? (
+        <BookingTable
+          rows={rows}
+          now={now}
+          sort={sort}
+          onSort={setSort}
+          selected={selected}
+          onSelectedChange={setSelected}
+          onOpen={openDetail}
+          label={`Bảng chiến dịch: ${listLabel}`}
+        />
+      ) : (
+        <BookingCardGrid rows={rows} now={now} onOpen={openDetail} label={listLabel} />
+      );
   }
 
   const needsCount = (all ?? []).filter(needsSupplier).length;
 
   return (
-    <div className="@container mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
+    <div className="@container mx-auto w-full max-w-[1600px] min-w-0 space-y-4 p-4 md:p-6">
       {all && all.length > 0 && (
         <>
-          <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
-            <Tabs value={stage ? '' : tab} onValueChange={setTab}>
-              <TabsList className="h-auto" aria-label="Giai đoạn chiến dịch">
-                {BOOKING_TABS.map((t) => (
-                  <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
-                    {t.label}
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 text-xs tabular-nums',
-                        t.key === 'can-xu-ly' && counts[t.key] > 0 ? 'bg-primary text-primary-foreground' : 'bg-background/70 text-muted-foreground',
-                      )}
-                    >
-                      {counts[t.key]}
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
+          <StepTabs
+            label="Giai đoạn chiến dịch"
+            value={stage ? null : tab}
+            onChange={setTab}
+            items={BOOKING_TABS.map((t) => ({
+              key: t.key,
+              label: t.label,
+              count: counts[t.key],
+              kind: t.key === 'can-xu-ly' ? 'start' : t.key === 'da-dong' ? 'end' : 'step',
+            }))}
+          />
           {stageLabel && (
             <div className="flex flex-wrap items-center gap-2 rounded-[8px] border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
               <Filter className="size-4 shrink-0 text-primary" aria-hidden />
@@ -269,15 +204,19 @@ export function BookingsPage() {
               </Button>
             </div>
           )}
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            {all.length} chiến dịch
-            {needsCount > 0 && (
-              <>
-                {' · '}
-                <span className="font-medium text-primary">{needsCount} cần bạn xử lý</span>
-              </>
-            )}
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              {all.length} chiến dịch
+              {needsCount > 0 && (
+                <>
+                  {' · '}
+                  <span className="font-medium text-primary">{needsCount} cần bạn xử lý</span>
+                </>
+              )}
+            </p>
+            <ViewToggle value={view} onChange={(v) => setParams((prev) => withListView(prev, v), { replace: true })} />
+          </div>
+          {view === 'table' && <BulkBar count={selectedCount} onClear={() => setSelected(new Set())} />}
         </>
       )}
 

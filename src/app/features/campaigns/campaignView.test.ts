@@ -7,7 +7,9 @@ import {
   collectDrafts,
   collectPosts,
   countByBookingStatus,
+  CAMPAIGN_COLUMN_SORT,
   countCampaignTabs,
+  countCampaignTypes,
   expiryText,
   formatDateRange,
   formatIsoDay,
@@ -113,6 +115,36 @@ describe('campaign list', () => {
     expect(applyCampaignQuery(list, { tab: 'all', sort: 'start' }).map((x) => x.id)).toEqual(['c', 'b', 'a', 'd']);
     expect(hasCampaignFilters({ tab: 'OPEN' })).toBe(false);
     expect(hasCampaignFilters({ tab: 'all', visibility: 'PRIVATE' })).toBe(true);
+  });
+
+  test('type filter: URL round-trip, counts per type and per status', () => {
+    const typed = [
+      ...list,
+      c('e', 'OPEN', { type: 'OPEN_RECRUITMENT', updatedAt: 5, visibility: 'MARKETPLACE' }),
+      c('f', 'RUNNING', { type: 'OPEN_RECRUITMENT', updatedAt: 6, visibility: 'MARKETPLACE' }),
+    ];
+    const q = { tab: 'all' as const, type: 'OPEN_RECRUITMENT' as const };
+    expect(toCampaignListParams(q).toString()).toBe('loai=tuyen-nhieu');
+    expect(parseCampaignListParams(new URLSearchParams('loai=booking'))).toEqual({ tab: 'all', type: 'BOOKING' });
+    expect(parseCampaignListParams(new URLSearchParams('loai=xyz'))).toEqual({ tab: 'all' });
+    expect(hasCampaignFilters(q)).toBe(true);
+    // type counts ignore the type filter but follow the tab (missing type = Booking riêng)
+    expect(countCampaignTypes(typed, q)).toEqual({ all: 6, BOOKING: 4, OPEN_RECRUITMENT: 2 });
+    expect(countCampaignTypes(typed, { tab: 'OPEN' })).toEqual({ all: 3, BOOKING: 2, OPEN_RECRUITMENT: 1 });
+    expect(countCampaignTypes(typed, { tab: 'all', visibility: 'MARKETPLACE' })).toEqual({ all: 3, BOOKING: 1, OPEN_RECRUITMENT: 2 });
+    // status counts follow the type filter
+    expect(countCampaignTabs(typed, q)).toEqual({ all: 2, DRAFT: 0, OPEN: 1, RUNNING: 1, COMPLETED: 0, CANCELLED: 0 });
+    expect(countCampaignTabs(typed, { tab: 'all', type: 'BOOKING' })).toMatchObject({ all: 4, OPEN: 2 });
+    expect(applyCampaignQuery(typed, q).map((x) => x.id)).toEqual(['f', 'e']);
+    expect(applyCampaignQuery(typed, { tab: 'OPEN', type: 'BOOKING' }).map((x) => x.id)).toEqual(['b', 'c']);
+  });
+
+  test('sortable columns map onto the list sort', () => {
+    expect(CAMPAIGN_COLUMN_SORT.updated).toEqual({ sort: 'updated', dir: 'descending' });
+    expect(CAMPAIGN_COLUMN_SORT.budget).toEqual({ sort: 'budget', dir: 'descending' });
+    expect(CAMPAIGN_COLUMN_SORT.time).toEqual({ sort: 'start', dir: 'ascending' });
+    // every column sort is one of the sort-menu options
+    for (const col of Object.values(CAMPAIGN_COLUMN_SORT)) expect(['updated', 'start', 'budget']).toContain(col.sort);
   });
 
   test('campaignActions per status', () => {

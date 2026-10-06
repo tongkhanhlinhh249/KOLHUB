@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import type { BookingView } from '../../services';
 import {
+  bookingDeadline,
   bookingDetailPath,
+  parseSupplierSort,
+  sortSupplierBookings,
+  SUPPLIER_COLUMN_SORT,
+  supplierSortValue,
+  supplierTodoLabel,
   countByTab,
   defaultBookingTab,
   deadlineCountdown,
@@ -283,5 +289,50 @@ describe('tham số URL', () => {
     expect(marketplaceViewerOf('kolhub.user.mcn')).toBe('supplier');
     expect(marketplaceViewerOf('kolhub.user.biz')).toBe('brand');
     expect(withParam(new URLSearchParams('tab=a&booking=b'), 'booking', null).toString()).toBe('tab=a');
+  });
+});
+
+describe('bảng chiến dịch (KOL/MCN)', () => {
+  type T = Pick<BookingView, 'status' | 'awaiting' | 'payment' | 'allowedActions'>;
+  const t = (status: BookingView['status'], allowedActions: BookingView['allowedActions'] = [], extra: Partial<T> = {}): T => ({
+    status,
+    payment: {},
+    allowedActions,
+    ...extra,
+  });
+  test('nhãn "Cần bạn"', () => {
+    expect(supplierTodoLabel(t('SENT', [], { awaiting: 'SUPPLIER' }))).toBe('Trả lời lời mời');
+    expect(supplierTodoLabel(t('NEGOTIATING', [], { awaiting: 'SUPPLIER' }))).toBe('Trả lời giá');
+    expect(supplierTodoLabel(t('NEGOTIATING', [], { awaiting: 'BRAND' }))).toBeNull();
+    expect(supplierTodoLabel(t('IN_PRODUCTION', ['SUBMIT_DRAFT']))).toBe('Nộp bản nháp');
+    expect(supplierTodoLabel(t('CONTENT_APPROVED', ['SUBMIT_POST']))).toBe('Gửi link bài đăng');
+    expect(supplierTodoLabel(t('VERIFIED', ['CONFIRM_PAID'], { payment: { brandMarkedAt: 1 } }))).toBe('Xác nhận nhận tiền');
+    expect(supplierTodoLabel(t('VERIFIED'))).toBeNull();
+    expect(supplierTodoLabel(t('COMPLETED'))).toBeNull();
+  });
+
+  type S = Pick<BookingView, 'status' | 'expiresAt' | 'price' | 'updatedAt'> & { id: string };
+  const s = (id: string, status: BookingView['status'], price: number, updatedAt: number, expiresAt?: number): S => ({ id, status, price, updatedAt, expiresAt });
+  const list = [s('a', 'SENT', 5, 1, NOW + 5 * HOUR), s('b', 'ACCEPTED', 9, 3, NOW + HOUR), s('c', 'APPLIED', 0, 2, NOW + 2 * HOUR), s('d', 'COMPLETED', 9, 4)];
+
+  test('hạn chỉ tính khi còn chờ trả lời', () => {
+    expect(bookingDeadline(list[0])).toBe(NOW + 5 * HOUR);
+    expect(bookingDeadline(list[1])).toBeUndefined();
+  });
+  test('sắp xếp theo cột', () => {
+    expect(sortSupplierBookings(list, 'updated').map((x) => x.id)).toEqual(['d', 'b', 'c', 'a']);
+    expect(sortSupplierBookings(list, 'deadline').map((x) => x.id)).toEqual(['c', 'a', 'd', 'b']);
+    expect(sortSupplierBookings(list, 'price').map((x) => x.id)).toEqual(['d', 'b', 'a', 'c']);
+    expect(list.map((x) => x.id)).toEqual(['a', 'b', 'c', 'd']); // input untouched
+  });
+  test('tham số ?sap-xep= và ánh xạ cột', () => {
+    expect(parseSupplierSort(new URLSearchParams(''))).toBe('updated');
+    expect(parseSupplierSort(new URLSearchParams('sap-xep=han'))).toBe('deadline');
+    expect(parseSupplierSort(new URLSearchParams('sap-xep=gia'))).toBe('price');
+    expect(parseSupplierSort(new URLSearchParams('sap-xep=xyz'))).toBe('updated');
+    expect(supplierSortValue('updated')).toBeNull();
+    expect(supplierSortValue('deadline')).toBe('han');
+    expect(SUPPLIER_COLUMN_SORT.deadline).toEqual({ sort: 'deadline', dir: 'ascending' });
+    expect(SUPPLIER_COLUMN_SORT.updated).toEqual({ sort: 'updated', dir: 'descending' });
   });
 });

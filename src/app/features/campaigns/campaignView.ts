@@ -18,6 +18,7 @@ import {
   type InviteResult,
   type InviteSkipReason,
 } from '../../services';
+import type { AriaSort } from '../shared/tableView';
 import type { Tone } from '../shared/StatusBadges';
 
 export const CAMPAIGNS_PATH = '/chien-dich';
@@ -141,10 +142,18 @@ export const CAMPAIGN_SORTS: { key: CampaignSort; label: string }[] = [
   { key: 'budget', label: 'Ngân sách cao nhất' },
 ];
 
+/** "Booking riêng" / "Tuyển nhiều KOL" filter (?loai=booking | tuyen-nhieu, same values as the Sàn). */
+export const CAMPAIGN_TYPE_OPTIONS: { key: CampaignType; label: string }[] = [
+  { key: 'BOOKING', label: 'Booking riêng' },
+  { key: 'OPEN_RECRUITMENT', label: 'Tuyển nhiều KOL' },
+];
+const TYPE_PARAM: Record<CampaignType, string> = { BOOKING: 'booking', OPEN_RECRUITMENT: 'tuyen-nhieu' };
+
 export interface CampaignListQuery {
   tab: CampaignTab;
   keyword?: string;
   visibility?: CampaignVisibility;
+  type?: CampaignType;
   /** Default 'updated' (not written to the URL). */
   sort?: CampaignSort;
 }
@@ -169,6 +178,8 @@ export function parseCampaignListParams(sp: URLSearchParams): CampaignListQuery 
   if (kw) q.keyword = kw;
   const vis = keyOf(VIS_PARAM, sp.get('hien-thi'));
   if (vis) q.visibility = vis;
+  const type = keyOf(TYPE_PARAM, sp.get('loai'));
+  if (type) q.type = type;
   const sort = CAMPAIGN_SORTS.find((s) => s.key === sp.get('sap-xep'))?.key;
   if (sort && sort !== 'updated') q.sort = sort;
   return q;
@@ -179,18 +190,22 @@ export function toCampaignListParams(q: CampaignListQuery): URLSearchParams {
   if (q.tab !== 'all') sp.set('trang-thai', TAB_PARAM[q.tab]);
   if (q.keyword?.trim()) sp.set('q', q.keyword.trim());
   if (q.visibility) sp.set('hien-thi', VIS_PARAM[q.visibility]);
+  if (q.type) sp.set('loai', TYPE_PARAM[q.type]);
   if (q.sort && q.sort !== 'updated') sp.set('sap-xep', q.sort);
   return sp;
 }
 
-/** Keyword (name / objective / brief, accent-insensitive) + visibility; the status tab is left out. */
-export function matchesCampaign(c: Pick<CampaignView, 'name' | 'objective' | 'brief' | 'visibility'>, q: CampaignListQuery): boolean {
+type FilterRow = Pick<CampaignView, 'name' | 'objective' | 'brief' | 'visibility' | 'type'>;
+
+/** Keyword (name / objective / brief, accent-insensitive) + visibility + type; the status tab is left out. */
+export function matchesCampaign(c: FilterRow, q: CampaignListQuery): boolean {
   if (q.visibility && c.visibility !== q.visibility) return false;
+  if (q.type && (c.type ?? 'BOOKING') !== q.type) return false;
   const kw = normalizeText(q.keyword ?? '');
   return !kw || normalizeText(`${c.name} ${c.objective} ${c.brief}`).includes(kw);
 }
 
-export function countCampaignTabs<T extends Pick<CampaignView, 'name' | 'objective' | 'brief' | 'visibility' | 'status'>>(
+export function countCampaignTabs<T extends FilterRow & Pick<CampaignView, 'status'>>(
   list: T[],
   q: CampaignListQuery,
 ): Record<CampaignTab, number> {
@@ -203,7 +218,22 @@ export function countCampaignTabs<T extends Pick<CampaignView, 'name' | 'objecti
   return out;
 }
 
-type ListRow = Pick<CampaignView, 'name' | 'objective' | 'brief' | 'visibility' | 'status' | 'updatedAt' | 'budget' | 'startDate'>;
+/** Per-type counts ("Tất cả" included) under the current tab, keyword and visibility; the type filter itself is left out. */
+export function countCampaignTypes<T extends FilterRow & Pick<CampaignView, 'status'>>(
+  list: T[],
+  q: CampaignListQuery,
+): Record<'all' | CampaignType, number> {
+  const out: Record<'all' | CampaignType, number> = { all: 0, BOOKING: 0, OPEN_RECRUITMENT: 0 };
+  const rest = { ...q, type: undefined };
+  for (const c of list) {
+    if (!matchesCampaign(c, rest) || (q.tab !== 'all' && c.status !== q.tab)) continue;
+    out.all++;
+    out[c.type ?? 'BOOKING']++;
+  }
+  return out;
+}
+
+type ListRow = FilterRow & Pick<CampaignView, 'status' | 'updatedAt' | 'budget' | 'startDate'>;
 
 /** Tab + filters, then sorted: updated (newest first) · start (earliest start first, undated last) · budget (desc). */
 export function applyCampaignQuery<T extends ListRow>(list: T[], q: CampaignListQuery): T[] {
@@ -221,8 +251,16 @@ export function applyCampaignQuery<T extends ListRow>(list: T[], q: CampaignList
 }
 
 export function hasCampaignFilters(q: CampaignListQuery): boolean {
-  return !!q.keyword?.trim() || !!q.visibility;
+  return !!q.keyword?.trim() || !!q.visibility || !!q.type;
 }
+
+/** Sortable columns of the "Bảng" view → the list sort they apply (one direction each, as the sort menu). */
+export type CampaignColumn = 'budget' | 'time' | 'updated';
+export const CAMPAIGN_COLUMN_SORT: Record<CampaignColumn, { sort: CampaignSort; dir: Exclude<AriaSort, 'none'> }> = {
+  budget: { sort: 'budget', dir: 'descending' },
+  time: { sort: 'start', dir: 'ascending' },
+  updated: { sort: 'updated', dir: 'descending' },
+};
 
 // ---------------------------------------------------------------------------
 // Campaign status / actions
