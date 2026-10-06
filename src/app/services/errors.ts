@@ -274,6 +274,10 @@ function campaignFieldLabel(field?: string): string {
       return 'Nhận xét';
     case 'contractFile':
       return 'Tệp hợp đồng';
+    case 'message':
+      return 'Nội dung tin nhắn';
+    case 'link':
+      return 'Đường dẫn đính kèm';
     default:
       return 'Thông tin';
   }

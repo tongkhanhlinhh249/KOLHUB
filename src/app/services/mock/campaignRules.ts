@@ -636,7 +636,7 @@ export function brandInfoOf(state: DemoState, brandAccountId: string, now: numbe
   };
 }
 
-function supplierRef(state: DemoState, b: Booking): SupplierRef {
+export function supplierRef(state: DemoState, b: Booking): SupplierRef {
   const p =
     b.supplierType === 'MCN'
       ? state.mcnProfiles.find((x) => x.accountId === b.supplierAccountId)

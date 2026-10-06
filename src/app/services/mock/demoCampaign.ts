@@ -205,12 +205,15 @@ export function expireBooking(state: DemoState, bookingId: string, t: number): v
   b.updatedAt = t;
 }
 
-/** Replaces campaigns, bookings and Sàn bookmarks with fresh seed data; accounts, profiles and session stay. */
+/** Replaces campaigns, bookings, Sàn bookmarks, Q&A, threads and notification read state with fresh seed data; accounts, profiles and session stay. */
 export function resetCampaignData(state: DemoState, fresh: DemoState = seedState()): void {
   state.campaigns = fresh.campaigns;
   state.bookings = fresh.bookings;
   state.savedCampaigns = fresh.savedCampaigns;
   state.campaignQuestions = fresh.campaignQuestions;
+  state.bookingMessages = fresh.bookingMessages;
+  state.threadReads = fresh.threadReads;
+  state.notificationReads = fresh.notificationReads;
 }
 
 /** A link for `platform` that passes the mock post verification (host must match the platform). */

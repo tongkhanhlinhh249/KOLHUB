@@ -447,7 +447,8 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
     const { ctx, saved } = viewerContext(state, me, t);
     const item = card(state, c, me.accountId, ctx, saved, t);
-    if (!isListedOnMarketplace(c, t) && !(c.visibility === 'MARKETPLACE' && item.myBooking)) throw new KolhubError('KOLHUB-4801');
+    // Off the Sàn: still viewable by a supplier that has a booking on it or saved it ("Chiến dịch quan tâm").
+    if (!isListedOnMarketplace(c, t) && !(c.visibility === 'MARKETPLACE' && (item.myBooking || item.saved))) throw new KolhubError('KOLHUB-4801');
     return { ...item, brandInfo: brandInfoOf(state, c.brandAccountId, t) };
   }
 
@@ -479,6 +480,23 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   async function listSaved(filters: MarketplaceFilters = {}): Promise<MarketplaceCampaign[]> {
     await wait();
     return marketplaceList(filters, (c, saved) => saved.has(c.id));
+  }
+
+  /**
+   * "Chiến dịch quan tâm › Đã lưu": every bookmarked campaign that is still public (not draft / private), including
+   * the ones no longer taking applications (`accepting` false; filter with filterByInterest). Newest bookmark first.
+   */
+  async function listSavedAll(): Promise<MarketplaceCampaign[]> {
+    await wait();
+    const state = db.read();
+    const me = marketplaceViewer(state);
+    const t = now();
+    const { ctx, saved } = viewerContext(state, me, t);
+    const savedAt = new Map(state.savedCampaigns.filter((x) => x.accountId === me.accountId).map((x) => [x.campaignId, x.savedAt]));
+    return state.campaigns
+      .filter((c) => saved.has(c.id) && c.status !== 'DRAFT' && c.visibility === 'MARKETPLACE')
+      .map((c) => card(state, c, me.accountId, ctx, saved, t))
+      .sort((a, b) => (savedAt.get(b.id) ?? 0) - (savedAt.get(a.id) ?? 0));
   }
 
   /**
@@ -732,6 +750,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     saveCampaign,
     unsaveCampaign,
     listSaved,
+    listSavedAll,
     listApplied,
     selectApplicants,
     rejectApplicants,

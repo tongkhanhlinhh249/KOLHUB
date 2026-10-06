@@ -20,6 +20,8 @@ import type { SafetyMonitor, SafetyVideo } from '../safety-types';
 import type { Violation } from '../violation-types';
 // --- campaign booking (beta) ---
 import type { Booking, Campaign, CampaignQA, PlanKey, SavedCampaign } from '../campaign-types';
+// --- Tin nhắn / Thông báo ---
+import type { BookingMessage, NotificationReadState, ThreadRead } from '../inbox-types';
 
 export const DB_KEY = 'kolhub-demo-v1';
 
@@ -61,11 +63,13 @@ export interface PendingRegistration {
  * campaign Q&A (`campaignQuestions`).
  * v13: past collaborations (verified posts, ratings, payments) for "Bài đã đăng" / "Thu nhập" and the per-post
  * "Hiện trên hồ sơ" flag (`ContentSubmission.hiddenOnProfile`).
+ * v14: "Tin nhắn" per booking (`bookingMessages`, `threadReads`) and the read state of "Thông báo"
+ * (`notificationReads`), with seeded threads for Khánh Vy, Sao Việt Media and the demo brand.
  */
-export const DB_VERSION = 13;
+export const DB_VERSION = 14;
 
 export interface DemoState {
-  version: 13;
+  version: 14;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -99,6 +103,13 @@ export interface DemoState {
   // --- Tuyển nhiều KOL ---
   /** Public Q&A of marketplace campaigns ("Hỏi đáp"). */
   campaignQuestions: CampaignQA[];
+  // --- Tin nhắn / Thông báo (v14) ---
+  /** One thread per booking: messages written by its two parties. */
+  bookingMessages: BookingMessage[];
+  /** When each account last opened each thread. */
+  threadReads: ThreadRead[];
+  /** Read state of the notification center (notifications themselves are derived). */
+  notificationReads: NotificationReadState[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

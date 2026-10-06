@@ -7,6 +7,7 @@ import { seedSafety } from './safetySeed';
 import { seedViolations } from './violationSeed';
 import { seedMcnChannelAssignments } from './mcnKolSeed';
 import { seedCampaigns } from './campaignSeed';
+import { seedInbox } from './inboxSeed';
 
 const SEED_CREATED_AT = '2026-09-01T08:00:00.000Z';
 const SEED_T = Date.parse(SEED_CREATED_AT);
@@ -48,6 +49,7 @@ const SEED_BIZ_NEW: Account = {
  * v9: campaign booking beta — 3 campaigns of the demo brand (bookings with Sao Việt Media and Khánh Vy),
  * 3 marketplace campaigns of the new agency; every brand on the default "Dùng thử" plan.
  * v10 (Sàn v2): 2 more marketplace campaigns per brand; Sao Việt Media and Khánh Vy have saved campaigns.
+ * v14: message threads on a few bookings (Khánh Vy, Sao Việt Media, demo brand, agency); older notifications read.
  */
 export function seedState(): DemoState {
   const now = Date.now();
@@ -65,8 +67,9 @@ export function seedState(): DemoState {
   const channels = [...kols.channels, ...mcn.channels];
   seedMcnChannelAssignments(channels, now);
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
+  const campaignData = seedCampaigns(channels, now);
   return {
-    version: 13,
+    version: 14,
     accounts,
     otps: [],
     registrations: [],
@@ -87,7 +90,9 @@ export function seedState(): DemoState {
     // v5: violations (Khánh Vy, Sao Việt Media and a few sample KOLs).
     violations: seedViolations(kolProfiles, channels, now),
     // v9: campaign booking beta.
-    ...seedCampaigns(channels, now),
+    ...campaignData,
     brandPlans: {},
+    // v14: threads per booking + notification read state.
+    ...seedInbox(now, new Set(campaignData.bookings.map((b) => b.id))),
   };
 }

@@ -149,3 +149,10 @@ export const portfolioService = createPortfolioService({ db, now: Date.now });
 export * from './portfolio-types';
 export type { PortfolioService } from './mock/portfolio';
 export { SEED_HISTORY } from './mock/campaignSeed';
+// --- "Tin nhắn", "Thông báo", "Câu hỏi của tôi" ---
+import { createInboxService } from './mock/inbox';
+
+export const inboxService = createInboxService({ db, now: Date.now });
+export * from './inbox-types';
+export type { InboxService, InboxCounts } from './mock/inbox';
+export { checkMessage } from './mock/inbox';
