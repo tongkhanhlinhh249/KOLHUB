@@ -1,6 +1,6 @@
 // Pure helpers of "Thu nhập" (record-only ledger, not a wallet): one row per booking with a deal (cash and product
 // reward), summary cards, monthly totals and, for MCNs, totals per KOL. Payment itself happens outside KOL Hub.
-import type { BookingView } from '../../services';
+import type { BookingView, StoredFile } from '../../services';
 import { IN_PROGRESS_STATUSES } from '../../services';
 
 /** Cash: Chờ thanh toán → Nhãn hàng đã đánh dấu đã trả → Đã nhận (supplier confirmed). */
@@ -29,6 +29,8 @@ export interface EarningShare {
 export interface EarningRow {
   bookingId: string;
   campaignName: string;
+  /** "Ảnh chiến dịch", when the brand added one. */
+  campaignCover?: StoredFile;
   brandCompany: string;
   /** VND; 0 = product only. */
   cash: number;
@@ -76,6 +78,7 @@ export function earningRows(list: EarningInput[]): EarningRow[] {
     rows.push({
       bookingId: b.id,
       campaignName: b.campaign.name,
+      ...(b.campaign.cover ? { campaignCover: b.campaign.cover } : {}),
       brandCompany: b.campaign.brand.company,
       cash: Math.max(0, b.price),
       cashStatus: status,

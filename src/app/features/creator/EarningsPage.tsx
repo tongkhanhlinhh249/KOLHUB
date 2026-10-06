@@ -7,6 +7,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { bookingService } from '../../services';
 import { MARKETPLACE_PATH } from '../../auth/roles';
+import { CampaignCover } from '../shared/CampaignCover';
 import { ToneBadge, type Tone } from '../shared/StatusBadges';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { SupplierGate, useSupplierAccess } from '../supplier-booking/useSupplierAccess';
@@ -202,6 +203,8 @@ export function EarningsPage() {
             <ul className="divide-y divide-border rounded-[8px] border border-border">
               {rows.map((r) => (
                 <li key={r.bookingId} className="flex flex-col gap-2 p-3 @xl:flex-row @xl:items-center @xl:gap-4 md:p-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-3 @xl:min-w-64">
+                  <CampaignCover cover={r.campaignCover} className="aspect-video w-16 shrink-0 rounded-[6px]" iconClassName="size-4" />
                   <div className="min-w-0 flex-1">
                     <Link to={bookingDetailPath(r.bookingId)} className="text-sm font-semibold break-words text-foreground underline-offset-4 hover:text-primary hover:underline">
                       {r.campaignName}
@@ -212,7 +215,8 @@ export function EarningsPage() {
                       <span>· {monthLabel(r.month)}</span>
                     </p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 @xl:justify-end">
+                  </div>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 @xl:max-w-[60%] @xl:justify-end">
                     {(r.cash > 0 || !r.product) && (
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-foreground tabular-nums">{formatVnd(r.cash)}</span>

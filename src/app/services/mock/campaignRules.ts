@@ -670,6 +670,7 @@ function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCam
   if (c.startDate) out.startDate = c.startDate;
   if (c.endDate) out.endDate = c.endDate;
   if (c.applyDeadline) out.applyDeadline = c.applyDeadline;
+  if (c.cover) out.cover = { ...c.cover };
   if (isRecruit(c)) {
     out.recruitment = structuredClone(c.recruitment);
     out.phase = phaseOfTimeline(c.recruitment.timeline, now);

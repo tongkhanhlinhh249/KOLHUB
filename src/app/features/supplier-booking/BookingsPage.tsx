@@ -11,6 +11,7 @@ import { bookingService, type BookingView } from '../../services';
 import { MARKETPLACE_PATH } from '../../auth/roles';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { CampaignCover } from '../shared/CampaignCover';
 import { RecruitStageStepper } from '../shared/RecruitParts';
 import { recruitStage, rewardShort } from '../shared/recruitView';
 import { BookingDetailSheet } from './BookingDetailSheet';
@@ -50,7 +51,7 @@ function BookingRow({ booking: b, now, onOpen }: { booking: BookingView; now: nu
   const recruit = isRecruitBooking(b);
   const reward = b.reward ?? b.campaign.recruitment?.reward;
   return (
-    <Card className={cn('relative gap-3 p-4 transition-colors hover:border-primary/40 md:p-5', needs && 'border-primary/40')}>
+    <Card className={cn('@container relative gap-3 p-4 transition-colors hover:border-primary/40 md:p-5', needs && 'border-primary/40')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <Building2 className="size-3.5 shrink-0" aria-hidden />
@@ -62,16 +63,21 @@ function BookingRow({ booking: b, now, onOpen }: { booking: BookingView; now: nu
           <BookingStatusBadge booking={b} />
         </div>
       </div>
-      <h2 className="text-base leading-snug font-semibold break-words text-foreground">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="text-left after:absolute after:inset-0 after:rounded-[8px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
-        >
-          {b.campaign.name}
-        </button>
-      </h2>
-      {recruit && <RecruitStageStepper stage={recruitStage(b)} className="max-w-md" />}
+      <div className="flex items-start gap-3 @xl:gap-4">
+        <CampaignCover cover={b.campaign.cover} className="aspect-video w-20 shrink-0 rounded-[6px] @xl:w-28" iconClassName="size-5" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <h2 className="text-base leading-snug font-semibold break-words text-foreground">
+            <button
+              type="button"
+              onClick={onOpen}
+              className="text-left after:absolute after:inset-0 after:rounded-[8px] after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            >
+              {b.campaign.name}
+            </button>
+          </h2>
+          {recruit && <RecruitStageStepper stage={recruitStage(b)} className="max-w-md" />}
+        </div>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
         <div className="flex min-w-0 items-center gap-3">
           <KolAvatarStack items={b.items} />

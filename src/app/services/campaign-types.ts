@@ -767,6 +767,8 @@ export interface BookingCampaignSummary {
   phase?: RecruitPhase;
   draftReview: boolean;
   regions: string[];
+  /** "Ảnh chiến dịch" (16:9 cover), when the brand added one. */
+  cover?: StoredFile;
 }
 
 export interface BookingChannelRef {

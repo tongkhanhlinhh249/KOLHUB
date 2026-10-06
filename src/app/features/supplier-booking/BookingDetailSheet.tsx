@@ -16,6 +16,7 @@ import { Button, buttonVariants } from '../../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
+import { CampaignCover } from '../shared/CampaignCover';
 import { BOOKING_NOTE_MAX, bookingService, KolhubError, type BookingView } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFollowers } from '../biz-search/format';
@@ -224,7 +225,10 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
             <span className="truncate font-medium text-foreground">{b.campaign.brand.company}</span>
             {b.campaign.brand.contactName && <span className="truncate">· {b.campaign.brand.contactName}</span>}
           </p>
-          <h2 className="pr-8 text-lg font-semibold break-words text-foreground sm:text-xl">{b.campaign.name}</h2>
+          <div className="flex items-start gap-3 pr-8">
+            <CampaignCover cover={b.campaign.cover} className="aspect-video w-24 shrink-0 rounded-[6px] @lg:w-32" iconClassName="size-5" />
+            <h2 className="min-w-0 text-lg font-semibold break-words text-foreground sm:text-xl">{b.campaign.name}</h2>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <BookingStatusBadge booking={b} />
             <OriginBadge origin={b.origin} />
