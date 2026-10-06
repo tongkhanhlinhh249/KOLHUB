@@ -9,7 +9,7 @@ import { MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
 import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { phaseBadge } from '../shared/recruitView';
-import { marketplaceDetailPath } from '../supplier-booking/supplierBooking';
+import { marketplaceCampaignPath } from '../supplier-booking/supplierBooking';
 import { deriveTodos, dueText, PIPELINE_STAGES, pipelineCounts, stagePath, type DueTone } from './workspace';
 
 const TODO_MAX = 5;
@@ -193,7 +193,7 @@ export function SavedCampaignsStrip({ accountId }: { accountId: string }) {
             return (
               <li key={c.id}>
                 <Link
-                  to={marketplaceDetailPath(c.id)}
+                  to={marketplaceCampaignPath(c.id)}
                   className="group -mx-2 flex min-h-11 items-center gap-3 rounded-[6px] px-2 py-1.5 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <CampaignCover cover={c.cover} className="aspect-video w-16 shrink-0 rounded-[6px]" iconClassName="size-4" />

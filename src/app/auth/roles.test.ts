@@ -81,11 +81,13 @@ describe('resolveAccess', () => {
   });
   test('guest vào đường dẫn hồ sơ gốc → Đăng nhập', () =>
     expect(resolveAccess('kolhub.guest', '/ho-so-mcn')).toMatchObject({ reason: 'login' }));
-  test('Sàn chiến dịch (/san) mở cho mọi vai trò, kể cả khách; đường dẫn cũ /san-chien-dich cũng vậy', () => {
+  test('Sàn chiến dịch (/san, trang chiến dịch /san/<id>) mở cho mọi vai trò, kể cả khách; đường dẫn cũ /san-chien-dich cũng vậy', () => {
     for (const r of Object.keys(ROLE_CONFIG) as (keyof typeof ROLE_CONFIG)[])
-      for (const p of ['/san', '/san/', '/san?chien-dich=cmp-1', '/san-chien-dich?tab=da-luu'])
+      for (const p of ['/san', '/san/', '/san/cmp-1', '/san/cmp-1/', '/san/c%201?tab=x#hoi-dap', '/san?chien-dich=cmp-1', '/san-chien-dich?tab=da-luu'])
         expect(resolveAccess(r, p), `${r} ${p}`).toEqual({ allow: true });
     expect(isPublicPath('/san?q=abc')).toBe(true);
+    expect(isPublicPath('/san/cmp-seed-sua-hat')).toBe(true);
+    expect(isPublicPath('/sanxyz/cmp-1')).toBe(false);
     expect(isPublicPath('/sanxyz')).toBe(false);
     expect(resolveAccess('kolhub.guest', '/sanxyz')).toMatchObject({ reason: 'home' });
   });
@@ -134,6 +136,9 @@ describe('safeReturnTo', () => {
     expect(safeReturnTo('kolhub.user.kol', '/ho-so-mcn/kenh')).toBe('/ho-so-kol/tong-quan');
   });
   test('safeReturnTo về Sàn (kèm chiến dịch) cho mọi vai trò', () => {
+    expect(safeReturnTo('kolhub.user.kol', '/san/cmp-1')).toBe('/san/cmp-1');
+    expect(safeReturnTo('kolhub.user.mcn', '/san/cmp-1')).toBe('/san/cmp-1');
+    expect(safeReturnTo('kolhub.user.biz', '/san/cmp-1')).toBe('/san/cmp-1');
     expect(safeReturnTo('kolhub.user.kol', '/san?chien-dich=cmp-1')).toBe('/san?chien-dich=cmp-1');
     expect(safeReturnTo('kolhub.user.biz', '/san')).toBe('/san');
   });
@@ -255,7 +260,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
     expect(resolveAccess('kolhub.user.kol', '/chien-dich')).toMatchObject({ allow: false, reason: 'forbidden' });
   });
   test('getPageMeta', () => {
-    expect(getPageMeta('/san?chien-dich=x', 'kolhub.user.mcn')).toEqual({
+    expect(getPageMeta('/san/cmp-1', 'kolhub.user.mcn')).toEqual({
       title: 'Sàn chiến dịch',
       group: 'Tổ chức/MCN',
       description: 'Chiến dịch Nhãn hàng đang tìm KOL: xem brief và gửi đề xuất ứng tuyển',

@@ -21,8 +21,11 @@ test('mỗi đường dẫn nhanh dùng tài khoản demo có thật và mở đ
     }
   // Public Sàn: open to everyone, guests included.
   const sanLinks = DEMO_LINK_GROUPS.flatMap((g) => g.links).filter((l) => isPublicPath(l.path));
-  expect(sanLinks.map((l) => l.account).sort()).toEqual(['biz-verified', 'mcn-verified']);
+  expect(sanLinks.map((l) => l.account).sort()).toEqual(['biz-verified', 'kol-verified', 'mcn-verified']);
   for (const l of sanLinks) expect(resolveAccess('kolhub.guest', l.path)).toEqual({ allow: true });
+  // Campaign pages use /san/<id> (never the old ?chien-dich= param).
+  expect(sanLinks.some((l) => /^\/san\/[^/?]+$/.test(l.path))).toBe(true);
+  for (const g of DEMO_LINK_GROUPS) for (const l of g.links) expect(l.path).not.toContain('chien-dich=');
   // No link points at the old paths (they only redirect).
   for (const g of DEMO_LINK_GROUPS) for (const l of g.links) expect(l.path).not.toMatch(/^\/(booking|san-chien-dich)(\?|$)/);
   expect(roleOf(null)).toBe('kolhub.guest');

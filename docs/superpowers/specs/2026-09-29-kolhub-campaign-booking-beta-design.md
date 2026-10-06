@@ -217,14 +217,14 @@ Quyết định: "Sàn chiến dịch sẽ là 1 slug riêng. Còn MCN và KOL n
 
 | Đường dẫn | Ai vào được | Ghi chú |
 |---|---|---|
-| `/san` | Mọi vai trò, **kể cả khách** (`PUBLIC_PATHS`, guard không bao giờ chuyển hướng) | Layout riêng `MarketplaceLayout` (ngoài khung app): header Sàn (logo → `/san`, "Sàn chiến dịch", ô tìm kiếm `?q=`, khách: Đăng nhập/Đăng ký; đã đăng nhập: avatar + "Vào KOLHUB" về trang chính của vai trò; Nhãn hàng thêm "Đăng chiến dịch" → `/chien-dich/tao`), nội dung rộng tối đa 1200px, footer. Chi tiết chiến dịch: Sheet `?chien-dich=<id>`. Đổi vai trò/đăng xuất khi đang ở Sàn thì ở lại Sàn. |
+| `/san` | Mọi vai trò, **kể cả khách** (`PUBLIC_PATHS`, guard không bao giờ chuyển hướng) | Layout riêng `MarketplaceLayout` (ngoài khung app): header Sàn (logo → `/san`, "Sàn chiến dịch", ô tìm kiếm `?q=`, khách: Đăng nhập/Đăng ký; đã đăng nhập: avatar + "Vào KOLHUB" về trang chính của vai trò; Nhãn hàng thêm "Đăng chiến dịch" → `/chien-dich/tao`), nội dung rộng tối đa 1200px, footer. Chi tiết chiến dịch: trang riêng `/san/<id>` (công khai, mở tab mới/chia sẻ được; nút "← Sàn chiến dịch" giữ bộ lọc danh sách; desktop 2 cột với cột phải dính gồm lịch trình + nút hành động, điện thoại 1 cột với thanh hành động dính dưới đáy). Link cũ `/san?chien-dich=<id>` tự chuyển sang `/san/<id>`. Đổi vai trò/đăng xuất khi đang ở Sàn thì ở lại Sàn. |
 | `/san-chien-dich` | Mọi vai trò | Chuyển hướng sang `/san` (giữ query). |
 | `/chien-dich-cua-toi` | KOL, MCN | Trang "Chiến dịch" của NCC (trước đây "Booking"): lời mời, đề xuất ứng tuyển, booking đang thực hiện; `?tab=` giai đoạn, `?booking=<id>` mở chi tiết. |
 | `/booking` | KOL, MCN | Chuyển hướng sang `/chien-dich-cua-toi` (giữ query). |
 
 Góc nhìn trên Sàn (`marketplaceViewerOf(role)`):
 
-- **Khách**: danh sách + chi tiết (trường brief công khai, ngân sách, khối Nhãn hàng); không có mức phù hợp, lưu, tab; sắp xếp mặc định "Mới nhất". Nút "Đăng nhập để ứng tuyển" → `/dang-nhap?returnTo=/san?chien-dich=<id>` (đăng nhập xong quay lại đúng chiến dịch).
+- **Khách**: danh sách + chi tiết (trường brief công khai, ngân sách, khối Nhãn hàng); không có mức phù hợp, lưu, tab; sắp xếp mặc định "Mới nhất". Nút "Đăng nhập để ứng tuyển" → `/dang-nhap?returnTo=/san/<id>` (đăng nhập xong quay lại đúng chiến dịch).
 - **KOL/MCN**: như §11 — "Phù hợp nhất" mặc định, lưu, tab Tất cả / Đã lưu / Đã ứng tuyển, ứng tuyển, sửa/rút đề xuất; hồ sơ chưa duyệt thấy thông báo và chỉ xem/lưu.
 - **Nhãn hàng**: chỉ đọc (cờ `mine`), chỉ "Tất cả"; chiến dịch của mình có nhãn "Của bạn" + "Quản lý chiến dịch" → `/chien-dich/<id>`.
 

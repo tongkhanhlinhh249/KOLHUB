@@ -1,5 +1,5 @@
 import { useCallback, useMemo, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router';
+import { Navigate, useLocation, useSearchParams } from 'react-router';
 import { AlertCircle, Bookmark, RotateCcw, SearchX, Send, Store } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
@@ -22,12 +22,12 @@ import { SortSelect } from '../filters/SortSelect';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { fieldIcon } from '../shared/fieldIcons';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { CampaignDetailSheet } from './CampaignDetailSheet';
 import { AppliedCampaignCard, MarketplaceCampaignCard, MarketplaceCampaignCardSkeleton } from './MarketplaceCampaignCard';
 import {
   BUDGET_RANGES,
   hasMarketplaceFilters,
-  MARKETPLACE_DETAIL_PARAM,
+  legacyMarketplaceRedirect,
+  marketplaceCampaignPath,
   MARKETPLACE_TABS,
   marketplaceFilterCount,
   marketplaceTabParam,
@@ -39,6 +39,7 @@ import {
   toMarketplaceFilters,
   TYPE_FILTERS,
   withParam,
+  type MarketplaceBackState,
   type MarketplaceQuery,
   type MarketplaceTab,
   type MarketplaceViewer,
@@ -135,10 +136,21 @@ const PUBLIC_SORTS = MARKETPLACE_SORTS.filter((s) => s.key !== 'match');
 /**
  * /san — the public Sàn chiến dịch (inside MarketplaceLayout; the keyword box lives in its header).
  * KOL/MCN: tabs `?tab=` (Tất cả · Đã lưu · Đã ứng tuyển), default sort "Phù hợp nhất", save, apply (approved only).
- * Guest / Brand: "Tất cả" only, read-only, default sort "Mới nhất". `?chien-dich=<id>` opens the detail sheet.
+ * Guest / Brand: "Tất cả" only, read-only, default sort "Mới nhất". Cards link to the campaign page /san/<id>
+ * (MarketplaceCampaignPage); old links /san?chien-dich=<id> redirect there.
  */
 export function MarketplacePage() {
+  const { search } = useLocation();
+  const legacy = legacyMarketplaceRedirect(search);
+  if (legacy) return <Navigate to={legacy.to} state={{ from: legacy.from } satisfies MarketplaceBackState} replace />;
+  return <MarketplaceList />;
+}
+
+function MarketplaceList() {
   const { role } = useAuth();
+  const { pathname, search } = useLocation();
+  // Router state of the card links: "← Sàn chiến dịch" on the campaign page returns to this exact list.
+  const backState: MarketplaceBackState = { from: pathname + search };
   const viewer = marketplaceViewerOf(role);
   const supplier = viewer === 'supplier';
   const access = useSupplierAccess(supplier);
@@ -159,7 +171,6 @@ export function MarketplacePage() {
       supplier ? { saved: (await campaignService.listSaved()).length, applied: (await campaignService.listApplied()).length } : null,
     [supplier, role],
   );
-  const detailId = params.get(MARKETPLACE_DETAIL_PARAM);
 
   const write = useCallback(
     (next: MarketplaceQuery) => setParams((prev) => mergeMarketplaceParams(prev, next), { replace: true }),
@@ -167,7 +178,6 @@ export function MarketplacePage() {
   );
   const change = (patch: Partial<MarketplaceQuery>) => write({ ...query, ...patch });
   const clear = () => write({ sort: query.sort });
-  const openDetail = (id: string | null) => setParams((prev) => withParam(prev, MARKETPLACE_DETAIL_PARAM, id));
   const setTab = (t: string) => setParams((prev) => withParam(prev, 'tab', marketplaceTabParam(t as MarketplaceTab)), { replace: true });
 
   const chips: FilterChip[] = [];
@@ -246,7 +256,7 @@ export function MarketplacePage() {
       <ul className={GRID} aria-label={tab === 'da-luu' ? 'Chiến dịch đã lưu' : 'Chiến dịch đang nhận đề xuất'}>
         {data.list.map((c) => (
           <li key={c.id} className="min-w-0 [&>*]:h-full">
-            <MarketplaceCampaignCard campaign={c} now={now} onOpen={() => openDetail(c.id)} viewer={viewer} />
+            <MarketplaceCampaignCard campaign={c} now={now} to={marketplaceCampaignPath(c.id)} linkState={backState} viewer={viewer} />
           </li>
         ))}
       </ul>
@@ -349,8 +359,6 @@ export function MarketplacePage() {
       )}
 
       {body}
-
-      <CampaignDetailSheet campaignId={detailId} onClose={() => openDetail(null)} access={access} viewer={viewer} />
     </div>
   );
 }

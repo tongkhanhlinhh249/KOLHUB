@@ -57,7 +57,7 @@ export const GUEST_PATHS = ['/dang-ky', '/dang-nhap', '/quen-mat-khau'];
 export const MARKETPLACE_PATH = '/san';
 /** Old in-shell marketplace path; redirects to MARKETPLACE_PATH (query kept). */
 export const LEGACY_MARKETPLACE_PATH = '/san-chien-dich';
-/** Paths every role (guests included) may open; the guard never redirects them. */
+/** Paths every role (guests included) may open, sub-paths included (/san/<id>); the guard never redirects them. */
 export const PUBLIC_PATHS = [MARKETPLACE_PATH, LEGACY_MARKETPLACE_PATH];
 
 /** Sidebar group of KOL/MCN: review apps (external KOL Safety / Brand Safety tool) + own violations. */
@@ -238,7 +238,7 @@ export function isNavActive(pathname: string, item: Pick<BottomNavItem, 'path' |
   return inPaths(cleanPath(pathname), item.match ?? [item.path]);
 }
 
-/** /san (and the legacy /san-chien-dich): open to every role, never redirected by the guard. */
+/** /san, its campaign pages /san/<id> (and the legacy /san-chien-dich): open to every role, never redirected by the guard. */
 export function isPublicPath(path: string): boolean {
   return inPaths(cleanPath(path), PUBLIC_PATHS);
 }

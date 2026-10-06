@@ -30,6 +30,7 @@ import { McnKolsPage } from './features/mcn-kols/McnKolsPage';
 // --- campaign booking (KOL/MCN supplier side) ---
 import { AppsPage } from './features/apps/AppsPage';
 import { MarketplacePage } from './features/supplier-booking/MarketplacePage';
+import { MarketplaceCampaignPage } from './features/supplier-booking/MarketplaceCampaignPage';
 import { BookingsPage } from './features/supplier-booking/BookingsPage';
 import { PortfolioPage } from './features/creator/PortfolioPage';
 import { EarningsPage } from './features/creator/EarningsPage';
@@ -81,8 +82,15 @@ export const router = createBrowserRouter([
           { path: 'quen-mat-khau', element: <ForgotPasswordPage /> },
         ],
       },
-      // Sàn chiến dịch: public, own layout (outside the app shell).
-      { path: 'san', element: <MarketplaceLayout />, children: [{ index: true, element: <MarketplacePage /> }] },
+      // Sàn chiến dịch: public, own layout (outside the app shell). /san/<id>: full-page campaign detail.
+      {
+        path: 'san',
+        element: <MarketplaceLayout />,
+        children: [
+          { index: true, element: <MarketplacePage /> },
+          { path: ':campaignId', element: <MarketplaceCampaignPage /> },
+        ],
+      },
       { path: 'san-chien-dich', element: <MovedTo to={MARKETPLACE_PATH} /> },
       {
         element: <Layout />,

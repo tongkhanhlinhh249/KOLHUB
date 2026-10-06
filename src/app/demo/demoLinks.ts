@@ -49,6 +49,12 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
     title: 'KOL',
     links: [
       { label: 'Tổng quan hồ sơ (đã xác thực)', path: '/ho-so-kol/tong-quan', account: 'kol-verified', hint: 'Giai đoạn chiến dịch, việc cần làm, đã lưu' },
+      {
+        label: 'Trang chiến dịch trên Sàn',
+        path: '/san/cmp-seed-du-lich',
+        account: 'kol-verified',
+        hint: 'Chi tiết đầy đủ, Khớp %, lưu và ứng tuyển; chia sẻ được đường dẫn',
+      },
       { label: 'Bài đã đăng', path: '/bai-da-dang', account: 'kol-verified', hint: 'Số liệu, đánh giá, Hiện trên hồ sơ' },
       { label: 'Thu nhập', path: '/thu-nhap', account: 'kol-verified', hint: 'Đã nhận, đang chờ, giá trị sản phẩm' },
       { label: 'Lời mời hợp tác', path: '/chien-dich-cua-toi', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },

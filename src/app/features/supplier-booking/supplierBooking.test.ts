@@ -16,7 +16,9 @@ import {
   cardCategories,
   cardMatchLine,
   MARKETPLACE_TABS,
-  marketplaceDetailPath,
+  marketplaceCampaignPath,
+  marketplaceBackPath,
+  legacyMarketplaceRedirect,
   loginToApplyPath,
   brandCampaignPath,
   marketplaceViewerOf,
@@ -226,8 +228,8 @@ describe('tham số URL', () => {
     );
     expect(q).toEqual({ keyword: 'trà', category: 'Ẩm thực', platform: 'tiktok', budget: '50-100', sort: 'budget' });
     expect(parseMarketplaceParams(new URLSearchParams('linh-vuc=X&nen-tang=ig&ngan-sach=1&sap-xep=z'), CATS)).toEqual({ sort: 'match' });
-    const next = mergeMarketplaceParams(new URLSearchParams('chien-dich=c1&q=a&tab=da-luu'), { sort: 'match', platform: 'youtube' });
-    expect(next.toString()).toBe('chien-dich=c1&tab=da-luu&nen-tang=youtube');
+    const next = mergeMarketplaceParams(new URLSearchParams('x=c1&q=a&tab=da-luu'), { sort: 'match', platform: 'youtube' });
+    expect(next.toString()).toBe('x=c1&tab=da-luu&nen-tang=youtube');
     expect(mergeMarketplaceParams(new URLSearchParams(), { sort: 'newest' }).toString()).toBe('sap-xep=newest');
   });
   test('Sàn: tab ?tab= (mặc định Tất cả), nhãn mức phù hợp', () => {
@@ -260,9 +262,24 @@ describe('tham số URL', () => {
     expect(parseBookingTab(new URLSearchParams('tab=x'))).toBe('can-xu-ly');
     expect(bookingDetailPath('bk-1')).toBe('/chien-dich-cua-toi?booking=bk-1');
     expect(bookingDetailPath('bk-1', 'hoan-tat')).toBe('/chien-dich-cua-toi?tab=hoan-tat&booking=bk-1');
-    expect(marketplaceDetailPath('c 1')).toBe('/san?chien-dich=c%201');
-    expect(loginToApplyPath('cmp-1')).toBe('/dang-nhap?returnTo=%2Fsan%3Fchien-dich%3Dcmp-1');
+    expect(loginToApplyPath('cmp-1')).toBe('/dang-nhap?returnTo=%2Fsan%2Fcmp-1');
     expect(brandCampaignPath('cmp-1')).toBe('/chien-dich/cmp-1');
+  });
+  test('Sàn: trang chi tiết /san/<id>, quay lại danh sách giữ bộ lọc', () => {
+    expect(marketplaceCampaignPath('cmp-1')).toBe('/san/cmp-1');
+    expect(marketplaceCampaignPath('c 1/x')).toBe('/san/c%201%2Fx');
+    expect(marketplaceBackPath({ from: '/san?tab=da-luu&q=tra' })).toBe('/san?tab=da-luu&q=tra');
+    expect(marketplaceBackPath({ from: '/san' })).toBe('/san');
+    // Only the Sàn list itself; anything else (another page, a campaign page, junk) → /san.
+    for (const s of [null, undefined, {}, { from: 1 }, { from: '/chien-dich-cua-toi' }, { from: '/san/cmp-1' }, { from: 'https://x.io/san' }, { from: '/sanxyz' }])
+      expect(marketplaceBackPath(s)).toBe('/san');
+  });
+  test('Sàn: link cũ ?chien-dich= → /san/<id>, giữ tham số khác cho nút quay lại', () => {
+    expect(legacyMarketplaceRedirect('?chien-dich=cmp-1')).toEqual({ to: '/san/cmp-1', from: '/san' });
+    expect(legacyMarketplaceRedirect('?tab=da-luu&chien-dich=c%201&q=tra')).toEqual({ to: '/san/c%201', from: '/san?tab=da-luu&q=tra' });
+    expect(legacyMarketplaceRedirect('?chien-dich=')).toBeNull();
+    expect(legacyMarketplaceRedirect('?tab=da-luu')).toBeNull();
+    expect(legacyMarketplaceRedirect('')).toBeNull();
   });
   test('marketplaceViewerOf: khách, KOL/MCN, Nhãn hàng', () => {
     expect(marketplaceViewerOf('kolhub.guest')).toBe('guest');

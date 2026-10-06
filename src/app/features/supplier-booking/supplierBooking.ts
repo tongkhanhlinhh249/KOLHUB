@@ -411,7 +411,7 @@ export function parseMarketplaceParams(p: URLSearchParams, categories: readonly 
   return q;
 }
 
-/** Write the query into `prev`, keeping unrelated params (e.g. ?chien-dich=). */
+/** Write the query into `prev`, keeping unrelated params (e.g. ?tab=). */
 export function mergeMarketplaceParams(prev: URLSearchParams, q: MarketplaceQuery): URLSearchParams {
   const next = new URLSearchParams(prev);
   const set = (k: string, v: string | undefined) => (v ? next.set(k, v) : next.delete(k));
@@ -497,7 +497,8 @@ export function defaultBookingTab(list: (TabInput & { id: string })[], linkedId?
   return BOOKING_TABS.find((t) => counts[t.key] > 0)?.key ?? 'can-xu-ly';
 }
 
-export const MARKETPLACE_DETAIL_PARAM = 'chien-dich';
+/** Old Sàn detail param (/san?chien-dich=<id>); redirected to /san/<id> (see legacyMarketplaceRedirect). */
+export const LEGACY_MARKETPLACE_DETAIL_PARAM = 'chien-dich';
 export const BOOKING_DETAIL_PARAM = 'booking';
 
 /** Link to a booking's detail sheet on the KOL/MCN "Chiến dịch" page /chien-dich-cua-toi (its stage tab selected). */
@@ -508,8 +509,34 @@ export function bookingDetailPath(id: string, tab?: BookingTab): string {
   return `${SUPPLIER_CAMPAIGNS_PATH}?${p.toString()}`;
 }
 
-/** Link to a campaign's detail sheet on the Sàn (/san). */
-export const marketplaceDetailPath = (id: string) => `${MARKETPLACE_PATH}?${MARKETPLACE_DETAIL_PARAM}=${encodeURIComponent(id)}`;
+/** Full-page campaign detail on the Sàn: /san/<id> (public, shareable). */
+export const marketplaceCampaignPath = (id: string) => `${MARKETPLACE_PATH}/${encodeURIComponent(id)}`;
+
+/** Router state carried from the Sàn list to a campaign page so "← Sàn chiến dịch" returns to the same filters. */
+export interface MarketplaceBackState {
+  from: string;
+}
+
+/** The list URL to go back to: `state.from` when it is the Sàn list (/san or /san?…), else /san. */
+export function marketplaceBackPath(state: unknown): string {
+  const from = (state as Partial<MarketplaceBackState> | null)?.from;
+  if (typeof from !== 'string') return MARKETPLACE_PATH;
+  const path = from.split(/[?#]/)[0].replace(/\/+$/, '');
+  return path === MARKETPLACE_PATH ? from : MARKETPLACE_PATH;
+}
+
+/**
+ * Old link /san?chien-dich=<id>&…: target /san/<id>, the other params kept as the list to go back to
+ * (`from`, e.g. /san?tab=da-luu). Null when the URL has no (non-empty) ?chien-dich=.
+ */
+export function legacyMarketplaceRedirect(search: string): { to: string; from: string } | null {
+  const p = new URLSearchParams(search);
+  const id = p.get(LEGACY_MARKETPLACE_DETAIL_PARAM)?.trim();
+  if (!id) return null;
+  p.delete(LEGACY_MARKETPLACE_DETAIL_PARAM);
+  const rest = p.toString();
+  return { to: marketplaceCampaignPath(id), from: rest ? `${MARKETPLACE_PATH}?${rest}` : MARKETPLACE_PATH };
+}
 
 /** Who is looking at the Sàn: guest (public brief only), KOL / MCN (match, save, apply) or Brand (read-only). */
 export type MarketplaceViewer = 'guest' | 'supplier' | 'brand';
@@ -519,8 +546,8 @@ export function marketplaceViewerOf(role: RoleKey): MarketplaceViewer {
   return role === 'kolhub.user.biz' ? 'brand' : 'supplier';
 }
 
-/** Guest "Đăng nhập để ứng tuyển": log in, then come back to the campaign's detail on the Sàn. */
-export const loginToApplyPath = (campaignId: string) => `/dang-nhap?returnTo=${encodeURIComponent(marketplaceDetailPath(campaignId))}`;
+/** Guest "Đăng nhập để ứng tuyển": log in, then come back to the campaign's page on the Sàn (/san/<id>). */
+export const loginToApplyPath = (campaignId: string) => `/dang-nhap?returnTo=${encodeURIComponent(marketplaceCampaignPath(campaignId))}`;
 
 /** Brand's own campaign page (from "Của bạn" on the Sàn). */
 export const brandCampaignPath = (campaignId: string) => `${CAMPAIGNS_PATH}/${encodeURIComponent(campaignId)}`;

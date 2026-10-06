@@ -176,17 +176,22 @@ export function MineBadge({ className }: { className?: string }) {
 /**
  * One marketplace campaign, sized for the 3-column grid: 16:9 cover (state badges top-left, bookmark top-right
  * for KOL/MCN), brand, 2-line title, "Khớp N%" + top reason (KOL/MCN), up to 2 categories + "+n", platforms,
- * budget and apply deadline with "còn N ngày". The title is a stretched button that opens the detail sheet.
+ * budget and apply deadline with "còn N ngày". The title is a stretched link to the campaign page /san/<id>
+ * (whole card clickable, opens in a new tab with Ctrl/Cmd-click, shareable).
  */
 export function MarketplaceCampaignCard({
   campaign: c,
   now,
-  onOpen,
+  to,
+  linkState,
   viewer = 'supplier',
 }: {
   campaign: MarketplaceCampaign;
   now: number;
-  onOpen(): void;
+  /** Campaign page (marketplaceCampaignPath). */
+  to: string;
+  /** Router state for the page (e.g. the list URL to go back to). */
+  linkState?: unknown;
   /** Bookmark button for any signed-in KOL / MCN; Brand: "Của bạn" on own campaigns; guest: public card only. */
   viewer?: MarketplaceViewer;
 }) {
@@ -222,9 +227,9 @@ export function MarketplaceCampaignCard({
           {recruit && <RecruitTypeBadge className="h-5 shrink-0 px-1.5 text-[11px]" />}
         </div>
         <h2 className={TITLE}>
-          <button type="button" onClick={onOpen} className={STRETCHED} title={c.name}>
+          <Link to={to} state={linkState} className={STRETCHED} title={c.name}>
             <span className="line-clamp-2">{c.name}</span>
-          </button>
+          </Link>
         </h2>
       </div>
 

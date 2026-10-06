@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Link, Outlet, useLocation, useSearchParams } from 'react-router';
+import { Link, Outlet, ScrollRestoration, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { LayoutDashboard, Plus } from 'lucide-react';
 import logoImg from '../../assets/logo.svg';
 import logoMarkImg from '../../assets/logo-mark.svg';
@@ -15,18 +15,25 @@ const SEARCH_PLACEHOLDER = 'Tìm tên chiến dịch, nhãn hàng, brief';
 const SEARCH_LABEL = 'Tìm chiến dịch theo tên, nhãn hàng hoặc brief';
 
 /**
- * Public frame of the Sàn chiến dịch (/san), outside the app shell: marketplace header (logo, title,
+ * Public frame of the Sàn chiến dịch (/san, /san/<id>), outside the app shell: marketplace header (logo, title,
  * keyword search bound to ?q=, sign-in actions or account + "Vào KOLHUB"), full-width content, small footer.
  * Open to every role incl. guests (roles.PUBLIC_PATHS).
  */
 export function MarketplaceLayout() {
   const { role } = useAuth();
   const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const onList = pathname.replace(/\/+$/, '') === MARKETPLACE_PATH;
   const keyword = params.get('q')?.trim() || undefined;
+  // On the list: filter in place. On a campaign page (/san/<id>): search goes back to the list with ?q=.
   const setKeyword = useCallback(
-    (kw: string | undefined) => setParams((prev) => withParam(prev, 'q', kw?.trim() || null), { replace: true }),
-    [setParams],
+    (kw: string | undefined) => {
+      const q = kw?.trim() || null;
+      if (onList) setParams((prev) => withParam(prev, 'q', q), { replace: true });
+      else if (q) navigate(`${MARKETPLACE_PATH}?${new URLSearchParams({ q }).toString()}`);
+    },
+    [onList, setParams, navigate],
   );
   const guest = role === 'kolhub.guest';
   const returnTo = encodeURIComponent(pathname + search);
@@ -37,7 +44,7 @@ export function MarketplaceLayout() {
   );
 
   return (
-    <div className="flex min-h-dvh w-full flex-col overflow-x-hidden bg-page">
+    <div className="flex min-h-dvh w-full flex-col overflow-x-clip bg-page">
       <header className="sticky top-0 z-30 border-b border-panel bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
         <div className="mx-auto flex h-16 w-full max-w-[1200px] items-center gap-3 px-4 md:px-6">
           <Link
@@ -98,6 +105,9 @@ export function MarketplaceLayout() {
       <main className="mx-auto w-full max-w-[1200px] min-w-0 flex-1 px-4 py-5 md:px-6 md:py-8">
         <Outlet />
       </main>
+      {/* Keyed by pathname: a campaign page opens at the top, "back" returns to the list's position, and
+          filter / keyword changes on the list (same pathname) keep the scroll position. */}
+      <ScrollRestoration getKey={(loc) => loc.pathname} />
 
       <footer className="border-t border-panel bg-card">
         <div
