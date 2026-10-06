@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, Building2, CheckCircle2, FileText, Loader2, RotateCcw, Star } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Building2, CheckCircle2, FileText, Gift, Loader2, RotateCcw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import {
@@ -21,6 +21,8 @@ import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFollowers } from '../biz-search/format';
 import { channelName, ChannelLink } from '../channels/ChannelParts';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { ApplicationDetailsBlock, RecruitStageStepper, RecruitTimeline, WorkflowNote } from '../shared/RecruitParts';
+import { recruitStage, rewardText } from '../shared/recruitView';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { AssignItemsDialog, CounterDialog, DraftDialog, PostDialog, RateDialog } from './BookingDialogs';
 import { DraftCard, PostCard } from './ContentParts';
@@ -45,13 +47,14 @@ import {
   formatDay,
   formatDayRange,
   formatVnd,
+  isRecruitBooking,
   needsSupplier,
   nextStepText,
   priceText,
   supplierTimeline,
 } from './supplierBooking';
 
-type DialogKey = 'accept' | 'counter' | 'decline' | 'cancel' | 'assign' | 'draft' | 'post' | 'paid' | 'rate' | null;
+type DialogKey = 'accept' | 'counter' | 'decline' | 'cancel' | 'assign' | 'draft' | 'post' | 'paid' | 'rate' | 'received' | null;
 
 /**
  * Supplier booking detail (?booking=): campaign summary (no budget), items with KOL/channel, contents with
@@ -111,6 +114,8 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
   const preAccept = ['SENT', 'APPLIED', 'NEGOTIATING'].includes(b.status);
   const next = nextStepText(b);
   const needs = needsSupplier(b);
+  const recruit = isRecruitBooking(b);
+  const reward = b.reward ?? b.campaign.recruitment?.reward;
   const drafts = b.contents.filter((c) => c.kind === 'DRAFT').sort((x, y) => y.submittedAt - x.submittedAt);
   const posts = b.contents.filter((c) => c.kind === 'POST').sort((x, y) => y.submittedAt - x.submittedAt);
   const itemOf = (id?: string) => (id ? b.items.find((i) => i.id === id) : undefined);
@@ -134,6 +139,14 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
   const secondary: ReactNode[] = [];
   const danger: ReactNode[] = [];
   const btn = 'h-11 flex-1 sm:flex-none md:h-9';
+  if (can('CONFIRM_PRODUCT_RECEIVED')) {
+    primary.push(
+      <Button key="received" type="button" variant={can('SUBMIT_POST') || can('SUBMIT_DRAFT') ? 'outline' : 'default'} className={btn} onClick={() => setDialog('received')}>
+        <Gift aria-hidden />
+        Đã nhận sản phẩm
+      </Button>,
+    );
+  }
   if (can('ASSIGN_ITEMS')) {
     (missingChannel ? primary : secondary).push(
       <Button key="assign" type="button" variant={missingChannel ? 'default' : 'outline'} className={btn} onClick={() => setDialog('assign')}>
@@ -166,7 +179,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
   if (can('SUBMIT_POST')) {
     primary.push(
       <Button key="post" type="button" className={btn} onClick={() => setDialog('post')}>
-        Gửi link bài đăng
+        {b.campaign.draftReview ? 'Gửi link bài đăng' : 'Đăng bài & gửi link'}
       </Button>,
     );
   }
@@ -195,7 +208,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
   if (can('CANCEL')) {
     danger.push(
       <Button key="cancel" type="button" variant="ghost" className={cn(btn, 'text-destructive hover:text-destructive')} onClick={() => setDialog('cancel')}>
-        {preAccept ? (b.origin === 'APPLICATION' ? 'Rút đề xuất' : 'Huỷ thương lượng') : 'Huỷ booking'}
+        {preAccept ? (recruit ? 'Rút ứng tuyển' : b.origin === 'APPLICATION' ? 'Rút đề xuất' : 'Huỷ thương lượng') : 'Huỷ booking'}
       </Button>,
     );
   }
@@ -215,14 +228,27 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
           <div className="flex flex-wrap items-center gap-2">
             <BookingStatusBadge booking={b} />
             <OriginBadge origin={b.origin} />
+            {recruit && <span className="text-xs font-medium text-primary">Tuyển nhiều KOL</span>}
             {needs && <NeedsYouMarker />}
           </div>
+          {recruit && <RecruitStageStepper stage={recruitStage(b)} className="max-w-md pt-1" />}
           <dl className="grid grid-cols-2 gap-4 pt-1 @lg:grid-cols-3">
-            <Fact label="Giá booking">
-              <span className={cn('text-base font-semibold tabular-nums', b.price > 0 ? 'text-primary' : 'text-muted-foreground')}>{priceText(b.price)}</span>
-            </Fact>
+            {recruit && reward ? (
+              <Fact label="Phần thưởng">
+                <span className="text-sm font-semibold text-primary">{rewardText(reward)}</span>
+              </Fact>
+            ) : (
+              <Fact label="Giá booking">
+                <span className={cn('text-base font-semibold tabular-nums', b.price > 0 ? 'text-primary' : 'text-muted-foreground')}>{priceText(b.price)}</span>
+              </Fact>
+            )}
             <Fact label="Thời gian chiến dịch">{formatDayRange(b.campaign.startDate, b.campaign.endDate) || '—'}</Fact>
-            {preAccept && b.expiresAt !== undefined && (
+            {recruit && preAccept && b.expiresAt !== undefined && (
+              <Fact label="Có kết quả trước">
+                <span className="tabular-nums">{formatDateTime(b.expiresAt)}</span>
+              </Fact>
+            )}
+            {!recruit && preAccept && b.expiresAt !== undefined && (
               <Fact label="Hạn phản hồi">
                 <span className="flex flex-col gap-0.5">
                   {formatDateTime(b.expiresAt)}
@@ -240,6 +266,34 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
               <AlertTitle>{needs ? 'Việc cần làm' : 'Trạng thái'}</AlertTitle>
               <AlertDescription>{next}</AlertDescription>
             </Alert>
+          )}
+
+          {b.application && (
+            <SheetSection title="Thông tin ứng tuyển của bạn">
+              <ApplicationDetailsBlock details={b.application} />
+            </SheetSection>
+          )}
+
+          {b.reward?.product && (
+            <SheetSection title="Sản phẩm tặng">
+              <div className="space-y-2 rounded-[8px] border border-border p-3 text-sm">
+                <p className="flex items-center gap-2 font-medium text-foreground">
+                  <Gift className="size-4 text-primary" aria-hidden />
+                  {b.reward.product.name}
+                  <span className="font-normal text-muted-foreground tabular-nums">· trị giá {formatVnd(b.reward.product.value)}</span>
+                </p>
+                <ul className="space-y-1">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className={cn('mt-0.5 size-4 shrink-0', b.shipment?.sentAt ? 'text-chart-4' : 'text-muted-foreground/40')} aria-hidden />
+                    {b.shipment?.sentAt ? `Nhãn hàng đã gửi sản phẩm · ${formatDateTime(b.shipment.sentAt)}` : 'Chờ Nhãn hàng gửi sản phẩm'}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className={cn('mt-0.5 size-4 shrink-0', b.shipment?.receivedAt ? 'text-chart-4' : 'text-muted-foreground/40')} aria-hidden />
+                    {b.shipment?.receivedAt ? `Bạn đã nhận sản phẩm · ${formatDateTime(b.shipment.receivedAt)}` : 'Bạn xác nhận khi nhận được sản phẩm'}
+                  </li>
+                </ul>
+              </div>
+            </SheetSection>
           )}
 
           {b.note && (
@@ -310,7 +364,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
             </SheetSection>
           )}
 
-          {(b.payment.brandMarkedAt || b.status === 'VERIFIED' || b.status === 'COMPLETED') && (
+          {b.price > 0 && (b.payment.brandMarkedAt || b.status === 'VERIFIED' || b.status === 'COMPLETED') && (
             <SheetSection title="Thanh toán">
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
@@ -377,6 +431,13 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
                 <p className="text-xs text-muted-foreground">Quy định nội dung</p>
                 <LongText text={b.campaign.contentRules} />
               </div>
+              <WorkflowNote draftReview={b.campaign.draftReview} />
+              {b.campaign.recruitment && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Lịch trình</p>
+                  <RecruitTimeline timeline={b.campaign.recruitment.timeline} phase={b.campaign.phase} />
+                </div>
+              )}
             </div>
           </SheetSection>
 
@@ -441,6 +502,33 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={dialog === 'received'} onOpenChange={(o) => !busy && close(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận đã nhận sản phẩm?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {b.reward?.product?.name ?? 'Sản phẩm'} — chỉ xác nhận khi bạn đã nhận được hàng. Nhãn hàng sẽ thấy xác nhận này.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-11 md:h-9" disabled={busy}>
+              Đóng
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ className: 'h-11 md:h-9' })}
+              disabled={busy}
+              onClick={(e) => {
+                e.preventDefault();
+                void simple(() => bookingService.confirmProductReceived(b.id), 'Đã xác nhận nhận sản phẩm');
+              }}
+            >
+              {busy && <Loader2 className="animate-spin" aria-hidden />}
+              Đã nhận sản phẩm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={dialog === 'paid'} onOpenChange={(o) => !busy && close(o)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -486,7 +574,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
       <ReasonDialog
         open={dialog === 'cancel'}
         onOpenChange={close}
-        title={preAccept ? (b.origin === 'APPLICATION' ? 'Rút đề xuất ứng tuyển' : 'Huỷ thương lượng') : 'Huỷ booking'}
+        title={preAccept ? (recruit ? 'Rút ứng tuyển' : b.origin === 'APPLICATION' ? 'Rút đề xuất ứng tuyển' : 'Huỷ thương lượng') : 'Huỷ booking'}
         description={
           preAccept
             ? 'Booking sẽ đóng lại và Nhãn hàng không thể chấp nhận nữa.'

@@ -11,6 +11,8 @@ import { bookingService, type BookingView } from '../../services';
 import { MARKETPLACE_PATH } from '../../auth/roles';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { RecruitStageStepper } from '../shared/RecruitParts';
+import { recruitStage, rewardShort } from '../shared/recruitView';
 import { BookingDetailSheet } from './BookingDetailSheet';
 import { BookingStatusBadge, CountdownText, KolAvatarStack, NeedsYouMarker, OriginBadge } from './parts';
 import {
@@ -20,6 +22,7 @@ import {
   defaultBookingTab,
   expiryCountdown,
   formatDateTime,
+  isRecruitBooking,
   needsSupplier,
   parseBookingTab,
   priceText,
@@ -43,6 +46,8 @@ function BookingRow({ booking: b, now, onOpen }: { booking: BookingView; now: nu
   const platforms = [...new Set(b.items.map((i) => i.channel?.platform ?? i.platform))];
   const pre = ['SENT', 'APPLIED', 'NEGOTIATING'].includes(b.status);
   const kols = new Set(b.items.map((i) => i.kolAccountId)).size;
+  const recruit = isRecruitBooking(b);
+  const reward = b.reward ?? b.campaign.recruitment?.reward;
   return (
     <Card className={cn('relative gap-3 p-4 transition-colors hover:border-primary/40 md:p-5', needs && 'border-primary/40')}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -65,6 +70,7 @@ function BookingRow({ booking: b, now, onOpen }: { booking: BookingView; now: nu
           {b.campaign.name}
         </button>
       </h2>
+      {recruit && <RecruitStageStepper stage={recruitStage(b)} className="max-w-md" />}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-3">
         <div className="flex min-w-0 items-center gap-3">
           <KolAvatarStack items={b.items} />
@@ -81,8 +87,14 @@ function BookingRow({ booking: b, now, onOpen }: { booking: BookingView; now: nu
           </div>
         </div>
         <div className="flex flex-col items-end gap-0.5 text-right">
-          <p className={cn('text-sm font-semibold tabular-nums', b.price > 0 ? 'text-foreground' : 'text-muted-foreground')}>{priceText(b.price)}</p>
-          {pre && b.expiresAt !== undefined ? (
+          {recruit && reward ? (
+            <p className="text-sm font-semibold text-foreground tabular-nums">{rewardShort(reward)}</p>
+          ) : (
+            <p className={cn('text-sm font-semibold tabular-nums', b.price > 0 ? 'text-foreground' : 'text-muted-foreground')}>{priceText(b.price)}</p>
+          )}
+          {recruit && pre && b.expiresAt !== undefined ? (
+            <p className="text-xs text-muted-foreground">Kết quả trước {formatDateTime(b.expiresAt)}</p>
+          ) : pre && b.expiresAt !== undefined ? (
             <CountdownText countdown={expiryCountdown(b.expiresAt, now)} prefix="Hạn phản hồi" />
           ) : (
             <p className="text-xs text-muted-foreground">Cập nhật {formatDateTime(b.updatedAt)}</p>
