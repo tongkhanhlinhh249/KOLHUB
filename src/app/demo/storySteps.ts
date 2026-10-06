@@ -42,7 +42,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     title: 'Tạo và đăng chiến dịch',
     summary: 'Nhãn hàng tạo chiến dịch, lưu nháp, rồi đăng để KOL/MCN thấy.',
     steps: [
-      { screen: 'Menu "Chiến dịch" → "Tạo chiến dịch"', checks: ['Gõ tên vào ô lớn "Hãy đặt tên cho chiến dịch" (tối đa 150 ký tự)', 'Chưa có tên thì chưa lưu được', 'Có thể lưu nháp ngay, các ô khác điền sau; lưu xong hiện "Đã lưu bản nháp"'] },
+      { screen: 'Menu "Quản lý chiến dịch" → "Tạo chiến dịch"', checks: ['Gõ tên vào ô lớn "Hãy đặt tên cho chiến dịch" (tối đa 150 ký tự)', 'Chưa có tên thì chưa lưu được', 'Có thể lưu nháp ngay, các ô khác điền sau; lưu xong hiện "Đã lưu bản nháp"'] },
       {
         screen: 'Điền đủ để đăng',
         checks: [
@@ -139,7 +139,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     title: 'Danh sách chiến dịch của Nhãn hàng',
     summary: 'Nhãn hàng xem tất cả chiến dịch của mình ở một trang.',
     steps: [
-      { screen: 'Menu → "Chiến dịch"', checks: ['Tab: Tất cả · Nháp · Đang mở · Đang chạy · Hoàn tất · Đã huỷ, kèm số lượng', 'Tìm theo tên; lọc theo loại chiến dịch và Riêng tư / Trên sàn', 'Máy tính xem dạng bảng, điện thoại xem dạng thẻ'] },
+      { screen: 'Menu → Hoạt động → "Quản lý chiến dịch"', checks: ['Tab: Tất cả · Nháp · Đang mở · Đang chạy · Hoàn tất · Đã huỷ, kèm số lượng', 'Tìm theo tên; lọc theo loại chiến dịch và Riêng tư / Trên sàn', 'Máy tính xem dạng bảng, điện thoại xem dạng thẻ'] },
       { screen: 'Mỗi chiến dịch', checks: ['Cột "Cần xử lý" đếm việc đang chờ bạn', 'Menu ⋮: Xem chi tiết · Sửa · Xem trên Sàn · Đóng · Huỷ'] },
       { screen: 'Chưa có chiến dịch', checks: ['Hiện "Chưa có chiến dịch nào" và nút "Tạo chiến dịch"'] },
     ],
@@ -269,7 +269,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Hai bên nhắn tin ngay trong từng hợp tác.',
     steps: [
       { screen: 'Mở hợp tác → "Nhắn tin"', checks: ['Mỗi hợp tác một cuộc trò chuyện, chỉ 2 bên thấy', 'Tin tối đa 2.000 ký tự, có thể kèm 1 đường dẫn', 'Enter để gửi, Shift + Enter xuống dòng'] },
-      { screen: 'Trang "Tin nhắn"', checks: ['Mọi cuộc trò chuyện, mới nhất ở trên', 'Các bước của hợp tác (chốt, duyệt, thanh toán…) tự hiện xen trong trò chuyện'] },
+      { screen: 'Menu → "Cuộc trò chuyện"', checks: ['Mọi cuộc trò chuyện, mới nhất ở trên', 'Các bước của hợp tác (chốt, duyệt, thanh toán…) tự hiện xen trong trò chuyện'] },
       { screen: 'Hợp tác đã đóng', checks: ['Chỉ xem lại, không gửi thêm được'] },
     ],
   },
@@ -442,7 +442,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     title: 'Việc đang chờ Nhãn hàng',
     summary: 'Nhãn hàng thấy ngay mình còn bao nhiêu việc.',
     steps: [
-      { screen: 'Trang "Chiến dịch" → dòng "Cần bạn xử lý"', checks: ['Số hợp tác chờ bạn trả lời', 'Số nội dung chờ duyệt', 'Số hợp tác chờ thanh toán', 'Hết việc thì dòng này ẩn đi'] },
+      { screen: 'Trang "Quản lý chiến dịch" → dòng "Cần bạn xử lý"', checks: ['Số hợp tác chờ bạn trả lời', 'Số nội dung chờ duyệt', 'Số hợp tác chờ thanh toán', 'Hết việc thì dòng này ẩn đi'] },
     ],
   },
   'R5-4': {
@@ -476,6 +476,16 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     steps: [
       { screen: 'Menu → "Nội dung"', checks: ['Mọi bài đã xác minh, mới nhất trên', 'Tổng: số bài, lượt xem, tương tác, tỉ lệ tương tác', 'Lọc theo nền tảng và 30 ngày / 90 ngày / 12 tháng'] },
       { screen: 'Công tắc "Hiện trên hồ sơ"', checks: ['Bật (mặc định): Nhãn hàng thấy bài này trên hồ sơ', 'Nhãn hàng không thấy giá, tên chiến dịch hay đánh giá'] },
+    ],
+  },
+
+  'R5-8': {
+    title: 'Nội dung của mọi chiến dịch',
+    summary: 'Nhãn hàng duyệt nháp và xem bài đã đăng của tất cả chiến dịch ở một trang.',
+    steps: [
+      { screen: 'Menu → Hoạt động → "Nội dung chiến dịch"', checks: ['Tab "Chờ duyệt": mọi bản nháp đang chờ, ghi rõ chiến dịch và KOL/MCN', 'Bấm "Duyệt" hoặc "Yêu cầu sửa" ngay tại đây'] },
+      { screen: 'Tab "Bài đã đăng"', checks: ['Tổng lượt xem, thích, bình luận, chia sẻ, tương tác', 'Bảng từng bài đã xác minh, kèm tên chiến dịch'] },
+      { screen: 'Ô "Tất cả chiến dịch"', checks: ['Chọn một chiến dịch để chỉ xem nội dung của chiến dịch đó', 'Bấm "Mở booking" → mở đúng hợp tác trong trang chiến dịch'] },
     ],
   },
 

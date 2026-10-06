@@ -147,8 +147,8 @@ describe('resolveAccess', () => {
       group: 'Cá nhân/KOL',
       description: 'Câu hỏi bạn đã gửi Nhãn hàng trên Sàn chiến dịch',
     });
-    // Same page, own label per side: "Cuộc trò chuyện" for KOL/MCN, "Tin nhắn" for brands.
-    expect(getPageMeta('/tin-nhan?thread=x', 'kolhub.user.biz')).toMatchObject({ title: 'Tin nhắn', group: 'Nhãn hàng/Agency' });
+    // Same page and label on both sides: "Cuộc trò chuyện".
+    expect(getPageMeta('/tin-nhan?thread=x', 'kolhub.user.biz')).toMatchObject({ title: 'Cuộc trò chuyện', group: 'Nhãn hàng/Agency' });
     expect(getPageMeta('/tin-nhan', 'kolhub.user.mcn')).toMatchObject({ title: 'Cuộc trò chuyện', group: 'Tổ chức/MCN' });
     expect(getPageMeta('/chien-dich-da-luu', 'kolhub.user.kol')).toMatchObject({ title: 'Chiến dịch yêu thích' });
     expect(getPageMeta('/danh-gia?tab=cua-ban', 'kolhub.user.mcn')).toMatchObject({ title: 'Đánh giá', group: 'Tổ chức/MCN' });
@@ -159,13 +159,11 @@ describe('resolveAccess', () => {
       expect(getPageMeta('/ho-tro/lien-he', r)).toMatchObject({ title: 'Liên hệ hỗ trợ' });
     }
   });
-  test('Nhãn hàng: một mục "Hỗ trợ" (mở Hướng dẫn), sáng trên cả ba trang hỗ trợ', () => {
-    const item = ROLE_CONFIG['kolhub.user.biz'].menu.find((m) => m.label === 'Hỗ trợ')!;
-    expect(item.path).toBe('/ho-tro/huong-dan');
-    for (const p of ['/ho-tro/huong-dan', '/ho-tro/faq', '/ho-tro/lien-he']) expect(isNavActive(p, item), p).toBe(true);
-    expect(isNavActive('/ho-tro-khac', item)).toBe(false);
-    expect(isNavActive('/tin-nhan', item)).toBe(false);
-    // KOL/MCN: each support page is its own item, only that one is active.
+  test('Hỗ trợ: mọi vai trò đã đăng nhập có 3 mục Hướng dẫn · FAQ · Liên hệ, mục nào sáng mục đó', () => {
+    for (const r of ['kolhub.user.kol', 'kolhub.user.mcn', 'kolhub.user.biz'] as const)
+      expect(ROLE_CONFIG[r].menu.filter((m) => m.group === 'Hỗ trợ').map((m) => m.path)).toEqual(['/ho-tro/huong-dan', '/ho-tro/faq', '/ho-tro/lien-he']);
+    expect(resolveAccess('kolhub.user.biz', '/ho-tro')).toEqual({ allow: true });
+    // Each support page is its own item, only that one is active.
     const kolFaq = ROLE_CONFIG['kolhub.user.kol'].menu.find((m) => m.path === '/ho-tro/faq')!;
     expect(isNavActive('/ho-tro/faq', kolFaq)).toBe(true);
     expect(isNavActive('/ho-tro/lien-he', kolFaq)).toBe(false);
@@ -250,7 +248,7 @@ describe('bottomNavOf', () => {
       for (const p of paths) expect(resolveAccess(role, p)).toEqual({ allow: true });
     }
   });
-  test('Nhãn hàng: 4 tab + "Thêm" (Tin nhắn, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp, Hỗ trợ); khách: mọi mục menu là tab', () => {
+  test('Nhãn hàng: 4 tab + "Thêm" (mọi mục còn lại theo thứ tự sidebar); khách: mọi mục menu là tab', () => {
     const nav = bottomNavOf('kolhub.user.biz');
     expect(nav.items.map((i) => [i.label, i.path])).toEqual([
       ['Tìm KOL', '/tim-kiem-kol'],
@@ -258,7 +256,7 @@ describe('bottomNavOf', () => {
       ['Kênh', '/danh-sach-kenh'],
       ['Đã lưu', '/danh-sach-da-luu'],
     ]);
-    expect(nav.more.map((m) => m.path)).toEqual(['/tin-nhan', '/ung-dung', '/vi-pham-kol', '/tai-khoan-doanh-nghiep', '/ho-tro/huong-dan']);
+    expect(nav.more.map((m) => m.path)).toEqual(['/noi-dung-chien-dich', '/tin-nhan', '/ung-dung', '/vi-pham-kol', '/ho-tro/huong-dan', '/ho-tro/faq', '/ho-tro/lien-he']);
     expect(isNavActive('/chien-dich/cmp-1/sua', nav.items[1])).toBe(true);
     for (const p of [...nav.items.map((i) => i.path), ...nav.more.map((m) => m.path)])
       expect(resolveAccess('kolhub.user.biz', p)).toEqual({ allow: true });
@@ -306,28 +304,35 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       ...SAFETY_ROWS,
       ...SUPPORT_ROWS,
     ]);
-    // Brand menu unchanged except Hỗ trợ (opens the guide); it keeps "Tin nhắn" and its own "Danh sách vi phạm".
+    // Brand: Phát triển · Hoạt động · Kiểm duyệt · Hỗ trợ; "Tài khoản doanh nghiệp" moved to the account menu.
     expect(ROLE_CONFIG['kolhub.user.biz'].menu.map((m) => [m.label, m.path, m.group])).toEqual([
-      ['Tìm kiếm KOL', '/tim-kiem-kol', 'Tìm KOL'],
-      ['Danh sách kênh', '/danh-sach-kenh', 'Tìm KOL'],
-      ['Danh sách đã lưu', '/danh-sach-da-luu', 'Tìm KOL'],
-      ['Chiến dịch', '/chien-dich', 'Hợp tác'],
-      ['Tin nhắn', '/tin-nhan', 'Hợp tác'],
+      ['Tìm kiếm KOL', '/tim-kiem-kol', 'Phát triển'],
+      ['Danh sách kênh', '/danh-sach-kenh', 'Phát triển'],
+      ['Đã lưu', '/danh-sach-da-luu', 'Phát triển'],
+      ['Quản lý chiến dịch', '/chien-dich', 'Hoạt động'],
+      ['Nội dung chiến dịch', '/noi-dung-chien-dich', 'Hoạt động'],
+      ['Cuộc trò chuyện', '/tin-nhan', 'Hoạt động'],
       ['Ứng dụng', '/ung-dung', 'Kiểm duyệt'],
-      ['Danh sách vi phạm', '/vi-pham-kol', 'Kiểm duyệt'],
-      ['Tài khoản doanh nghiệp', '/tai-khoan-doanh-nghiep', 'Tài khoản'],
-      ['Hỗ trợ', '/ho-tro/huong-dan', 'Hỗ trợ'],
+      ['Vi phạm', '/vi-pham-kol', 'Kiểm duyệt'],
+      ['Hướng dẫn', '/ho-tro/huong-dan', 'Hỗ trợ'],
+      ['FAQ', '/ho-tro/faq', 'Hỗ trợ'],
+      ['Liên hệ', '/ho-tro/lien-he', 'Hỗ trợ'],
     ]);
+    // Not a menu item any more, still open to brands only, with its own title.
+    expect(resolveAccess('kolhub.user.biz', '/tai-khoan-doanh-nghiep')).toEqual({ allow: true });
+    expect(resolveAccess('kolhub.user.kol', '/tai-khoan-doanh-nghiep').allow).toBe(false);
+    expect(getPageMeta('/tai-khoan-doanh-nghiep', 'kolhub.user.biz')).toMatchObject({ title: 'Tài khoản doanh nghiệp', group: 'Nhãn hàng/Agency' });
+    expect(getPageMeta('/noi-dung-chien-dich', 'kolhub.user.biz')).toMatchObject({ title: 'Nội dung chiến dịch', group: 'Nhãn hàng/Agency' });
   });
   test('getPageMeta: Chiến dịch (Nhãn hàng) và các trang con', () => {
     expect(getPageMeta('/chien-dich?trang-thai=dang-mo', 'kolhub.user.biz')).toEqual({
-      title: 'Chiến dịch',
+      title: 'Quản lý chiến dịch',
       group: 'Nhãn hàng/Agency',
       description: 'Tạo chiến dịch, mời KOL/MCN, duyệt nội dung và theo dõi kết quả',
     });
     expect(getPageMeta('/chien-dich/tao').description).toMatch(/^Nhập brief/);
     expect(getPageMeta('/chien-dich/cmp-1').description).toMatch(/^Booking, đề xuất/);
-    expect(getPageMeta('/chien-dich/cmp-1/sua')).toMatchObject({ title: 'Chiến dịch', description: 'Sửa thông tin chiến dịch (bản nháp hoặc đang mở)' });
+    expect(getPageMeta('/chien-dich/cmp-1/sua')).toMatchObject({ title: 'Quản lý chiến dịch', description: 'Sửa thông tin chiến dịch (bản nháp hoặc đang mở)' });
     expect(resolveAccess('kolhub.user.biz', '/chien-dich/cmp-1')).toEqual({ allow: true });
     expect(resolveAccess('kolhub.user.kol', '/chien-dich')).toMatchObject({ allow: false, reason: 'forbidden' });
   });
@@ -381,7 +386,7 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       group: 'Nhãn hàng/Agency',
       description: 'Các kênh đã xác thực, tìm theo nền tảng và lĩnh vực',
     });
-    expect(getPageMeta('/vi-pham-kol')).toMatchObject({ title: 'Danh sách vi phạm', group: 'Nhãn hàng/Agency' });
+    expect(getPageMeta('/vi-pham-kol')).toMatchObject({ title: 'Vi phạm', group: 'Nhãn hàng/Agency' });
     expect(getPageMeta('/quen-mat-khau')).toMatchObject({ title: 'Quên mật khẩu', group: 'Khách' });
   });
 });

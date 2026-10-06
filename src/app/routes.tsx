@@ -45,6 +45,7 @@ import { SupportContactPage, SupportFaqPage, SupportGuidePage, SupportIndexRedir
 // --- campaign booking (Brand) ---
 import { CampaignsPage } from './features/campaigns/CampaignsPage';
 import { CampaignFormPage } from './features/campaigns/CampaignFormPage';
+import { BrandContentPage } from './features/campaigns/BrandContentPage';
 import { CampaignDetailPage } from './features/campaigns/CampaignDetailPage';
 
 const PHASE_2 = 'Màn hình này sẽ có ở Đợt 2 của bản demo.';
@@ -146,6 +147,7 @@ export const router = createBrowserRouter([
               { path: ':id/sua', element: <CampaignFormPage /> },
             ],
           },
+          { path: 'noi-dung-chien-dich', element: <BrandContentPage /> },
           { path: 'danh-sach-kenh', element: <ChannelDirectoryPage /> },
           { path: 'danh-sach-da-luu', element: <SavedListsPage /> },
           { path: 'vi-pham-kol', element: <BrandViolationsPage /> },

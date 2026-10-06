@@ -415,7 +415,8 @@ export function ApplicationsTab({
 // Nội dung
 // ---------------------------------------------------------------------------
 
-export function ContentTab({ bookings, actions, onOpen }: { bookings: BookingView[]; actions: BookingActionsApi; onOpen(id: string): void }) {
+/** `showCampaign`: list spans several campaigns (brand "Nội dung chiến dịch"), so each card names its campaign. */
+export function ContentTab({ bookings, actions, onOpen, showCampaign = false }: { bookings: BookingView[]; actions: BookingActionsApi; onOpen(id: string): void; showCampaign?: boolean }) {
   const pending = collectDrafts(bookings, true);
   if (pending.length === 0) {
     return (
@@ -440,7 +441,10 @@ export function ContentTab({ bookings, actions, onOpen }: { bookings: BookingVie
               actions={actions}
               header={
                 <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span className="truncate">{booking.supplier.name}</span>
+                  <span className="truncate">
+                    {showCampaign && <span className="font-medium text-foreground">{booking.campaign.name} · </span>}
+                    {booking.supplier.name}
+                  </span>
                   <Button type="button" variant="link" size="sm" className="h-11 shrink-0 px-0 md:h-auto" onClick={() => onOpen(booking.id)}>
                     Mở booking
                   </Button>
@@ -458,7 +462,7 @@ export function ContentTab({ bookings, actions, onOpen }: { bookings: BookingVie
 // Báo cáo
 // ---------------------------------------------------------------------------
 
-export function ReportTab({ bookings, onOpen }: { bookings: BookingView[]; onOpen(id: string): void }) {
+export function ReportTab({ bookings, onOpen, showCampaign = false }: { bookings: BookingView[]; onOpen(id: string): void; showCampaign?: boolean }) {
   const posts = collectPosts(bookings);
   const t = metricTotals(posts.map((p) => p.post));
   if (posts.length === 0) {
@@ -504,7 +508,7 @@ export function ReportTab({ bookings, onOpen }: { bookings: BookingView[]; onOpe
               <TableRow key={post.id} className="cursor-pointer" onClick={() => onOpen(booking.id)}>
                 <TableCell className="max-w-48">
                   <span className="block truncate font-medium text-foreground">{item?.displayName ?? booking.supplier.name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{booking.supplier.name}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{showCampaign ? `${booking.supplier.name} · ${booking.campaign.name}` : booking.supplier.name}</span>
                 </TableCell>
                 <TableCell className="max-w-56">
                   <a

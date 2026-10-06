@@ -1,5 +1,6 @@
-import { ChevronsUpDown, ExternalLink, LogOut, Store } from 'lucide-react';
-import { MARKETPLACE_PATH } from '../auth/roles';
+import { Link } from 'react-router';
+import { Building2, ChevronsUpDown, ExternalLink, LogOut, Store } from 'lucide-react';
+import { BIZ_ACCOUNT_PATH, MARKETPLACE_PATH } from '../auth/roles';
 import { useAuth } from '../auth/AuthContext';
 import { useIdentity } from '../auth/useIdentity';
 import { IdentityAvatar } from './IdentityAvatar';
@@ -15,7 +16,7 @@ import {
 import { cn } from './ui/utils';
 
 /**
- * Signed-in account (profile-driven identity, design §2.2) with "Đăng xuất".
+ * Signed-in account (profile-driven identity, design §2.2) with "Đăng xuất"; brands also reach "Tài khoản doanh nghiệp" here.
  * `sidebar`: bottom of the sidebar (tablet/desktop) — name, ID and role, or only the avatar when collapsed.
  * `header`: avatar in the topbar on phones, where there is no sidebar.
  * `market`: Sàn header — avatar, plus the account name from lg.
@@ -30,7 +31,8 @@ export function AccountMenu({
   /** Where to land after "Đăng xuất" (the Sàn keeps the user on the public Sàn). */
   logoutTo?: string;
 }) {
-  const { logout } = useAuth();
+  const { logout, account } = useAuth();
+  const isBiz = account?.type === 'BIZ';
   const identity = useIdentity();
   // AccessGuard sends the user to `logoutTo` once the role becomes guest.
   const handleLogout = () => void logout(logoutTo);
@@ -78,6 +80,17 @@ export function AccountMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {isBiz && (
+          <>
+            <DropdownMenuItem asChild className="min-h-11 md:min-h-0">
+              <Link to={BIZ_ACCOUNT_PATH}>
+                <Building2 />
+                Tài khoản doanh nghiệp
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         {variant !== 'market' && (
           <>
             <DropdownMenuItem asChild className="min-h-11 md:min-h-0">
