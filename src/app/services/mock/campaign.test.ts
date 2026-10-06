@@ -637,3 +637,55 @@ describe('kết thúc / huỷ chiến dịch', () => {
     await expect(svc.cancel(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4802' });
   });
 });
+
+describe('tính năng chiến dịch — Đàm phán, Hợp đồng', () => {
+  test('mặc định bật cả hai; giá trị không phải boolean → 4803 kèm tên trường', async () => {
+    as(BRAND);
+    const c = await svc.create(complete());
+    expect(c.negotiation).toBeUndefined();
+    expect(c.contract).toBeUndefined();
+    await expect(svc.create(complete({ negotiation: 'có' as unknown as boolean }))).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'negotiation' } });
+    await expect(svc.update(c.id, { contract: 1 as unknown as boolean })).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'contract' } });
+  });
+
+  test('tắt Đàm phán: lời mời phải có giá; NCC chỉ chấp nhận hoặc từ chối, không trả giá', async () => {
+    as(BRAND);
+    const cid = (await svc.create(complete({ negotiation: false }))).id;
+    await expect(svc.inviteKols(cid, [kolId(2)])).rejects.toMatchObject({ code: 'KOLHUB-4810' });
+    const r = await svc.inviteKols(cid, [kolId(2)], { price: 10_000_000 });
+    as(KOL2);
+    const b = await bookings.get(r.bookings[0].id);
+    expect(b.allowedActions).toEqual(expect.arrayContaining(['ACCEPT', 'DECLINE']));
+    expect(b.allowedActions).not.toContain('COUNTER');
+    await expect(bookings.counter(b.id, 12_000_000)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
+  });
+
+  test('bật Đàm phán (mặc định): NCC trả giá được', async () => {
+    as(BRAND);
+    const cid = (await svc.create(complete())).id;
+    const r = await svc.inviteKols(cid, [kolId(2)], { price: 10_000_000 });
+    as(KOL2);
+    expect((await bookings.get(r.bookings[0].id)).allowedActions).toContain('COUNTER');
+  });
+
+  test('tắt Hợp đồng: không bên nào đính kèm tệp hợp đồng', async () => {
+    as(BRAND);
+    const cid = (await svc.create(complete({ contract: false }))).id;
+    const r = await svc.inviteKols(cid, [kolId(2)], { price: 10_000_000 });
+    const id = r.bookings[0].id;
+    expect((await bookings.get(id)).allowedActions).not.toContain('ATTACH_CONTRACT');
+    await expect(bookings.setContractFile(id, { name: 'hd.pdf', type: 'application/pdf', size: 1000 })).rejects.toMatchObject({ code: 'KOLHUB-4805' });
+    as(KOL2);
+    expect((await bookings.get(id)).allowedActions).not.toContain('ATTACH_CONTRACT');
+  });
+
+  test('Sàn và chi tiết booking trả cờ Đàm phán / Hợp đồng; Tuyển nhiều KOL luôn không đàm phán', async () => {
+    as(BRAND);
+    const cid = (await svc.create(complete({ visibility: 'MARKETPLACE', negotiation: false }))).id;
+    await svc.publish(cid);
+    as(SAOVIET);
+    expect(await svc.getMarketplaceItem(cid)).toMatchObject({ negotiation: false, contract: true });
+    const recruit = (await svc.listMarketplace()).find((m) => m.type === 'OPEN_RECRUITMENT');
+    if (recruit) expect(recruit.negotiation).toBe(false);
+  });
+});

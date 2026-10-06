@@ -155,6 +155,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
                   onPrice={setPrice}
                   note={note}
                   onNote={setNote}
+                  priceRequired={campaign.negotiation === false}
                 />
               )}
               {error && (
@@ -190,7 +191,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
                 Huỷ
               </Button>
               {campaigns && campaigns.length > 0 && (
-                <Button type="button" className="h-11 md:h-9" disabled={busy || !campaign} onClick={() => void submit()}>
+                <Button type="button" className="h-11 md:h-9" disabled={busy || !campaign || (campaign.negotiation === false && !parseVndInput(price))} onClick={() => void submit()}>
                   {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
                   Gửi lời mời
                 </Button>

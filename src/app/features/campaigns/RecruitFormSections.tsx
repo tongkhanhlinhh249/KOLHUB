@@ -5,7 +5,6 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Switch } from '../../components/ui/switch';
 import { Textarea } from '../../components/ui/textarea';
 import { cn } from '../../components/ui/utils';
 import {
@@ -25,8 +24,8 @@ import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
 import { recruitBudget, suggestTimeline, toggle, type CampaignFormValues, type FormField } from './campaignForm';
 import { formatVnd, formatVndInput } from './campaignView';
 
-type Setter = <K extends keyof CampaignFormValues>(key: K, value: CampaignFormValues[K], clears?: FormField) => void;
-type Errors = Partial<Record<FormField, string>>;
+export type Setter = <K extends keyof CampaignFormValues>(key: K, value: CampaignFormValues[K], clears?: FormField) => void;
+export type Errors = Partial<Record<FormField, string>>;
 export const fieldId = (f: FormField) => `cf-${f}`;
 
 const todayIso = () => {
@@ -43,7 +42,7 @@ function ErrorText({ id, error }: { id?: string; error?: string }) {
   );
 }
 
-function MoneyInput({ id, value, onChange, invalid, describedBy, placeholder }: { id: string; value: string; onChange(v: string): void; invalid?: boolean; describedBy?: string; placeholder?: string }) {
+export function MoneyInput({ id, value, onChange, invalid, describedBy, placeholder }: { id: string; value: string; onChange(v: string): void; invalid?: boolean; describedBy?: string; placeholder?: string }) {
   return (
     <div className="relative">
       <Input
@@ -109,7 +108,7 @@ export function TypeSection({ value, onChange, locked, error }: { value: Campaig
 }
 
 // ---------------------------------------------------------------------------
-// Tuyển nhiều KOL: suất, phần thưởng, lịch 4 giai đoạn
+// Tuyển nhiều KOL: suất, lịch 4 giai đoạn (phần thưởng nằm ở thẻ "Đề nghị trả phí" / "Tặng quà")
 // ---------------------------------------------------------------------------
 
 export function RecruitSection({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
@@ -119,7 +118,7 @@ export function RecruitSection({ values: v, set, errors }: { values: CampaignFor
   const timelineErr = errors.timeline ?? errors.recruitment;
   return (
     <>
-      <Section title="Suất và phần thưởng" description="Mỗi KOL được chọn nhận cùng một phần thưởng. KOL/MCN ứng tuyển không cần báo giá.">
+      <Section title="Số suất" description="Mỗi KOL được chọn nhận cùng một phần thưởng (đặt ở thẻ “Đề nghị trả phí” và “Tặng quà” bên dưới). KOL/MCN ứng tuyển không cần báo giá.">
         <FormRow id={fieldId('slots')} label="Số KOL cần tuyển" error={errors.slots} hint="Bạn chọn tối đa ngần này KOL/MCN trong giai đoạn Chọn lọc.">
           {(d) => (
             <Input
@@ -134,56 +133,6 @@ export function RecruitSection({ values: v, set, errors }: { values: CampaignFor
             />
           )}
         </FormRow>
-        <FormRow id={fieldId('reward')} label="Tiền mặt mỗi KOL (VND)" error={errors.reward} hint="Để trống nếu chỉ tặng sản phẩm.">
-          {(d) => <MoneyInput id={fieldId('reward')} value={v.rewardCash} onChange={(x) => set('rewardCash', x, 'reward')} invalid={!!errors.reward} describedBy={d} placeholder="VD: 2.000.000" />}
-        </FormRow>
-        <div className="space-y-3 rounded-[8px] border border-border p-3">
-          <div className="flex items-start gap-3">
-            <Checkbox id={`${id}-product`} checked={v.hasProduct} onCheckedChange={(c) => set('hasProduct', c === true, 'product')} className="mt-0.5" />
-            <div className="min-w-0 space-y-0.5">
-              <Label htmlFor={`${id}-product`} className="text-sm font-medium text-foreground">
-                Tặng kèm sản phẩm
-              </Label>
-              <p className="text-xs text-muted-foreground">KOL nhập địa chỉ nhận hàng và số điện thoại khi ứng tuyển. Bạn ghi nhận “Đã gửi sản phẩm”.</p>
-            </div>
-          </div>
-          {v.hasProduct && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <FormRow id={fieldId('product')} label="Tên sản phẩm" error={errors.product}>
-                {(d) => (
-                  <Input
-                    id={fieldId('product')}
-                    value={v.productName}
-                    maxLength={PRODUCT_NAME_MAX}
-                    onChange={(e) => set('productName', e.target.value, 'product')}
-                    placeholder="VD: Bình giữ nhiệt 750 ml"
-                    aria-invalid={!!errors.product || undefined}
-                    aria-describedby={d}
-                    className="h-11 md:h-10"
-                  />
-                )}
-              </FormRow>
-              <FormRow id={`${id}-pvalue`} label="Giá trị (VND)">
-                {(d) => <MoneyInput id={`${id}-pvalue`} value={v.productValue} onChange={(x) => set('productValue', x, 'product')} describedBy={d} placeholder="VD: 450.000" />}
-              </FormRow>
-              <div className="sm:col-span-2">
-                <FormRow id={`${id}-pnote`} label="Ghi chú" optional>
-                  {(d) => (
-                    <Textarea
-                      id={`${id}-pnote`}
-                      rows={2}
-                      maxLength={PRODUCT_NOTE_MAX}
-                      value={v.productNote}
-                      onChange={(e) => set('productNote', e.target.value)}
-                      placeholder="VD: Giao trong 3 ngày sau khi được chọn"
-                      aria-describedby={d}
-                    />
-                  )}
-                </FormRow>
-              </div>
-            </div>
-          )}
-        </div>
         <p className="rounded-[8px] bg-muted/60 p-3 text-sm text-foreground">
           Tổng ngân sách dự kiến: <span className="font-semibold tabular-nums">{formatVnd(budget)}</span>
           <span className="block text-xs text-muted-foreground">= số suất × (tiền mặt + giá trị sản phẩm). Hiển thị trên Sàn để KOL/MCN so sánh.</span>
@@ -243,14 +192,66 @@ export function RecruitSection({ values: v, set, errors }: { values: CampaignFor
 }
 
 // ---------------------------------------------------------------------------
-// Điều kiện tham gia
+// Bodies of the feature cards (no Section wrapper)
 // ---------------------------------------------------------------------------
 
-export function ConditionsSection({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
+/** "Đề nghị trả phí" (Tuyển nhiều KOL): cash per selected KOL. */
+export function RewardCashField({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
+  return (
+    <FormRow id={fieldId('reward')} label="Tiền mặt mỗi KOL (VND)" error={errors.reward}>
+      {(d) => <MoneyInput id={fieldId('reward')} value={v.rewardCash} onChange={(x) => set('rewardCash', x, 'reward')} invalid={!!errors.reward} describedBy={d} placeholder="VD: 2.000.000" />}
+    </FormRow>
+  );
+}
+
+/** "Tặng quà" (Tuyển nhiều KOL): product gift. */
+export function ProductFields({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
+  const id = useId();
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FormRow id={fieldId('product')} label="Tên sản phẩm" error={errors.product}>
+          {(d) => (
+            <Input
+              id={fieldId('product')}
+              value={v.productName}
+              maxLength={PRODUCT_NAME_MAX}
+              onChange={(e) => set('productName', e.target.value, 'product')}
+              placeholder="VD: Bình giữ nhiệt 750 ml"
+              aria-invalid={!!errors.product || undefined}
+              aria-describedby={d}
+              className="h-11 md:h-10"
+            />
+          )}
+        </FormRow>
+        <FormRow id={`${id}-pvalue`} label="Giá trị (VND)">
+          {(d) => <MoneyInput id={`${id}-pvalue`} value={v.productValue} onChange={(x) => set('productValue', x, 'product')} describedBy={d} placeholder="VD: 450.000" />}
+        </FormRow>
+      </div>
+      <FormRow id={`${id}-pnote`} label="Ghi chú" optional>
+        {(d) => (
+          <Textarea
+            id={`${id}-pnote`}
+            rows={2}
+            maxLength={PRODUCT_NOTE_MAX}
+            value={v.productNote}
+            onChange={(e) => set('productNote', e.target.value)}
+            placeholder="VD: Giao trong 3 ngày sau khi được chọn"
+            aria-describedby={d}
+          />
+        )}
+      </FormRow>
+      <p className="text-xs text-muted-foreground">KOL nhập địa chỉ nhận hàng và số điện thoại khi ứng tuyển. Bạn ghi nhận “Đã gửi sản phẩm”.</p>
+    </div>
+  );
+}
+
+/** "Điều kiện tham gia": regions, age, gender, minimum followers. */
+export function ConditionsFields({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
   const id = useId();
   const [pickRegions, setPickRegions] = useState(v.regions.length > 0);
   return (
-    <Section title="Điều kiện tham gia" description="Hiển thị cho KOL/MCN trên Sàn. Không bắt buộc.">
+    <div className="space-y-4">
       <FormRow id={fieldId('regions')} label="Khu vực" error={errors.regions}>
         {(d) => (
           <div className="space-y-2">
@@ -310,132 +311,99 @@ export function ConditionsSection({ values: v, set, errors }: { values: Campaign
         </div>
       </div>
       <ErrorText error={errors.target} />
-      <p className="text-xs text-muted-foreground">Lĩnh vực trong mục “Nền tảng và lĩnh vực” cũng là một điều kiện tham gia.</p>
-    </Section>
+      <p className="text-xs text-muted-foreground">Hiển thị cho KOL/MCN trên Sàn. Lĩnh vực ở mục “Nền tảng và lĩnh vực” cũng là một điều kiện tham gia.</p>
+    </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Workflow
-// ---------------------------------------------------------------------------
-
-export function WorkflowSection({ value, onChange }: { value: boolean; onChange(v: boolean): void }) {
+/** "Câu hỏi khảo sát": questions of the apply form. */
+export function SurveyFields({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
   const id = useId();
   return (
-    <Section title="Workflow">
-      <div className="flex items-start justify-between gap-4 rounded-[8px] border border-border p-3" id={fieldId('draftReview')}>
-        <div className="min-w-0 space-y-0.5">
-          <Label htmlFor={`${id}-dr`} className="text-sm font-medium text-foreground">
-            Duyệt nháp
-          </Label>
-          <p className="text-xs text-muted-foreground">
-            {value
-              ? 'Bật: KOL gửi bản nháp (kèm kiểm tra KOL Safety) để bạn duyệt trước khi đăng.'
-              : 'Tắt: KOL đăng bài trực tiếp theo yêu cầu rồi gửi link, không qua bước duyệt nháp.'}
-          </p>
-        </div>
-        <Switch id={`${id}-dr`} checked={value} onCheckedChange={onChange} className="mt-0.5" />
-      </div>
-    </Section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Câu hỏi khảo sát và điều khoản
-// ---------------------------------------------------------------------------
-
-export function ApplyFormSection({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
-  const id = useId();
-  return (
-    <Section title="Câu hỏi khảo sát và điều khoản" description="KOL/MCN trả lời câu hỏi và đồng ý mọi điều khoản khi ứng tuyển. Bạn xem câu trả lời trong danh sách ứng viên.">
-      <div id={fieldId('survey')} tabIndex={-1} className="space-y-2 focus-visible:outline-none">
-        <p className="text-sm font-medium text-foreground">
-          Câu hỏi khảo sát <span className="font-normal text-muted-foreground">({v.survey.length}/{SURVEY_MAX})</span>
-        </p>
-        {v.survey.length === 0 && <p className="text-xs text-muted-foreground">Chưa có câu hỏi.</p>}
-        <ul className="space-y-2">
-          {v.survey.map((q, i) => (
-            <li key={i} className="flex flex-col gap-2 rounded-[8px] border border-border p-3 sm:flex-row sm:items-center">
-              <Input
-                value={q.text}
-                maxLength={SURVEY_TEXT_MAX}
-                onChange={(e) => set('survey', v.survey.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)), 'survey')}
-                placeholder="VD: Bạn dự kiến đăng bài vào ngày nào?"
-                aria-label={`Câu hỏi ${i + 1}`}
-                className="h-11 min-w-0 flex-1 md:h-10"
-              />
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id={`${id}-req-${i}`}
-                    checked={q.required}
-                    onCheckedChange={(c) => set('survey', v.survey.map((x, j) => (j === i ? { ...x, required: c === true } : x)), 'survey')}
-                  />
-                  <Label htmlFor={`${id}-req-${i}`} className="text-sm font-normal whitespace-nowrap">
-                    Bắt buộc
-                  </Label>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-11 text-muted-foreground hover:text-destructive md:size-9"
-                  onClick={() => set('survey', v.survey.filter((_, j) => j !== i), 'survey')}
-                  aria-label={`Xoá câu hỏi ${i + 1}`}
-                >
-                  <Trash2 aria-hidden />
-                </Button>
+    <div id={fieldId('survey')} tabIndex={-1} className="space-y-2 focus-visible:outline-none">
+      <p className="text-sm text-muted-foreground">
+        KOL/MCN trả lời khi ứng tuyển; bạn xem câu trả lời trong danh sách ứng viên. ({v.survey.length}/{SURVEY_MAX})
+      </p>
+      <ul className="space-y-2">
+        {v.survey.map((q, i) => (
+          <li key={i} className="flex flex-col gap-2 rounded-[8px] border border-border p-3 sm:flex-row sm:items-center">
+            <Input
+              value={q.text}
+              maxLength={SURVEY_TEXT_MAX}
+              onChange={(e) => set('survey', v.survey.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)), 'survey')}
+              placeholder="VD: Bạn dự kiến đăng bài vào ngày nào?"
+              aria-label={`Câu hỏi ${i + 1}`}
+              className="h-11 min-w-0 flex-1 md:h-10"
+            />
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id={`${id}-req-${i}`}
+                  checked={q.required}
+                  onCheckedChange={(c) => set('survey', v.survey.map((x, j) => (j === i ? { ...x, required: c === true } : x)), 'survey')}
+                />
+                <Label htmlFor={`${id}-req-${i}`} className="text-sm font-normal whitespace-nowrap">
+                  Bắt buộc
+                </Label>
               </div>
-            </li>
-          ))}
-        </ul>
-        <ErrorText error={errors.survey} />
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 md:h-9"
-          disabled={v.survey.length >= SURVEY_MAX}
-          onClick={() => set('survey', [...v.survey, { text: '', required: true }], 'survey')}
-        >
-          <Plus aria-hidden />
-          Thêm câu hỏi
-        </Button>
-      </div>
-
-      <div id={fieldId('terms')} tabIndex={-1} className="space-y-2 border-t border-border pt-4 focus-visible:outline-none">
-        <p className="text-sm font-medium text-foreground">
-          Điều khoản <span className="font-normal text-muted-foreground">({v.terms.length}/{TERMS_MAX})</span>
-        </p>
-        <ul className="space-y-2">
-          {v.terms.map((t, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <Input
-                value={t.text}
-                maxLength={SURVEY_TEXT_MAX}
-                onChange={(e) => set('terms', v.terms.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)), 'terms')}
-                aria-label={`Điều khoản ${i + 1}`}
-                className="h-11 min-w-0 flex-1 md:h-10"
-              />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-11 shrink-0 text-muted-foreground hover:text-destructive md:size-9"
-                onClick={() => set('terms', v.terms.filter((_, j) => j !== i), 'terms')}
-                aria-label={`Xoá điều khoản ${i + 1}`}
+                className="size-11 text-muted-foreground hover:text-destructive md:size-9"
+                onClick={() => set('survey', v.survey.filter((_, j) => j !== i), 'survey')}
+                aria-label={`Xoá câu hỏi ${i + 1}`}
               >
                 <Trash2 aria-hidden />
               </Button>
-            </li>
-          ))}
-        </ul>
-        <ErrorText error={errors.terms} />
-        <Button type="button" variant="outline" className="h-11 md:h-9" disabled={v.terms.length >= TERMS_MAX} onClick={() => set('terms', [...v.terms, { text: '' }], 'terms')}>
-          <Plus aria-hidden />
-          Thêm điều khoản
-        </Button>
-      </div>
-    </Section>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <ErrorText error={errors.survey} />
+      <Button type="button" variant="outline" className="h-11 md:h-9" disabled={v.survey.length >= SURVEY_MAX} onClick={() => set('survey', [...v.survey, { text: '', required: true }], 'survey')}>
+        <Plus aria-hidden />
+        Thêm câu hỏi
+      </Button>
+    </div>
   );
 }
 
+/** "Hợp đồng": terms the applicant must accept. */
+export function TermsFields({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
+  return (
+    <div id={fieldId('terms')} tabIndex={-1} className="space-y-2 focus-visible:outline-none">
+      <p className="text-sm font-medium text-foreground">
+        Điều khoản KOL/MCN phải đồng ý khi ứng tuyển <span className="font-normal text-muted-foreground">({v.terms.length}/{TERMS_MAX})</span>
+      </p>
+      <ul className="space-y-2">
+        {v.terms.map((t, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <Input
+              value={t.text}
+              maxLength={SURVEY_TEXT_MAX}
+              onChange={(e) => set('terms', v.terms.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)), 'terms')}
+              aria-label={`Điều khoản ${i + 1}`}
+              className="h-11 min-w-0 flex-1 md:h-10"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-11 shrink-0 text-muted-foreground hover:text-destructive md:size-9"
+              onClick={() => set('terms', v.terms.filter((_, j) => j !== i), 'terms')}
+              aria-label={`Xoá điều khoản ${i + 1}`}
+            >
+              <Trash2 aria-hidden />
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <ErrorText error={errors.terms} />
+      <Button type="button" variant="outline" className="h-11 md:h-9" disabled={v.terms.length >= TERMS_MAX} onClick={() => set('terms', [...v.terms, { text: '' }], 'terms')}>
+        <Plus aria-hidden />
+        Thêm điều khoản
+      </Button>
+    </div>
+  );
+}

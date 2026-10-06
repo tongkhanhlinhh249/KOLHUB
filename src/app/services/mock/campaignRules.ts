@@ -48,7 +48,9 @@ import {
   checkSurvey,
   checkTarget,
   checkTerms,
+  contractOn,
   draftReviewOn,
+  negotiationOn,
   endOfLocalDay,
   isRecruit,
   phaseOfTimeline,
@@ -223,9 +225,11 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
     out.type = input.type;
   }
   if ('recruitment' in input) out.recruitment = input.recruitment == null ? undefined : checkRecruitment(input.recruitment);
-  if ('draftReview' in input && input.draftReview !== undefined) {
-    if (typeof input.draftReview !== 'boolean') throw bad('draftReview');
-    out.draftReview = input.draftReview;
+  for (const k of ['draftReview', 'negotiation', 'contract'] as const) {
+    if (k in input && input[k] !== undefined) {
+      if (typeof input[k] !== 'boolean') throw bad(k);
+      out[k] = input[k];
+    }
   }
   if ('regions' in input) out.regions = checkRegions(input.regions ?? []);
   if ('target' in input) out.target = checkTarget(input.target);
@@ -314,6 +318,7 @@ export interface ActionContext {
  * Open-recruitment applications: no negotiation — the brand picks (SELECT) or declines during "Chọn lọc"
  * (declining also during "Ứng tuyển"); the supplier may edit while "Ứng tuyển" lasts and withdraw until picked.
  * "Duyệt nháp" off: the supplier posts directly (SUBMIT_POST from ACCEPTED / IN_PRODUCTION, no drafts).
+ * "Đàm phán" off: no COUNTER (unless the price is still 0). "Hợp đồng" off: no ATTACH_CONTRACT.
  * Product reward: brand MARK_PRODUCT_SENT, then supplier CONFIRM_PRODUCT_RECEIVED (record only).
  */
 export function allowedActions(b: Booking, status: BookingStatus, party: BookingParty, ctx: ActionContext = {}): BookingActionKey[] {
@@ -333,7 +338,10 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
     }
   } else if (isPreAccept(status)) {
     if (b.awaiting === party) {
-      out.push('ACCEPT', 'COUNTER', 'DECLINE');
+      // "Đàm phán" off: fixed price — no counter-offer, except to quote an invite sent without a price.
+      out.push('ACCEPT');
+      if (c?.negotiation !== false || b.price === 0) out.push('COUNTER');
+      out.push('DECLINE');
       if (party === 'SUPPLIER') out.push('ASSIGN_ITEMS');
     } else {
       out.push('CANCEL');
@@ -360,7 +368,8 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
     if (party === 'SUPPLIER' && sent && !b.shipment?.receivedAt && (isInProgress(status) || status === 'COMPLETED')) out.push('CONFIRM_PRODUCT_RECEIVED');
   }
   if (status === 'COMPLETED' && !(party === 'BRAND' ? b.ratings?.brand : b.ratings?.supplier)) out.push('RATE');
-  if (!isTerminal(status)) out.push('ATTACH_CONTRACT');
+  // "Hợp đồng" off: no contract file (an already attached one stays visible, read-only).
+  if (!isTerminal(status) && c?.contract !== false) out.push('ATTACH_CONTRACT');
   return out;
 }
 
@@ -600,6 +609,8 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     applicationCount: own.filter((b) => b.origin === 'APPLICATION' && isOccupying(effectiveStatus(b, c, now))).length,
     type: campaignType(c),
     draftReview: draftReviewOn(c),
+    negotiation: negotiationOn(c),
+    contract: contractOn(c),
     regions: [...(c.regions ?? [])],
     survey: (c.survey ?? []).map((q) => ({ ...q })),
     terms: (c.terms ?? []).map((t) => ({ ...t })),
@@ -652,6 +663,8 @@ function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCam
   const out: BookingCampaignSummary = {
     type: campaignType(c),
     draftReview: draftReviewOn(c),
+    negotiation: negotiationOn(c),
+    contract: contractOn(c),
     regions: [...(c.regions ?? [])],
     id: c.id,
     name: c.name,

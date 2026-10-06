@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BarChart3, ClipboardCheck, Inbox, UserPlus, Users } from 'lucide-react';
+import { BarChart3, Check, ClipboardCheck, Inbox, Minus, UserPlus, Users } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -27,6 +27,7 @@ import { DraftCard, href } from './ContentParts';
 import {
   bookingPriceText,
   brandTodoLabel,
+  campaignFeatures,
   collectDrafts,
   collectPosts,
   countByBookingStatus,
@@ -42,6 +43,21 @@ import {
   openApplications,
   sortBookings,
 } from './campaignView';
+
+/** Tổng quan › "Tính năng": which feature cards of the campaign are on. */
+function FeatureSummary({ campaign }: { campaign: CampaignView }) {
+  return (
+    <ul className="grid grid-cols-1 gap-1.5 @md:grid-cols-2">
+      {campaignFeatures(campaign).map((f) => (
+        <li key={f.label} className={cn('flex items-center gap-2 text-sm', f.on ? 'text-foreground' : 'text-muted-foreground')}>
+          {f.on ? <Check className="size-4 shrink-0 text-primary" aria-hidden /> : <Minus className="size-4 shrink-0" aria-hidden />}
+          <span>{f.label}</span>
+          <span className="sr-only">{f.on ? ': bật' : ': tắt'}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
@@ -171,6 +187,9 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
                 )}
               </Meta>
             </dl>
+          </Panel>
+          <Panel title="Tính năng">
+            <FeatureSummary campaign={c} />
           </Panel>
           <Panel title="Hạng mục nội dung">
             {c.deliverables.length === 0 ? (

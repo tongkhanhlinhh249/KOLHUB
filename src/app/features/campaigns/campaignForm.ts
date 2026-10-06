@@ -61,6 +61,19 @@ export interface CampaignFormValues {
   minFollowers: string;
   survey: SurveyRow[];
   terms: TermRow[];
+  // --- "Tính năng của chiến dịch" (bật/tắt) ---
+  /** "Đàm phán" (Booking riêng). */
+  negotiation: boolean;
+  /** "Hợp đồng": contract file on bookings + apply terms. */
+  contract: boolean;
+  /** "Đề nghị trả phí" (Tuyển nhiều KOL): cash reward per KOL. */
+  payCash: boolean;
+  /** "Sự tuân thủ": content rules. */
+  useContentRules: boolean;
+  /** "Điều kiện tham gia". */
+  useConditions: boolean;
+  /** "Câu hỏi khảo sát". */
+  useSurvey: boolean;
 }
 
 export interface SurveyRow {
@@ -130,6 +143,12 @@ export const EMPTY_FORM: CampaignFormValues = {
   minFollowers: '',
   survey: [],
   terms: DEFAULT_TERMS.map((text) => ({ text })),
+  negotiation: true,
+  contract: true,
+  payCash: true,
+  useContentRules: false,
+  useConditions: false,
+  useSurvey: false,
 };
 
 const numText = (n: number | undefined) => (n !== undefined && n > 0 ? formatVndInput(String(n)) : '');
@@ -166,6 +185,12 @@ export function formFromCampaign(c: Campaign): CampaignFormValues {
     minFollowers: numText(c.target?.minFollowers),
     survey: (c.survey ?? []).map((q) => ({ ...q })),
     terms: (c.terms ?? []).map((t) => ({ ...t })),
+    negotiation: c.negotiation !== false,
+    contract: c.contract !== false,
+    payCash: r ? r.reward.cash > 0 : true,
+    useContentRules: !!c.contentRules.trim(),
+    useConditions: (c.regions ?? []).length > 0 || !!c.target,
+    useSurvey: (c.survey ?? []).length > 0,
   };
 }
 
@@ -186,6 +211,7 @@ function qty(text: string): number {
  * Form → service input. The apply deadline only applies to marketplace campaigns (cleared otherwise).
  * "Tuyển nhiều KOL" sends its recruitment block (the service derives budget, dates, deadline and visibility);
  * "Booking riêng" clears it. Blank survey questions / terms are dropped.
+ * A feature card turned off clears its data: content rules, conditions, survey, terms (with "Hợp đồng"), cash reward.
  */
 export function formToInput(v: CampaignFormValues): CampaignInput {
   const recruit = v.type === 'OPEN_RECRUITMENT';
@@ -204,7 +230,7 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
       ? {
           slots: intOrUndefined(v.slots) ?? 0,
           reward: {
-            cash: parseVndInput(v.rewardCash) ?? 0,
+            cash: v.payCash ? (parseVndInput(v.rewardCash) ?? 0) : 0,
             ...(v.hasProduct
               ? { product: { name: v.productName, value: parseVndInput(v.productValue) ?? 0, ...(v.productNote.trim() ? { note: v.productNote } : {}) } }
               : {}),
@@ -213,10 +239,12 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
         }
       : null,
     draftReview: v.draftReview,
-    regions: v.regions,
-    target: Object.keys(target).length ? target : null,
-    survey: v.survey.filter((q) => q.text.trim()).map((q) => ({ ...(q.id ? { id: q.id } : {}), text: q.text, required: q.required })),
-    terms: v.terms.filter((t) => t.text.trim()).map((t) => ({ ...(t.id ? { id: t.id } : {}), text: t.text })),
+    negotiation: v.negotiation,
+    contract: v.contract,
+    regions: v.useConditions ? v.regions : [],
+    target: v.useConditions && Object.keys(target).length ? target : null,
+    survey: v.useSurvey ? v.survey.filter((q) => q.text.trim()).map((q) => ({ ...(q.id ? { id: q.id } : {}), text: q.text, required: q.required })) : [],
+    terms: v.contract ? v.terms.filter((t) => t.text.trim()).map((t) => ({ ...(t.id ? { id: t.id } : {}), text: t.text })) : [],
   };
   return {
     ...extra,
@@ -229,7 +257,7 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     platforms: v.platforms,
     categories: v.categories,
     deliverables: v.deliverables.map((d) => ({ type: d.type, platform: d.platform, quantity: qty(d.quantity) })),
-    contentRules: v.contentRules,
+    contentRules: v.useContentRules ? v.contentRules : '',
     visibility: recruit ? 'MARKETPLACE' : v.visibility,
     applyDeadline: !recruit && v.visibility === 'MARKETPLACE' && v.applyDeadline ? v.applyDeadline : null,
     cover: v.cover,
@@ -239,7 +267,7 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
 /** Budget preview of an open-recruitment form: slots × (cash + product value). */
 export function recruitBudget(v: CampaignFormValues): number {
   const slots = intOrUndefined(v.slots) ?? 0;
-  const per = (parseVndInput(v.rewardCash) ?? 0) + (v.hasProduct ? (parseVndInput(v.productValue) ?? 0) : 0);
+  const per = (v.payCash ? (parseVndInput(v.rewardCash) ?? 0) : 0) + (v.hasProduct ? (parseVndInput(v.productValue) ?? 0) : 0);
   return Number.isFinite(slots) ? slots * per : 0;
 }
 
@@ -273,6 +301,8 @@ export const FORM_FIELDS = [
   'product',
   'timeline',
   'draftReview',
+  'negotiation',
+  'contract',
   'regions',
   'target',
   'survey',

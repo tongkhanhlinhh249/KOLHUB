@@ -302,6 +302,10 @@ export interface Campaign {
   recruitment?: Recruitment;
   /** "Duyệt nháp" (Workflow): KOL submits a draft for review before posting. Absent = on. */
   draftReview?: boolean;
+  /** "Đàm phán": Booking riêng only — off = fixed price (accept or decline; invites must carry a price). Absent = on. */
+  negotiation?: boolean;
+  /** "Hợp đồng": off = no contract file on bookings and no apply terms. Absent = on. */
+  contract?: boolean;
   /** Provinces the campaign targets; empty / absent = "Toàn quốc". */
   regions?: string[];
   /** "Điều kiện tham gia". */
@@ -344,6 +348,8 @@ export interface CampaignInput {
    */
   recruitment?: Recruitment | null;
   draftReview?: boolean;
+  negotiation?: boolean;
+  contract?: boolean;
   regions?: string[];
   target?: CampaignTarget | null;
   /** Questions without `id` get one. */
@@ -499,6 +505,10 @@ export interface MarketplaceCampaign {
   /** OPEN_RECRUITMENT only: applicants picked so far (selected, in progress or completed). */
   selectedCount?: number;
   draftReview: boolean;
+  /** "Đàm phán" (false for Tuyển nhiều KOL). */
+  negotiation: boolean;
+  /** "Hợp đồng". */
+  contract: boolean;
   /** Empty = Toàn quốc. */
   regions: string[];
   target?: CampaignTarget;
@@ -766,6 +776,8 @@ export interface BookingCampaignSummary {
   recruitment?: Recruitment;
   phase?: RecruitPhase;
   draftReview: boolean;
+  negotiation: boolean;
+  contract: boolean;
   regions: string[];
   /** "Ảnh chiến dịch" (16:9 cover), when the brand added one. */
   cover?: StoredFile;

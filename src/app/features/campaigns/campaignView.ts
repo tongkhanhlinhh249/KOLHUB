@@ -10,6 +10,7 @@ import {
   type BookingItemView,
   type BookingStatus,
   type BookingView,
+  type Campaign,
   type CampaignStatus,
   type CampaignType,
   type CampaignView,
@@ -529,4 +530,19 @@ export function inviteSummary(result: InviteResult): string {
   if (result.updated) parts.push(`${result.updated} lời mời được bổ sung KOL`);
   if (result.skipped.length) parts.push(`${result.skipped.length} KOL bỏ qua`);
   return parts.length ? parts.join(' · ') : 'Không có lời mời nào được gửi';
+}
+
+/** "Tính năng của chiến dịch" on/off, in the order of the form's feature cards (Tổng quan › "Tính năng"). */
+export function campaignFeatures(c: Campaign): { label: string; on: boolean }[] {
+  const recruit = c.type === 'OPEN_RECRUITMENT';
+  return [
+    { label: 'Đề nghị trả phí', on: !recruit || (c.recruitment?.reward.cash ?? 0) > 0 },
+    { label: 'Tặng quà', on: !!c.recruitment?.reward.product },
+    { label: 'Đàm phán', on: !recruit && c.negotiation !== false },
+    { label: 'Duyệt nháp', on: c.draftReview !== false },
+    { label: 'Sự tuân thủ', on: !!c.contentRules.trim() },
+    { label: 'Hợp đồng', on: c.contract !== false },
+    { label: 'Điều kiện tham gia', on: (c.regions ?? []).length > 0 || !!c.target },
+    { label: 'Câu hỏi khảo sát', on: (c.survey ?? []).length > 0 },
+  ];
 }

@@ -42,7 +42,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     title: 'Tạo và đăng chiến dịch',
     summary: 'Nhãn hàng tạo chiến dịch, lưu nháp, rồi đăng để KOL/MCN thấy.',
     steps: [
-      { screen: 'Menu "Chiến dịch" → "Tạo chiến dịch"', checks: ['Nhập tên chiến dịch (bắt buộc, tối đa 150 ký tự)', 'Có thể lưu nháp ngay, các ô khác điền sau', 'Lưu xong hiện "Đã lưu bản nháp"'] },
+      { screen: 'Menu "Chiến dịch" → "Tạo chiến dịch"', checks: ['Gõ tên vào ô lớn "Hãy đặt tên cho chiến dịch" (tối đa 150 ký tự)', 'Chưa có tên thì chưa lưu được', 'Có thể lưu nháp ngay, các ô khác điền sau; lưu xong hiện "Đã lưu bản nháp"'] },
       {
         screen: 'Điền đủ để đăng',
         checks: [
@@ -53,6 +53,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
           'Chọn "Đăng lên Sàn chiến dịch" hoặc "Riêng tư" (chỉ mời)',
         ],
       },
+      { screen: 'Phần "Tính năng của chiến dịch"', checks: ['Bật/tắt từng phần cần dùng (xem R3-5)'] },
       { screen: 'Bấm "Đăng chiến dịch"', checks: ['Thiếu gì → báo đỏ ngay dưới ô đó và tự cuộn tới', 'Đủ → hiện "Đã đăng chiến dịch" và mở trang chiến dịch', 'Sau khi đăng vẫn sửa được ("Lưu thay đổi") nhưng phải giữ đủ thông tin'] },
     ],
   },
@@ -169,7 +170,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     steps: [
       { screen: 'Trang chiến dịch → tab "Booking" → "Mời KOL"', checks: ['Chọn KOL từ danh sách đã lưu, hoặc tìm theo tên / KOL ID', 'Chọn hạng mục, giá mỗi KOL (để trống = để KOL/MCN báo giá), lời nhắn'] },
       { screen: 'Hoặc từ Tìm KOL / Danh sách đã lưu → "Mời vào chiến dịch"', checks: ['Chọn chiến dịch muốn mời vào', 'Chiến dịch "Tuyển nhiều KOL" không mời được'] },
-      { screen: 'Bấm "Gửi lời mời"', checks: ['Kết quả: bao nhiêu lời mời mới, bao nhiêu KOL bị bỏ qua và vì sao', 'Mời từ chiến dịch nháp → chiến dịch tự được đăng (phải đủ thông tin)'] },
+      { screen: 'Bấm "Gửi lời mời"', checks: ['Kết quả: bao nhiêu lời mời mới, bao nhiêu KOL bị bỏ qua và vì sao', 'Mời từ chiến dịch nháp → chiến dịch tự được đăng (phải đủ thông tin)', 'Chiến dịch tắt "Đàm phán" → phải nhập giá mới gửi được'] },
     ],
   },
   'R1-2': {
@@ -218,7 +219,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     steps: [
       { screen: 'Mở hợp tác → "Báo giá khác" (Nhãn hàng) / "Trả giá" (KOL/MCN)', checks: ['Chỉ bên đang đến lượt mới báo giá được', 'Nhập tổng giá mới (lớn hơn 0), lời nhắn nếu muốn'] },
       { screen: 'Sau khi gửi', checks: ['Đến lượt bên kia: chấp nhận, trả giá tiếp hoặc từ chối', 'Bên vừa gửi chỉ có thể huỷ', 'Đang trả giá thì không bị hết hạn'] },
-      { screen: 'Lưu ý', checks: ['Chiến dịch "Tuyển nhiều KOL" không trả giá'] },
+      { screen: 'Lưu ý', checks: ['Chiến dịch "Tuyển nhiều KOL" không trả giá', 'Chiến dịch tắt "Đàm phán" → không có nút trả giá, chỉ chấp nhận hoặc từ chối'] },
     ],
   },
   'R2-2': {
@@ -296,6 +297,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     steps: [
       { screen: 'Nhãn hàng: mở hợp tác → khối "Hợp đồng"', checks: ['"Đính kèm hợp đồng": PDF, JPG, PNG hoặc DOCX, tối đa 10 MB', 'Mỗi hợp tác 1 tệp; tải tệp mới sẽ thay tệp cũ', 'Gỡ bằng "Gỡ tệp hợp đồng"'] },
       { screen: 'KOL/MCN: mở hợp tác', checks: ['Thấy tên tệp hợp đồng', 'Không bắt buộc — KOL Hub không ký hợp đồng điện tử'] },
+      { screen: 'Chiến dịch tắt "Hợp đồng"', checks: ['Không đính kèm được tệp nào; tệp đã có vẫn xem được'] },
     ],
   },
   'R3-4': {
@@ -307,12 +309,24 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     ],
   },
   'R3-5': {
-    title: 'Điều kiện, câu hỏi, điều khoản, duyệt nháp',
-    summary: 'Nhãn hàng đặt điều kiện, câu hỏi và điều khoản cho người ứng tuyển.',
+    title: 'Bật/tắt từng phần của chiến dịch',
+    summary: 'Nhãn hàng bật phần cần dùng, tắt phần không cần; phần nào tắt thì không áp dụng cho chiến dịch.',
     steps: [
-      { screen: 'Trang Tạo/Sửa chiến dịch → "Điều kiện tham gia"', checks: ['Khu vực: Toàn quốc hoặc chọn tỉnh/thành', 'Độ tuổi 16–80, giới tính, số người theo dõi tối thiểu', 'Chỉ để KOL/MCN biết, chưa chặn ai ứng tuyển'] },
-      { screen: '"Câu hỏi khảo sát và điều khoản"', checks: ['Tối đa 10 câu hỏi, đánh dấu câu bắt buộc', 'Tối đa 10 điều khoản; người ứng tuyển phải tích hết', 'Chiến dịch mới có sẵn 2 điều khoản'] },
-      { screen: '"Workflow" → "Duyệt nháp"', checks: ['Bật (mặc định): KOL/MCN gửi nháp cho duyệt trước', 'Tắt: KOL/MCN đăng luôn rồi gửi link'] },
+      { screen: 'Trang Tạo/Sửa chiến dịch → "Tính năng của chiến dịch"', checks: ['Mỗi phần là một thẻ có công tắc bật/tắt', 'Bật lên là mở phần thiết lập ngay bên dưới', 'Thẻ hiện "Cần thiết lập" nếu bật mà chưa điền'] },
+      {
+        screen: 'Các thẻ',
+        checks: [
+          'Bản tóm tắt sáng tạo (luôn bật): mục tiêu và brief',
+          'Đề nghị trả phí, Tặng quà: phần thưởng tiền và quà (Tặng quà chỉ có ở "Tuyển nhiều KOL")',
+          'Đàm phán: tắt thì giá cố định — chỉ chấp nhận hoặc từ chối',
+          'Duyệt nháp: tắt thì KOL/MCN đăng luôn rồi gửi link',
+          'Sự tuân thủ: quy định bài đăng (hashtag, ghi nhãn quảng cáo…)',
+          'Hợp đồng: điều khoản người ứng tuyển phải đồng ý, và tệp hợp đồng trong từng hợp tác',
+          'Điều kiện tham gia: khu vực, độ tuổi, giới tính, số người theo dõi',
+          'Câu hỏi khảo sát: tối đa 10 câu hỏi khi ứng tuyển',
+        ],
+      },
+      { screen: 'Sau khi lưu', checks: ['Tắt một phần thì dữ liệu của phần đó bị xoá', 'Trang chiến dịch → tab "Tổng quan" → khối "Tính năng" cho biết phần nào đang bật'] },
     ],
   },
 

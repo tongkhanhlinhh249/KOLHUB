@@ -278,7 +278,8 @@ export function ApplyDialog({
                 <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">₫</span>
               </div>
               <p id={`${id}-price-hint`} className={priceError ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
-                {priceError ?? `Giá cho toàn bộ hạng mục. Ngân sách chiến dịch: ${formatVnd(campaign.budget)}.`}
+                {priceError ??
+                  `Giá cho toàn bộ hạng mục. Ngân sách chiến dịch: ${formatVnd(campaign.budget)}.${campaign.negotiation === false ? ' Nhãn hàng không trả giá: giá này được chấp nhận hoặc từ chối.' : ''}`}
               </p>
             </div>
             )}

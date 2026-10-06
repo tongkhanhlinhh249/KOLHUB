@@ -103,6 +103,8 @@ test('Tuyển nhiều KOL: form ↔ dữ liệu (suất, phần thưởng, lịc
     productValue: '450.000',
     timeline: suggestTimeline('2026-10-10'),
     draftReview: false,
+    useConditions: true,
+    useSurvey: true,
     regions: ['Hà Nội'],
     ageMin: '20',
     gender: 'FEMALE' as const,
@@ -131,4 +133,34 @@ test('Tuyển nhiều KOL: form ↔ dữ liệu (suất, phần thưởng, lịc
   expect(formToInput({ ...v, type: 'BOOKING' })).toMatchObject({ recruitment: null, visibility: 'PRIVATE' });
   expect(formToInput({ ...v, slots: 'abc' }).recruitment!.slots).toBeNaN();
   expect(isFormField('timeline')).toBe(true);
+});
+
+test('Tính năng của chiến dịch: bật/tắt từng thẻ; tắt thì xoá dữ liệu của thẻ đó khi lưu', () => {
+  // Mặc định: Đàm phán, Hợp đồng, Duyệt nháp bật; Sự tuân thủ, Điều kiện, Khảo sát tắt.
+  expect(EMPTY_FORM).toMatchObject({ negotiation: true, contract: true, draftReview: true, payCash: true, useContentRules: false, useConditions: false, useSurvey: false });
+  const on = {
+    ...EMPTY_FORM,
+    name: 'X',
+    contentRules: 'Gắn #QuangCao',
+    useContentRules: true,
+    regions: ['Hà Nội'],
+    useConditions: true,
+    survey: [{ text: 'Câu 1', required: true }],
+    useSurvey: true,
+  };
+  expect(formToInput(on)).toMatchObject({ contentRules: 'Gắn #QuangCao', regions: ['Hà Nội'], survey: [{ text: 'Câu 1' }], negotiation: true, contract: true });
+  expect(formToInput(on).terms).toHaveLength(2);
+  const off = formToInput({ ...on, useContentRules: false, useConditions: false, useSurvey: false, contract: false, negotiation: false });
+  expect(off).toMatchObject({ contentRules: '', regions: [], target: null, survey: [], terms: [], contract: false, negotiation: false });
+  // Tuyển nhiều KOL: tắt "Đề nghị trả phí" → tiền mặt 0.
+  const recruit = { ...on, type: 'OPEN_RECRUITMENT' as const, slots: '3', rewardCash: '1.000.000', payCash: false, hasProduct: true, productName: 'Quà', productValue: '200.000' };
+  expect(formToInput(recruit).recruitment!.reward.cash).toBe(0);
+  expect(recruitBudget(recruit)).toBe(600_000);
+});
+
+test('Tính năng của chiến dịch: đọc trạng thái bật/tắt từ chiến dịch đã lưu', () => {
+  const base = formFromCampaign({ ...campaign, contentRules: '', regions: [], target: undefined, survey: [], negotiation: false, contract: false });
+  expect(base).toMatchObject({ useContentRules: false, useConditions: false, useSurvey: false, negotiation: false, contract: false });
+  const full = formFromCampaign({ ...campaign, contentRules: 'Quy định', regions: ['Huế'], survey: [{ id: 'q-1', text: 'Câu', required: false }] });
+  expect(full).toMatchObject({ useContentRules: true, useConditions: true, useSurvey: true, negotiation: true, contract: true });
 });

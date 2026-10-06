@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, Globe2, ImagePlus, Loader2, Lock, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Globe2, ImagePlus, Loader2, Lock, Plus, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -8,12 +8,10 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Textarea } from '../../components/ui/textarea';
 import { cn } from '../../components/ui/utils';
 import {
   campaignService,
   CAMPAIGN_NAME_MAX,
-  CAMPAIGN_TEXT_MAX,
   DELIVERABLE_QTY_MAX,
   DELIVERABLE_TYPES,
   KOL_CATEGORIES,
@@ -32,7 +30,8 @@ import { formatFileSize, toStoredFile } from '../shared/files';
 import { fieldIcon } from '../shared/fieldIcons';
 import { CampaignStatusBadge, errText, LoadError } from './CampaignParts';
 import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
-import { ApplyFormSection, ConditionsSection, RecruitSection, TypeSection, WorkflowSection } from './RecruitFormSections';
+import { CampaignFeatures } from './FeatureCards';
+import { RecruitSection, TypeSection } from './RecruitFormSections';
 import {
   COVER_ACCEPT,
   coverFileError,
@@ -407,7 +406,6 @@ export function CampaignFormPage() {
   };
 
   const cancelHref = id ? campaignPath(id) : CAMPAIGNS_PATH;
-  const textCount = (s: string, max: number) => `${[...s].length.toLocaleString('vi-VN')}/${max.toLocaleString('vi-VN')}`;
 
   return (
     <form
@@ -418,22 +416,43 @@ export function CampaignFormPage() {
         void save(false);
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link to={cancelHref} className={buttonVariants({ variant: 'ghost', className: '-ml-3 h-11 md:h-9' })}>
-          <ArrowLeft aria-hidden />
-          {id ? 'Về chiến dịch' : 'Danh sách chiến dịch'}
-        </Link>
-        {loaded && <CampaignStatusBadge status={loaded.status} />}
-      </div>
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">{id ? 'Sửa chiến dịch' : 'Tạo chiến dịch'}</h2>
-        <p className="text-sm text-muted-foreground">
-          {isOpen
-            ? 'Chiến dịch đang mở: thông tin phải luôn đủ điều kiện đăng.'
-            : recruit
-              ? 'Chỉ cần tên để lưu nháp. Khi đăng, chiến dịch cần số suất, phần thưởng, lịch 4 giai đoạn, nền tảng và ít nhất một hạng mục.'
-              : 'Chỉ cần tên để lưu nháp. Khi đăng, chiến dịch cần ngân sách, thời gian, nền tảng và ít nhất một hạng mục.'}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <label htmlFor={fieldId('name')} className="sr-only">
+            Tên chiến dịch
+          </label>
+          <input
+            id={fieldId('name')}
+            value={values.name}
+            maxLength={CAMPAIGN_NAME_MAX}
+            onChange={(e) => set('name', e.target.value)}
+            placeholder="Hãy đặt tên cho chiến dịch"
+            aria-invalid={!!errors.name || undefined}
+            aria-describedby={errors.name ? `${fieldId('name')}-error` : `${fieldId('name')}-hint`}
+            disabled={!editable || busy !== null}
+            className="w-full min-w-0 bg-transparent text-xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/45 focus-visible:ring-0 sm:text-2xl md:text-3xl"
+          />
+          {errors.name ? (
+            <p id={`${fieldId('name')}-error`} className="text-xs text-destructive" role="alert">
+              {errors.name}
+            </p>
+          ) : (
+            <p id={`${fieldId('name')}-hint`} className="text-sm text-muted-foreground">
+              {!id
+                ? 'Không có gì được lưu lại cho đến khi bạn lưu nháp hoặc đăng chiến dịch.'
+                : isOpen
+                  ? 'Chiến dịch đang mở: thông tin phải luôn đủ điều kiện đăng.'
+                  : 'Bản nháp: lưu bất cứ lúc nào, đăng khi đã đủ thông tin.'}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {loaded && <CampaignStatusBadge status={loaded.status} />}
+          <Link to={cancelHref} className={buttonVariants({ variant: 'ghost', className: 'h-11 md:h-9' })}>
+            <X aria-hidden />
+            Đóng
+          </Link>
+        </div>
       </div>
 
       {!editable && (
@@ -442,51 +461,6 @@ export function CampaignFormPage() {
 
       <fieldset disabled={!editable || busy !== null} className="min-w-0 space-y-4">
         <TypeSection value={values.type} onChange={(t) => set('type', t)} locked={typeLocked} error={errors.type} />
-
-        <Section title="Thông tin chung">
-          <FormRow id={fieldId('name')} label="Tên chiến dịch" error={errors.name}>
-            {(d) => (
-              <Input
-                id={fieldId('name')}
-                value={values.name}
-                maxLength={CAMPAIGN_NAME_MAX}
-                onChange={(e) => set('name', e.target.value)}
-                placeholder="VD: Ra mắt sữa hạt vị mới"
-                aria-invalid={!!errors.name || undefined}
-                aria-describedby={d}
-                className="h-11 md:h-10"
-              />
-            )}
-          </FormRow>
-          <FormRow id={fieldId('objective')} label="Mục tiêu" optional error={errors.objective}>
-            {(d) => (
-              <Textarea
-                id={fieldId('objective')}
-                value={values.objective}
-                maxLength={CAMPAIGN_TEXT_MAX}
-                rows={2}
-                onChange={(e) => set('objective', e.target.value)}
-                placeholder="VD: Tăng nhận biết sản phẩm với nhóm gia đình trẻ"
-                aria-invalid={!!errors.objective || undefined}
-                aria-describedby={d}
-              />
-            )}
-          </FormRow>
-          <FormRow id={fieldId('brief')} label="Brief" optional error={errors.brief} hint={textCount(values.brief, CAMPAIGN_TEXT_MAX)}>
-            {(d) => (
-              <Textarea
-                id={fieldId('brief')}
-                value={values.brief}
-                maxLength={CAMPAIGN_TEXT_MAX}
-                rows={5}
-                onChange={(e) => set('brief', e.target.value)}
-                placeholder="Thông điệp chính, câu chuyện, điểm cần nhấn mạnh…"
-                aria-invalid={!!errors.brief || undefined}
-                aria-describedby={d}
-              />
-            )}
-          </FormRow>
-        </Section>
 
         <Section title="Ảnh chiến dịch" description="Hiển thị trên thẻ chiến dịch ở Sàn chiến dịch và trong danh sách của bạn. Không bắt buộc.">
           <CoverField
@@ -622,26 +596,6 @@ export function CampaignFormPage() {
           </div>
         </Section>
 
-        <Section title="Quy định nội dung">
-          <FormRow id={fieldId('contentRules')} label="Quy định" optional error={errors.contentRules} hint="VD: không so sánh với đối thủ, gắn hashtag bắt buộc, thời lượng tối thiểu…">
-            {(d) => (
-              <Textarea
-                id={fieldId('contentRules')}
-                value={values.contentRules}
-                maxLength={CAMPAIGN_TEXT_MAX}
-                rows={4}
-                onChange={(e) => set('contentRules', e.target.value)}
-                aria-invalid={!!errors.contentRules || undefined}
-                aria-describedby={d}
-              />
-            )}
-          </FormRow>
-        </Section>
-
-        <ConditionsSection values={values} set={set} errors={errors} />
-        <WorkflowSection value={values.draftReview} onChange={(x) => set('draftReview', x)} />
-        <ApplyFormSection values={values} set={set} errors={errors} />
-
         {recruit ? (
           <Section title="Hiển thị">
             <p className="flex items-start gap-2 text-sm text-foreground">
@@ -693,24 +647,36 @@ export function CampaignFormPage() {
           )}
         </Section>
         )}
+
+        <CampaignFeatures values={values} set={set} errors={errors} />
       </fieldset>
 
       {editable && (
         <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:sticky md:bottom-0 md:-mx-6 md:rounded-b-[8px]">
-          <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-end gap-2 px-4 py-3 md:px-6">
-            <Link to={cancelHref} className={buttonVariants({ variant: 'ghost', className: 'h-11 md:h-10' })}>
-              Huỷ
-            </Link>
-            <Button type="submit" variant={isOpen ? 'default' : 'outline'} className="h-11 md:h-10" disabled={busy !== null}>
-              {busy === 'draft' && <Loader2 className="animate-spin" aria-hidden />}
-              {isOpen ? 'Lưu thay đổi' : 'Lưu nháp'}
-            </Button>
-            {!isOpen && (
-              <Button type="button" className="h-11 md:h-10" disabled={busy !== null} onClick={() => void save(true)}>
-                {busy === 'publish' ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-                Đăng chiến dịch
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 px-4 py-3 md:px-6">
+            <p className="hidden min-w-0 flex-1 text-sm text-muted-foreground sm:block" aria-live="polite">
+              {!values.name.trim()
+                ? 'Hãy đặt tên cho chiến dịch của bạn để bắt đầu tạo.'
+                : isOpen
+                  ? 'Lưu thay đổi khi xong.'
+                  : 'Lưu nháp để làm tiếp sau, hoặc đăng khi đã đủ thông tin.'}
+            </p>
+            <div className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
+              <Link to={cancelHref} className={buttonVariants({ variant: 'outline', className: 'h-11 md:h-10' })}>
+                Huỷ bỏ
+              </Link>
+              <Button type="submit" variant={isOpen ? 'default' : 'outline'} className="h-11 md:h-10" disabled={busy !== null || !values.name.trim()}>
+                {busy === 'draft' && <Loader2 className="animate-spin" aria-hidden />}
+                {isOpen ? 'Lưu thay đổi' : 'Lưu nháp'}
               </Button>
-            )}
+              {!isOpen && (
+                <Button type="button" className="h-11 md:h-10" disabled={busy !== null || !values.name.trim()} onClick={() => void save(true)}>
+                  {busy === 'publish' ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
+                  <span className="sm:hidden">Đăng</span>
+                  <span className="hidden sm:inline">Đăng chiến dịch</span>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}

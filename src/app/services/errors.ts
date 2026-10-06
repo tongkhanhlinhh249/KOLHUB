@@ -250,6 +250,10 @@ function campaignFieldLabel(field?: string): string {
       return 'Lịch trình 4 giai đoạn';
     case 'draftReview':
       return 'Duyệt nháp';
+    case 'negotiation':
+      return 'Đàm phán';
+    case 'contract':
+      return 'Hợp đồng';
     case 'regions':
       return 'Khu vực';
     case 'target':

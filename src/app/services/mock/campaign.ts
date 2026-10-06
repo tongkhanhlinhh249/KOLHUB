@@ -140,7 +140,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (clean.endDate) c.endDate = clean.endDate;
     if (clean.applyDeadline) c.applyDeadline = clean.applyDeadline;
     if (clean.cover) c.cover = clean.cover;
-    for (const k of ['recruitment', 'draftReview', 'regions', 'target', 'survey', 'terms'] as const) {
+    for (const k of ['recruitment', 'draftReview', 'negotiation', 'contract', 'regions', 'target', 'survey', 'terms'] as const) {
       if (clean[k] !== undefined) (c as unknown as Record<string, unknown>)[k] = clean[k];
     }
     deriveRecruitmentFields(c);
@@ -239,6 +239,8 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const ids = [...new Set((kolIds ?? []).map((k) => (k ?? '').trim()).filter(Boolean))];
     if (ids.length === 0) throw new KolhubError('KOLHUB-4812');
     if (opts.price !== undefined && !isPrice(opts.price)) throw new KolhubError('KOLHUB-4810');
+    // "Đàm phán" off: fixed price, so the invite must carry it (the supplier cannot quote).
+    if (c.negotiation === false && opts.price === undefined) throw new KolhubError('KOLHUB-4810');
     const note = checkNote(opts.note);
     const t = now();
     if (c.status === 'DRAFT') validateForOpen(c, t);

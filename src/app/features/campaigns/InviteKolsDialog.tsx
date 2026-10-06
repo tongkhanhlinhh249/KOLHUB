@@ -284,6 +284,7 @@ export function InviteOptionsFields({
   onPrice,
   note,
   onNote,
+  priceRequired = false,
 }: {
   deliverables: Deliverable[];
   deliverable: string;
@@ -292,6 +293,8 @@ export function InviteOptionsFields({
   onPrice(v: string): void;
   note: string;
   onNote(v: string): void;
+  /** "Đàm phán" off: fixed price, the invite must carry it. */
+  priceRequired?: boolean;
 }) {
   const id = useId();
   return (
@@ -313,11 +316,11 @@ export function InviteOptionsFields({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${id}-p`}>
-          Giá mỗi KOL <span className="font-normal text-muted-foreground">(không bắt buộc)</span>
+          Giá mỗi KOL <span className="font-normal text-muted-foreground">{priceRequired ? '(bắt buộc)' : '(không bắt buộc)'}</span>
         </Label>
         <PriceInput id={`${id}-p`} value={price} onChange={onPrice} describedBy={`${id}-ph`} />
         <p id={`${id}-ph`} className="text-xs text-muted-foreground">
-          Để trống: nhà cung cấp báo giá.
+          {priceRequired ? 'Chiến dịch tắt Đàm phán: KOL/MCN chỉ chấp nhận hoặc từ chối giá này.' : 'Để trống: nhà cung cấp báo giá.'}
         </p>
       </div>
       <div className="space-y-1.5">
@@ -465,6 +468,7 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
                 onPrice={setPrice}
                 note={note}
                 onNote={setNote}
+                priceRequired={campaign.negotiation === false}
               />
 
               {error && (
@@ -495,7 +499,7 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
               <Button type="button" variant="outline" className="h-11 md:h-9" disabled={busy} onClick={() => onOpenChange(false)}>
                 Huỷ
               </Button>
-              <Button type="button" className="h-11 md:h-9" disabled={busy || selected.size === 0} onClick={() => void submit()}>
+              <Button type="button" className="h-11 md:h-9" disabled={busy || selected.size === 0 || (campaign.negotiation === false && !parseVndInput(price))} onClick={() => void submit()}>
                 {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
                 Gửi lời mời{selected.size ? ` (${selected.size})` : ''}
               </Button>

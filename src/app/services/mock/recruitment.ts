@@ -52,6 +52,12 @@ export function isRecruit(c: Pick<Campaign, 'type' | 'recruitment'> | undefined 
 /** "Duyệt nháp" is on unless explicitly turned off. */
 export const draftReviewOn = (c: Pick<Campaign, 'draftReview'> | undefined | null) => c?.draftReview !== false;
 
+/** "Đàm phán": price counter-offers between the two sides. Booking riêng only (absent = on); never for Tuyển nhiều KOL. */
+export const negotiationOn = (c: Pick<Campaign, 'negotiation' | 'type'> | undefined | null) => !!c && c.type !== 'OPEN_RECRUITMENT' && c.negotiation !== false;
+
+/** "Hợp đồng": contract file on bookings and the apply terms. Absent = on. */
+export const contractOn = (c: Pick<Campaign, 'contract'> | undefined | null) => c?.contract !== false;
+
 /** Local 'YYYY-MM-DD' of `ms`. */
 export function localIso(ms: number): string {
   const d = new Date(ms);
