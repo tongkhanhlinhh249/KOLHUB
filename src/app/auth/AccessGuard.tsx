@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useAuth } from './AuthContext';
 import { GUEST_PATHS, ROLE_CONFIG, isPublicPath, resolveAccess, safeReturnTo } from './roles';
 import type { RoleKey } from '../services';
+import { BusinessDocsPanel } from '../demo/BusinessDocsPanel';
 import { DemoPanel } from '../demo/DemoPanel';
 
 function isGuestPage(pathname: string): boolean {
@@ -67,6 +68,7 @@ export function AccessGuard() {
   return (
     <>
       <Outlet />
+      <BusinessDocsPanel />
       <DemoPanel />
     </>
   );
