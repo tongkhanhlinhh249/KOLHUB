@@ -24,7 +24,7 @@ import {
 } from '../../services';
 import type { Tone } from '../shared/StatusBadges';
 import { RECRUIT_STAGE_LABEL, recruitStage, recruitStageTone } from '../shared/recruitView';
-import { CAMPAIGNS_PATH, MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
+import { CAMPAIGNS_PATH, INTERESTED_PATH, MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
 
 const DAY = 86_400_000;
 
@@ -424,24 +424,7 @@ export function mergeMarketplaceParams(prev: URLSearchParams, q: MarketplaceQuer
   return next;
 }
 
-// --- Sàn v2: tabs, match, brand ---
-
-export type MarketplaceTab = 'tat-ca' | 'da-luu' | 'da-ung-tuyen';
-export const MARKETPLACE_TABS: { key: MarketplaceTab; label: string }[] = [
-  { key: 'tat-ca', label: 'Tất cả' },
-  { key: 'da-luu', label: 'Đã lưu' },
-  { key: 'da-ung-tuyen', label: 'Đã ứng tuyển' },
-];
-const MARKETPLACE_TAB_KEYS = MARKETPLACE_TABS.map((t) => t.key);
-
-/** ?tab=da-luu | da-ung-tuyen (default "Tất cả", not written to the URL). */
-export function parseMarketplaceTab(p: URLSearchParams): MarketplaceTab {
-  const t = p.get('tab') as MarketplaceTab | null;
-  return t && MARKETPLACE_TAB_KEYS.includes(t) ? t : 'tat-ca';
-}
-
-/** Value of ?tab= for `withParam` (null = default tab). */
-export const marketplaceTabParam = (t: MarketplaceTab): string | null => (t === 'tat-ca' ? null : t);
+// --- Sàn v2: match, brand ---
 
 /** "Khớp 86%". */
 export const matchLabel = (score: number) => `Khớp ${Math.round(score)}%`;
@@ -512,17 +495,29 @@ export function bookingDetailPath(id: string, tab?: BookingTab): string {
 /** Full-page campaign detail on the Sàn: /san/<id> (public, shareable). */
 export const marketplaceCampaignPath = (id: string) => `${MARKETPLACE_PATH}/${encodeURIComponent(id)}`;
 
-/** Router state carried from the Sàn list to a campaign page so "← Sàn chiến dịch" returns to the same filters. */
+/** Router state carried from a campaign list to a campaign page so the back link returns to the same filters. */
 export interface MarketplaceBackState {
   from: string;
 }
 
-/** The list URL to go back to: `state.from` when it is the Sàn list (/san or /san?…), else /san. */
+/** Lists a campaign page may go back to: the Sàn list and "Chiến dịch quan tâm". */
+const BACK_LISTS: { path: string; label: string }[] = [
+  { path: MARKETPLACE_PATH, label: 'Sàn chiến dịch' },
+  { path: INTERESTED_PATH, label: 'Chiến dịch quan tâm' },
+];
+
+/** The list URL to go back to: `state.from` when it is the Sàn list or "Chiến dịch quan tâm" (with its query), else /san. */
 export function marketplaceBackPath(state: unknown): string {
   const from = (state as Partial<MarketplaceBackState> | null)?.from;
   if (typeof from !== 'string') return MARKETPLACE_PATH;
   const path = from.split(/[?#]/)[0].replace(/\/+$/, '');
-  return path === MARKETPLACE_PATH ? from : MARKETPLACE_PATH;
+  return BACK_LISTS.some((b) => b.path === path) ? from : MARKETPLACE_PATH;
+}
+
+/** Label of the back link for a path returned by marketplaceBackPath. */
+export function marketplaceBackLabel(to: string): string {
+  const path = to.split(/[?#]/)[0].replace(/\/+$/, '');
+  return BACK_LISTS.find((b) => b.path === path)?.label ?? 'Sàn chiến dịch';
 }
 
 /**

@@ -5,7 +5,7 @@ import { Button, buttonVariants } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import { bookingService, campaignService } from '../../services';
-import { MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
+import { INTERESTED_PATH, MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
 import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { phaseBadge } from '../shared/recruitView';
@@ -158,7 +158,7 @@ export function CampaignWorkspace({ accountId }: { accountId: string }) {
   );
 }
 
-/** "Chiến dịch đã lưu" strip on "Tổng quan hồ sơ": a few saved Sàn campaigns + link to the Sàn's "Đã lưu" tab. */
+/** "Chiến dịch đã lưu" strip on "Tổng quan hồ sơ": a few saved Sàn campaigns + link to "Chiến dịch quan tâm". */
 export function SavedCampaignsStrip({ accountId }: { accountId: string }) {
   const q = useLiveQuery(() => campaignService.listSaved(), [accountId]);
   const list = q.data ?? [];
@@ -171,7 +171,7 @@ export function SavedCampaignsStrip({ accountId }: { accountId: string }) {
       title="Chiến dịch đã lưu"
       action={
         list.length > 0 ? (
-          <Link to={`${MARKETPLACE_PATH}?tab=da-luu`} className={moreLink}>
+          <Link to={INTERESTED_PATH} className={moreLink}>
             Xem tất cả
             <ChevronRight className="size-4" aria-hidden />
           </Link>

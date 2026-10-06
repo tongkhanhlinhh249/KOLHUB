@@ -11,13 +11,13 @@ import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { CampaignDetailHeader, CampaignDetailSections, CampaignScheduleCard, useCampaignActions } from './CampaignDetailBody';
 import { errText } from './parts';
-import { marketplaceBackPath, marketplaceViewerOf } from './supplierBooking';
+import { marketplaceBackLabel, marketplaceBackPath, marketplaceViewerOf } from './supplierBooking';
 import { useSupplierAccess } from './useSupplierAccess';
 
 /** Hidden on wide screens, where the right rail shows the same block. */
 const NARROW_ONLY = '@4xl/page:hidden';
 
-/** "← Sàn chiến dịch": back to the list the user came from (its filters / tab kept), else /san. */
+/** "← Sàn chiến dịch" / "← Chiến dịch quan tâm": back to the list the user came from (its filters kept), else /san. */
 function BackLink({ to }: { to: string }) {
   return (
     <Link
@@ -25,7 +25,7 @@ function BackLink({ to }: { to: string }) {
       className="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
     >
       <ArrowLeft className="size-4" aria-hidden />
-      Sàn chiến dịch
+      {marketplaceBackLabel(to)}
     </Link>
   );
 }

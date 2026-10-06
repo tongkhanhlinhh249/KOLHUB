@@ -199,9 +199,11 @@ export function CampaignDetailSections({
         )}
       </SheetSection>
 
-      <SheetSection title="Hỏi đáp">
-        <CampaignQASection campaignId={c.id} viewer={viewer} mine={c.mine} canAsk />
-      </SheetSection>
+      <div id="hoi-dap" className="scroll-mt-20">
+        <SheetSection title="Hỏi đáp">
+          <CampaignQASection campaignId={c.id} viewer={viewer} mine={c.mine} canAsk />
+        </SheetSection>
+      </div>
 
       {c.brandInfo && (
         <SheetSection title="Nhãn hàng">

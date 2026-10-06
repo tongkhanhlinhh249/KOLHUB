@@ -1,19 +1,16 @@
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { Navigate, useLocation, useSearchParams } from 'react-router';
-import { AlertCircle, Bookmark, RotateCcw, SearchX, Send, Store } from 'lucide-react';
+import { AlertCircle, RotateCcw, SearchX, Store } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { cn } from '../../components/ui/utils';
 import {
   campaignService,
   KOL_CATEGORIES,
   MARKETPLACE_SORTS,
   PLATFORMS,
-  type AppliedCampaign,
-  type MarketplaceCampaign,
-  type MarketplaceFilters,
+  type KolCategory,
 } from '../../services';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
@@ -22,26 +19,23 @@ import { SortSelect } from '../filters/SortSelect';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { fieldIcon } from '../shared/fieldIcons';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { AppliedCampaignCard, MarketplaceCampaignCard, MarketplaceCampaignCardSkeleton } from './MarketplaceCampaignCard';
+import { MarketplaceCampaignCard, MarketplaceCampaignCardSkeleton } from './MarketplaceCampaignCard';
+import { SanBanners, SanCategoryRow } from './SanPromoRow';
+import { legacySanTabRedirect } from '../creator/interest';
 import {
   BUDGET_RANGES,
   hasMarketplaceFilters,
   legacyMarketplaceRedirect,
   marketplaceCampaignPath,
-  MARKETPLACE_TABS,
   marketplaceFilterCount,
-  marketplaceTabParam,
   marketplaceViewerOf,
   mergeMarketplaceParams,
   parseMarketplaceParams,
-  parseMarketplaceTab,
   platformName,
   toMarketplaceFilters,
   TYPE_FILTERS,
-  withParam,
   type MarketplaceBackState,
   type MarketplaceQuery,
-  type MarketplaceTab,
   type MarketplaceViewer,
 } from './supplierBooking';
 import { useAuth } from '../../auth/AuthContext';
@@ -89,41 +83,9 @@ const CATEGORY_OPTIONS = KOL_CATEGORIES.map((c) => {
 });
 const PLATFORM_OPTIONS = PLATFORMS.map((p) => ({ key: p.key, label: p.label, icon: <PlatformIcon platform={p.key} /> }));
 
-type TabData = { tab: 'tat-ca' | 'da-luu'; list: MarketplaceCampaign[] } | { tab: 'da-ung-tuyen'; list: AppliedCampaign[] };
-
-async function loadTab(tab: MarketplaceTab, filters: MarketplaceFilters): Promise<TabData> {
-  if (tab === 'da-ung-tuyen') return { tab, list: await campaignService.listApplied(filters) };
-  if (tab === 'da-luu') return { tab, list: await campaignService.listSaved(filters) };
-  return { tab, list: await campaignService.listMarketplace(filters) };
-}
-
-const COUNT_TEXT: Record<MarketplaceTab, (n: number) => string> = {
-  'tat-ca': (n) => `${n} chiến dịch trên Sàn`,
-  'da-luu': (n) => `${n} chiến dịch đã lưu`,
-  'da-ung-tuyen': (n) => `${n} đề xuất đã gửi`,
-};
-
-const EMPTY: Record<MarketplaceTab, { icon: typeof Store; title: string; text: string }> = {
-  'tat-ca': {
-    icon: Store,
-    title: 'Chưa có chiến dịch nào đang nhận đề xuất',
-    text: 'Khi Nhãn hàng đăng chiến dịch lên Sàn, chiến dịch sẽ xuất hiện ở đây.',
-  },
-  'da-luu': {
-    icon: Bookmark,
-    title: 'Chưa lưu chiến dịch nào',
-    text: 'Bấm biểu tượng lưu trên thẻ chiến dịch để xem lại và ứng tuyển sau. Chiến dịch hết hạn nhận đề xuất sẽ tự rời khỏi danh sách.',
-  },
-  'da-ung-tuyen': {
-    icon: Send,
-    title: 'Bạn chưa ứng tuyển chiến dịch nào',
-    text: 'Đề xuất bạn gửi cho Nhãn hàng sẽ hiện ở đây kèm trạng thái phản hồi.',
-  },
-};
-
 const INTRO: Record<MarketplaceViewer, string> = {
   guest: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN. Xem brief, ngân sách và hạng mục; đăng nhập để ứng tuyển.',
-  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, xếp theo mức phù hợp với bạn. Lưu lại hoặc gửi đề xuất ứng tuyển.',
+  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, xếp theo mức phù hợp với bạn. Chiến dịch đã lưu và đã ứng tuyển nằm ở mục Chiến dịch quan tâm.',
   brand: 'Xem các chiến dịch đang nhận đề xuất trên Sàn. Chiến dịch của bạn được đánh dấu "Của bạn".',
 };
 
@@ -135,14 +97,18 @@ const PUBLIC_SORTS = MARKETPLACE_SORTS.filter((s) => s.key !== 'match');
 
 /**
  * /san — the public Sàn chiến dịch (inside MarketplaceLayout; the keyword box lives in its header).
- * KOL/MCN: tabs `?tab=` (Tất cả · Đã lưu · Đã ứng tuyển), default sort "Phù hợp nhất", save, apply (approved only).
- * Guest / Brand: "Tất cả" only, read-only, default sort "Mới nhất". Cards link to the campaign page /san/<id>
- * (MarketplaceCampaignPage); old links /san?chien-dich=<id> redirect there.
+ * Promo banners + category icon row on top, then one list. KOL/MCN: default sort "Phù hợp nhất", save, apply
+ * (approved only). Guest / Brand: read-only, default sort "Mới nhất". Cards link to the campaign page /san/<id>
+ * (MarketplaceCampaignPage); old links /san?chien-dich=<id> redirect there. The old tabs (?tab=da-luu | da-ung-tuyen)
+ * moved to "Chiến dịch quan tâm" (/chien-dich-da-luu) and redirect there (brands: the tab is ignored).
  */
 export function MarketplacePage() {
   const { search } = useLocation();
+  const { role } = useAuth();
   const legacy = legacyMarketplaceRedirect(search);
   if (legacy) return <Navigate to={legacy.to} state={{ from: legacy.from } satisfies MarketplaceBackState} replace />;
+  const oldTab = marketplaceViewerOf(role) === 'brand' ? null : legacySanTabRedirect(search);
+  if (oldTab) return <Navigate to={oldTab} replace />;
   return <MarketplaceList />;
 }
 
@@ -161,16 +127,11 @@ function MarketplaceList() {
     () => (!supplier && parsed.sort === 'match' ? { ...parsed, sort: 'newest' } : parsed),
     [parsed, supplier],
   );
-  const tab: MarketplaceTab = supplier ? parseMarketplaceTab(params) : 'tat-ca';
   const filtersKey = JSON.stringify(toMarketplaceFilters(query));
   // `role` in the deps: reload when the demo switches account while staying on the Sàn.
-  const q = useLiveQuery(() => loadTab(tab, JSON.parse(filtersKey)), [tab, filtersKey, role]);
-  // Unfiltered counts for the tab badges (KOL/MCN only).
-  const counts = useLiveQuery(
-    async () =>
-      supplier ? { saved: (await campaignService.listSaved()).length, applied: (await campaignService.listApplied()).length } : null,
-    [supplier, role],
-  );
+  const q = useLiveQuery(() => campaignService.listMarketplace(JSON.parse(filtersKey)), [filtersKey, role]);
+  // Unfiltered count for the guide banner.
+  const total = useLiveQuery(async () => (await campaignService.listMarketplace()).length, [role]);
 
   const write = useCallback(
     (next: MarketplaceQuery) => setParams((prev) => mergeMarketplaceParams(prev, next), { replace: true }),
@@ -178,7 +139,6 @@ function MarketplaceList() {
   );
   const change = (patch: Partial<MarketplaceQuery>) => write({ ...query, ...patch });
   const clear = () => write({ sort: query.sort });
-  const setTab = (t: string) => setParams((prev) => withParam(prev, 'tab', marketplaceTabParam(t as MarketplaceTab)), { replace: true });
 
   const chips: FilterChip[] = [];
   if (query.keyword) chips.push({ key: 'keyword', label: `“${query.keyword}”`, remove: () => change({ keyword: undefined }) });
@@ -192,8 +152,7 @@ function MarketplaceList() {
       remove: () => change({ budget: undefined }),
     });
 
-  // Data of another tab (kept while the new tab loads) is not shown.
-  const data = q.data && q.data.tab === tab ? q.data : undefined;
+  const data = q.data ? { list: q.data } : undefined;
   const now = Date.now();
   let body: ReactNode;
   if (!data && !q.error) {
@@ -219,41 +178,26 @@ function MarketplaceList() {
     );
   } else if (data && data.list.length === 0) {
     const filtered = hasMarketplaceFilters(query);
-    const empty = EMPTY[tab];
-    const Icon = filtered ? SearchX : empty.icon;
+    const Icon = filtered ? SearchX : Store;
     body = (
       <div className="flex flex-col items-center gap-3 rounded-[8px] border border-dashed border-border px-4 py-12 text-center">
         <div className={cn('flex size-12 items-center justify-center rounded-full', filtered ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary')}>
           <Icon className="size-6" aria-hidden />
         </div>
-        <p className="font-semibold text-foreground">{filtered ? 'Không có chiến dịch phù hợp' : empty.title}</p>
-        <p className="max-w-md text-sm text-muted-foreground">{filtered ? 'Thử đổi từ khoá hoặc bỏ bớt bộ lọc.' : empty.text}</p>
-        {filtered ? (
+        <p className="font-semibold text-foreground">{filtered ? 'Không có chiến dịch phù hợp' : 'Chưa có chiến dịch nào đang nhận đề xuất'}</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          {filtered ? 'Thử đổi từ khoá hoặc bỏ bớt bộ lọc.' : 'Khi Nhãn hàng đăng chiến dịch lên Sàn, chiến dịch sẽ xuất hiện ở đây.'}
+        </p>
+        {filtered && (
           <Button type="button" variant="outline" className="h-11" onClick={clear}>
             Xoá bộ lọc
           </Button>
-        ) : (
-          tab !== 'tat-ca' && (
-            <Button type="button" variant="outline" className="h-11" onClick={() => setTab('tat-ca')}>
-              Xem chiến dịch phù hợp
-            </Button>
-          )
         )}
       </div>
     );
-  } else if (data?.tab === 'da-ung-tuyen') {
-    body = (
-      <ul className={GRID} aria-label="Đề xuất đã gửi">
-        {data.list.map((a) => (
-          <li key={a.booking.id} className="min-w-0 [&>*]:h-full">
-            <AppliedCampaignCard item={a} now={now} />
-          </li>
-        ))}
-      </ul>
-    );
   } else if (data) {
     body = (
-      <ul className={GRID} aria-label={tab === 'da-luu' ? 'Chiến dịch đã lưu' : 'Chiến dịch đang nhận đề xuất'}>
+      <ul className={GRID} aria-label="Chiến dịch đang nhận đề xuất">
         {data.list.map((c) => (
           <li key={c.id} className="min-w-0 [&>*]:h-full">
             <MarketplaceCampaignCard campaign={c} now={now} to={marketplaceCampaignPath(c.id)} linkState={backState} viewer={viewer} />
@@ -262,8 +206,6 @@ function MarketplaceList() {
       </ul>
     );
   }
-
-  const tabCount = (t: MarketplaceTab) => (t === 'da-luu' ? counts.data?.saved : t === 'da-ung-tuyen' ? counts.data?.applied : undefined);
 
   return (
     <div className="@container w-full space-y-4">
@@ -274,23 +216,8 @@ function MarketplaceList() {
 
       {supplier && !access.loading && !access.approved && <SupplierGate ownerType={access.ownerType} status={access.status} />}
 
-      {supplier && (
-        <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="h-auto" aria-label="Danh sách chiến dịch">
-              {MARKETPLACE_TABS.map((t) => {
-                const n = tabCount(t.key);
-                return (
-                  <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
-                    {t.label}
-                    {n !== undefined && <span className="rounded-full bg-background/70 px-1.5 text-xs text-muted-foreground tabular-nums">{n}</span>}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-        </div>
-      )}
+      <SanBanners viewer={viewer} ownerType={access.ownerType} openCount={total.data} />
+      <SanCategoryRow viewer={viewer} ownerType={access.ownerType} active={query.category} onPick={(category: KolCategory | undefined) => change({ category })} />
 
       <FilterBar
         keyword={query.keyword}
@@ -353,8 +280,8 @@ function MarketplaceList() {
 
       {data && data.list.length > 0 && (
         <p className="text-sm font-medium text-foreground" aria-live="polite">
-          {COUNT_TEXT[tab](data.list.length)}
-          {tab !== 'da-ung-tuyen' && query.sort === 'match' && <span className="font-normal text-muted-foreground"> · xếp theo mức phù hợp với bạn</span>}
+          {data.list.length} chiến dịch trên Sàn
+          {query.sort === 'match' && <span className="font-normal text-muted-foreground"> · xếp theo mức phù hợp với bạn</span>}
         </p>
       )}
 

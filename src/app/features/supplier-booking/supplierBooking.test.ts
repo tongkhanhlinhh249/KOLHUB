@@ -15,19 +15,17 @@ import {
   formatVndShort,
   cardCategories,
   cardMatchLine,
-  MARKETPLACE_TABS,
   marketplaceCampaignPath,
+  marketplaceBackLabel,
   marketplaceBackPath,
   legacyMarketplaceRedirect,
   loginToApplyPath,
   brandCampaignPath,
   marketplaceViewerOf,
-  marketplaceTabParam,
   matchLabel,
   matchTone,
   memberSinceText,
   mergeMarketplaceParams,
-  parseMarketplaceTab,
   needsSupplier,
   nextStepText,
   parseBookingTab,
@@ -232,14 +230,8 @@ describe('tham số URL', () => {
     expect(next.toString()).toBe('x=c1&tab=da-luu&nen-tang=youtube');
     expect(mergeMarketplaceParams(new URLSearchParams(), { sort: 'newest' }).toString()).toBe('sap-xep=newest');
   });
-  test('Sàn: tab ?tab= (mặc định Tất cả), nhãn mức phù hợp', () => {
-    expect(parseMarketplaceTab(new URLSearchParams('tab=da-luu'))).toBe('da-luu');
-    expect(parseMarketplaceTab(new URLSearchParams('tab=da-ung-tuyen'))).toBe('da-ung-tuyen');
-    expect(parseMarketplaceTab(new URLSearchParams('tab=x'))).toBe('tat-ca');
-    expect(parseMarketplaceTab(new URLSearchParams())).toBe('tat-ca');
-    expect(MARKETPLACE_TABS.map((t) => t.label)).toEqual(['Tất cả', 'Đã lưu', 'Đã ứng tuyển']);
-    expect(withParam(new URLSearchParams('q=a'), 'tab', marketplaceTabParam('tat-ca')).toString()).toBe('q=a');
-    expect(withParam(new URLSearchParams('q=a'), 'tab', marketplaceTabParam('da-luu')).toString()).toBe('q=a&tab=da-luu');
+  test('Sàn: nhãn mức phù hợp', () => {
+    expect(withParam(new URLSearchParams('q=a&tab=x'), 'tab', null).toString()).toBe('q=a');
     expect(matchLabel(86)).toBe('Khớp 86%');
     expect([matchTone(86), matchTone(70), matchTone(55), matchTone(40), matchTone(12)]).toEqual(['success', 'success', 'info', 'info', 'neutral']);
   });
@@ -268,9 +260,13 @@ describe('tham số URL', () => {
   test('Sàn: trang chi tiết /san/<id>, quay lại danh sách giữ bộ lọc', () => {
     expect(marketplaceCampaignPath('cmp-1')).toBe('/san/cmp-1');
     expect(marketplaceCampaignPath('c 1/x')).toBe('/san/c%201%2Fx');
-    expect(marketplaceBackPath({ from: '/san?tab=da-luu&q=tra' })).toBe('/san?tab=da-luu&q=tra');
+    expect(marketplaceBackPath({ from: '/san?linh-vuc=Du%20l%E1%BB%8Bch&q=tra' })).toBe('/san?linh-vuc=Du%20l%E1%BB%8Bch&q=tra');
     expect(marketplaceBackPath({ from: '/san' })).toBe('/san');
-    // Only the Sàn list itself; anything else (another page, a campaign page, junk) → /san.
+    // "Chiến dịch quan tâm" is a list too (its tab / filter kept).
+    expect(marketplaceBackPath({ from: '/chien-dich-da-luu?trang-thai=da-dong' })).toBe('/chien-dich-da-luu?trang-thai=da-dong');
+    expect(marketplaceBackLabel('/chien-dich-da-luu?trang-thai=da-dong')).toBe('Chiến dịch quan tâm');
+    expect(marketplaceBackLabel('/san?q=a')).toBe('Sàn chiến dịch');
+    // Only those lists; anything else (another page, a campaign page, junk) → /san.
     for (const s of [null, undefined, {}, { from: 1 }, { from: '/chien-dich-cua-toi' }, { from: '/san/cmp-1' }, { from: 'https://x.io/san' }, { from: '/sanxyz' }])
       expect(marketplaceBackPath(s)).toBe('/san');
   });
