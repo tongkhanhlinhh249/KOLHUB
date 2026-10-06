@@ -22,7 +22,13 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
     links: [
       { label: 'Tìm kiếm KOL', path: '/tim-kiem-kol', account: 'biz-verified', hint: 'Lọc, xem hồ sơ, mời vào chiến dịch' },
       { label: 'Chiến dịch đang chạy', path: '/chien-dich/cmp-seed-sua-hat?tab=noi-dung', account: 'biz-verified', hint: 'Duyệt nội dung có KOL Safety' },
-      { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Brief, đăng lên Sàn' },
+      { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Booking riêng hoặc Tuyển nhiều KOL' },
+      {
+        label: 'Chọn ứng viên (Tuyển nhiều KOL)',
+        path: '/chien-dich/cmp-seed-tuyen-chon?tab=ung-tuyen',
+        account: 'biz-verified',
+        hint: 'Giai đoạn Chọn lọc: chọn hàng loạt trong giới hạn suất',
+      },
       { label: 'Sàn chiến dịch (góc nhìn Nhãn hàng)', path: '/san', account: 'biz-verified', hint: 'Chỉ xem; chiến dịch của bạn có nhãn "Của bạn"' },
       { label: 'Tài khoản & gói dịch vụ', path: '/tai-khoan-doanh-nghiep', account: 'biz-verified' },
     ],
@@ -41,6 +47,12 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
     links: [
       { label: 'Tổng quan hồ sơ (đã xác thực)', path: '/ho-so-kol/tong-quan', account: 'kol-verified' },
       { label: 'Lời mời hợp tác', path: '/chien-dich-cua-toi', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },
+      {
+        label: 'Đã được chọn (Tuyển nhiều KOL)',
+        path: '/chien-dich-cua-toi?booking=bk-seed-rc-khanhvy',
+        account: 'kol-verified',
+        hint: 'Xác nhận đã nhận sản phẩm, đăng bài trực tiếp',
+      },
       { label: 'Hồ sơ mới → gửi xét duyệt', path: '/ho-so-kol/tong-quan', account: 'kol-new', hint: 'Dùng "Điền nhanh hồ sơ mẫu"' },
     ],
   },

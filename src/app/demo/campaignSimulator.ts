@@ -13,11 +13,11 @@ export function demoAccountKeyOf(email: string | undefined): SignedInKey | null 
   return (d?.key as SignedInKey | undefined) ?? null;
 }
 
-/** "Mở chiến dịch" as the brand: the campaign's Booking tab. Null when the brand is not a demo account. */
-export function brandCampaignLink(campaignId: string, brandEmail: string | undefined): DemoLink | null {
+/** "Mở chiến dịch" as the brand: the campaign's Booking (or Ứng viên) tab. Null when the brand is not a demo account. */
+export function brandCampaignLink(campaignId: string, brandEmail: string | undefined, tab: 'booking' | 'ung-tuyen' = 'booking'): DemoLink | null {
   const account = demoAccountKeyOf(brandEmail);
   if (!account) return null;
-  return { label: 'Góc nhìn Nhãn hàng', path: `${CAMPAIGNS_PATH}/${encodeURIComponent(campaignId)}?tab=booking`, account };
+  return { label: 'Góc nhìn Nhãn hàng', path: `${CAMPAIGNS_PATH}/${encodeURIComponent(campaignId)}?tab=${tab}`, account };
 }
 
 /** "Mở" a booking as its KOL/MCN: the booking sheet on /chien-dich-cua-toi. Null when not a demo account. */

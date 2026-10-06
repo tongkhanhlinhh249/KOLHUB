@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
+import { ArrowRight, ChevronRight, FastForward, Loader2, RotateCcw, UserCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -15,7 +15,8 @@ import {
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
-import { CAMPAIGN_STATUS_LABEL, demoCampaignService, type DemoBookingRow, type DemoStep } from '../services';
+import { Switch } from '../components/ui/switch';
+import { CAMPAIGN_STATUS_LABEL, demoCampaignService, RECRUIT_PHASE_LABEL, type DemoBookingRow, type DemoCampaignOption, type DemoStep } from '../services';
 import { BookingStatusBadge, SupplierTypeBadge } from '../features/campaigns/CampaignParts';
 import { formatPrice } from '../features/campaigns/campaignView';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
@@ -64,7 +65,13 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
     }
   };
 
-  const brandLink = campaign ? brandCampaignLink(campaign.id, campaign.brandEmail) : null;
+  const brandLink = campaign
+    ? brandCampaignLink(
+        campaign.id,
+        campaign.brandEmail,
+        campaign.type === 'OPEN_RECRUITMENT' && (campaign.phase === 'APPLY' || campaign.phase === 'SELECT') ? 'ung-tuyen' : 'booking',
+      )
+    : null;
 
   return (
     <DemoPanelSection
@@ -82,6 +89,7 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
             {list.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 <span className="truncate">
+                  {c.type === 'OPEN_RECRUITMENT' ? '[Tuyển nhiều KOL] ' : ''}
                   {c.name} · {c.bookingCount} booking
                 </span>
               </SelectItem>
@@ -104,6 +112,8 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
         </div>
       )}
 
+      {campaign && <CampaignControls campaign={campaign} locked={locked} />}
+
       <div className="space-y-2">
         {bookings.loading && !bookings.data ? (
           <>
@@ -112,7 +122,9 @@ export function CampaignSimulatorBlock({ onDone }: { onDone(): void }) {
           </>
         ) : !bookings.data?.length ? (
           <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-            Chiến dịch này chưa có booking. Mời KOL từ trang chiến dịch hoặc chọn chiến dịch khác.
+            {campaign?.type === 'OPEN_RECRUITMENT'
+              ? 'Chưa có ứng viên. Bấm “Thêm 3 ứng viên mẫu” trong giai đoạn Ứng tuyển.'
+              : 'Chiến dịch này chưa có booking. Mời KOL từ trang chiến dịch hoặc chọn chiến dịch khác.'}
           </p>
         ) : (
           bookings.data.map((row) => (
@@ -181,7 +193,9 @@ function BookingRow({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {steps.next ? (
+        {steps.waiting ? (
+          steps.waiting
+        ) : steps.next ? (
           <>
             Đến lượt: <span className="font-medium text-foreground">{actorName(steps.next, supplierName)}</span>
           </>
@@ -225,6 +239,96 @@ function BookingRow({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Campaign-level controls: "Tuyển nhiều KOL" phase / slots with sample applicants, pick-to-fill and "next phase";
+ * the "Duyệt nháp" (Workflow) switch for any campaign.
+ */
+function CampaignControls({ campaign: c, locked }: { campaign: DemoCampaignOption; locked: boolean }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const recruit = c.type === 'OPEN_RECRUITMENT';
+  const act = async (key: string, fn: () => Promise<string>) => {
+    setBusy(key);
+    try {
+      toast.success(await fn());
+    } catch (e) {
+      toast.error(errText(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const disabled = locked || busy !== null;
+  const free = (c.slots ?? 0) - (c.selected ?? 0);
+  return (
+    <div className="space-y-2 rounded-lg bg-muted/60 p-3">
+      {recruit && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Giai đoạn: <span className="font-medium text-foreground">{c.phase ? RECRUIT_PHASE_LABEL[c.phase] : '—'}</span> · Đã chọn{' '}
+            <span className="font-medium text-foreground tabular-nums">
+              {c.selected ?? 0}/{c.slots ?? 0}
+            </span>{' '}
+            · {c.waiting ?? 0} chờ chọn
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {c.phase === 'APPLY' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9"
+                disabled={disabled}
+                onClick={() => void act('apply', async () => `Đã thêm ${await demoCampaignService.simulateApplicants(c.id, 3)} ứng viên mẫu`)}
+              >
+                {busy === 'apply' ? <Loader2 className="animate-spin" aria-hidden /> : <UserPlus aria-hidden />}
+                Thêm 3 ứng viên mẫu
+              </Button>
+            )}
+            {c.phase === 'SELECT' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9"
+                disabled={disabled || !c.waiting || free <= 0}
+                onClick={() => void act('pick', async () => `Nhãn hàng đã chọn ${await demoCampaignService.pickWinners(c.id)} ứng viên`)}
+              >
+                {busy === 'pick' ? <Loader2 className="animate-spin" aria-hidden /> : <UserCheck aria-hidden />}
+                Nhãn hàng chọn đủ suất
+              </Button>
+            )}
+            {c.phase !== 'ENDED' && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9"
+                disabled={disabled}
+                onClick={() => void act('next', async () => `Đã chuyển sang giai đoạn ${RECRUIT_PHASE_LABEL[await demoCampaignService.advancePhase(c.id)]}`)}
+              >
+                {busy === 'next' ? <Loader2 className="animate-spin" aria-hidden /> : <FastForward aria-hidden />}
+                Sang giai đoạn tiếp
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+      <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span>
+          Workflow: <span className="font-medium text-foreground">{c.draftReview ? 'Duyệt nháp' : 'Đăng trực tiếp'}</span>
+        </span>
+        <Switch
+          checked={c.draftReview}
+          disabled={disabled}
+          aria-label="Bật/tắt Duyệt nháp"
+          onCheckedChange={() =>
+            void act('workflow', async () => ((await demoCampaignService.toggleDraftReview(c.id)) ? 'Đã bật Duyệt nháp' : 'Đã tắt Duyệt nháp: KOL đăng trực tiếp'))
+          }
+        />
+      </label>
     </div>
   );
 }
