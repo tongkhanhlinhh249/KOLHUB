@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { RELEASE_PLAIN, STORY_STEPS } from './storySteps';
 import { ALL_STORIES, EPICS, RELEASES, STORY_ROLES, storiesFor } from './userStories';
 
 test('các đợt đi đúng thứ tự R0 → R6, mỗi đợt có ít nhất một US', () => {
@@ -44,6 +45,34 @@ test('mọi tham chiếu "Rx-y" trong tài liệu trỏ tới US có thật', ()
 
 test('mỗi Epic có ít nhất một US', () => {
   for (const e of EPICS) expect(ALL_STORIES.some((s) => s.epic === e.key)).toBe(true);
+});
+
+test('chế độ Dễ hiểu: mọi US có tóm tắt và checklist theo từng màn hình, không thừa mã', () => {
+  const ids = ALL_STORIES.map((s) => s.id);
+  expect(Object.keys(STORY_STEPS).sort()).toEqual([...ids].sort());
+  for (const id of ids) {
+    const p = STORY_STEPS[id];
+    expect(p.title).not.toBe('');
+    expect(p.summary).not.toBe('');
+    expect(p.steps.length).toBeGreaterThan(0);
+    for (const st of p.steps) expect(st.checks.length).toBeGreaterThan(0);
+  }
+});
+
+test('chế độ Dễ hiểu không dùng mã lỗi, mã trạng thái hay thuật ngữ kỹ thuật', () => {
+  const JARGON = /\b(4[0-9]{3}|APPLIED|ACCEPTED|SENT|NEGOTIATING|VERIFIED|COMPLETED|DRAFT|OPEN|RUNNING|MARKETPLACE|NCC|API|Service)\b|\?[a-z-]+=|<id>/;
+  const texts = [
+    ...Object.values(STORY_STEPS).flatMap((p) => [p.title, p.summary, ...p.steps.flatMap((st) => [st.screen, ...st.checks])]),
+    ...Object.values(RELEASE_PLAIN).flatMap((r) => [r.name, r.goal]),
+  ];
+  for (const t of texts) expect(t, t).not.toMatch(JARGON);
+});
+
+test('lọc theo Epic, và kết hợp vai trò + Epic', () => {
+  const r6 = RELEASES[6];
+  expect(storiesFor(r6, null, 'E8').map((s) => s.id)).toEqual(['R6-1', 'R6-2', 'R6-3', 'R6-4', 'R6-5']);
+  expect(storiesFor(RELEASES[0], null, 'E8')).toEqual([]);
+  expect(storiesFor(RELEASES[0], 'Nhãn hàng', 'E1').map((s) => s.id)).toEqual(['R0-1', 'R0-9', 'R0-10']);
 });
 
 test('lọc theo vai trò', () => {

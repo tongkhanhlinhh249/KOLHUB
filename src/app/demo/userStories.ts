@@ -1269,7 +1269,8 @@ export function epicName(key: EpicKey): string {
   return EPICS.find((e) => e.key === key)?.name ?? key;
 }
 
-/** Stories of a release involving `role` (all when null). */
-export function storiesFor(release: Release, role: StoryRole | null): UserStory[] {
-  return role ? release.stories.filter((s) => s.roles.includes(role)) : release.stories;
+/** Stories of a release involving `role` and belonging to `epic` (no filter when null). */
+export function storiesFor(release: Release, role: StoryRole | null, epic: EpicKey | null = null): UserStory[] {
+  if (!role && !epic) return release.stories;
+  return release.stories.filter((s) => (!role || s.roles.includes(role)) && (!epic || s.epic === epic));
 }
