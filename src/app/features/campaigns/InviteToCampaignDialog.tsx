@@ -48,8 +48,10 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
     setDeliverable('0');
     campaignService
       .listMine({ status: INVITABLE_STATUSES })
-      .then((list) => {
+      .then((all) => {
         if (!alive) return;
+        // "Tuyển nhiều KOL" campaigns take applications on the Sàn only (no private invites).
+        const list = all.filter((c) => c.type !== 'OPEN_RECRUITMENT');
         setCampaigns(list);
         setCampaignId((cur) => (list.some((c) => c.id === cur) ? cur : (list.find((c) => c.status !== 'DRAFT') ?? list[0])?.id ?? ''));
       })

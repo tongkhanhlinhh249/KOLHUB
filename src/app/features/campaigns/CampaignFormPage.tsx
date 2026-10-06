@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, Check, Globe2, ImagePlus, Loader2, Lock, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, Globe2, ImagePlus, Loader2, Lock, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -31,6 +31,8 @@ import { CampaignCover } from '../shared/CampaignCover';
 import { formatFileSize, toStoredFile } from '../shared/files';
 import { fieldIcon } from '../shared/fieldIcons';
 import { CampaignStatusBadge, errText, LoadError } from './CampaignParts';
+import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
+import { ApplyFormSection, ConditionsSection, RecruitSection, TypeSection, WorkflowSection } from './RecruitFormSections';
 import {
   COVER_ACCEPT,
   coverFileError,
@@ -48,91 +50,6 @@ import {
 import { campaignPath, CAMPAIGNS_PATH, formatVndInput } from './campaignView';
 
 const fieldId = (f: FormField) => `cf-${f}`;
-
-function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return (
-    <Card className="gap-4 py-4 md:py-5">
-      <CardHeader className="gap-1 px-4 md:px-6">
-        <CardTitle className="text-base">{title}</CardTitle>
-        {description && <CardDescription>{description}</CardDescription>}
-      </CardHeader>
-      <CardContent className="space-y-4 px-4 md:px-6">{children}</CardContent>
-    </Card>
-  );
-}
-
-/** Label + control + hint/error, wired with aria-describedby. `id` is the control's id. */
-function FormRow({
-  id,
-  label,
-  optional,
-  hint,
-  error,
-  children,
-}: {
-  id: string;
-  label: string;
-  optional?: boolean;
-  hint?: ReactNode;
-  error?: string;
-  children: (describedBy: string | undefined) => ReactNode;
-}) {
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined;
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>
-        {label}
-        {optional && <span className="font-normal text-muted-foreground"> (không bắt buộc)</span>}
-      </Label>
-      {children(describedBy)}
-      {error ? (
-        <p id={`${id}-error`} className="text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      ) : (
-        hint && (
-          <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-            {hint}
-          </p>
-        )
-      )}
-    </div>
-  );
-}
-
-/** Toggle chip for multi-select lists (platforms, categories). 44px tall below md. */
-function ChipToggle({ pressed, onClick, children }: { pressed: boolean; onClick(): void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={cn(
-        'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-9',
-        pressed ? 'border-primary/60 bg-primary/10 font-medium text-primary' : 'border-border bg-card text-foreground hover:bg-muted',
-      )}
-    >
-      {pressed && <Check className="size-3.5 shrink-0" aria-hidden />}
-      {children}
-    </button>
-  );
-}
-
-function ChipGroup({ id, label, describedBy, invalid, children }: { id: string; label: string; describedBy?: string; invalid?: boolean; children: ReactNode }) {
-  return (
-    <div
-      id={id}
-      role="group"
-      aria-label={label}
-      aria-describedby={describedBy}
-      aria-invalid={invalid || undefined}
-      tabIndex={-1}
-      className="flex flex-wrap gap-2 rounded-[8px] focus-visible:outline-none"
-    >
-      {children}
-    </div>
-  );
-}
 
 function DeliverableEditor({
   row,
@@ -447,6 +364,8 @@ export function CampaignFormPage() {
   const status = loaded?.status ?? 'DRAFT';
   const editable = status === 'DRAFT' || status === 'OPEN';
   const isOpen = status === 'OPEN';
+  const recruit = values.type === 'OPEN_RECRUITMENT';
+  const typeLocked = (loaded?.stats.total ?? 0) > 0;
 
   const showError = (e: unknown) => {
     const field = e instanceof KolhubError && e.code === 'KOLHUB-4803' ? e.meta?.field : undefined;
@@ -511,7 +430,9 @@ export function CampaignFormPage() {
         <p className="text-sm text-muted-foreground">
           {isOpen
             ? 'Chiến dịch đang mở: thông tin phải luôn đủ điều kiện đăng.'
-            : 'Chỉ cần tên để lưu nháp. Khi đăng, chiến dịch cần ngân sách, thời gian, nền tảng và ít nhất một hạng mục.'}
+            : recruit
+              ? 'Chỉ cần tên để lưu nháp. Khi đăng, chiến dịch cần số suất, phần thưởng, lịch 4 giai đoạn, nền tảng và ít nhất một hạng mục.'
+              : 'Chỉ cần tên để lưu nháp. Khi đăng, chiến dịch cần ngân sách, thời gian, nền tảng và ít nhất một hạng mục.'}
         </p>
       </div>
 
@@ -520,6 +441,8 @@ export function CampaignFormPage() {
       )}
 
       <fieldset disabled={!editable || busy !== null} className="min-w-0 space-y-4">
+        <TypeSection value={values.type} onChange={(t) => set('type', t)} locked={typeLocked} error={errors.type} />
+
         <Section title="Thông tin chung">
           <FormRow id={fieldId('name')} label="Tên chiến dịch" error={errors.name}>
             {(d) => (
@@ -575,6 +498,9 @@ export function CampaignFormPage() {
           />
         </Section>
 
+        {recruit ? (
+          <RecruitSection values={values} set={set} errors={errors} />
+        ) : (
         <Section title="Ngân sách và thời gian">
           <FormRow id={fieldId('budget')} label="Ngân sách (VND)" error={errors.budget} hint="Tổng ngân sách dự kiến cho chiến dịch.">
             {(d) => (
@@ -631,6 +557,7 @@ export function CampaignFormPage() {
             )}
           </FormRow>
         </Section>
+        )}
 
         <Section title="Nền tảng và lĩnh vực">
           <FormRow id={fieldId('platforms')} label="Nền tảng" error={errors.platforms} hint="Chọn một hoặc nhiều nền tảng.">
@@ -711,6 +638,18 @@ export function CampaignFormPage() {
           </FormRow>
         </Section>
 
+        <ConditionsSection values={values} set={set} errors={errors} />
+        <WorkflowSection value={values.draftReview} onChange={(x) => set('draftReview', x)} />
+        <ApplyFormSection values={values} set={set} errors={errors} />
+
+        {recruit ? (
+          <Section title="Hiển thị">
+            <p className="flex items-start gap-2 text-sm text-foreground">
+              <Globe2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              Chiến dịch Tuyển nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
+            </p>
+          </Section>
+        ) : (
         <Section title="Hiển thị">
           <div role="radiogroup" aria-label="Chế độ hiển thị" id={fieldId('visibility')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <VisibilityOption
@@ -753,6 +692,7 @@ export function CampaignFormPage() {
             </FormRow>
           )}
         </Section>
+        )}
       </fieldset>
 
       {editable && (

@@ -13,6 +13,7 @@ import { brandLockedView } from '../shared/BrandLocked';
 import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { CampaignStatusBadge, EmptyBlock, LoadError, PlatformIcons, TodoMarker, VisibilityLabel } from './CampaignParts';
+import { RecruitTypeBadge } from '../shared/RecruitParts';
 import {
   applyCampaignQuery,
   campaignPath,
@@ -67,6 +68,7 @@ function CampaignRow({ c, pending }: { c: CampaignView; pending: number }) {
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <h3 className="min-w-0 truncate font-semibold text-foreground group-hover:text-primary">{c.name}</h3>
                 <CampaignStatusBadge status={c.status} />
+                {c.type === 'OPEN_RECRUITMENT' && <RecruitTypeBadge />}
                 <VisibilityLabel visibility={c.visibility} />
               </div>
               {c.objective && <p className="line-clamp-1 text-sm text-muted-foreground">{c.objective}</p>}

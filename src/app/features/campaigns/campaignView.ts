@@ -11,6 +11,7 @@ import {
   type BookingStatus,
   type BookingView,
   type CampaignStatus,
+  type CampaignType,
   type CampaignView,
   type CampaignVisibility,
   type ContentSubmission,
@@ -42,6 +43,17 @@ export function formatVnd(n: number): string {
 /** Booking total: "Chờ báo giá" when 0 (invite without price). */
 export function formatPrice(n: number): string {
   return n > 0 ? formatVnd(n) : 'Chờ báo giá';
+}
+
+/** Price of a booking in lists: the fixed reward for "Tuyển nhiều KOL" (cash + product), else the negotiated total. */
+export function bookingPriceText(b: Pick<BookingView, 'price' | 'reward' | 'campaign'>): string {
+  if (b.campaign.type !== 'OPEN_RECRUITMENT') return formatPrice(b.price);
+  const r = b.reward ?? b.campaign.recruitment?.reward;
+  if (!r) return 'Phần thưởng cố định';
+  const parts: string[] = [];
+  if (r.cash > 0) parts.push(formatVnd(r.cash));
+  if (r.product) parts.push(r.product.name);
+  return parts.join(' + ');
 }
 
 /** Text typed in a VND field → integer, or undefined when empty. Non-digits are ignored. */
@@ -232,15 +244,18 @@ export interface CampaignActions {
   invite: boolean;
 }
 
-/** Header actions per status (spec §3): edit DRAFT/OPEN, publish DRAFT, close OPEN/RUNNING, cancel until ended. */
-export function campaignActions(status: CampaignStatus): CampaignActions {
+/**
+ * Header actions per status (spec §3): edit DRAFT/OPEN, publish DRAFT, close OPEN/RUNNING, cancel until ended.
+ * "Tuyển nhiều KOL" has no private invites (KOL/MCN apply on the Sàn).
+ */
+export function campaignActions(status: CampaignStatus, type: CampaignType = 'BOOKING'): CampaignActions {
   const live = status === 'DRAFT' || status === 'OPEN' || status === 'RUNNING';
   return {
     edit: status === 'DRAFT' || status === 'OPEN',
     publish: status === 'DRAFT',
     close: status === 'OPEN' || status === 'RUNNING',
     cancel: live,
-    invite: live,
+    invite: live && type !== 'OPEN_RECRUITMENT',
   };
 }
 
@@ -268,7 +283,7 @@ export const BOOKING_STATUS_TONE: Record<BookingStatus, Tone> = {
 };
 
 /** Actions that mean "the brand has to do something now" (rating and contract are optional). */
-const BRAND_TODO: BookingActionKey[] = ['ACCEPT', 'REVIEW_CONTENT', 'MARK_PAID'];
+const BRAND_TODO: BookingActionKey[] = ['ACCEPT', 'SELECT', 'REVIEW_CONTENT', 'MARK_PAID', 'MARK_PRODUCT_SENT'];
 
 export function needsBrandAction(b: Pick<BookingView, 'allowedActions'>): boolean {
   return b.allowedActions.some((a) => BRAND_TODO.includes(a));
@@ -276,7 +291,9 @@ export function needsBrandAction(b: Pick<BookingView, 'allowedActions'>): boolea
 
 /** Short reason shown next to the "Cần bạn xử lý" marker. */
 export function brandTodoLabel(b: Pick<BookingView, 'allowedActions' | 'origin' | 'status'>): string | null {
+  if (b.allowedActions.includes('SELECT')) return 'Chọn ứng viên';
   if (b.allowedActions.includes('REVIEW_CONTENT')) return 'Duyệt nội dung';
+  if (b.allowedActions.includes('MARK_PRODUCT_SENT')) return 'Gửi sản phẩm';
   if (b.allowedActions.includes('MARK_PAID')) return 'Xác nhận thanh toán';
   if (b.allowedActions.includes('ACCEPT')) return b.status === 'APPLIED' ? 'Xem đề xuất' : 'Trả lời báo giá';
   return null;
@@ -417,13 +434,13 @@ export function actorLabel(by: BookingActor, supplierName: string): string {
 // Detail page URL (/chien-dich/:id?tab=…&booking=…)
 // ---------------------------------------------------------------------------
 
-export type DetailTab = 'tong-quan' | 'booking' | 'ung-tuyen' | 'noi-dung' | 'bao-cao';
-export const DETAIL_TABS: DetailTab[] = ['tong-quan', 'booking', 'ung-tuyen', 'noi-dung', 'bao-cao'];
+export type DetailTab = 'tong-quan' | 'booking' | 'ung-tuyen' | 'noi-dung' | 'bao-cao' | 'hoi-dap';
+export const DETAIL_TABS: DetailTab[] = ['tong-quan', 'booking', 'ung-tuyen', 'noi-dung', 'bao-cao', 'hoi-dap'];
 
-/** Unknown tab → Tổng quan; "Ứng tuyển" only exists for marketplace campaigns. */
+/** Unknown tab → Tổng quan; "Ứng tuyển" and "Hỏi đáp" only exist for marketplace campaigns. */
 export function parseDetailTab(value: string | null, marketplace: boolean): DetailTab {
   const t = DETAIL_TABS.find((x) => x === value) ?? 'tong-quan';
-  return t === 'ung-tuyen' && !marketplace ? 'tong-quan' : t;
+  return (t === 'ung-tuyen' || t === 'hoi-dap') && !marketplace ? 'tong-quan' : t;
 }
 
 /** Returns a copy of `prev` with `key` set (or removed when value is null / the default). */

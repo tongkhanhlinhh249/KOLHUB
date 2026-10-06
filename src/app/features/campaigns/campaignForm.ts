@@ -1,5 +1,18 @@
 // Create / edit campaign form: values ↔ service input, and per-field error text (KOLHUB-4803 `meta.field`).
-import type { Campaign, CampaignInput, CampaignVisibility, DeliverableType, KolCategory, Platform, StoredFile } from '../../services';
+import {
+  DEFAULT_TERMS,
+  shiftIso,
+  type Campaign,
+  type CampaignInput,
+  type CampaignType,
+  type CampaignVisibility,
+  type DeliverableType,
+  type KolCategory,
+  type Platform,
+  type RecruitmentTimeline,
+  type StoredFile,
+  type TargetGender,
+} from '../../services';
 import { formatVndInput, parseVndInput } from './campaignView';
 
 export interface DeliverableRow {
@@ -25,6 +38,66 @@ export interface CampaignFormValues {
   applyDeadline: string;
   /** "Ảnh chiến dịch" (16:9 cover); null = none. */
   cover: StoredFile | null;
+  // --- loại chiến dịch / Tuyển nhiều KOL ---
+  type: CampaignType;
+  /** Raw text of the slots input. */
+  slots: string;
+  /** Formatted VND text, '' = 0. */
+  rewardCash: string;
+  hasProduct: boolean;
+  productName: string;
+  /** Formatted VND text. */
+  productValue: string;
+  productNote: string;
+  timeline: RecruitmentTimeline;
+  // --- workflow, conditions, apply form ---
+  draftReview: boolean;
+  /** Empty = Toàn quốc. */
+  regions: string[];
+  ageMin: string;
+  ageMax: string;
+  gender: TargetGender;
+  /** Formatted number text. */
+  minFollowers: string;
+  survey: SurveyRow[];
+  terms: TermRow[];
+}
+
+export interface SurveyRow {
+  id?: string;
+  text: string;
+  required: boolean;
+}
+
+export interface TermRow {
+  id?: string;
+  text: string;
+}
+
+export const EMPTY_TIMELINE: RecruitmentTimeline = {
+  applyStart: '',
+  applyEnd: '',
+  selectStart: '',
+  selectEnd: '',
+  postStart: '',
+  postEnd: '',
+  reviewStart: '',
+  reviewEnd: '',
+};
+
+/** "Gợi ý lịch": Ứng tuyển 7 ngày từ `startIso`, Chọn lọc 3 ngày, Đăng bài 15 ngày, Đánh giá 6 ngày. */
+export function suggestTimeline(startIso: string): RecruitmentTimeline {
+  const d = (n: number) => shiftIso(startIso, n);
+  return {
+    applyStart: d(0),
+    applyEnd: d(6),
+    selectStart: d(7),
+    selectEnd: d(9),
+    postStart: d(10),
+    postEnd: d(24),
+    reviewStart: d(25),
+    reviewEnd: d(30),
+  };
 }
 
 export const EMPTY_FORM: CampaignFormValues = {
@@ -41,9 +114,28 @@ export const EMPTY_FORM: CampaignFormValues = {
   visibility: 'PRIVATE',
   applyDeadline: '',
   cover: null,
+  type: 'BOOKING',
+  slots: '',
+  rewardCash: '',
+  hasProduct: false,
+  productName: '',
+  productValue: '',
+  productNote: '',
+  timeline: EMPTY_TIMELINE,
+  draftReview: true,
+  regions: [],
+  ageMin: '',
+  ageMax: '',
+  gender: 'ANY',
+  minFollowers: '',
+  survey: [],
+  terms: DEFAULT_TERMS.map((text) => ({ text })),
 };
 
+const numText = (n: number | undefined) => (n !== undefined && n > 0 ? formatVndInput(String(n)) : '');
+
 export function formFromCampaign(c: Campaign): CampaignFormValues {
+  const r = c.recruitment;
   return {
     name: c.name,
     objective: c.objective,
@@ -58,7 +150,30 @@ export function formFromCampaign(c: Campaign): CampaignFormValues {
     visibility: c.visibility,
     applyDeadline: c.applyDeadline ?? '',
     cover: c.cover ?? null,
+    type: c.type === 'OPEN_RECRUITMENT' ? 'OPEN_RECRUITMENT' : 'BOOKING',
+    slots: r && r.slots > 0 ? String(r.slots) : '',
+    rewardCash: numText(r?.reward.cash),
+    hasProduct: !!r?.reward.product,
+    productName: r?.reward.product?.name ?? '',
+    productValue: numText(r?.reward.product?.value),
+    productNote: r?.reward.product?.note ?? '',
+    timeline: r ? { ...r.timeline } : EMPTY_TIMELINE,
+    draftReview: c.draftReview !== false,
+    regions: [...(c.regions ?? [])],
+    ageMin: c.target?.ageMin !== undefined ? String(c.target.ageMin) : '',
+    ageMax: c.target?.ageMax !== undefined ? String(c.target.ageMax) : '',
+    gender: c.target?.gender ?? 'ANY',
+    minFollowers: numText(c.target?.minFollowers),
+    survey: (c.survey ?? []).map((q) => ({ ...q })),
+    terms: (c.terms ?? []).map((t) => ({ ...t })),
   };
+}
+
+/** Whole number from a digits field; '' → undefined; anything else → NaN so the service rejects it. */
+function intOrUndefined(text: string): number | undefined {
+  const t = text.trim();
+  if (!t) return undefined;
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN;
 }
 
 /** Whole-number quantity; anything else becomes 0 so the service rejects it (4803 deliverables). */
@@ -67,9 +182,44 @@ function qty(text: string): number {
   return /^\d+$/.test(t) ? Number(t) : 0;
 }
 
-/** Form → service input. The apply deadline only applies to marketplace campaigns (cleared otherwise). */
+/**
+ * Form → service input. The apply deadline only applies to marketplace campaigns (cleared otherwise).
+ * "Tuyển nhiều KOL" sends its recruitment block (the service derives budget, dates, deadline and visibility);
+ * "Booking riêng" clears it. Blank survey questions / terms are dropped.
+ */
 export function formToInput(v: CampaignFormValues): CampaignInput {
+  const recruit = v.type === 'OPEN_RECRUITMENT';
+  const ageMin = intOrUndefined(v.ageMin);
+  const ageMax = intOrUndefined(v.ageMax);
+  const minFollowers = parseVndInput(v.minFollowers);
+  const target = {
+    ...(ageMin !== undefined ? { ageMin } : {}),
+    ...(ageMax !== undefined ? { ageMax } : {}),
+    ...(v.gender !== 'ANY' ? { gender: v.gender } : {}),
+    ...(minFollowers ? { minFollowers } : {}),
+  };
+  const extra: Partial<CampaignInput> = {
+    type: v.type,
+    recruitment: recruit
+      ? {
+          slots: intOrUndefined(v.slots) ?? 0,
+          reward: {
+            cash: parseVndInput(v.rewardCash) ?? 0,
+            ...(v.hasProduct
+              ? { product: { name: v.productName, value: parseVndInput(v.productValue) ?? 0, ...(v.productNote.trim() ? { note: v.productNote } : {}) } }
+              : {}),
+          },
+          timeline: { ...v.timeline },
+        }
+      : null,
+    draftReview: v.draftReview,
+    regions: v.regions,
+    target: Object.keys(target).length ? target : null,
+    survey: v.survey.filter((q) => q.text.trim()).map((q) => ({ ...(q.id ? { id: q.id } : {}), text: q.text, required: q.required })),
+    terms: v.terms.filter((t) => t.text.trim()).map((t) => ({ ...(t.id ? { id: t.id } : {}), text: t.text })),
+  };
   return {
+    ...extra,
     name: v.name,
     objective: v.objective,
     brief: v.brief,
@@ -80,10 +230,17 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     categories: v.categories,
     deliverables: v.deliverables.map((d) => ({ type: d.type, platform: d.platform, quantity: qty(d.quantity) })),
     contentRules: v.contentRules,
-    visibility: v.visibility,
-    applyDeadline: v.visibility === 'MARKETPLACE' && v.applyDeadline ? v.applyDeadline : null,
+    visibility: recruit ? 'MARKETPLACE' : v.visibility,
+    applyDeadline: !recruit && v.visibility === 'MARKETPLACE' && v.applyDeadline ? v.applyDeadline : null,
     cover: v.cover,
-  };
+  } as CampaignInput;
+}
+
+/** Budget preview of an open-recruitment form: slots × (cash + product value). */
+export function recruitBudget(v: CampaignFormValues): number {
+  const slots = intOrUndefined(v.slots) ?? 0;
+  const per = (parseVndInput(v.rewardCash) ?? 0) + (v.hasProduct ? (parseVndInput(v.productValue) ?? 0) : 0);
+  return Number.isFinite(slots) ? slots * per : 0;
 }
 
 /** New deliverable row: first selected platform, 1 video. */
@@ -96,7 +253,31 @@ export function toggle<T>(list: T[], v: T): T[] {
 }
 
 /** Fields the service may name in KOLHUB-4803 for a campaign. */
-export const FORM_FIELDS = ['name', 'objective', 'brief', 'budget', 'dates', 'platforms', 'categories', 'deliverables', 'contentRules', 'visibility', 'applyDeadline', 'cover'] as const;
+export const FORM_FIELDS = [
+  'name',
+  'objective',
+  'brief',
+  'budget',
+  'dates',
+  'platforms',
+  'categories',
+  'deliverables',
+  'contentRules',
+  'visibility',
+  'applyDeadline',
+  'cover',
+  'type',
+  'recruitment',
+  'slots',
+  'reward',
+  'product',
+  'timeline',
+  'draftReview',
+  'regions',
+  'target',
+  'survey',
+  'terms',
+] as const;
 export type FormField = (typeof FORM_FIELDS)[number];
 
 const HINT: Partial<Record<FormField, string>> = {
@@ -109,6 +290,14 @@ const HINT: Partial<Record<FormField, string>> = {
   objective: 'Tối đa 5.000 ký tự.',
   brief: 'Tối đa 5.000 ký tự.',
   contentRules: 'Tối đa 5.000 ký tự.',
+  type: 'Không đổi được loại chiến dịch khi đã có booking.',
+  slots: 'Số suất từ 1 đến 500 và không ít hơn số KOL đã chọn.',
+  reward: 'Cần tiền mặt lớn hơn 0 hoặc tặng kèm sản phẩm.',
+  product: 'Nhập tên sản phẩm (tối đa 150 ký tự) và giá trị lớn hơn 0.',
+  timeline: 'Cần đủ ngày bắt đầu, kết thúc của 4 giai đoạn, theo đúng thứ tự, không trùng nhau; giai đoạn Ứng tuyển chưa kết thúc.',
+  target: 'Độ tuổi từ 16 đến 80, tuổi tối thiểu không lớn hơn tuổi tối đa.',
+  survey: 'Tối đa 10 câu hỏi, mỗi câu tối đa 300 ký tự.',
+  terms: 'Tối đa 10 điều khoản, mỗi điều khoản tối đa 300 ký tự.',
 };
 
 /** "Ảnh chiến dịch" upload rules (mirror the service: JPG / PNG / WebP ≤ 10 MB). */

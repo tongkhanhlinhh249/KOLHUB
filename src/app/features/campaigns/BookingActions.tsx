@@ -252,20 +252,25 @@ export function useBookingActions() {
       <ConfirmAction
         open={p?.kind === 'paid'}
         onOpenChange={(o) => !o && close()}
-        title="Đánh dấu đã thanh toán?"
+        title={p?.kind === 'paid' && p.booking.price === 0 ? 'Xác nhận hoàn tất?' : 'Đánh dấu đã thanh toán?'}
         description={
           p?.kind === 'paid' ? (
-            <>
-              Ghi nhận bạn đã thanh toán <strong className="text-foreground">{formatPrice(p.booking.price)}</strong> cho{' '}
-              {p.booking.supplier.name}. KOL Hub không giữ tiền: booking hoàn tất khi nhà cung cấp xác nhận đã nhận.
-            </>
+            p.booking.price === 0 ? (
+              <>Phần thưởng chỉ gồm sản phẩm nên không có khoản thanh toán. Booking với {p.booking.supplier.name} chuyển sang Hoàn tất.</>
+            ) : (
+              <>
+                Ghi nhận bạn đã thanh toán <strong className="text-foreground">{formatPrice(p.booking.price)}</strong> cho{' '}
+                {p.booking.supplier.name}. KOL Hub không giữ tiền: booking hoàn tất khi nhà cung cấp xác nhận đã nhận.
+              </>
+            )
           ) : null
         }
-        confirmLabel="Đã thanh toán"
+        confirmLabel={p?.kind === 'paid' && p.booking.price === 0 ? 'Hoàn tất' : 'Đã thanh toán'}
         onConfirm={async () => {
           if (p?.kind !== 'paid') return;
-          await bookingService.markPaid(p.booking.id);
-          toast.success('Đã ghi nhận thanh toán', { description: 'Chờ nhà cung cấp xác nhận đã nhận.' });
+          const done = await bookingService.markPaid(p.booking.id);
+          if (done.status === 'COMPLETED') toast.success('Booking đã hoàn tất');
+          else toast.success('Đã ghi nhận thanh toán', { description: 'Chờ nhà cung cấp xác nhận đã nhận.' });
         }}
       />
       <ReasonDialog

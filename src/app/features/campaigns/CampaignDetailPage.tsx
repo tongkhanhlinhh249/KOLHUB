@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { ArrowLeft, CalendarDays, Flag, Megaphone, Pencil, Send, Wallet, XCircle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Flag, Gift, Megaphone, Pencil, Send, Users, Wallet, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { bookingService, campaignService, KolhubError, type CampaignView } from '../../services';
+import { bookingService, campaignService, KolhubError, phaseOfTimeline, type CampaignView } from '../../services';
+import { PhaseBadge, RecruitTypeBadge } from '../shared/RecruitParts';
+import { rewardShort } from '../shared/recruitView';
 import { brandLockedView } from '../shared/BrandLocked';
 import { CampaignCover } from '../shared/CampaignCover';
 import { useBrandKolSheet } from '../shared/BrandKolSheet';
@@ -15,6 +17,7 @@ import { ConfirmAction, useBookingActions } from './BookingActions';
 import { BookingSheet } from './BookingSheet';
 import { CampaignStatusBadge, EmptyBlock, errText, LoadError, PlatformIcons, VisibilityLabel } from './CampaignParts';
 import { ApplicationsTab, BookingsTab, ContentTab, OverviewTab, ReportTab } from './CampaignTabs';
+import { QATab, SelectionTab } from './RecruitTabs';
 import {
   campaignActions,
   campaignEditPath,
@@ -48,7 +51,8 @@ function Count({ n, highlight }: { n: number; highlight?: boolean }) {
 type Confirm = 'publish' | 'close' | 'cancel';
 
 function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm): void }) {
-  const acts = campaignActions(c.status);
+  const acts = campaignActions(c.status, c.type);
+  const r = c.type === 'OPEN_RECRUITMENT' ? c.recruitment : undefined;
   return (
     <Card className="gap-4 p-4 md:p-5">
       <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-start @3xl:justify-between">
@@ -59,6 +63,8 @@ function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <CampaignStatusBadge status={c.status} />
+              {r && <RecruitTypeBadge />}
+              {r && c.status !== 'DRAFT' && <PhaseBadge campaign={{ type: 'OPEN_RECRUITMENT', phase: phaseOfTimeline(r.timeline, Date.now()), recruitment: r }} now={Date.now()} />}
               <VisibilityLabel visibility={c.visibility} />
             </div>
             <h2 className="text-lg font-semibold break-words text-foreground md:text-xl">{c.name}</h2>
@@ -67,10 +73,25 @@ function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm
                 <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                 <span className="tabular-nums">{formatDateRange(c.startDate, c.endDate)}</span>
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="tabular-nums">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập ngân sách'}</span>
-              </span>
+              {r ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Gift className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="tabular-nums">{rewardShort(r.reward)} / KOL</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Users className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="tabular-nums">
+                      Đã chọn {c.stats.inProgress + c.stats.completed}/{r.slots} suất
+                    </span>
+                  </span>
+                </>
+              ) : (
+                <span className="inline-flex items-center gap-1.5">
+                  <Wallet className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="tabular-nums">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập ngân sách'}</span>
+                </span>
+              )}
               <PlatformIcons platforms={c.platforms} />
             </div>
           </div>
@@ -164,8 +185,10 @@ export function CampaignDetailPage() {
   }
   if (!campaign) return <DetailSkeleton />;
 
-  const acts = campaignActions(campaign.status);
+  const acts = campaignActions(campaign.status, campaign.type);
+  const recruit = campaign.type === 'OPEN_RECRUITMENT' && !!campaign.recruitment;
   const applications = openApplications(bookings);
+  const qa = campaign.visibility === 'MARKETPLACE' && campaign.status !== 'DRAFT';
   const pendingDrafts = collectDrafts(bookings, true);
 
   const runConfirm = async () => {
@@ -233,7 +256,7 @@ export function CampaignDetailPage() {
             </TabsTrigger>
             {marketplace && (
               <TabsTrigger value="ung-tuyen" className={TAB_TRIGGER}>
-                Ứng tuyển <Count n={applications.length} highlight />
+                {recruit ? 'Ứng viên' : 'Ứng tuyển'} <Count n={applications.length} highlight />
               </TabsTrigger>
             )}
             <TabsTrigger value="noi-dung" className={TAB_TRIGGER}>
@@ -242,6 +265,11 @@ export function CampaignDetailPage() {
             <TabsTrigger value="bao-cao" className={TAB_TRIGGER}>
               Báo cáo
             </TabsTrigger>
+            {qa && (
+              <TabsTrigger value="hoi-dap" className={TAB_TRIGGER}>
+                Hỏi đáp
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -253,7 +281,11 @@ export function CampaignDetailPage() {
         </TabsContent>
         {marketplace && (
           <TabsContent value="ung-tuyen" className="mt-0">
-            <ApplicationsTab bookings={bookings} actions={actions} onOpen={openBooking} onOpenKol={kol.openKol} />
+            {recruit ? (
+              <SelectionTab campaign={campaign} bookings={bookings} onOpen={openBooking} onOpenKol={kol.openKol} />
+            ) : (
+              <ApplicationsTab bookings={bookings} actions={actions} onOpen={openBooking} onOpenKol={kol.openKol} />
+            )}
           </TabsContent>
         )}
         <TabsContent value="noi-dung" className="mt-0">
@@ -262,6 +294,11 @@ export function CampaignDetailPage() {
         <TabsContent value="bao-cao" className="mt-0">
           <ReportTab bookings={bookings} onOpen={openBooking} />
         </TabsContent>
+        {qa && (
+          <TabsContent value="hoi-dap" className="mt-0">
+            <QATab campaignId={campaign.id} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <BookingSheet bookingId={bookingId} onOpenChange={(o) => !o && setParam('booking', null)} onOpenKol={kol.openKol} actions={actions} />

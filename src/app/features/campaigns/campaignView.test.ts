@@ -121,6 +121,7 @@ describe('campaign list', () => {
     expect(campaignActions('RUNNING')).toEqual({ edit: false, publish: false, close: true, cancel: true, invite: true });
     expect(campaignActions('COMPLETED')).toEqual({ edit: false, publish: false, close: false, cancel: false, invite: false });
     expect(campaignActions('CANCELLED').cancel).toBe(false);
+    expect(campaignActions('OPEN', 'OPEN_RECRUITMENT').invite).toBe(false);
   });
 });
 
@@ -215,6 +216,8 @@ describe('bookings', () => {
 describe('detail URL', () => {
   test('parseDetailTab', () => {
     expect(parseDetailTab(null, false)).toBe('tong-quan');
+    expect(parseDetailTab('hoi-dap', true)).toBe('hoi-dap');
+    expect(parseDetailTab('hoi-dap', false)).toBe('tong-quan');
     expect(parseDetailTab('booking', false)).toBe('booking');
     expect(parseDetailTab('ung-tuyen', false)).toBe('tong-quan');
     expect(parseDetailTab('ung-tuyen', true)).toBe('ung-tuyen');

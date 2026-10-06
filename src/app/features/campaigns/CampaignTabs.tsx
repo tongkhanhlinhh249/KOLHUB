@@ -9,6 +9,8 @@ import { formatCompactVi } from '../biz-search/format';
 import { KolAvatar } from '../biz-search/KolCard';
 import { PlatformIcon, platformLabel } from '../biz-search/PlatformIcon';
 import { fieldIcon } from '../shared/fieldIcons';
+import { ConditionsList, RecruitTimeline, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
+import { phaseOfTimeline } from '../../services';
 import { NegotiationButtons, type BookingActionsApi } from './BookingActions';
 import { BookingItemRow } from './BookingSheet';
 import {
@@ -23,6 +25,7 @@ import {
 } from './CampaignParts';
 import { DraftCard, href } from './ContentParts';
 import {
+  bookingPriceText,
   brandTodoLabel,
   collectDrafts,
   collectPosts,
@@ -92,13 +95,53 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
           </Panel>
           <Panel title="Quy định nội dung">
             <Paragraph text={c.contentRules} empty="Không có quy định riêng." />
+            <WorkflowNote draftReview={c.draftReview !== false} />
+          </Panel>
+          {c.type === 'OPEN_RECRUITMENT' && c.recruitment && (
+            <Panel title="Phần thưởng">
+              <RewardBlock reward={c.recruitment.reward} slots={c.recruitment.slots} />
+            </Panel>
+          )}
+          <Panel title="Điều kiện tham gia" className="@container">
+            <ConditionsList target={c.target} categories={c.categories} regions={c.regions ?? []} />
+          </Panel>
+          <Panel title="Câu hỏi khảo sát và điều khoản">
+            {(c.survey ?? []).length === 0 && (c.terms ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">Không có câu hỏi hay điều khoản riêng.</p>
+            ) : (
+              <div className="space-y-3 text-sm">
+                {(c.survey ?? []).length > 0 && (
+                  <ol className="list-decimal space-y-1 pl-5 text-foreground">
+                    {c.survey!.map((q) => (
+                      <li key={q.id}>
+                        {q.text} {q.required && <span className="text-xs text-muted-foreground">(bắt buộc)</span>}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                {(c.terms ?? []).length > 0 && (
+                  <ul className="space-y-1 text-muted-foreground">
+                    {c.terms!.map((t) => (
+                      <li key={t.id}>• {t.text}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </Panel>
         </div>
         <div className="space-y-4">
+          {c.type === 'OPEN_RECRUITMENT' && c.recruitment && (
+            <Panel title="Lịch trình">
+              <RecruitTimeline timeline={c.recruitment.timeline} phase={c.status === 'DRAFT' ? undefined : phaseOfTimeline(c.recruitment.timeline, Date.now())} />
+            </Panel>
+          )}
           <Panel title="Thông tin">
             <dl className="grid grid-cols-1 gap-3">
               <Meta label="Thời gian">{formatDateRange(c.startDate, c.endDate)}</Meta>
-              <Meta label="Ngân sách">{c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập'}</Meta>
+              <Meta label={c.type === 'OPEN_RECRUITMENT' ? `Tổng giá trị (${c.recruitment?.slots ?? 0} suất)` : 'Ngân sách'}>
+                {c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập'}
+              </Meta>
               <Meta label="Hiển thị">
                 <VisibilityLabel visibility={c.visibility} className="text-sm text-foreground" />
                 {c.visibility === 'MARKETPLACE' && (
@@ -202,7 +245,8 @@ function BookingRow({ booking: b, onOpen }: { booking: BookingView; onOpen(): vo
                 <SupplierTypeBadge type={b.supplierType} />
               </p>
               <p className="text-xs text-muted-foreground">
-                {b.origin === 'INVITE' ? 'Lời mời' : 'Đề xuất từ Sàn'} · cập nhật {formatDayMs(b.updatedAt)}
+                {b.origin === 'INVITE' ? 'Lời mời' : b.campaign.type === 'OPEN_RECRUITMENT' ? 'Ứng tuyển (Tuyển nhiều KOL)' : 'Đề xuất từ Sàn'} · cập nhật{' '}
+                {formatDayMs(b.updatedAt)}
               </p>
             </div>
           </div>
@@ -210,7 +254,7 @@ function BookingRow({ booking: b, onOpen }: { booking: BookingView; onOpen(): vo
             <KolStack booking={b} />
           </div>
           <div className="flex flex-wrap items-center gap-2 @2xl:w-auto @2xl:flex-col @2xl:items-end @2xl:gap-1">
-            <span className="text-sm font-semibold text-foreground tabular-nums">{formatPrice(b.price)}</span>
+            <span className="text-sm font-semibold text-foreground tabular-nums">{bookingPriceText(b)}</span>
             <BookingStatusBadge status={b.status} />
           </div>
         </div>

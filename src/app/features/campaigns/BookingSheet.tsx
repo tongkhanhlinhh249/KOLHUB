@@ -1,5 +1,5 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
-import { FileText, Loader2, Paperclip, Star, Trash2, Upload } from 'lucide-react';
+import { FileText, Gift, Loader2, Paperclip, Star, Trash2, Upload, UserCheck, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
@@ -14,10 +14,22 @@ import { FieldBadges } from '../biz-search/KolMedia';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFileSize, toStoredFile } from '../shared/files';
 import { useLiveQuery } from '../shared/useLiveQuery';
+import { ApplicationDetailsBlock } from '../shared/RecruitParts';
 import { NegotiationButtons, type BookingActionsApi } from './BookingActions';
 import { BookingStatusBadge, deliverableTypeLabel, errText, LoadError, SupplierTypeBadge, TodoMarker } from './CampaignParts';
 import { DraftCard, PostCard } from './ContentParts';
-import { actorLabel, brandTodoLabel, expiryText, formatDayMs, formatDayTime, formatPrice, historyLabel, needsBrandAction } from './campaignView';
+import {
+  actorLabel,
+  bookingPriceText,
+  brandTodoLabel,
+  expiryText,
+  formatDayMs,
+  formatDayTime,
+  formatPrice,
+  formatVnd,
+  historyLabel,
+  needsBrandAction,
+} from './campaignView';
 
 function Block({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
@@ -219,10 +231,109 @@ function RatingBlock({ booking }: { booking: BookingView }) {
   );
 }
 
+/** "Tuyển nhiều KOL": pick / do not pick this applicant (during "Chọn lọc"; "Không chọn" also during "Ứng tuyển"). */
+function RecruitDecision({ booking }: { booking: BookingView }) {
+  const [busy, setBusy] = useState<'select' | 'decline' | null>(null);
+  const can = (a: BookingView['allowedActions'][number]) => booking.allowedActions.includes(a);
+  if (!can('SELECT') && !can('DECLINE')) return null;
+  const run = async (kind: 'select' | 'decline') => {
+    setBusy(kind);
+    try {
+      if (kind === 'select') await bookingService.select(booking.id);
+      else await bookingService.decline(booking.id);
+      toast.success(kind === 'select' ? `Đã chọn ${booking.supplier.name}` : `${booking.supplier.name}: Không được chọn`);
+    } catch (e) {
+      toast.error(errText(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
+      {can('SELECT') && (
+        <Button type="button" className="h-11 md:h-9" disabled={busy !== null} onClick={() => void run('select')}>
+          {busy === 'select' ? <Loader2 className="animate-spin" aria-hidden /> : <UserCheck aria-hidden />}
+          Chọn ứng viên
+        </Button>
+      )}
+      {can('DECLINE') && (
+        <Button type="button" variant="ghost" className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive md:h-9" disabled={busy !== null} onClick={() => void run('decline')}>
+          {busy === 'decline' ? <Loader2 className="animate-spin" aria-hidden /> : <UserX aria-hidden />}
+          Không chọn
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Product reward shipping (record only): "Đã gửi sản phẩm" by the brand, "Đã nhận" by the supplier. */
+function ProductBlock({ booking }: { booking: BookingView }) {
+  const [busy, setBusy] = useState(false);
+  const product = booking.reward?.product;
+  if (!product) return null;
+  const { sentAt, receivedAt } = booking.shipment ?? {};
+  const ship = booking.application?.shipping;
+  const mark = async () => {
+    setBusy(true);
+    try {
+      await bookingService.markProductSent(booking.id);
+      toast.success('Đã ghi nhận gửi sản phẩm', { description: `${booking.supplier.name} sẽ xác nhận khi nhận được.` });
+    } catch (e) {
+      toast.error(errText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Block title="Sản phẩm tặng">
+      <div className="space-y-2 rounded-[8px] border border-border p-3 text-sm">
+        <p className="flex items-center gap-2 font-medium text-foreground">
+          <Gift className="size-4 text-primary" aria-hidden />
+          {product.name} <span className="font-normal text-muted-foreground tabular-nums">· {formatVnd(product.value)}</span>
+        </p>
+        {ship && (
+          <p className="text-xs text-muted-foreground">
+            Giao tới: {ship.address}, {ship.province} · SĐT {ship.phone}
+          </p>
+        )}
+        <ul className="space-y-1 text-sm">
+          <li className={sentAt ? 'text-foreground' : 'text-muted-foreground'}>{sentAt ? `Đã gửi sản phẩm · ${formatDayTime(sentAt)}` : 'Chưa gửi sản phẩm'}</li>
+          <li className={receivedAt ? 'text-foreground' : 'text-muted-foreground'}>
+            {receivedAt ? `KOL/MCN đã nhận · ${formatDayTime(receivedAt)}` : 'KOL/MCN chưa xác nhận đã nhận'}
+          </li>
+        </ul>
+        <p className="text-xs text-muted-foreground">Chỉ ghi nhận, KOL Hub không vận chuyển hàng.</p>
+        {booking.allowedActions.includes('MARK_PRODUCT_SENT') && (
+          <Button type="button" className="h-11 md:h-9" disabled={busy} onClick={() => void mark()}>
+            {busy && <Loader2 className="animate-spin" aria-hidden />}
+            Đã gửi sản phẩm
+          </Button>
+        )}
+      </div>
+    </Block>
+  );
+}
+
 function PaymentBlock({ booking, actions }: { booking: BookingView; actions: BookingActionsApi }) {
   const { brandMarkedAt, supplierConfirmedAt } = booking.payment;
   const relevant = ['VERIFIED', 'COMPLETED'].includes(booking.status) || brandMarkedAt;
   if (!relevant) return null;
+  if (booking.price === 0) {
+    return (
+      <Block title="Hoàn tất">
+        <div className="space-y-2 rounded-[8px] border border-border p-3 text-sm">
+          <p className="text-foreground">
+            {brandMarkedAt ? `Bạn đã xác nhận hoàn tất lúc ${formatDayTime(brandMarkedAt)}.` : 'Phần thưởng chỉ gồm sản phẩm, không có khoản thanh toán. Xác nhận khi mọi việc đã xong.'}
+          </p>
+          {booking.allowedActions.includes('MARK_PAID') && (
+            <Button type="button" className="h-11 md:h-9" onClick={() => actions.markPaid(booking)}>
+              Xác nhận hoàn tất
+            </Button>
+          )}
+        </div>
+      </Block>
+    );
+  }
   return (
     <Block title="Thanh toán">
       <div className="space-y-2 rounded-[8px] border border-border p-3 text-sm">
@@ -306,7 +417,8 @@ export function BookingSheet({
   const posts = b ? b.contents.filter((c) => c.kind === 'POST') : [];
   const itemOf = (id?: string) => (id && b ? b.items.find((i) => i.id === id) : undefined);
   const missingChannel = b ? b.items.some((i) => !i.channelId) : false;
-  const inContentPhase = b ? !pre && !['DECLINED', 'EXPIRED'].includes(b.status) : false;
+  const inContentPhase = b ? !pre && !['DECLINED', 'EXPIRED'].includes(b.status) && (b.campaign.draftReview || b.contents.some((c) => c.kind === 'DRAFT')) : false;
+  const recruit = b ? b.origin === 'APPLICATION' && b.campaign.type === 'OPEN_RECRUITMENT' : false;
 
   return (
     <Sheet open={bookingId !== null} onOpenChange={onOpenChange}>
@@ -336,7 +448,7 @@ export function BookingSheet({
                     <SupplierTypeBadge type={b.supplierType} />
                     {b.supplier.code && <span>{b.supplier.code}</span>}
                     <span aria-hidden>·</span>
-                    <span>{b.origin === 'INVITE' ? 'Lời mời' : 'Đề xuất từ Sàn'}</span>
+                    <span>{b.origin === 'INVITE' ? 'Lời mời' : recruit ? 'Ứng tuyển (Tuyển nhiều KOL)' : 'Đề xuất từ Sàn'}</span>
                     <span aria-hidden>·</span>
                     <span className="tabular-nums">Tạo {formatDayMs(b.createdAt)}</span>
                   </SheetDescription>
@@ -349,17 +461,17 @@ export function BookingSheet({
             </SheetHeader>
 
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
-              <Block title="Giá và thương lượng">
+              <Block title={recruit ? 'Phần thưởng và chọn lọc' : 'Giá và thương lượng'}>
                 <div className="space-y-3 rounded-[8px] border border-border p-3">
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <div>
-                      <p className="text-xs text-muted-foreground">Tổng giá ({b.items.length} KOL)</p>
-                      <p className="text-lg font-semibold text-foreground tabular-nums">{formatPrice(b.price)}</p>
+                      <p className="text-xs text-muted-foreground">{recruit ? 'Phần thưởng cố định' : `Tổng giá (${b.items.length} KOL)`}</p>
+                      <p className="text-lg font-semibold text-foreground tabular-nums">{recruit ? bookingPriceText(b) : formatPrice(b.price)}</p>
                     </div>
                     {pre && (
                       <div className="text-right text-xs text-muted-foreground">
-                        <p>{b.awaiting === 'BRAND' ? 'Chờ bạn trả lời' : `Chờ ${b.supplier.name} trả lời`}</p>
-                        {b.expiresAt && <p className="tabular-nums">{expiryText(b.expiresAt, now)}</p>}
+                        <p>{recruit ? 'Chờ bạn chọn' : b.awaiting === 'BRAND' ? 'Chờ bạn trả lời' : `Chờ ${b.supplier.name} trả lời`}</p>
+                        {b.expiresAt && <p className="tabular-nums">{recruit ? `Hạn chọn lọc ${formatDayMs(b.expiresAt)}` : expiryText(b.expiresAt, now)}</p>}
                       </div>
                     )}
                   </div>
@@ -372,9 +484,15 @@ export function BookingSheet({
                   {pre && b.awaiting === 'BRAND' && missingChannel && (
                     <p className="text-xs text-chart-5">Một số KOL chưa có kênh đăng: nhà cung cấp cần chọn kênh trước khi chốt.</p>
                   )}
-                  <NegotiationButtons booking={b} actions={actions} />
+                  {recruit ? <RecruitDecision booking={b} /> : <NegotiationButtons booking={b} actions={actions} />}
                 </div>
               </Block>
+
+              {b.application && (
+                <Block title="Thông tin ứng tuyển">
+                  <ApplicationDetailsBlock details={b.application} />
+                </Block>
+              )}
 
               <Block title={`KOL (${b.items.length})`}>
                 <ul className="space-y-2">
@@ -412,6 +530,7 @@ export function BookingSheet({
                 </Block>
               )}
 
+              <ProductBlock booking={b} />
               <PaymentBlock booking={b} actions={actions} />
               <ContractBlock booking={b} />
               <RatingBlock booking={b} />

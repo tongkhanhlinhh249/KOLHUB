@@ -1,6 +1,18 @@
 import { describe, expect, test } from 'vitest';
 import type { Campaign } from '../../services';
-import { COVER_ERROR, coverFileError, EMPTY_FORM, fieldErrorText, formFromCampaign, formToInput, isFormField, newDeliverable, toggle } from './campaignForm';
+import {
+  COVER_ERROR,
+  coverFileError,
+  EMPTY_FORM,
+  fieldErrorText,
+  formFromCampaign,
+  formToInput,
+  isFormField,
+  newDeliverable,
+  recruitBudget,
+  suggestTimeline,
+  toggle,
+} from './campaignForm';
 
 const campaign: Campaign = {
   id: 'c1',
@@ -76,4 +88,47 @@ describe('campaign form', () => {
     expect(fieldErrorText('dates', 'Thời gian không hợp lệ.')).toMatch(/^Thời gian không hợp lệ\. Cần ngày bắt đầu/);
     expect(fieldErrorText('xyz', 'Lỗi.')).toBe('Lỗi.');
   });
+});
+
+test('Tuyển nhiều KOL: form ↔ dữ liệu (suất, phần thưởng, lịch, điều kiện, khảo sát, điều khoản)', () => {
+  expect(EMPTY_FORM.terms.length).toBe(2); // điều khoản mặc định
+  const v = {
+    ...EMPTY_FORM,
+    name: 'Tuyển KOL',
+    type: 'OPEN_RECRUITMENT' as const,
+    slots: '5',
+    rewardCash: '2.000.000',
+    hasProduct: true,
+    productName: 'Bình giữ nhiệt',
+    productValue: '450.000',
+    timeline: suggestTimeline('2026-10-10'),
+    draftReview: false,
+    regions: ['Hà Nội'],
+    ageMin: '20',
+    gender: 'FEMALE' as const,
+    minFollowers: '10.000',
+    survey: [
+      { text: 'Bạn chạy bộ mấy buổi mỗi tuần?', required: true },
+      { text: '   ', required: false },
+    ],
+    visibility: 'PRIVATE' as const,
+    applyDeadline: '2026-10-12',
+  };
+  expect(recruitBudget(v)).toBe(12_250_000);
+  const input = formToInput(v);
+  expect(input).toMatchObject({
+    type: 'OPEN_RECRUITMENT',
+    visibility: 'MARKETPLACE',
+    applyDeadline: null,
+    draftReview: false,
+    regions: ['Hà Nội'],
+    target: { ageMin: 20, gender: 'FEMALE', minFollowers: 10_000 },
+    survey: [{ text: 'Bạn chạy bộ mấy buổi mỗi tuần?', required: true }],
+    recruitment: { slots: 5, reward: { cash: 2_000_000, product: { name: 'Bình giữ nhiệt', value: 450_000 } } },
+  });
+  expect(input.recruitment!.timeline).toMatchObject({ applyStart: '2026-10-10', applyEnd: '2026-10-16', selectStart: '2026-10-17', reviewEnd: '2026-11-09' });
+  // Booking riêng: xoá khối tuyển, giữ điều kiện / khảo sát.
+  expect(formToInput({ ...v, type: 'BOOKING' })).toMatchObject({ recruitment: null, visibility: 'PRIVATE' });
+  expect(formToInput({ ...v, slots: 'abc' }).recruitment!.slots).toBeNaN();
+  expect(isFormField('timeline')).toBe(true);
 });
