@@ -15,6 +15,7 @@ import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFileSize, toStoredFile } from '../shared/files';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ApplicationDetailsBlock } from '../shared/RecruitParts';
+import { MessageButton } from '../inbox/MessageButton';
 import { NegotiationButtons, type BookingActionsApi } from './BookingActions';
 import { BookingStatusBadge, deliverableTypeLabel, errText, LoadError, SupplierTypeBadge, TodoMarker } from './CampaignParts';
 import { DraftCard, PostCard } from './ContentParts';
@@ -457,6 +458,7 @@ export function BookingSheet({
               <div className="flex flex-wrap items-center gap-2">
                 <BookingStatusBadge status={b.status} />
                 {needsBrandAction(b) && <TodoMarker label={brandTodoLabel(b)} />}
+                <MessageButton bookingId={b.id} className="ml-auto" />
               </div>
             </SheetHeader>
 

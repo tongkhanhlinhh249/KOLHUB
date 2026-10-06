@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import { CampaignCover } from '../shared/CampaignCover';
+import { MessageButton } from '../inbox/MessageButton';
 import { BOOKING_NOTE_MAX, bookingService, KolhubError, type BookingView } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFollowers } from '../biz-search/format';
@@ -234,6 +235,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
             <OriginBadge origin={b.origin} />
             {recruit && <span className="text-xs font-medium text-primary">Tuyển nhiều KOL</span>}
             {needs && <NeedsYouMarker />}
+            <MessageButton bookingId={b.id} className="ml-auto" />
           </div>
           {recruit && <RecruitStageStepper stage={recruitStage(b)} className="max-w-md pt-1" />}
           <dl className="grid grid-cols-2 gap-4 pt-1 @lg:grid-cols-3">

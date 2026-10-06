@@ -1,7 +1,8 @@
 import { PanelLeft } from 'lucide-react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
-import { ROLE_CONFIG, getPageMeta } from '../auth/roles';
+import { NOTIFICATIONS_PATH, ROLE_CONFIG, getPageMeta } from '../auth/roles';
+import { NotificationBell } from '../features/inbox/NotificationBell';
 import logoMarkImg from '../../assets/logo-mark.svg';
 import { AccountMenu } from './AccountMenu';
 import { Button } from './ui/button';
@@ -48,9 +49,12 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         </div>
       </div>
 
-      {/* Phones only: the account lives at the bottom of the sidebar on tablet/desktop. */}
-      <div className="flex shrink-0 items-center md:hidden">
-        <AccountMenu variant="header" />
+      <div className="flex shrink-0 items-center gap-1">
+        {role !== 'kolhub.guest' && <NotificationBell active={pathname === NOTIFICATIONS_PATH} />}
+        {/* Phones only: the account lives at the bottom of the sidebar on tablet/desktop. */}
+        <div className="flex items-center md:hidden">
+          <AccountMenu variant="header" />
+        </div>
       </div>
     </header>
   );

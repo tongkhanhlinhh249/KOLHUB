@@ -6,6 +6,8 @@ import { cn } from './ui/utils';
 import { AccountMenu } from './AccountMenu';
 import { useAuth } from '../auth/AuthContext';
 import { ROLE_CONFIG, type MenuItem } from '../auth/roles';
+import { useMenuBadges } from '../features/inbox/useInboxCounts';
+import { badgeText } from '../features/inbox/inboxView';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -17,6 +19,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
   const { role } = useAuth();
   const { home, label, menu } = ROLE_CONFIG[role];
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
+  const badges = useMenuBadges();
 
   return (
     <aside
@@ -53,7 +56,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
               {collapsed && i > 0 && <div className="mx-2 mb-3 h-px bg-border" aria-hidden />}
               <div className="space-y-0.5">
                 {section.items.map((item) => (
-                  <SidebarLink key={item.path} item={item} active={isActive(item.path)} collapsed={collapsed} />
+                  <SidebarLink key={item.path} item={item} active={isActive(item.path)} collapsed={collapsed} badge={badges[item.path] ?? 0} />
                 ))}
               </div>
             </div>
@@ -80,24 +83,32 @@ function sections(menu: MenuItem[]): { group?: string; items: MenuItem[] }[] {
   return out;
 }
 
-function SidebarLink({ item, active, collapsed }: { item: MenuItem; active: boolean; collapsed: boolean }) {
+function SidebarLink({ item, active, collapsed, badge }: { item: MenuItem; active: boolean; collapsed: boolean; badge: number }) {
   const Icon = item.icon;
+  const text = badgeText(badge);
   return (
-    <SidebarTip label={collapsed ? item.label : undefined}>
+    <SidebarTip label={collapsed ? (text ? `${item.label} (${badge} chưa đọc)` : item.label) : undefined}>
       <Link
         to={item.path}
         aria-current={active ? 'page' : undefined}
+        aria-label={text ? `${item.label}, ${badge} chưa đọc` : undefined}
         className={cn(
           'flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           active
             ? 'bg-primary/10 font-medium text-primary'
             : 'text-foreground/70 hover:bg-muted hover:text-foreground',
-          collapsed && 'justify-center px-0'
+          collapsed && 'relative justify-center px-0'
         )}
       >
         <Icon className={cn('size-4 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
         {!collapsed && <span className="truncate">{item.label}</span>}
-        {!collapsed && active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
+        {!collapsed && text && (
+          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums" aria-hidden>
+            {text}
+          </span>
+        )}
+        {!collapsed && !text && active && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
+        {collapsed && text && <span className="absolute top-1 right-2 size-2 rounded-full bg-primary" aria-hidden />}
       </Link>
     </SidebarTip>
   );

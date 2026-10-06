@@ -5,6 +5,8 @@ import { cn } from './ui/utils';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
 import { useAuth } from '../auth/AuthContext';
 import { bottomNavOf, isNavActive } from '../auth/roles';
+import { useMenuBadges } from '../features/inbox/useInboxCounts';
+import { badgeText } from '../features/inbox/inboxView';
 
 // Mobile-only tab bar (<768px). Items are 44px+ touch targets and clear the home indicator.
 // Tabs come from the role's `bottomNav` config; menu items that do not fit go into "Thêm".
@@ -13,6 +15,8 @@ export function BottomNavigation() {
   const { role } = useAuth();
   const { items, more } = bottomNavOf(role);
   const [moreOpen, setMoreOpen] = useState(false);
+  const badges = useMenuBadges();
+  const moreBadge = more.reduce((n, m) => n + (badges[m.path] ?? 0), 0);
 
   const tabActive = items.map((item) => isNavActive(pathname, item));
   const moreActive = !tabActive.some(Boolean) && more.some((m) => isNavActive(pathname, m));
@@ -48,9 +52,11 @@ export function BottomNavigation() {
             onClick={() => setMoreOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
-            className={itemClass(moreActive)}
+            aria-label={moreBadge > 0 ? `Thêm, ${moreBadge} tin nhắn chưa đọc` : undefined}
+            className={cn(itemClass(moreActive), 'relative')}
           >
             <Ellipsis className="size-5" aria-hidden />
+            {moreBadge > 0 && <span className="absolute top-1.5 left-1/2 ml-2 size-2 rounded-full bg-primary" aria-hidden />}
             <span className="truncate">Thêm</span>
           </button>
         )}
@@ -66,6 +72,7 @@ export function BottomNavigation() {
             <ul className="flex flex-col gap-1">
               {more.map((m) => {
                 const active = isNavActive(pathname, m);
+                const text = badgeText(badges[m.path] ?? 0);
                 return (
                   <li key={m.path}>
                     <Link
@@ -79,6 +86,12 @@ export function BottomNavigation() {
                     >
                       <m.icon className={cn('size-5 shrink-0', active ? 'text-primary' : 'text-muted-foreground')} aria-hidden />
                       <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                      {text && (
+                        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
+                          <span className="sr-only">Chưa đọc: </span>
+                          {text}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
