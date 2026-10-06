@@ -28,6 +28,7 @@ import { FieldBadges } from './KolMedia';
 import { PlatformIcon, platformLabel } from './PlatformIcon';
 import { ListingStatusBadge } from './StatusBadges';
 import { ChannelVideos } from './ChannelVideos';
+import { PublicPosts } from '../creator/PublicPosts';
 
 interface KolProfileSheetProps {
   kolId: string | null;
@@ -289,6 +290,10 @@ export function KolProfileSheet({ kolId, saved, onOpenChange, onSave, onInvite }
 
                 <Section title="Video mới nhất">
                   <ChannelVideos key={ready.kolId} channels={ready.channels} kolName={ready.displayName} />
+                </Section>
+
+                <Section title="Bài đã đăng">
+                  <PublicPosts kolId={ready.kolId} />
                 </Section>
               </TabsContent>
 
