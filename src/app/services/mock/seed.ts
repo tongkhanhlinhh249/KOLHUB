@@ -22,7 +22,8 @@ const SEED_BIZ: Account = {
   email: 'brand@vinamilk-demo.vn',
   fullName: 'Nguyễn Minh Anh',
   company: 'Công ty Demo Sữa',
-  createdAt: SEED_CREATED_AT,
+  // v13: registered months ago (past campaigns in historySeed.ts).
+  createdAt: '2026-05-04T08:00:00.000Z',
 };
 /**
  * Brand-new Brand/Agency account: it exists only after the company-email OTP (BR-04a/BR-46), so the
@@ -65,7 +66,7 @@ export function seedState(): DemoState {
   seedMcnChannelAssignments(channels, now);
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   return {
-    version: 12,
+    version: 13,
     accounts,
     otps: [],
     registrations: [],

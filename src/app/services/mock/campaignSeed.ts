@@ -3,6 +3,7 @@
 // Seed v11: every campaign has a cover image ("Ảnh chiến dịch").
 // Seed v12: "Tuyển nhiều KOL" — livestream / tai nghe / thử thách tiếng Anh become open recruitment, plus one campaign
 // in "Chọn lọc" and one in "Đăng bài" (see recruitSeed.ts), and public Q&A.
+// Seed v13: past collaborations of Khánh Vy and Sao Việt Media (see historySeed.ts).
 import type { Platform } from '../bizTypes';
 import type { Booking, BookingEvent, Campaign, CampaignQA, ContentSubmission, SavedCampaign } from '../campaign-types';
 import type { Channel, StoredFile } from '../profile-types';
@@ -11,8 +12,10 @@ import { VERIFIED_MCN_ACCOUNT_ID, VERIFIED_MCN_ID } from './mcnSeed';
 import { scanVideoFile } from './safety';
 import { IMAGE_POOL } from './socialListening';
 import { SEED_RECRUIT, seedRecruitment } from './recruitSeed';
+import { seedHistory } from './historySeed';
 
 export { SEED_RECRUIT, SEED_RECRUIT_BOOKING } from './recruitSeed';
+export { SEED_HISTORY } from './historySeed';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -525,9 +528,12 @@ export function seedCampaigns(
     coverOf,
   );
 
+  // v13: past collaborations (verified posts, ratings, payments) for "Bài đã đăng" / "Thu nhập".
+  const history = seedHistory(channels, now, { brand: SEED_BRAND_ID, khanhVy: SEED_KHANHVY_ID }, coverOf);
+
   return {
-    campaigns: [...campaigns, ...recruit.campaigns],
-    bookings: [review, verified, completed, khanhVy, application, ...recruit.bookings],
+    campaigns: [...campaigns, ...recruit.campaigns, ...history.campaigns],
+    bookings: [review, verified, completed, khanhVy, application, ...recruit.bookings, ...history.bookings],
     campaignQuestions: recruit.questions,
     savedCampaigns: [
       { accountId: SAOVIET, campaignId: travel.id, savedAt: ago(1) },

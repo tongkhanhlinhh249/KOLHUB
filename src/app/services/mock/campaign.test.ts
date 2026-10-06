@@ -3,7 +3,7 @@ import type { CampaignInput } from '../campaign-types';
 import { createBookingService } from './booking';
 import { createCampaignService } from './campaign';
 import { isoDay } from './campaignRules';
-import { SEED_BOOKING, SEED_CAMPAIGN } from './campaignSeed';
+import { SEED_BOOKING, SEED_CAMPAIGN, SEED_HISTORY } from './campaignSeed';
 import { VERIFIED_MCN_ACCOUNT_ID as SAOVIET } from './mcnSeed';
 import { makeHarness, type Harness } from './testHarness';
 
@@ -162,10 +162,15 @@ describe('tạo, sửa, đăng chiến dịch', () => {
         SEED_CAMPAIGN.yogurt,
         SEED_CAMPAIGN.livestream,
         SEED_CAMPAIGN.recruitSelecting,
+        SEED_HISTORY.summerCampaign,
+        SEED_HISTORY.runningShoesCampaign,
+        SEED_HISTORY.homeOfficeCampaign,
       ].sort(),
     );
-    expect((await svc.listMine({ status: ['OPEN', 'RUNNING'] })).map((c) => c.status).sort()).toEqual(['OPEN', 'OPEN', 'OPEN', 'RUNNING', 'RUNNING']);
-    expect((await svc.listMine({ keyword: 'sua hat' })).map((c) => c.id).sort()).toEqual([SEED_CAMPAIGN.running, SEED_CAMPAIGN.recruitSelecting].sort());
+    expect((await svc.listMine({ status: ['OPEN', 'RUNNING'] })).map((c) => c.status).sort()).toEqual(['OPEN', 'OPEN', 'OPEN', 'RUNNING', 'RUNNING', 'RUNNING']);
+    expect((await svc.listMine({ keyword: 'sua hat' })).map((c) => c.id).sort()).toEqual(
+      [SEED_CAMPAIGN.running, SEED_CAMPAIGN.recruitSelecting, SEED_HISTORY.summerCampaign].sort(),
+    );
     const running = all.find((c) => c.id === SEED_CAMPAIGN.running)!;
     expect(running.stats).toMatchObject({ total: 4, invited: 1, inProgress: 2, pendingReview: 1, completed: 1, committed: 105_000_000 });
     expect(running.brand).toMatchObject({ company: 'Công ty Demo Sữa' });
@@ -419,7 +424,7 @@ describe('Sàn v2 — phù hợp với bạn', () => {
       memberSince: h.db.read().accounts.find((a) => a.id === AGENCY)!.createdAt,
     });
     const own = await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace);
-    expect(own.brandInfo).toMatchObject({ company: 'Công ty Demo Sữa', campaignsPosted: 5, completedBookings: 1 });
+    expect(own.brandInfo).toMatchObject({ company: 'Công ty Demo Sữa', campaignsPosted: 8, completedBookings: 5 });
     expect(JSON.stringify(own.brandInfo)).not.toMatch(/@|password|acc-biz/);
     expect((await svc.listMarketplace())[0]).not.toHaveProperty('brandInfo');
   });

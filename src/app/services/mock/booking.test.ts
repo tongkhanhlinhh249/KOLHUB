@@ -71,11 +71,12 @@ describe('xem booking & quyền sở hữu', () => {
   test('MCN thấy booking của mình, lọc theo nguồn / trạng thái; không thấy ngân sách chiến dịch', async () => {
     as(SAOVIET);
     const all = await svc.listForSupplier();
-    expect(all).toHaveLength(6);
+    // v13: + 2 past bookings (COMPLETED) from historySeed.
+    expect(all).toHaveLength(8);
     expect((await svc.listForSupplier({ origin: 'APPLICATION' })).map((b) => b.id).sort()).toEqual(
       [SEED_BOOKING.application, SEED_RECRUIT_BOOKING.saoVietApplied, SEED_RECRUIT_BOOKING.saoVietVerified].sort(),
     );
-    expect((await svc.listForSupplier({ status: ['VERIFIED', 'COMPLETED'] })).map((b) => b.status).sort()).toEqual(['COMPLETED', 'VERIFIED', 'VERIFIED']);
+    expect((await svc.listForSupplier({ status: ['VERIFIED', 'COMPLETED'] })).map((b) => b.status).sort()).toEqual(['COMPLETED', 'COMPLETED', 'COMPLETED', 'VERIFIED', 'VERIFIED']);
     const b = all[0];
     expect(b.viewer).toBe('SUPPLIER');
     expect(b.campaign).not.toHaveProperty('budget');

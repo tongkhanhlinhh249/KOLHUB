@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { allowedActions, isAcceptingApplications, isoDay, routeKol } from './campaignRules';
-import { SEED_AGENCY_ID, SEED_BOOKING, SEED_BRAND_ID, SEED_CAMPAIGN, SEED_KHANHVY_ID } from './campaignSeed';
+import { SEED_AGENCY_ID, SEED_BOOKING, SEED_BRAND_ID, SEED_CAMPAIGN, SEED_HISTORY, SEED_KHANHVY_ID } from './campaignSeed';
 import { VERIFIED_MCN_ACCOUNT_ID as SAOVIET } from './mcnSeed';
 import { seedState } from './seed';
 
@@ -10,7 +10,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   const campaign = (id: string) => s.campaigns.find((c) => c.id === id)!;
   const booking = (id: string) => s.bookings.find((b) => b.id === id)!;
 
-  test('Nhãn hàng demo: 1 RUNNING riêng tư, 3 OPEN trên Sàn, 1 DRAFT, 1 tuyển nhiều KOL đang chọn lọc; agency: 5 OPEN + 1 đang đăng bài', () => {
+  test('Nhãn hàng demo: 1 RUNNING riêng tư, 3 OPEN trên Sàn, 1 DRAFT, 1 tuyển nhiều KOL đang chọn lọc, 2 đã hoàn tất + 1 đang chạy (lịch sử); agency: 5 OPEN + 1 đang đăng bài', () => {
     const mine = s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID);
     expect(mine.map((c) => [c.status, c.visibility])).toEqual([
       ['RUNNING', 'PRIVATE'],
@@ -19,6 +19,9 @@ describe('seed v9 — chiến dịch & booking', () => {
       ['OPEN', 'MARKETPLACE'],
       ['OPEN', 'MARKETPLACE'],
       ['RUNNING', 'MARKETPLACE'],
+      ['COMPLETED', 'PRIVATE'],
+      ['COMPLETED', 'PRIVATE'],
+      ['RUNNING', 'PRIVATE'],
     ]);
     const agency = s.campaigns.filter((c) => c.brandAccountId === SEED_AGENCY_ID);
     expect(agency).toHaveLength(6);
@@ -43,7 +46,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   });
 
   test('v11 — mọi chiến dịch mẫu có ảnh chiến dịch (ảnh JPG từ kho ảnh mẫu), các chiến dịch trên Sàn không trùng ảnh', () => {
-    expect(s.campaigns).toHaveLength(12);
+    expect(s.campaigns).toHaveLength(15);
     for (const c of s.campaigns) {
       expect(c.cover).toMatchObject({ type: 'image/jpeg' });
       expect(c.cover!.thumbnail).toMatch(/^https:\/\//);
@@ -95,6 +98,28 @@ describe('seed v9 — chiến dịch & booking', () => {
         expect(campaign(b.campaignId).platforms).toContain(it.platform);
       }
     }
+  });
+
+  test('v13 — lịch sử hợp tác: Khánh Vy và Sao Việt có nhiều bài đã xác minh, đánh giá và thanh toán qua nhiều tháng', () => {
+    const verifiedPosts = (acc: string) =>
+      s.bookings.filter((b) => b.supplierAccountId === acc).flatMap((b) => b.contents.filter((c) => c.kind === 'POST' && c.verifiedAt && c.metrics));
+    expect(verifiedPosts(SEED_KHANHVY_ID).length).toBeGreaterThanOrEqual(3);
+    expect(verifiedPosts(SAOVIET).length).toBeGreaterThanOrEqual(5);
+    // One Sao Việt post is hidden from the public profile to show the toggle.
+    expect(verifiedPosts(SAOVIET).filter((c) => c.hiddenOnProfile)).toHaveLength(1);
+    const months = new Set(
+      s.bookings.filter((b) => b.supplierAccountId === SEED_KHANHVY_ID && b.payment.supplierConfirmedAt).map((b) => new Date(b.payment.supplierConfirmedAt!).getMonth()),
+    );
+    expect(months.size).toBeGreaterThanOrEqual(2);
+    expect(booking(SEED_HISTORY.vyHomeOffice)).toMatchObject({ status: 'VERIFIED', payment: { brandMarkedAt: expect.any(Number) } });
+    expect(booking(SEED_HISTORY.vyHomeOffice).payment.supplierConfirmedAt).toBeUndefined();
+    for (const id of [SEED_HISTORY.vySummer, SEED_HISTORY.vyShoes, SEED_HISTORY.saoVietSummer, SEED_HISTORY.saoVietShoes]) {
+      expect(booking(id).status).toBe('COMPLETED');
+      expect(booking(id).ratings?.brand?.stars).toBeGreaterThanOrEqual(4);
+    }
+    // Past campaigns are after the brand registered.
+    const brandSince = Date.parse(s.accounts.find((a) => a.id === SEED_BRAND_ID)!.createdAt);
+    expect(s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID).every((c) => c.createdAt >= brandSince)).toBe(true);
   });
 
   test('không dùng tên thương hiệu thật trong chiến dịch mẫu', () => {

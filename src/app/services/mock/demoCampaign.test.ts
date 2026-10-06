@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { createBookingService } from './booking';
-import { SEED_BOOKING, SEED_CAMPAIGN } from './campaignSeed';
+import { SEED_BOOKING, SEED_CAMPAIGN, SEED_HISTORY } from './campaignSeed';
 import { effectiveStatus, postMatchesPlatform } from './campaignRules';
 import { actingAs, createDemoCampaignService, demoSteps, expireBooking, resetCampaignData, samplePostUrl } from './demoCampaign';
 import { makeHarness, type Harness } from './testHarness';
@@ -118,7 +118,15 @@ describe('chế độ demo: quản lý chiến dịch', () => {
     const list = await demo.listCampaigns();
     const firstEmpty = list.findIndex((c) => c.bookingCount === 0);
     expect(list.slice(0, firstEmpty).map((c) => c.id).sort()).toEqual(
-      [SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.running, SEED_CAMPAIGN.recruitSelecting, SEED_CAMPAIGN.recruitPosting].sort(),
+      [
+        SEED_CAMPAIGN.marketplace,
+        SEED_CAMPAIGN.running,
+        SEED_CAMPAIGN.recruitSelecting,
+        SEED_CAMPAIGN.recruitPosting,
+        SEED_HISTORY.summerCampaign,
+        SEED_HISTORY.runningShoesCampaign,
+        SEED_HISTORY.homeOfficeCampaign,
+      ].sort(),
     );
     expect(list.slice(firstEmpty).every((c) => c.bookingCount === 0)).toBe(true);
     expect(list.find((c) => c.id === SEED_CAMPAIGN.running)).toMatchObject({ bookingCount: 4, brandEmail: expect.any(String) });

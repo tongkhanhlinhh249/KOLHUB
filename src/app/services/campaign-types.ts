@@ -661,6 +661,8 @@ export interface ContentSubmission {
   reviewedAt?: number;
   metrics?: PostMetrics;
   verifiedAt?: number;
+  /** POST only: the supplier hid it from "Bài đã đăng" on its public profile (default shown). */
+  hiddenOnProfile?: boolean;
   submittedAt: number;
 }
 

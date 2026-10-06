@@ -197,6 +197,8 @@ export function seedKols(now: number, password: string): SeededKols {
       }));
     }
 
+    // v13: Khánh Vy has worked with brands for months (past campaigns in historySeed.ts).
+    if (i === 1) verifiedMs = now - 160 * DAY;
     if (i === 38 || i === 39) verifiedMs = now - 400 * DAY;
     if (i === 40) verifiedMs = now - 366 * DAY;
 

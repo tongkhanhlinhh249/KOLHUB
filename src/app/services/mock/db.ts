@@ -59,11 +59,13 @@ export interface PendingRegistration {
  * v11: campaign cover image (`Campaign.cover`) on every seeded campaign.
  * v12: "Tuyển nhiều KOL" (open recruitment) campaigns, rewards, survey / terms, Workflow, regions and the public
  * campaign Q&A (`campaignQuestions`).
+ * v13: past collaborations (verified posts, ratings, payments) for "Bài đã đăng" / "Thu nhập" and the per-post
+ * "Hiện trên hồ sơ" flag (`ContentSubmission.hiddenOnProfile`).
  */
-export const DB_VERSION = 12;
+export const DB_VERSION = 13;
 
 export interface DemoState {
-  version: 12;
+  version: 13;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
