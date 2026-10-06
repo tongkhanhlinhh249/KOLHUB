@@ -1,12 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router';
-import { AlertCircle, Bookmark, RotateCcw, Send, Store } from 'lucide-react';
+import { AlertCircle, Bookmark, ChevronRight, MessageCircleQuestion, RotateCcw, Send, Store } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { cn } from '../../components/ui/utils';
 import { campaignService } from '../../services';
-import { MARKETPLACE_PATH } from '../../auth/roles';
+import { MARKETPLACE_PATH, MY_QUESTIONS_PATH } from '../../auth/roles';
 import { useAuth } from '../../auth/AuthContext';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { AppliedCampaignCard, MarketplaceCampaignCard, MarketplaceCampaignCardSkeleton } from '../supplier-booking/MarketplaceCampaignCard';
@@ -48,7 +48,7 @@ const EMPTY: Record<InterestTab, { icon: typeof Store; title: string; text: stri
 };
 
 /**
- * /chien-dich-da-luu — "Chiến dịch quan tâm" of a KOL / MCN (moved from the Sàn's tabs): "Đã lưu" (every saved
+ * /chien-dich-da-luu — "Chiến dịch yêu thích" of a KOL / MCN (moved from the Sàn's tabs): "Đã lưu" (every saved
  * campaign, including closed ones; bookmark button to unsave) and "Đã ứng tuyển" (applications with their status).
  * ?tab=da-ung-tuyen, ?trang-thai=dang-mo | da-dong.
  */
@@ -148,20 +148,27 @@ export function InterestedCampaignsPage() {
     <div className="@container mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
       {!access.loading && !access.approved && <SupplierGate ownerType={access.ownerType} status={access.status} compact />}
 
-      <div className="-mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:px-0">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="h-auto" aria-label="Chiến dịch quan tâm">
-            {INTEREST_TABS.map((t) => {
-              const n = tabCount(t.key);
-              return (
-                <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
-                  {t.label}
-                  {n !== undefined && <span className="rounded-full bg-background/70 px-1.5 text-xs text-muted-foreground tabular-nums">{n}</span>}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </Tabs>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div className="-mx-4 max-w-[calc(100%+2rem)] min-w-0 overflow-x-auto px-4 md:mx-0 md:max-w-full md:px-0">
+          <Tabs value={tab} onValueChange={setTab}>
+            <TabsList className="h-auto" aria-label="Chiến dịch yêu thích">
+              {INTEREST_TABS.map((t) => {
+                const n = tabCount(t.key);
+                return (
+                  <TabsTrigger key={t.key} value={t.key} className="h-11 gap-1.5 md:h-8">
+                    {t.label}
+                    {n !== undefined && <span className="rounded-full bg-background/70 px-1.5 text-xs text-muted-foreground tabular-nums">{n}</span>}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </Tabs>
+        </div>
+        <Link to={MY_QUESTIONS_PATH} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-0">
+          <MessageCircleQuestion className="size-4" aria-hidden />
+          Câu hỏi bạn đã gửi trên Sàn
+          <ChevronRight className="size-4" aria-hidden />
+        </Link>
       </div>
 
       {counts.all > 0 && (

@@ -66,11 +66,12 @@ export interface PendingRegistration {
  * "Hiện trên hồ sơ" flag (`ContentSubmission.hiddenOnProfile`).
  * v14: "Tin nhắn" per booking (`bookingMessages`, `threadReads`) and the read state of "Thông báo"
  * (`notificationReads`), with seeded threads for Khánh Vy, Sao Việt Media and the demo brand.
+ * v15: Khánh Vy's rating of the brand on one past booking (seed only) for "Đánh giá › Bạn đánh giá".
  */
-export const DB_VERSION = 14;
+export const DB_VERSION = 15;
 
 export interface DemoState {
-  version: 14;
+  version: 15;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];

@@ -1,6 +1,14 @@
-// Content of "Hỗ trợ" (/ho-tro): step-by-step guide, FAQ and the support request topics. Placeholder contact only
-// (no real phone number or email address).
+// Content of "Hỗ trợ" (/ho-tro/huong-dan, /ho-tro/faq, /ho-tro/lien-he): step-by-step guide, FAQ and the support
+// request topics. Placeholder contact only (no real phone number or email address).
 import type { AccountType } from '../../services';
+import { SUPPORT_CONTACT_PATH, SUPPORT_FAQ_PATH, SUPPORT_GUIDE_PATH } from '../../auth/roles';
+
+/** Target of the old one-page /ho-tro: its anchors map to the new pages, anything else opens the guide. */
+export function supportRedirectPath(hash: string): string {
+  if (hash === '#lien-he' || hash === '#ho-tro-lien-he') return SUPPORT_CONTACT_PATH;
+  if (hash === '#ho-tro-faq') return SUPPORT_FAQ_PATH;
+  return SUPPORT_GUIDE_PATH;
+}
 
 export interface GuideStep {
   title: string;
@@ -32,10 +40,10 @@ export function guideSteps(type: AccountType): GuideStep[] {
       to: `${base}/tong-quan`,
       cta: 'Tổng quan hồ sơ',
     },
-    { title: 'Tìm chiến dịch trên Sàn', text: 'Lọc theo lĩnh vực, nền tảng, ngân sách; xem mức Khớp % với kênh của bạn và lưu chiến dịch quan tâm.', to: '/san', cta: 'Sàn chiến dịch' },
+    { title: 'Tìm chiến dịch trên Sàn', text: 'Lọc theo lĩnh vực, nền tảng, ngân sách; xem mức Khớp % với kênh của bạn và lưu vào Chiến dịch yêu thích.', to: '/san', cta: 'Sàn chiến dịch' },
     { title: 'Ứng tuyển hoặc nhận lời mời', text: 'Gửi đề xuất ứng tuyển (giá, KOL, kênh) hoặc trả lời lời mời trong 7 ngày: nhận, đề xuất giá khác hay từ chối.', to: '/chien-dich-cua-toi', cta: 'Chiến dịch của tôi' },
     { title: 'Nộp nháp và đăng bài', text: 'Nộp bản nháp để Nhãn hàng duyệt (nếu chiến dịch yêu cầu), sau đó đăng bài và gửi link để hệ thống xác minh.', to: '/chien-dich-cua-toi?tab=dang-thuc-hien', cta: 'Việc đang thực hiện' },
-    { title: 'Nhận thanh toán', text: 'Nhãn hàng thanh toán ngoài KOL Hub và đánh dấu đã trả; bạn xác nhận đã nhận để hoàn tất. Thu nhập được ghi lại theo tháng.', to: '/thu-nhap', cta: 'Thu nhập' },
+    { title: 'Nhận thanh toán', text: 'Nhãn hàng thanh toán ngoài KOL Hub và đánh dấu đã trả; bạn xác nhận đã nhận để hoàn tất. Các khoản được ghi lại theo tháng trong mục Thanh toán.', to: '/thu-nhap', cta: 'Thanh toán' },
   ];
 }
 
@@ -75,13 +83,13 @@ export const FAQ: FaqItem[] = [
     id: 'chua-nhan-tien',
     topic: 'Thanh toán',
     q: 'Nhãn hàng đã đánh dấu thanh toán nhưng tôi chưa nhận được tiền?',
-    a: 'Đừng xác nhận Đã nhận. Hãy nhắn cho Nhãn hàng trong Tin nhắn của booking đó, kèm thông tin đối chiếu. Nếu không giải quyết được, gửi yêu cầu hỗ trợ ở cuối trang này.',
+    a: 'Đừng xác nhận Đã nhận. Hãy nhắn cho Nhãn hàng trong Cuộc trò chuyện của booking đó, kèm thông tin đối chiếu. Nếu không giải quyết được, gửi yêu cầu ở trang Liên hệ hỗ trợ.',
   },
   {
     id: 'san-pham',
     topic: 'Sản phẩm',
     q: 'Phần thưởng là sản phẩm được ghi nhận thế nào?',
-    a: 'Nhãn hàng đánh dấu Đã gửi sản phẩm, bạn bấm Đã nhận sản phẩm khi nhận hàng. Giá trị sản phẩm được tính vào mục Giá trị sản phẩm trong Thu nhập, tách riêng với tiền mặt.',
+    a: 'Nhãn hàng đánh dấu Đã gửi sản phẩm, bạn bấm Đã nhận sản phẩm khi nhận hàng. Giá trị sản phẩm được tính vào mục Giá trị sản phẩm trong Thanh toán, tách riêng với tiền mặt.',
   },
   {
     id: 'kol-safety',
@@ -99,7 +107,7 @@ export const FAQ: FaqItem[] = [
     id: 'vi-pham',
     topic: 'Vi phạm',
     q: 'Kênh của tôi bị ghi nhận vi phạm thì sao?',
-    a: 'Vi phạm đã xác nhận hiển thị trong Danh sách vi phạm và Nhãn hàng có thể xem. Bạn có thể khắc phục nội dung hoặc gửi khiếu nại kèm giải thích ngay tại trang đó.',
+    a: 'Vi phạm đã xác nhận hiển thị ở mục Kiểm duyệt › Vi phạm và Nhãn hàng có thể xem. Bạn có thể khắc phục nội dung hoặc gửi khiếu nại kèm giải thích ngay tại trang đó.',
   },
   {
     id: 'tin-nhan',
@@ -115,7 +123,7 @@ export const FAQ: FaqItem[] = [
   },
 ];
 
-export const SUPPORT_TOPICS = ['Chiến dịch và booking', 'Thanh toán, thu nhập', 'Hồ sơ và xác thực kênh', 'Vi phạm, khiếu nại', 'Khác'] as const;
+export const SUPPORT_TOPICS = ['Chiến dịch và booking', 'Thanh toán', 'Hồ sơ và xác thực kênh', 'Vi phạm, khiếu nại', 'Khác'] as const;
 export type SupportTopic = (typeof SUPPORT_TOPICS)[number];
 export const SUPPORT_MESSAGE_MIN = 10;
 export const SUPPORT_MESSAGE_MAX = 1000;

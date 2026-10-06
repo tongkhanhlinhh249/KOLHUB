@@ -76,7 +76,7 @@ export function CampaignWorkspace({ accountId }: { accountId: string }) {
     <div className="@container space-y-4">
       <Section
         id="ws-pipeline"
-        title="Chiến dịch của bạn"
+        title="Chiến dịch của tôi"
         action={
           <Link to={SUPPLIER_CAMPAIGNS_PATH} className={moreLink}>
             Xem tất cả
@@ -158,7 +158,7 @@ export function CampaignWorkspace({ accountId }: { accountId: string }) {
   );
 }
 
-/** "Chiến dịch đã lưu" strip on "Tổng quan hồ sơ": a few saved Sàn campaigns + link to "Chiến dịch quan tâm". */
+/** "Chiến dịch yêu thích" strip on "Tổng quan hồ sơ": a few saved Sàn campaigns + link to "Chiến dịch yêu thích". */
 export function SavedCampaignsStrip({ accountId }: { accountId: string }) {
   const q = useLiveQuery(() => campaignService.listSaved(), [accountId]);
   const list = q.data ?? [];
@@ -168,7 +168,7 @@ export function SavedCampaignsStrip({ accountId }: { accountId: string }) {
   return (
     <Section
       id="ws-saved"
-      title="Chiến dịch đã lưu"
+      title="Chiến dịch yêu thích"
       action={
         list.length > 0 ? (
           <Link to={INTERESTED_PATH} className={moreLink}>

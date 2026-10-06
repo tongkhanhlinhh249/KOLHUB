@@ -6,13 +6,13 @@ test('CTA của banner theo người xem: khách đăng ký/đăng nhập, KOL/M
   expect(sanPromo('guest')).toEqual({
     apply: { label: 'Đăng ký tài khoản KOL', to: '/dang-ky?loai=kol' },
     brand: { label: 'Liên hệ tư vấn', to: '/dang-ky?loai=biz' },
-    guide: { label: 'Xem hướng dẫn', to: '/dang-nhap?returnTo=%2Fho-tro' },
-    guideTile: '/dang-nhap?returnTo=%2Fho-tro',
+    guide: { label: 'Xem hướng dẫn', to: '/dang-nhap?returnTo=%2Fho-tro%2Fhuong-dan' },
+    guideTile: '/dang-nhap?returnTo=%2Fho-tro%2Fhuong-dan',
     brandTile: '/dang-ky?loai=biz',
   });
   expect(sanPromo('supplier', 'KOL').apply).toEqual({ label: 'Hoàn thiện hồ sơ', to: '/ho-so-kol/tong-quan' });
   expect(sanPromo('supplier', 'MCN').apply.to).toBe('/ho-so-mcn/tong-quan');
-  expect(sanPromo('supplier', 'MCN').brand.to).toBe('/ho-tro#lien-he');
+  expect(sanPromo('supplier', 'MCN').brand.to).toBe('/ho-tro/lien-he');
   expect(sanPromo('brand').brand).toEqual({ label: 'Tạo chiến dịch', to: '/chien-dich/tao' });
   // Every target opens for that viewer (guests: only public / guest pages).
   const role = { guest: 'kolhub.guest', supplier: 'kolhub.user.kol', brand: 'kolhub.user.biz' } as const;

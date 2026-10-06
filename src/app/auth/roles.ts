@@ -1,6 +1,8 @@
 import {
   Bell,
-  Bookmark,
+  BookOpen,
+  Heart,
+  Headset,
   LifeBuoy,
   MessageCircleQuestion,
   MessagesSquare,
@@ -15,6 +17,7 @@ import {
   MonitorPlay,
   Search,
   ShieldAlert,
+  Star,
   UserPlus,
   Users,
   Wallet,
@@ -29,6 +32,8 @@ export interface MenuItem {
   path: string;
   /** Sidebar section heading; consecutive items with the same group are shown together. */
   group?: string;
+  /** Path prefixes that mark the item active and that the role may open (default: `path`). */
+  match?: string[];
 }
 
 export interface RoleConfig {
@@ -83,18 +88,35 @@ export const KOL_SAFETY_PATH = `${SAFETY_BASE}/kol-safety`;
 /** Brand campaigns (campaign booking beta): list, /tao, /:id, /:id/sua. */
 export const CAMPAIGNS_PATH = '/chien-dich';
 
-/** "Tin nhắn": one thread per booking between the brand and the KOL/MCN (KOL/MCN and Brand). */
+/** "Cuộc trò chuyện" (KOL/MCN) / "Tin nhắn" (Brand): one thread per booking between the brand and the KOL/MCN. */
 export const MESSAGES_PATH = '/tin-nhan';
 /** "Thông báo": in-app notification center, opened from the header bell (every signed-in role; not a menu item). */
 export const NOTIFICATIONS_PATH = '/thong-bao';
-/** KOL/MCN "Chiến dịch quan tâm": saved Sàn campaigns + applications (was the Sàn's "Đã lưu" / "Đã ứng tuyển" tabs). */
+/** KOL/MCN "Chiến dịch yêu thích": saved Sàn campaigns + applications (was the Sàn's "Đã lưu" / "Đã ứng tuyển" tabs). */
 export const INTERESTED_PATH = '/chien-dich-da-luu';
-/** KOL/MCN "Câu hỏi của tôi": questions asked on Sàn campaigns. */
+/** KOL/MCN "Câu hỏi của tôi": questions asked on Sàn campaigns (not a menu item; linked from Hỗ trợ › Liên hệ and Chiến dịch yêu thích). */
 export const MY_QUESTIONS_PATH = '/cau-hoi-cua-toi';
-/** "Hỗ trợ": user guide, FAQ, contact form (KOL/MCN and Brand). */
+/** "Hỗ trợ" (KOL/MCN and Brand): three pages under /ho-tro; /ho-tro itself redirects to the guide. */
 export const SUPPORT_PATH = '/ho-tro';
+export const SUPPORT_GUIDE_PATH = `${SUPPORT_PATH}/huong-dan`;
+export const SUPPORT_FAQ_PATH = `${SUPPORT_PATH}/faq`;
+export const SUPPORT_CONTACT_PATH = `${SUPPORT_PATH}/lien-he`;
 export const SUPPORT_GROUP = 'Hỗ trợ';
-const SUPPORT_ITEM: MenuItem = { icon: LifeBuoy, label: 'Hỗ trợ', shortLabel: 'Hỗ trợ', path: SUPPORT_PATH, group: SUPPORT_GROUP };
+/** KOL/MCN: one menu item per support page. */
+const SUPPORT_MENU: MenuItem[] = [
+  { icon: BookOpen, label: 'Hướng dẫn', shortLabel: 'Hướng dẫn', path: SUPPORT_GUIDE_PATH, group: SUPPORT_GROUP },
+  { icon: MessageCircleQuestion, label: 'FAQ', shortLabel: 'FAQ', path: SUPPORT_FAQ_PATH, group: SUPPORT_GROUP },
+  { icon: Headset, label: 'Liên hệ', shortLabel: 'Liên hệ', path: SUPPORT_CONTACT_PATH, group: SUPPORT_GROUP },
+];
+/** Brand: a single "Hỗ trợ" item (opens the guide), active on all three support pages. */
+const BRAND_SUPPORT_ITEM: MenuItem = {
+  icon: LifeBuoy,
+  label: 'Hỗ trợ',
+  shortLabel: 'Hỗ trợ',
+  path: SUPPORT_GUIDE_PATH,
+  group: SUPPORT_GROUP,
+  match: [SUPPORT_PATH],
+};
 /** Icon of the header bell (Thông báo). */
 export const NOTIFICATIONS_ICON = Bell;
 
@@ -106,17 +128,23 @@ const BRAND_BOTTOM_NAV: BottomNavConfig = {
     { icon: MonitorPlay, label: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
     { icon: BookMarked, label: 'Đã lưu', path: '/danh-sach-da-luu' },
   ],
-  more: [MESSAGES_PATH, APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep', SUPPORT_PATH],
+  more: [MESSAGES_PATH, APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep', SUPPORT_GUIDE_PATH],
 };
 
-/** Video/channel checks now live in the external tool (via "Ứng dụng"); the in-app mock pages stay routable only. */
+/**
+ * KOL/MCN "Kiểm duyệt": app launcher + own violations ("Vi phạm"). Video/channel checks live in the external tool
+ * (via "Ứng dụng"); the in-app mock pages stay routable only. Brands keep their own "Danh sách vi phạm" (other KOLs).
+ */
 const SAFETY_MENU: MenuItem[] = [
   { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH, group: SAFETY_GROUP },
-  { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
+  { icon: ShieldAlert, label: 'Vi phạm', shortLabel: 'Vi phạm', path: VIOLATIONS_PATH, group: SAFETY_GROUP },
 ];
 
-/** Profile overview ("Tổng quan hồ sơ") + "Thông tin hồ sơ" (identity + contact) + channel management (group "Hồ sơ KOL/MCN"). */
-function profileMenu(base: string, group: string, identityIcon: LucideIcon): MenuItem[] {
+/** KOL/MCN sidebar group of the profile pages (MCN: + "Quản lý KOL"). */
+export const PROFILE_GROUP = 'Hồ sơ';
+
+/** Profile overview ("Tổng quan hồ sơ") + "Thông tin hồ sơ" (identity + contact) + channel management (group "Hồ sơ"). */
+function profileMenu(base: string, identityIcon: LucideIcon, group = PROFILE_GROUP): MenuItem[] {
   return [
     { icon: LayoutDashboard, label: 'Tổng quan hồ sơ', shortLabel: 'Tổng quan', path: `${base}/tong-quan`, group },
     { icon: identityIcon, label: 'Thông tin hồ sơ', shortLabel: 'Hồ sơ', path: `${base}/thong-tin`, group },
@@ -124,58 +152,48 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
   ];
 }
 
-/**
- * "Hợp tác" group (campaign booking beta). KOL/MCN: "Chiến dịch" (invites, applications and bookings they work on).
- * The Sàn is a separate public channel (/san), not a menu item: it opens from the account menu ("Mở Sàn chiến dịch").
- */
+/** Brand sidebar group "Hợp tác" (campaign booking beta): Chiến dịch + Tin nhắn. */
 export const COLLAB_GROUP = 'Hợp tác';
-/** KOL/MCN "Chiến dịch" page (was /booking). */
+/** KOL/MCN sidebar groups: own campaigns, favourites and ratings · conversations, content and payments. */
+export const ACTIVITY_GROUP = 'Hoạt động của tôi';
+export const MANAGE_GROUP = 'Quản lý';
+/** KOL/MCN "Chiến dịch của tôi" page (was /booking). The Sàn (/san) is not a menu item: it opens from the account menu. */
 export const SUPPLIER_CAMPAIGNS_PATH = '/chien-dich-cua-toi';
 /** Old path of the KOL/MCN page; redirects to SUPPLIER_CAMPAIGNS_PATH (query kept). */
 export const LEGACY_SUPPLIER_BOOKING_PATH = '/booking';
-/** KOL/MCN "Bài đã đăng": verified posts from bookings, each with "Hiện trên hồ sơ". */
+/** KOL/MCN "Nội dung" (was "Bài đã đăng"): verified posts from bookings, each with "Hiện trên hồ sơ". */
 export const PORTFOLIO_PATH = '/bai-da-dang';
-/** KOL/MCN "Thu nhập": record-only ledger of cash / product rewards (payment happens outside KOL Hub). */
+/** KOL/MCN "Thanh toán" (was "Thu nhập"): record-only ledger of cash / product rewards (payment happens outside KOL Hub). */
 export const EARNINGS_PATH = '/thu-nhap';
-const MESSAGES_ITEM: MenuItem = { icon: MessagesSquare, label: 'Tin nhắn', shortLabel: 'Tin nhắn', path: MESSAGES_PATH, group: COLLAB_GROUP };
-const COLLAB_MENU: MenuItem[] = [
-  { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH, group: COLLAB_GROUP },
-  { icon: Bookmark, label: 'Chiến dịch quan tâm', shortLabel: 'Quan tâm', path: INTERESTED_PATH, group: COLLAB_GROUP },
-  MESSAGES_ITEM,
-  { icon: Images, label: 'Bài đã đăng', shortLabel: 'Bài đăng', path: PORTFOLIO_PATH, group: COLLAB_GROUP },
-  { icon: Wallet, label: 'Thu nhập', shortLabel: 'Thu nhập', path: EARNINGS_PATH, group: COLLAB_GROUP },
-  { icon: MessageCircleQuestion, label: 'Câu hỏi của tôi', shortLabel: 'Câu hỏi', path: MY_QUESTIONS_PATH, group: COLLAB_GROUP },
+/** KOL/MCN "Đánh giá": ratings brands gave this account and ratings it gave brands (completed bookings). */
+export const RATINGS_PATH = '/danh-gia';
+const ACTIVITY_MENU: MenuItem[] = [
+  { icon: Megaphone, label: 'Chiến dịch của tôi', shortLabel: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH, group: ACTIVITY_GROUP },
+  { icon: Heart, label: 'Chiến dịch yêu thích', shortLabel: 'Yêu thích', path: INTERESTED_PATH, group: ACTIVITY_GROUP },
+  { icon: Star, label: 'Đánh giá', shortLabel: 'Đánh giá', path: RATINGS_PATH, group: ACTIVITY_GROUP },
+];
+const MANAGE_MENU: MenuItem[] = [
+  { icon: MessagesSquare, label: 'Cuộc trò chuyện', shortLabel: 'Trò chuyện', path: MESSAGES_PATH, group: MANAGE_GROUP },
+  { icon: Images, label: 'Nội dung', shortLabel: 'Nội dung', path: PORTFOLIO_PATH, group: MANAGE_GROUP },
+  { icon: Wallet, label: 'Thanh toán', shortLabel: 'Thanh toán', path: EARNINGS_PATH, group: MANAGE_GROUP },
 ];
 
 /** MCN only: KOLs the MCN's channels are assigned to (group "Hồ sơ MCN"). */
 export const MCN_KOLS_PATH = '/ho-so-mcn/kol';
-const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: 'Hồ sơ MCN' };
+const MCN_KOLS_ITEM: MenuItem = { icon: Users, label: 'Quản lý KOL', shortLabel: 'KOL', path: MCN_KOLS_PATH, group: PROFILE_GROUP };
 
 /**
- * 17–18 menu items do not fit a phone tab bar: 4 tabs + "Thêm" (the rest; `extraMore` first, then the Hợp tác pages,
- * profile pages, violations and Hỗ trợ).
- * "Chiến dịch" takes the tab of "Kênh" (channel setup is reached from Tổng quan / Thêm).
+ * 16–17 menu items do not fit a phone tab bar: 4 tabs (Tổng quan, Chiến dịch, Yêu thích, Ứng dụng) + "Thêm" with every
+ * other menu item in sidebar (group) order.
  */
-function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConfig {
-  return {
-    items: [
-      { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
-      { icon: Megaphone, label: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH },
-      { icon: Bookmark, label: 'Quan tâm', path: INTERESTED_PATH },
-      { icon: LayoutGrid, label: 'Ứng dụng', path: APPS_PATH },
-    ],
-    more: [
-      ...extraMore,
-      MESSAGES_PATH,
-      PORTFOLIO_PATH,
-      EARNINGS_PATH,
-      MY_QUESTIONS_PATH,
-      `${base}/kenh`,
-      `${base}/thong-tin`,
-      VIOLATIONS_PATH,
-      SUPPORT_PATH,
-    ],
-  };
+function creatorBottomNav(base: string, menu: MenuItem[]): BottomNavConfig {
+  const items: BottomNavItem[] = [
+    { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
+    { icon: Megaphone, label: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH },
+    { icon: Heart, label: 'Yêu thích', path: INTERESTED_PATH },
+    { icon: LayoutGrid, label: 'Ứng dụng', path: APPS_PATH },
+  ];
+  return { items, more: menu.map((m) => m.path).filter((p) => !items.some((i) => i.path === p)) };
 }
 
 /** Brand sidebar groups: find KOLs · collaborate · review · account. */
@@ -184,14 +202,18 @@ const BRAND_MENU: MenuItem[] = [
   { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH, group: 'Tìm KOL' },
   { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu', group: 'Tìm KOL' },
   { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: CAMPAIGNS_PATH, group: COLLAB_GROUP },
-  MESSAGES_ITEM,
+  { icon: MessagesSquare, label: 'Tin nhắn', shortLabel: 'Tin nhắn', path: MESSAGES_PATH, group: COLLAB_GROUP },
   { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH, group: SAFETY_GROUP },
   { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH, group: SAFETY_GROUP },
   { icon: Building2, label: 'Tài khoản doanh nghiệp', shortLabel: 'Doanh nghiệp', path: '/tai-khoan-doanh-nghiep', group: 'Tài khoản' },
-  SUPPORT_ITEM,
+  BRAND_SUPPORT_ITEM,
 ];
 
-const CREATOR_AREAS = [SAFETY_BASE, LEGACY_SAFETY_PATH, LEGACY_SUPPLIER_BOOKING_PATH, NOTIFICATIONS_PATH];
+/** KOL/MCN pages that are not menu items: KOL Safety pages, old paths, Thông báo, Câu hỏi của tôi, /ho-tro (redirect). */
+const CREATOR_AREAS = [SAFETY_BASE, LEGACY_SAFETY_PATH, LEGACY_SUPPLIER_BOOKING_PATH, NOTIFICATIONS_PATH, MY_QUESTIONS_PATH, SUPPORT_PATH];
+
+const KOL_MENU: MenuItem[] = [...profileMenu('/ho-so-kol', IdCard), ...ACTIVITY_MENU, ...MANAGE_MENU, ...SAFETY_MENU, ...SUPPORT_MENU];
+const MCN_MENU: MenuItem[] = [...profileMenu('/ho-so-mcn', Building2), MCN_KOLS_ITEM, ...ACTIVITY_MENU, ...MANAGE_MENU, ...SAFETY_MENU, ...SUPPORT_MENU];
 
 export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.guest': {
@@ -205,16 +227,16 @@ export const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
   'kolhub.user.kol': {
     label: 'Cá nhân/KOL',
     home: '/ho-so-kol/tong-quan',
-    menu: [...profileMenu('/ho-so-kol', 'Hồ sơ KOL', IdCard), ...COLLAB_MENU, ...SAFETY_MENU, SUPPORT_ITEM],
+    menu: KOL_MENU,
     areas: ['/ho-so-kol', ...CREATOR_AREAS],
-    bottomNav: creatorBottomNav('/ho-so-kol'),
+    bottomNav: creatorBottomNav('/ho-so-kol', KOL_MENU),
   },
   'kolhub.user.mcn': {
     label: 'Tổ chức/MCN',
     home: '/ho-so-mcn/tong-quan',
-    menu: [...profileMenu('/ho-so-mcn', 'Hồ sơ MCN', Building2), MCN_KOLS_ITEM, ...COLLAB_MENU, ...SAFETY_MENU, SUPPORT_ITEM],
+    menu: MCN_MENU,
     areas: ['/ho-so-mcn', ...CREATOR_AREAS],
-    bottomNav: creatorBottomNav('/ho-so-mcn', [MCN_KOLS_PATH]),
+    bottomNav: creatorBottomNav('/ho-so-mcn', MCN_MENU),
   },
   'kolhub.user.biz': {
     label: 'Nhãn hàng/Agency',
@@ -243,7 +265,7 @@ export type Access = { allow: true } | { allow: false; redirect: string; reason:
 function allowedPaths(role: RoleKey): string[] {
   if (role === 'kolhub.guest') return GUEST_PATHS;
   const { menu, areas = [] } = ROLE_CONFIG[role];
-  return [...menu.map((m) => m.path), ...areas];
+  return [...menu.flatMap((m) => [m.path, ...(m.match ?? [])]), ...areas];
 }
 
 /** Strip query/hash and trailing slash ("/" stays "/"). */
@@ -314,9 +336,9 @@ const DESCRIPTIONS: Record<string, string> = {
   '/bai-da-dang': 'Các bài đăng đã xác minh trong chiến dịch; chọn bài hiện trên hồ sơ cho Nhãn hàng xem',
   '/thu-nhap': 'Theo dõi tiền và sản phẩm nhận từ chiến dịch (chỉ ghi nhận, thanh toán ngoài KOL Hub)',
   '/chien-dich-da-luu': 'Chiến dịch đã lưu và đã ứng tuyển trên Sàn',
+  '/danh-gia': 'Đánh giá Nhãn hàng dành cho bạn và đánh giá bạn gửi Nhãn hàng sau mỗi booking hoàn tất',
   '/tin-nhan': 'Trao đổi với đối tác theo từng booking',
   '/cau-hoi-cua-toi': 'Câu hỏi bạn đã gửi Nhãn hàng trên Sàn chiến dịch',
-  '/ho-tro': 'Hướng dẫn sử dụng, câu hỏi thường gặp và liên hệ hỗ trợ',
   '/thong-bao': 'Lời mời, đề xuất, duyệt nội dung, thanh toán và tin nhắn mới',
   '/tim-kiem-kol': 'Tìm KOL có kênh đã xác thực',
   '/chien-dich': 'Tạo chiến dịch, mời KOL/MCN, duyệt nội dung và theo dõi kết quả',
@@ -344,8 +366,15 @@ function campaignSubDescription(p: string): string | undefined {
 }
 
 const EXTRA_TITLES: Record<string, string> = { '/quen-mat-khau': 'Quên mật khẩu' };
-/** Signed-in pages that are not menu items (header bell). */
-const AREA_TITLES: Record<string, string> = { [NOTIFICATIONS_PATH]: 'Thông báo' };
+/** Signed-in pages that are not menu items (header bell; "Câu hỏi của tôi" linked from Liên hệ / Chiến dịch yêu thích). */
+const AREA_TITLES: Record<string, string> = { [NOTIFICATIONS_PATH]: 'Thông báo', [MY_QUESTIONS_PATH]: 'Câu hỏi của tôi' };
+
+/** The three "Hỗ trợ" pages: own title for every role (the KOL/MCN menu labels are shorter). */
+export const SUPPORT_PAGES: { path: string; label: string; title: string; description: string }[] = [
+  { path: SUPPORT_GUIDE_PATH, label: 'Hướng dẫn', title: 'Hướng dẫn sử dụng', description: 'Các bước dùng KOL Hub, kèm đường dẫn tới đúng trang' },
+  { path: SUPPORT_FAQ_PATH, label: 'FAQ', title: 'Câu hỏi thường gặp', description: 'Chiến dịch, thanh toán, phần thưởng sản phẩm, KOL Safety, MCN và vi phạm' },
+  { path: SUPPORT_CONTACT_PATH, label: 'Liên hệ', title: 'Liên hệ hỗ trợ', description: 'Gửi yêu cầu hỗ trợ cho KOL Hub' },
+];
 
 /** In-app pages of "Ứng dụng" (not menu items): own title, group = the role's label. */
 const APP_PAGES: Record<string, { title: string; description: string }> = {
@@ -367,6 +396,8 @@ export function getPageMeta(path: string, role?: RoleKey): { title: string; grou
   if (matches(p, MARKETPLACE_PATH))
     return { title: 'Sàn chiến dịch', group: ROLE_CONFIG[role && role !== 'kolhub.guest' ? role : 'kolhub.user.kol'].label, description: DESCRIPTIONS[MARKETPLACE_PATH] };
   const order = role ? [role, ...ROLE_KEYS.filter((r) => r !== role)] : ROLE_KEYS;
+  const support = SUPPORT_PAGES.find((s) => matches(p, s.path));
+  if (support) return { title: support.title, group: ROLE_CONFIG[role && role !== 'kolhub.guest' ? role : 'kolhub.user.kol'].label, description: support.description };
   for (const r of order) {
     const item = ROLE_CONFIG[r].menu.find((m) => matches(p, m.path));
     if (item) {

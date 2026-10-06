@@ -28,11 +28,11 @@ test('mỗi đường dẫn nhanh dùng tài khoản demo có thật và mở đ
   for (const g of DEMO_LINK_GROUPS) for (const l of g.links) expect(l.path).not.toContain('chien-dich=');
   // No link points at the old paths (they only redirect).
   for (const g of DEMO_LINK_GROUPS) for (const l of g.links) expect(l.path).not.toMatch(/^\/(booking|san-chien-dich)(\?|$)/);
-  // The Sàn's old tabs moved to "Chiến dịch quan tâm".
+  // The Sàn's old tabs moved to "Chiến dịch yêu thích".
   for (const g of DEMO_LINK_GROUPS) for (const l of g.links) expect(l.path).not.toMatch(/^\/san\?.*tab=da-(luu|ung-tuyen)/);
-  // New pages have quick links (Tin nhắn for all three sides, Thông báo, Hỗ trợ, Câu hỏi của tôi, Chiến dịch quan tâm).
+  // New pages have quick links (Tin nhắn / Cuộc trò chuyện for all three sides, Thông báo, Hỗ trợ, Câu hỏi của tôi, Chiến dịch yêu thích, Đánh giá).
   const all = DEMO_LINK_GROUPS.flatMap((g) => g.links);
   for (const a of ['kol-verified', 'mcn-verified', 'biz-verified'] as const) expect(all.some((l) => l.account === a && l.path.startsWith('/tin-nhan'))).toBe(true);
-  for (const p of ['/thong-bao', '/ho-tro', '/cau-hoi-cua-toi', '/chien-dich-da-luu']) expect(all.some((l) => l.path === p)).toBe(true);
+  for (const p of ['/thong-bao', '/ho-tro/huong-dan', '/cau-hoi-cua-toi', '/chien-dich-da-luu', '/danh-gia']) expect(all.some((l) => l.path === p)).toBe(true);
   expect(roleOf(null)).toBe('kolhub.guest');
 });

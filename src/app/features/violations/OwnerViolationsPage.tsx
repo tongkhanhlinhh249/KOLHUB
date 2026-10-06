@@ -194,7 +194,7 @@ export function OwnerViolationsPage() {
           )}
         </div>
       ) : (
-        <ViolationTable rows={rows} label="Danh sách vi phạm" onView={(v) => setDetailId(v.id)} renderActions={rowActions} />
+        <ViolationTable rows={rows} label="Vi phạm" onView={(v) => setDetailId(v.id)} renderActions={rowActions} />
       )}
 
       <ViolationDetailSheet violation={detail} mode="owner" onOpenChange={(o) => !o && setDetailId(null)} footer={sheetFooter} />

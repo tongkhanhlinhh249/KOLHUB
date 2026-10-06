@@ -45,7 +45,7 @@ function Block({ id, title, children, hint }: { id: string; title: string; hint?
 const num = 'text-right tabular-nums whitespace-nowrap';
 
 /**
- * /thu-nhap — "Thu nhập" of the signed-in KOL / MCN: a record-only ledger (not a wallet) of cash and product rewards per
+ * /thu-nhap — "Thanh toán" (was "Thu nhập") of the signed-in KOL / MCN: a record-only ledger (not a wallet) of cash and product rewards per
  * campaign with their status, summary cards, monthly totals and (MCN) totals per KOL. Payment happens outside KOL Hub.
  */
 export function EarningsPage() {
@@ -93,14 +93,14 @@ export function EarningsPage() {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
         <SupplierGate ownerType={access.ownerType} status={access.status} />
-        {empty('Thu nhập sẽ xuất hiện ở đây', 'Sau khi hồ sơ được duyệt và bạn chốt booking với Nhãn hàng, các khoản tiền và sản phẩm được ghi nhận tại trang này.')}
+        {empty('Các khoản thanh toán sẽ xuất hiện ở đây', 'Sau khi hồ sơ được duyệt và bạn chốt booking với Nhãn hàng, các khoản tiền và sản phẩm được ghi nhận tại trang này.')}
       </div>
     );
   }
 
   if (q.loading && !q.data) {
     return (
-      <div className="mx-auto w-full max-w-5xl space-y-3 p-4 md:p-6" aria-busy="true" aria-label="Đang tải thu nhập">
+      <div className="mx-auto w-full max-w-5xl space-y-3 p-4 md:p-6" aria-busy="true" aria-label="Đang tải thanh toán">
         <Skeleton className="h-20 w-full" />
         <Skeleton className="h-48 w-full" />
       </div>
@@ -112,7 +112,7 @@ export function EarningsPage() {
         <Alert variant="destructive">
           <AlertCircle className="size-4" aria-hidden />
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>Không tải được thu nhập.</span>
+            <span>Không tải được dữ liệu thanh toán.</span>
             <Button type="button" variant="outline" size="sm" className="h-11 md:h-8" onClick={q.reload}>
               <RotateCcw aria-hidden />
               Thử lại
@@ -142,7 +142,7 @@ export function EarningsPage() {
       {note}
 
       {rows.length === 0 ? (
-        empty('Chưa có khoản thu nhập nào', 'Khi booking được chốt, khoản tiền và sản phẩm của chiến dịch sẽ được ghi nhận tại đây.')
+        empty('Chưa có khoản thanh toán nào', 'Khi booking được chốt, khoản tiền và sản phẩm của chiến dịch sẽ được ghi nhận tại đây.')
       ) : (
         <>
           <Block id="tn-thang" title="Theo tháng" hint="Tính theo ngày bạn xác nhận đã nhận, ngày Nhãn hàng đánh dấu đã trả, hoặc ngày chốt booking.">

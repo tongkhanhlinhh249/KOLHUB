@@ -1,7 +1,7 @@
 // Mock "Bài đã đăng" service: the signed-in KOL / MCN lists its verified posts and hides / shows each one on its
 // public profile; a Brand lists the shown posts of a KOL (KOL ID) on the KOL profile.
 import type { Booking, ContentSubmission } from '../campaign-types';
-import type { PortfolioPost, PublicPost } from '../portfolio-types';
+import type { PortfolioPost, PublicPost, SupplierRatingRow } from '../portfolio-types';
 import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
@@ -112,7 +112,35 @@ export function createPortfolioService(deps: PortfolioServiceDeps) {
     return out.sort((a, b) => b.verifiedAt - a.verifiedAt);
   }
 
-  return { listMine, setVisible, listPublic };
+  /**
+   * "Đánh giá": completed bookings of the signed-in KOL / MCN with both ratings (the brand's rating of the supplier is
+   * already shown to it on "Nội dung"), newest first (4806 when the profile is not approved).
+   */
+  async function listRatings(): Promise<SupplierRatingRow[]> {
+    await wait();
+    const state = db.read();
+    const me = currentSupplier(state);
+    const t = now();
+    const out: SupplierRatingRow[] = [];
+    for (const b of state.bookings) {
+      if (b.supplierAccountId !== me.accountId || b.status !== 'COMPLETED') continue;
+      const c = state.campaigns.find((x) => x.id === b.campaignId);
+      const kolNames = [...new Set(b.items.map((it) => itemView(state, it, t).displayName))];
+      out.push({
+        bookingId: b.id,
+        campaignId: b.campaignId,
+        campaignName: c?.name ?? '',
+        brandCompany: company(state, b.brandAccountId),
+        kolNames,
+        completedAt: b.completedAt ?? b.updatedAt,
+        ...(b.ratings?.brand ? { received: { ...b.ratings.brand } } : {}),
+        ...(b.ratings?.supplier ? { given: { ...b.ratings.supplier } } : {}),
+      });
+    }
+    return out.sort((a, b) => b.completedAt - a.completedAt);
+  }
+
+  return { listMine, setVisible, listPublic, listRatings };
 }
 
 export type PortfolioService = ReturnType<typeof createPortfolioService>;

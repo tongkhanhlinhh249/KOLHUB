@@ -136,6 +136,8 @@ export function seedHistory(
     start: number,
     stars: number,
     comment: string,
+    /** v15: the supplier's rating of the brand ("Đánh giá › Bạn đánh giá"); omitted = still to rate. */
+    given?: { stars: number; comment: string },
   ): Booking {
     const verifiedAt = ago(start - 6);
     const marked = ago(start - 10);
@@ -166,10 +168,11 @@ export function seedHistory(
         ev(marked, 'BRAND', 'PAYMENT_MARKED', { price }),
         ev(confirmed, 'SUPPLIER', 'PAYMENT_CONFIRMED', { price }),
         ev(confirmed, 'BRAND', 'RATED'),
+        ...(given ? [ev(confirmed, 'SUPPLIER', 'RATED')] : []),
       ],
       contents: items.map((it, i) => post(`ct-${id}-${i + 1}`, `${id}-i${i + 1}`, it.url, it.channelId, verifiedAt, it.title, it.hidden)),
       payment: { brandMarkedAt: marked, supplierConfirmedAt: confirmed },
-      ratings: { brand: { stars, comment, at: confirmed } },
+      ratings: { brand: { stars, comment, at: confirmed }, ...(given ? { supplier: { ...given, at: confirmed } } : {}) },
       acceptedAt: ago(start),
       completedAt: confirmed,
       createdAt: ago(start + 2),
@@ -201,6 +204,7 @@ export function seedHistory(
       70,
       5,
       'Video tự nhiên, gửi link đúng hạn.',
+      { stars: 4, comment: 'Brief rõ, thanh toán đúng hẹn; duyệt nội dung hơi lâu.' },
     ),
     done(
       SEED_HISTORY.vyShoes,

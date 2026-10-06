@@ -268,9 +268,9 @@ describe('tham số URL', () => {
     expect(marketplaceCampaignPath('c 1/x')).toBe('/san/c%201%2Fx');
     expect(marketplaceBackPath({ from: '/san?linh-vuc=Du%20l%E1%BB%8Bch&q=tra' })).toBe('/san?linh-vuc=Du%20l%E1%BB%8Bch&q=tra');
     expect(marketplaceBackPath({ from: '/san' })).toBe('/san');
-    // "Chiến dịch quan tâm" is a list too (its tab / filter kept).
+    // "Chiến dịch yêu thích" is a list too (its tab / filter kept).
     expect(marketplaceBackPath({ from: '/chien-dich-da-luu?trang-thai=da-dong' })).toBe('/chien-dich-da-luu?trang-thai=da-dong');
-    expect(marketplaceBackLabel('/chien-dich-da-luu?trang-thai=da-dong')).toBe('Chiến dịch quan tâm');
+    expect(marketplaceBackLabel('/chien-dich-da-luu?trang-thai=da-dong')).toBe('Chiến dịch yêu thích');
     expect(marketplaceBackLabel('/san?q=a')).toBe('Sàn chiến dịch');
     // Only those lists; anything else (another page, a campaign page, junk) → /san.
     for (const s of [null, undefined, {}, { from: 1 }, { from: '/chien-dich-cua-toi' }, { from: '/san/cmp-1' }, { from: 'https://x.io/san' }, { from: '/sanxyz' }])

@@ -36,11 +36,12 @@ import { BookingsPage } from './features/supplier-booking/BookingsPage';
 import { PortfolioPage } from './features/creator/PortfolioPage';
 import { EarningsPage } from './features/creator/EarningsPage';
 import { InterestedCampaignsPage } from './features/creator/InterestedCampaignsPage';
-// --- Tin nhắn, Thông báo, Câu hỏi của tôi, Hỗ trợ ---
+import { RatingsPage } from './features/creator/RatingsPage';
+// --- Cuộc trò chuyện / Tin nhắn, Thông báo, Câu hỏi của tôi, Hỗ trợ ---
 import { MessagesPage } from './features/inbox/MessagesPage';
 import { NotificationsPage } from './features/inbox/NotificationsPage';
 import { MyQuestionsPage } from './features/inbox/MyQuestionsPage';
-import { SupportPage } from './features/support/SupportPage';
+import { SupportContactPage, SupportFaqPage, SupportGuidePage, SupportIndexRedirect } from './features/support/SupportPage';
 // --- campaign booking (Brand) ---
 import { CampaignsPage } from './features/campaigns/CampaignsPage';
 import { CampaignFormPage } from './features/campaigns/CampaignFormPage';
@@ -122,10 +123,19 @@ export const router = createBrowserRouter([
           { path: 'bai-da-dang', element: <PortfolioPage /> },
           { path: 'thu-nhap', element: <EarningsPage /> },
           { path: 'chien-dich-da-luu', element: <InterestedCampaignsPage /> },
+          { path: 'danh-gia', element: <RatingsPage /> },
           { path: 'tin-nhan', element: <MessagesPage /> },
           { path: 'thong-bao', element: <NotificationsPage /> },
           { path: 'cau-hoi-cua-toi', element: <MyQuestionsPage /> },
-          { path: 'ho-tro', element: <SupportPage /> },
+          {
+            path: 'ho-tro',
+            children: [
+              { index: true, element: <SupportIndexRedirect /> },
+              { path: 'huong-dan', element: <SupportGuidePage /> },
+              { path: 'faq', element: <SupportFaqPage /> },
+              { path: 'lien-he', element: <SupportContactPage /> },
+            ],
+          },
           { path: 'tim-kiem-kol', element: <SearchPage /> },
           {
             path: 'chien-dich',

@@ -130,7 +130,7 @@ export interface MyQuestion {
   status: MyQuestionStatus;
 }
 
-/** "Chiến dịch quan tâm" filter: still taking applications / closed. */
+/** "Chiến dịch yêu thích" filter: still taking applications / closed. */
 export type InterestFilter = 'all' | 'open' | 'closed';
 
 // In-app paths used by deep links (kept here so services do not import UI code).

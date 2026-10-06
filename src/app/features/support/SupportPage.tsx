@@ -1,6 +1,6 @@
-import { useEffect, useId, useState, type FormEvent } from 'react';
-import { Link, useLocation } from 'react-router';
-import { ChevronRight, Clock, Headset, LifeBuoy, Loader2, Send } from 'lucide-react';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, Navigate, useLocation } from 'react-router';
+import { ChevronRight, Clock, Headset, LifeBuoy, Loader2, MessageCircleQuestion, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../components/ui/accordion';
 import { Button } from '../../components/ui/button';
@@ -8,8 +8,10 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { noticeInbox } from '../../services';
 import { useAuth } from '../../auth/AuthContext';
+import { MESSAGES_PATH, MY_QUESTIONS_PATH, ROLE_CONFIG, SUPPORT_PAGES } from '../../auth/roles';
+import { cn } from '../../components/ui/utils';
 import { SelectField } from '../shared/SelectField';
-import { checkSupportRequest, FAQ, guideSteps, SUPPORT_MESSAGE_MAX, SUPPORT_TOPICS } from './supportContent';
+import { checkSupportRequest, FAQ, guideSteps, SUPPORT_MESSAGE_MAX, SUPPORT_TOPICS, supportRedirectPath } from './supportContent';
 
 function SectionTitle({ id, children, hint }: { id: string; children: string; hint?: string }) {
   return (
@@ -82,26 +84,53 @@ function SupportForm() {
 }
 
 /**
- * /ho-tro — "Hỗ trợ" (KOL/MCN and Brand): step-by-step guide for the role, FAQ accordion and "Liên hệ hỗ trợ"
- * (placeholder contact + a demo request form that writes to the fake email outbox). #lien-he scrolls to the form.
+ * Brand only (single "Hỗ trợ" menu item): small links between the three support pages. KOL/MCN have one sidebar item
+ * per page, so they do not need them.
  */
-export function SupportPage() {
+function SupportPageLinks() {
+  const { pathname } = useLocation();
+  return (
+    <nav aria-label="Các trang hỗ trợ" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+      {SUPPORT_PAGES.map((p) => {
+        const active = pathname === p.path;
+        return (
+          <Link
+            key={p.path}
+            to={p.path}
+            aria-current={active ? 'page' : undefined}
+            className={cn(
+              'inline-flex h-11 shrink-0 items-center rounded-full border px-3 text-sm whitespace-nowrap transition-colors md:h-8',
+              active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted',
+            )}
+          >
+            {p.title}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function SupportShell({ children }: { children: ReactNode }) {
   const { account } = useAuth();
-  const { hash } = useLocation();
+  return (
+    <div className="@container mx-auto w-full max-w-4xl space-y-4 p-4 md:p-6">
+      {account?.type === 'BIZ' && <SupportPageLinks />}
+      {children}
+    </div>
+  );
+}
+
+/** /ho-tro/huong-dan — "Hướng dẫn": step-by-step guide for the role (KOL/MCN and Brand). */
+export function SupportGuidePage() {
+  const { account } = useAuth();
   const type = account?.type ?? 'KOL';
   const steps = guideSteps(type);
-
-  useEffect(() => {
-    if (!hash) return;
-    const el = document.getElementById(hash.slice(1));
-    el?.scrollIntoView({ block: 'start' });
-  }, [hash]);
-
   return (
-    <div className="@container mx-auto w-full max-w-4xl space-y-8 p-4 md:p-6">
+    <SupportShell>
       <section aria-labelledby="ho-tro-huong-dan">
         <SectionTitle id="ho-tro-huong-dan" hint={type === 'BIZ' ? 'Từ tìm KOL tới thanh toán' : 'Từ kết nối kênh tới nhận thanh toán'}>
-          Hướng dẫn sử dụng
+          Các bước sử dụng
         </SectionTitle>
         <ol className="grid gap-3 @2xl:grid-cols-2">
           {steps.map((s, i) => (
@@ -126,9 +155,16 @@ export function SupportPage() {
           ))}
         </ol>
       </section>
+    </SupportShell>
+  );
+}
 
+/** /ho-tro/faq — "FAQ": accordion of frequent questions (KOL/MCN and Brand). */
+export function SupportFaqPage() {
+  return (
+    <SupportShell>
       <section aria-labelledby="ho-tro-faq">
-        <SectionTitle id="ho-tro-faq" hint="Chiến dịch, thanh toán, phần thưởng sản phẩm, KOL Safety, MCN và vi phạm">
+        <SectionTitle id="ho-tro-faq" hint="Chưa thấy câu trả lời? Gửi yêu cầu ở trang Liên hệ hỗ trợ.">
           Câu hỏi thường gặp
         </SectionTitle>
         <Accordion type="single" collapsible className="rounded-[8px] border border-border bg-card px-4">
@@ -145,9 +181,22 @@ export function SupportPage() {
           ))}
         </Accordion>
       </section>
+    </SupportShell>
+  );
+}
 
-      <section id="lien-he" aria-labelledby="ho-tro-lien-he" className="scroll-mt-4">
-        <SectionTitle id="ho-tro-lien-he">Liên hệ hỗ trợ</SectionTitle>
+/**
+ * /ho-tro/lien-he — "Liên hệ": placeholder contact + a demo request form that writes to the fake email outbox.
+ * KOL/MCN also get a link to "Câu hỏi của tôi" (questions sent on the Sàn).
+ */
+export function SupportContactPage() {
+  const { account, role } = useAuth();
+  const isSupplier = account?.type === 'KOL' || account?.type === 'MCN';
+  const messagesLabel = ROLE_CONFIG[role].menu.find((m) => m.path === MESSAGES_PATH)?.label ?? 'Tin nhắn';
+  return (
+    <SupportShell>
+      <section aria-labelledby="ho-tro-lien-he">
+        <SectionTitle id="ho-tro-lien-he">Gửi yêu cầu hỗ trợ</SectionTitle>
         <div className="grid gap-4 @2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
           <div className="space-y-3 rounded-[8px] border border-border bg-muted/30 p-4 text-sm">
             <p className="flex items-start gap-2 text-foreground">
@@ -160,14 +209,31 @@ export function SupportPage() {
             </p>
             <p className="flex items-start gap-2 text-muted-foreground">
               <LifeBuoy className="mt-0.5 size-4 shrink-0" aria-hidden />
-              Việc liên quan một booking: nhắn trực tiếp cho đối tác trong Tin nhắn sẽ nhanh hơn.
+              Việc liên quan một booking: nhắn trực tiếp cho đối tác trong {messagesLabel} sẽ nhanh hơn.
             </p>
+            {isSupplier && (
+              <p className="flex items-start gap-2 text-muted-foreground">
+                <MessageCircleQuestion className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>
+                  Hỏi Nhãn hàng về một chiến dịch trên Sàn?{' '}
+                  <Link to={MY_QUESTIONS_PATH} className="font-medium text-primary underline-offset-4 hover:underline">
+                    Câu hỏi bạn đã gửi trên Sàn
+                  </Link>
+                </span>
+              </p>
+            )}
           </div>
           <div className="rounded-[8px] border border-border bg-card p-4">
             <SupportForm />
           </div>
         </div>
       </section>
-    </div>
+    </SupportShell>
   );
+}
+
+/** /ho-tro → "Hướng dẫn"; old anchors keep working (#lien-he → Liên hệ, #ho-tro-faq → FAQ). */
+export function SupportIndexRedirect() {
+  const { hash } = useLocation();
+  return <Navigate to={supportRedirectPath(hash)} replace />;
 }

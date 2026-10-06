@@ -39,7 +39,7 @@ test('lọc còn nhận ứng tuyển / đã đóng (không có cờ accepting =
   expect(appliedCounts(apps)).toEqual({ all: 2, open: 1, closed: 1 });
 });
 
-test('tab cũ của Sàn chuyển sang Chiến dịch quan tâm', () => {
+test('tab cũ của Sàn chuyển sang Chiến dịch yêu thích', () => {
   expect(legacySanTabRedirect('?tab=da-luu&q=tra')).toBe('/chien-dich-da-luu');
   expect(legacySanTabRedirect('?tab=da-ung-tuyen')).toBe('/chien-dich-da-luu?tab=da-ung-tuyen');
   expect(legacySanTabRedirect('?tab=tat-ca')).toBeNull();

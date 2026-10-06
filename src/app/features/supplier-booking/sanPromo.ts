@@ -1,6 +1,6 @@
 // Pure data of the Sàn's promo row (3 banners) and category icon row: CTA targets per viewer and the category tiles.
 import { KOL_CATEGORIES, type KolCategory, type OwnerType } from '../../services';
-import { CAMPAIGNS_PATH, SUPPORT_PATH } from '../../auth/roles';
+import { CAMPAIGNS_PATH, SUPPORT_CONTACT_PATH, SUPPORT_GUIDE_PATH } from '../../auth/roles';
 import type { MarketplaceViewer } from './supplierBooking';
 
 export interface PromoCta {
@@ -26,7 +26,7 @@ const login = (to: string) => `/dang-nhap?returnTo=${encodeURIComponent(to)}`;
  */
 export function sanPromo(viewer: MarketplaceViewer, ownerType: OwnerType = 'KOL'): SanPromo {
   const profile = ownerType === 'MCN' ? '/ho-so-mcn/tong-quan' : '/ho-so-kol/tong-quan';
-  const guide = viewer === 'guest' ? login(SUPPORT_PATH) : SUPPORT_PATH;
+  const guide = viewer === 'guest' ? login(SUPPORT_GUIDE_PATH) : SUPPORT_GUIDE_PATH;
   return {
     apply:
       viewer === 'guest'
@@ -39,10 +39,10 @@ export function sanPromo(viewer: MarketplaceViewer, ownerType: OwnerType = 'KOL'
         ? { label: 'Tạo chiến dịch', to: `${CAMPAIGNS_PATH}/tao` }
         : viewer === 'guest'
           ? { label: 'Liên hệ tư vấn', to: '/dang-ky?loai=biz' }
-          : { label: 'Liên hệ tư vấn', to: `${SUPPORT_PATH}#lien-he` },
+          : { label: 'Liên hệ tư vấn', to: SUPPORT_CONTACT_PATH },
     guide: { label: 'Xem hướng dẫn', to: guide },
     guideTile: guide,
-    brandTile: viewer === 'brand' ? CAMPAIGNS_PATH : viewer === 'guest' ? '/dang-ky?loai=biz' : `${SUPPORT_PATH}#lien-he`,
+    brandTile: viewer === 'brand' ? CAMPAIGNS_PATH : viewer === 'guest' ? '/dang-ky?loai=biz' : SUPPORT_CONTACT_PATH,
   };
 }
 

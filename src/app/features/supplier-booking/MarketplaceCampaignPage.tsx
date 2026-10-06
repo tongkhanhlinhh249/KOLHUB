@@ -17,7 +17,7 @@ import { useSupplierAccess } from './useSupplierAccess';
 /** Hidden on wide screens, where the right rail shows the same block. */
 const NARROW_ONLY = '@4xl/page:hidden';
 
-/** "← Sàn chiến dịch" / "← Chiến dịch quan tâm": back to the list the user came from (its filters kept), else /san. */
+/** "← Sàn chiến dịch" / "← Chiến dịch yêu thích": back to the list the user came from (its filters kept), else /san. */
 function BackLink({ to }: { to: string }) {
   return (
     <Link

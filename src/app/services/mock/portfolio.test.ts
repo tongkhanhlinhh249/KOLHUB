@@ -105,3 +105,39 @@ describe('portfolioService', () => {
     await expect(svc.listMine()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
   });
 });
+
+describe('portfolioService.listRatings ("Đánh giá")', () => {
+  test('KOL: booking hoàn tất của mình, mới nhất trước; một booking đã đánh giá Nhãn hàng, còn lại chờ đánh giá', async () => {
+    as(KHANHVY);
+    const rows = await svc.listRatings();
+    expect(rows.map((r) => r.bookingId)).toEqual([SEED_HISTORY.vySummer, SEED_HISTORY.vyShoes]);
+    expect(rows[0]).toMatchObject({
+      campaignName: 'Mùa hè mát lành cùng sữa hạt',
+      brandCompany: 'Công ty Demo Sữa',
+      kolNames: ['Khánh Vy'],
+      received: { stars: 5, comment: 'Video tự nhiên, gửi link đúng hạn.' },
+      given: { stars: 4 },
+    });
+    expect(rows[1].received).toMatchObject({ stars: 4 });
+    expect(rows[1].given).toBeUndefined();
+    // Not completed yet (payment not confirmed) → not listed.
+    expect(rows.some((r) => r.bookingId === SEED_HISTORY.vyHomeOffice)).toBe(false);
+  });
+  test('MCN: tên các KOL theo booking; đánh giá vừa gửi hiện ngay', async () => {
+    as(SAOVIET);
+    const rows = await svc.listRatings();
+    expect(rows.length).toBe(3);
+    const summer = rows.find((r) => r.bookingId === SEED_HISTORY.saoVietSummer)!;
+    expect(summer.kolNames.length).toBe(2);
+    expect(rows.find((r) => r.bookingId === SEED_BOOKING.completed)).toMatchObject({ received: { stars: 5 }, given: { stars: 5 } });
+    h.db.update((s) => {
+      s.bookings.find((b) => b.id === SEED_HISTORY.saoVietShoes)!.ratings!.supplier = { stars: 3, comment: 'Ổn', at: 1 };
+    });
+    expect((await svc.listRatings()).find((r) => r.bookingId === SEED_HISTORY.saoVietShoes)!.given).toEqual({ stars: 3, comment: 'Ổn', at: 1 });
+  });
+  test('quyền: Nhãn hàng không gọi được (4806)', async () => {
+    as(BRAND);
+    await expect(svc.listRatings()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+  });
+});
+

@@ -1,4 +1,4 @@
-// Pure helpers of "Chiến dịch quan tâm" (/chien-dich-da-luu): tabs Đã lưu / Đã ứng tuyển, the "còn nhận ứng tuyển /
+// Pure helpers of "Chiến dịch yêu thích" (/chien-dich-da-luu): tabs Đã lưu / Đã ứng tuyển, the "còn nhận ứng tuyển /
 // đã đóng" filter and the redirect of the Sàn's old tabs (/san?tab=da-luu | da-ung-tuyen).
 import type { AppliedCampaign, InterestFilter, MarketplaceCampaign } from '../../services';
 import { INTERESTED_PATH } from '../../auth/roles';

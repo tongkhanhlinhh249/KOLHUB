@@ -558,13 +558,13 @@ export interface MarketplaceBackState {
   from: string;
 }
 
-/** Lists a campaign page may go back to: the Sàn list and "Chiến dịch quan tâm". */
+/** Lists a campaign page may go back to: the Sàn list and "Chiến dịch yêu thích". */
 const BACK_LISTS: { path: string; label: string }[] = [
   { path: MARKETPLACE_PATH, label: 'Sàn chiến dịch' },
-  { path: INTERESTED_PATH, label: 'Chiến dịch quan tâm' },
+  { path: INTERESTED_PATH, label: 'Chiến dịch yêu thích' },
 ];
 
-/** The list URL to go back to: `state.from` when it is the Sàn list or "Chiến dịch quan tâm" (with its query), else /san. */
+/** The list URL to go back to: `state.from` when it is the Sàn list or "Chiến dịch yêu thích" (with its query), else /san. */
 export function marketplaceBackPath(state: unknown): string {
   const from = (state as Partial<MarketplaceBackState> | null)?.from;
   if (typeof from !== 'string') return MARKETPLACE_PATH;

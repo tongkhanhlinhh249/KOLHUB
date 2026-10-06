@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { resolveAccess } from '../../auth/roles';
-import { checkSupportRequest, FAQ, guideSteps } from './supportContent';
+import { checkSupportRequest, FAQ, guideSteps, supportRedirectPath } from './supportContent';
 
 test('hướng dẫn KOL/MCN: 6 bước từ kết nối kênh tới nhận thanh toán; mọi liên kết mở được với vai trò đó', () => {
   expect(guideSteps('KOL').map((s) => s.title)).toEqual([
@@ -29,5 +29,18 @@ test('kiểm tra yêu cầu hỗ trợ: chủ đề, 10–1000 ký tự', () => 
   expect(checkSupportRequest('', 'Nội dung đủ dài rồi')).toMatchObject({ ok: false });
   expect(checkSupportRequest('Khác', '  ngắn  ')).toMatchObject({ ok: false });
   expect(checkSupportRequest('Khác', 'x'.repeat(1001))).toMatchObject({ ok: false });
-  expect(checkSupportRequest('Thanh toán, thu nhập', '  Chưa nhận được tiền của booking A  ')).toEqual({ ok: true, text: 'Chưa nhận được tiền của booking A' });
+  expect(checkSupportRequest('Thanh toán', '  Chưa nhận được tiền của booking A  ')).toEqual({ ok: true, text: 'Chưa nhận được tiền của booking A' });
+});
+
+test('/ho-tro cũ chuyển sang trang con: #lien-he → Liên hệ, #ho-tro-faq → FAQ, còn lại → Hướng dẫn', () => {
+  expect(supportRedirectPath('')).toBe('/ho-tro/huong-dan');
+  expect(supportRedirectPath('#ho-tro-huong-dan')).toBe('/ho-tro/huong-dan');
+  expect(supportRedirectPath('#lien-he')).toBe('/ho-tro/lien-he');
+  expect(supportRedirectPath('#ho-tro-faq')).toBe('/ho-tro/faq');
+});
+
+test('nội dung hỗ trợ dùng tên mục menu mới (không còn Thu nhập, Danh sách vi phạm, "cuối trang này")', () => {
+  const text = [...guideSteps('KOL'), ...guideSteps('MCN')].map((s) => `${s.text} ${s.cta ?? ''}`).join(' ') + FAQ.map((f) => f.a).join(' ');
+  expect(text).not.toMatch(/Thu nhập|Danh sách vi phạm|cuối trang này|quan tâm/);
+  expect(guideSteps('KOL').at(-1)).toMatchObject({ to: '/thu-nhap', cta: 'Thanh toán' });
 });

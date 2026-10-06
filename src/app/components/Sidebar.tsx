@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { cn } from './ui/utils';
 import { AccountMenu } from './AccountMenu';
 import { useAuth } from '../auth/AuthContext';
-import { ROLE_CONFIG, type MenuItem } from '../auth/roles';
+import { isNavActive, ROLE_CONFIG, type MenuItem } from '../auth/roles';
 import { useMenuBadges } from '../features/inbox/useInboxCounts';
 import { badgeText } from '../features/inbox/inboxView';
 
@@ -18,7 +18,6 @@ export function Sidebar({ collapsed }: SidebarProps) {
   const location = useLocation();
   const { role } = useAuth();
   const { home, label, menu } = ROLE_CONFIG[role];
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
   const badges = useMenuBadges();
 
   return (
@@ -56,7 +55,7 @@ export function Sidebar({ collapsed }: SidebarProps) {
               {collapsed && i > 0 && <div className="mx-2 mb-3 h-px bg-border" aria-hidden />}
               <div className="space-y-0.5">
                 {section.items.map((item) => (
-                  <SidebarLink key={item.path} item={item} active={isActive(item.path)} collapsed={collapsed} badge={badges[item.path] ?? 0} />
+                  <SidebarLink key={item.path} item={item} active={isNavActive(location.pathname, item)} collapsed={collapsed} badge={badges[item.path] ?? 0} />
                 ))}
               </div>
             </div>

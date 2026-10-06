@@ -85,7 +85,7 @@ const PLATFORM_OPTIONS = PLATFORMS.map((p) => ({ key: p.key, label: p.label, ico
 
 const INTRO: Record<MarketplaceViewer, string> = {
   guest: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN. Xem brief, ngân sách và hạng mục; đăng nhập để ứng tuyển.',
-  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, xếp theo mức phù hợp với bạn. Chiến dịch đã lưu và đã ứng tuyển nằm ở mục Chiến dịch quan tâm.',
+  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, xếp theo mức phù hợp với bạn. Chiến dịch đã lưu và đã ứng tuyển nằm ở mục Chiến dịch yêu thích.',
   brand: 'Xem các chiến dịch đang nhận đề xuất trên Sàn. Chiến dịch của bạn được đánh dấu "Của bạn".',
 };
 
@@ -100,7 +100,7 @@ const PUBLIC_SORTS = MARKETPLACE_SORTS.filter((s) => s.key !== 'match');
  * Promo banners + category icon row on top, then one list. KOL/MCN: default sort "Phù hợp nhất", save, apply
  * (approved only). Guest / Brand: read-only, default sort "Mới nhất". Cards link to the campaign page /san/<id>
  * (MarketplaceCampaignPage); old links /san?chien-dich=<id> redirect there. The old tabs (?tab=da-luu | da-ung-tuyen)
- * moved to "Chiến dịch quan tâm" (/chien-dich-da-luu) and redirect there (brands: the tab is ignored).
+ * moved to "Chiến dịch yêu thích" (/chien-dich-da-luu) and redirect there (brands: the tab is ignored).
  */
 export function MarketplacePage() {
   const { search } = useLocation();

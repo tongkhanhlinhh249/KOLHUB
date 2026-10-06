@@ -119,7 +119,7 @@ function PostRow({ post: p, showKol, onToggle, busy }: { post: PortfolioPost; sh
 }
 
 /**
- * /bai-da-dang — "Bài đã đăng" of the signed-in KOL / MCN: every verified post from its bookings with metrics and the
+ * /bai-da-dang — "Nội dung" (was "Bài đã đăng") of the signed-in KOL / MCN: every verified post from its bookings with metrics and the
  * brand's rating; filters (?nen-tang=, ?thoi-gian=), totals, and "Hiện trên hồ sơ" per post (hidden posts are not
  * shown to brands on the KOL profile).
  */
@@ -175,7 +175,7 @@ export function PortfolioPage() {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
         <SupplierGate ownerType={access.ownerType} status={access.status} />
-        {empty('Bài đã đăng sẽ xuất hiện ở đây', 'Sau khi hồ sơ được duyệt và bạn hoàn thành chiến dịch, các bài đăng đã xác minh được tập hợp tại trang này.')}
+        {empty('Nội dung sẽ xuất hiện ở đây', 'Sau khi hồ sơ được duyệt và bạn hoàn thành chiến dịch, các bài đăng đã xác minh được tập hợp tại trang này.')}
       </div>
     );
   }
@@ -183,7 +183,7 @@ export function PortfolioPage() {
   let body: ReactNode;
   if (q.loading && !all) {
     body = (
-      <div className="space-y-3" aria-busy="true" aria-label="Đang tải bài đã đăng">
+      <div className="space-y-3" aria-busy="true" aria-label="Đang tải nội dung">
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-40 w-full" />
       </div>
@@ -193,7 +193,7 @@ export function PortfolioPage() {
       <Alert variant="destructive">
         <AlertCircle className="size-4" aria-hidden />
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>Không tải được bài đã đăng.</span>
+          <span>Không tải được nội dung.</span>
           <Button type="button" variant="outline" size="sm" className="h-11 md:h-8" onClick={q.reload}>
             <RotateCcw aria-hidden />
             Thử lại
@@ -207,7 +207,7 @@ export function PortfolioPage() {
     body = <p className="rounded-[8px] border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">Không có bài đăng nào khớp bộ lọc.</p>;
   } else {
     body = (
-      <ul className="flex flex-col gap-3" aria-label="Bài đã đăng">
+      <ul className="flex flex-col gap-3" aria-label="Nội dung đã đăng">
         {rows.map((p) => (
           <li key={p.contentId}>
             <PostRow post={p} showKol={isMcn} busy={busy === p.contentId} onToggle={(v) => void toggle(p, v)} />
@@ -222,7 +222,7 @@ export function PortfolioPage() {
       {all && all.length > 0 && (
         <>
           <dl className="grid grid-cols-2 gap-2 @2xl:grid-cols-4 md:gap-3">
-            <StatTile label="Bài đã đăng" value={totals.posts} hint={`${totals.visible} bài hiện trên hồ sơ`} />
+            <StatTile label="Nội dung đã đăng" value={totals.posts} hint={`${totals.visible} bài hiện trên hồ sơ`} />
             <StatTile label="Lượt xem" value={compactNumber(totals.views)} />
             <StatTile label="Lượt tương tác" value={compactNumber(totals.engagements)} hint="Thích, bình luận, chia sẻ" />
             <StatTile label="Tỉ lệ tương tác" value={`${totals.engagementRate.toLocaleString('vi-VN')}%`} />
