@@ -10,7 +10,7 @@ import { AdminSimulator } from './AdminSimulator';
 import { AssumptionsBlock } from './AssumptionsBlock';
 import { CampaignSimulatorBlock } from './CampaignSimulatorBlock';
 import { DemoDataBlock } from './DemoDataBlock';
-import { DemoLinksBlock, ExternalLinksBlock } from './DemoLinksBlock';
+import { ExternalLinksBlock } from './DemoLinksBlock';
 import { DemoGroupHeading } from './DemoPanelSection';
 import { DemoRoleBlock } from './DemoRoleBlock';
 import { DEMO_TABS, isRoleTab, restoreTab, roleOfAccount, TAB_BLOCKS, type DemoBlock, type DemoTab } from './demoTabs';
@@ -65,8 +65,6 @@ function DemoPanelBody({ onDone }: { onDone(): void }) {
 
   const block = (t: DemoTab, b: DemoBlock): ReactNode => {
     switch (b) {
-      case 'links':
-        return isRoleTab(t) && <DemoLinksBlock tab={t} onDone={onDone} />;
       case 'profile':
         return (
           (t === 'kol' || t === 'mcn') && (

@@ -1,6 +1,5 @@
 import { expect, test } from 'vitest';
 import type { DemoStep } from '../services';
-import { DEMO_LINK_GROUPS } from './demoLinks';
 import { DEMO_TABS, defaultTab, groupSteps, restoreTab, sampleProfileAccess, showsEkyc, TAB_BLOCKS } from './demoTabs';
 
 test('tab mặc định theo vai trò; Khách mở tab KOL', () => {
@@ -24,14 +23,14 @@ test('nhớ lựa chọn tay trong cùng vai trò, đổi vai trò thì về m�
 
 test('mỗi tab chỉ có khối của nó; công cụ hệ thống không lặp ở tab vai trò', () => {
   expect(DEMO_TABS.map((t) => t.label)).toEqual(['Nhãn hàng', 'KOL', 'MCN', 'Admin', 'Hệ thống']);
-  expect(TAB_BLOCKS.biz).toEqual(['links', 'campaign']);
-  for (const t of ['kol', 'mcn'] as const) expect(TAB_BLOCKS[t]).toEqual(['links', 'profile', 'campaign']);
+  expect(TAB_BLOCKS.biz).toEqual(['campaign']);
+  for (const t of ['kol', 'mcn'] as const) expect(TAB_BLOCKS[t]).toEqual(['profile', 'campaign']);
   expect(TAB_BLOCKS.admin).toEqual(['admin', 'violations', 'funnel']);
   expect(TAB_BLOCKS.system).toEqual(['data', 'external', 'assumptions']);
   const all = Object.values(TAB_BLOCKS).flat();
   for (const b of ['admin', 'violations', 'funnel', 'data', 'external', 'assumptions']) expect(all.filter((x) => x === b)).toHaveLength(1);
-  // Each role tab has its own quick links.
-  expect(DEMO_LINK_GROUPS.map((g) => g.tab).sort()).toEqual(['biz', 'kol', 'mcn']);
+  // No quick links block in the panel any more.
+  expect(all).not.toContain('links');
 });
 
 test('Hồ sơ mẫu chỉ cho hồ sơ mới đúng vai trò, còn lại đề nghị chuyển tài khoản; eKYC chỉ ở KOL', () => {

@@ -5,7 +5,8 @@ import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
 import { Switch } from '../components/ui/switch';
-import { CAMPAIGN_STATUS_LABEL, demoCampaignService, RECRUIT_PHASE_LABEL, type DemoBookingRow, type DemoCampaignOption, type DemoStep } from '../services';
+import { cn } from '../components/ui/utils';
+import { CAMPAIGN_STATUS_LABEL, demoCampaignService, RECRUIT_PHASE_LABEL, type DemoBookingRow, type CampaignType, type DemoCampaignOption, type DemoStep } from '../services';
 import { BookingStatusBadge, SupplierTypeBadge } from '../features/campaigns/CampaignParts';
 import { formatPrice } from '../features/campaigns/campaignView';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
@@ -23,10 +24,18 @@ const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : '
  * The brand tab also has the campaign-level controls (Tuyển nhiều KOL, Workflow); KOL / MCN tabs list only their
  * own kind of booking.
  */
+/** Demo campaigns are split by type: each type runs its own flow. */
+const CAMPAIGN_KINDS: { type: CampaignType; label: string; flow: string }[] = [
+  { type: 'BOOKING', label: 'Booking riêng', flow: 'Mời / ứng tuyển → trả giá → chốt → nộp nháp → đăng bài → thanh toán → hoàn tất.' },
+  { type: 'OPEN_RECRUITMENT', label: 'Tuyển nhiều KOL', flow: 'Ứng tuyển → Chọn lọc (chọn đủ suất) → Đăng bài → Đánh giá; phần thưởng cố định, có thể tặng sản phẩm.' },
+];
+
 export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone(): void }) {
   const campaigns = useLiveQuery(() => demoCampaignService.listCampaigns(), []);
   const [picked, setPicked] = useState<string | null>(null);
-  const list = campaigns.data ?? [];
+  const [kind, setKind] = useState<CampaignType>('BOOKING');
+  const all = campaigns.data ?? [];
+  const list = all.filter((c) => c.type === kind);
   const campaignId = picked && list.some((c) => c.id === picked) ? picked : list[0]?.id;
   const campaign = list.find((c) => c.id === campaignId);
   const bookings = useLiveQuery(() => (campaignId ? demoCampaignService.listBookings(campaignId) : Promise.resolve([])), [campaignId]);
@@ -65,18 +74,40 @@ export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone()
       count={bookings.data ? rows.length : undefined}
       description="Chạy từng bước thay cho bất kỳ bên nào, không cần đổi tài khoản."
     >
+      <div role="radiogroup" aria-label="Loại chiến dịch" className="grid grid-cols-2 gap-1 rounded-[8px] bg-muted p-1">
+        {CAMPAIGN_KINDS.map((k) => {
+          const on = k.type === kind;
+          const n = all.filter((c) => c.type === k.type).length;
+          return (
+            <button
+              key={k.type}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setKind(k.type)}
+              className={cn(
+                'flex min-h-10 items-center justify-center gap-1.5 rounded-[6px] px-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                on ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <span className="truncate">{k.label}</span>
+              {campaigns.data && <span className="text-xs tabular-nums opacity-70">{n}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-muted-foreground">{CAMPAIGN_KINDS.find((k) => k.type === kind)?.flow}</p>
       {campaigns.loading && !campaigns.data ? (
         <Skeleton className="h-10 w-full" />
       ) : (
         <Select value={campaignId ?? ''} onValueChange={setPicked} disabled={!list.length}>
           <SelectTrigger className="h-11 w-full md:h-10" aria-label="Chọn chiến dịch">
-            <SelectValue placeholder="Chưa có chiến dịch" />
+            <SelectValue placeholder="Chưa có chiến dịch loại này" />
           </SelectTrigger>
           <SelectContent>
             {list.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 <span className="truncate">
-                  {c.type === 'OPEN_RECRUITMENT' ? '[Tuyển nhiều KOL] ' : ''}
                   {c.name} · {c.bookingCount} booking
                 </span>
               </SelectItem>

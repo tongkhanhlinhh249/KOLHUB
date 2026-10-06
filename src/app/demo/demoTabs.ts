@@ -14,12 +14,12 @@ export const DEMO_TABS: { id: DemoTab; label: string }[] = [
 ];
 
 /** Blocks of the panel; each tab lists its own, in order. */
-export type DemoBlock = 'links' | 'profile' | 'campaign' | 'admin' | 'violations' | 'funnel' | 'data' | 'external' | 'assumptions';
+export type DemoBlock = 'profile' | 'campaign' | 'admin' | 'violations' | 'funnel' | 'data' | 'external' | 'assumptions';
 
 export const TAB_BLOCKS: Record<DemoTab, DemoBlock[]> = {
-  biz: ['links', 'campaign'],
-  kol: ['links', 'profile', 'campaign'],
-  mcn: ['links', 'profile', 'campaign'],
+  biz: ['campaign'],
+  kol: ['profile', 'campaign'],
+  mcn: ['profile', 'campaign'],
   admin: ['admin', 'violations', 'funnel'],
   system: ['data', 'external', 'assumptions'],
 };
