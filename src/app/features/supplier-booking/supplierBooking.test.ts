@@ -181,6 +181,31 @@ describe('nhóm tab và trạng thái', () => {
     expect(nextStepText({ ...base, status: 'APPLIED', awaiting: 'BRAND' })).toMatch(/chờ Nhãn hàng/);
     expect(nextStepText({ ...base, status: 'COMPLETED' })).toBeNull();
     expect(nextStepText({ ...base, status: 'COMPLETED', allowedActions: ['RATE'] })).toMatch(/đánh giá/);
+    expect(nextStepText({ ...base, status: 'ACCEPTED', allowedActions: ['SUBMIT_POST'] })).toMatch(/không cần duyệt nháp/);
+    const q = parseMarketplaceParams(new URLSearchParams('loai=tuyen-nhieu'), CATS);
+    expect(q.type).toBe('tuyen-nhieu');
+    expect(toMarketplaceFilters(q).type).toBe('OPEN_RECRUITMENT');
+    expect(mergeMarketplaceParams(new URLSearchParams(), q).get('loai')).toBe('tuyen-nhieu');
+    expect(parseMarketplaceParams(new URLSearchParams('loai=khac'), CATS).type).toBeUndefined();
+  });
+  test('Tuyển nhiều KOL: Đã ứng tuyển → Đã được chọn → Đang thực hiện → Hoàn tất / Không được chọn', () => {
+    const r = (status: BookingView['status'], extra: Partial<BookingView> = {}) =>
+      ({ ...b(status), origin: 'APPLICATION', campaign: { type: 'OPEN_RECRUITMENT' }, ...extra }) as unknown as BookingView;
+    expect(supplierStatusLabel(r('APPLIED', { awaiting: 'BRAND' }))).toBe('Đã ứng tuyển');
+    expect(supplierStatusLabel(r('ACCEPTED'))).toBe('Đã được chọn');
+    expect(supplierStatusLabel(r('CONTENT_REVIEW'))).toBe('Đang thực hiện');
+    expect(supplierStatusLabel(r('COMPLETED'))).toBe('Hoàn tất');
+    expect(supplierStatusLabel(r('DECLINED'))).toBe('Không được chọn');
+    expect(supplierStatusLabel(r('CANCELLED'))).toBe('Đã rút ứng tuyển');
+    expect(statusTone(r('DECLINED'))).toBe('error');
+    const base = { payment: {}, price: 0, items: [{ channelId: 'c' }], origin: 'APPLICATION' } as unknown as BookingView;
+    const camp = { type: 'OPEN_RECRUITMENT', phase: 'SELECT', recruitment: { timeline: { selectStart: '2026-10-12', selectEnd: '2026-10-14' } } } as BookingView['campaign'];
+    expect(nextStepText({ ...base, status: 'APPLIED', awaiting: 'BRAND', allowedActions: [], campaign: camp })).toMatch(/đang chọn KOL.*14\/10/);
+    expect(nextStepText({ ...base, status: 'ACCEPTED', allowedActions: ['SUBMIT_POST', 'CONFIRM_PRODUCT_RECEIVED'], campaign: camp })).toMatch(
+      /được chọn.*Đã nhận sản phẩm/,
+    );
+    expect(nextStepText({ ...base, status: 'DECLINED', allowedActions: [], campaign: camp })).toMatch(/không được chọn/);
+    expect(supplierStatusLabel({ ...b('VERIFIED'), price: 0 })).toBe('Chờ Nhãn hàng xác nhận hoàn tất');
   });
 });
 

@@ -11,7 +11,13 @@ import { cardCategories, statusTone, supplierStatusLabel, type Countdown } from 
 
 export const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
-export function BookingStatusBadge({ booking, className }: { booking: Pick<BookingView, 'status' | 'awaiting' | 'payment'>; className?: string }) {
+export function BookingStatusBadge({
+  booking,
+  className,
+}: {
+  booking: Pick<BookingView, 'status' | 'awaiting' | 'payment'> & Partial<Pick<BookingView, 'origin' | 'acceptedAt' | 'price' | 'campaign'>>;
+  className?: string;
+}) {
   return (
     <ToneBadge tone={statusTone(booking)} className={className}>
       {supplierStatusLabel(booking)}

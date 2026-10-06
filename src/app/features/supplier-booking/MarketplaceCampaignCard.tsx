@@ -6,6 +6,8 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import type { AppliedCampaign, MarketplaceCampaign, StoredFile } from '../../services';
 import { CampaignCover } from '../shared/CampaignCover';
+import { PhaseBadge, RecruitTypeBadge, RegionLine } from '../shared/RecruitParts';
+import { rewardShort, workflowLabel } from '../shared/recruitView';
 import { ToneBadge } from '../shared/StatusBadges';
 import { MatchPill, SaveIconButton } from './MarketplaceParts';
 import { BookingStatusBadge, CategoryChips, CountdownText, PlatformIcons } from './parts';
@@ -85,10 +87,19 @@ function Fact({ label, children, className }: { label: string; children: ReactNo
  */
 export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now: number }) {
   const { booking: b, campaign: c } = item;
+  const recruit = c.type === 'OPEN_RECRUITMENT' && !!c.recruitment;
   const pending = b.status === 'APPLIED' || b.status === 'NEGOTIATING';
-  const expiry = pending ? expiryCountdown(b.expiresAt, now) : null;
+  const expiry = pending && !recruit ? expiryCountdown(b.expiresAt, now) : null;
   return (
-    <CoverCard cover={c.cover} topLeft={<BookingStatusBadge booking={b} className={OVER_IMAGE} />}>
+    <CoverCard
+      cover={c.cover}
+      topLeft={
+        <>
+          <BookingStatusBadge booking={b} className={OVER_IMAGE} />
+          {recruit && <PhaseBadge campaign={c} now={now} className={OVER_IMAGE} />}
+        </>
+      }
+    >
       <div className="space-y-1">
         <BrandLine company={c.brand.company} />
         <h2 className={TITLE}>
@@ -102,17 +113,32 @@ export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now:
         {c.match && <MatchPill match={c.match} />}
         <PlatformIcons platforms={c.platforms} />
       </div>
-      {c.accepting === false && <p className="text-xs text-muted-foreground">Chiến dịch đã ngừng nhận đề xuất</p>}
+      {c.accepting === false && !recruit && <p className="text-xs text-muted-foreground">Chiến dịch đã ngừng nhận đề xuất</p>}
 
       <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
-        <Fact label="Giá đề xuất">
-          <span className="font-semibold tabular-nums">{priceText(b.price)}</span>
-        </Fact>
-        <Fact label="Ngân sách">
-          <span className="text-primary tabular-nums" title={formatVnd(c.budget)}>
-            {formatVndShort(c.budget)}
-          </span>
-        </Fact>
+        {recruit ? (
+          <>
+            <Fact label="Phần thưởng">
+              <span className="font-semibold text-primary tabular-nums">{rewardShort(c.recruitment!.reward)}</span>
+            </Fact>
+            <Fact label="Đã ứng tuyển">
+              <span className="tabular-nums">
+                {c.applicationCount} / {c.recruitment!.slots}
+              </span>
+            </Fact>
+          </>
+        ) : (
+          <>
+            <Fact label="Giá đề xuất">
+              <span className="font-semibold tabular-nums">{priceText(b.price)}</span>
+            </Fact>
+            <Fact label="Ngân sách">
+              <span className="text-primary tabular-nums" title={formatVnd(c.budget)}>
+                {formatVndShort(c.budget)}
+              </span>
+            </Fact>
+          </>
+        )}
         <Fact label={expiry ? 'Hạn phản hồi' : 'Cập nhật'}>
           {expiry ? <CountdownText countdown={expiry} className="text-sm" /> : <span className="tabular-nums">{formatDateTime(b.updatedAt)}</span>}
         </Fact>
@@ -165,15 +191,16 @@ export function MarketplaceCampaignCard({
   viewer?: MarketplaceViewer;
 }) {
   const canSave = viewer === 'supplier';
+  const recruit = c.type === 'OPEN_RECRUITMENT' && !!c.recruitment;
   const countdown = deadlineCountdown(c.applyDeadline, now);
-  const line = c.match ? cardMatchLine(c.match) : null;
-  const badges =
-    c.myBooking || c.mine ? (
-      <>
-        {c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
-        {c.mine && <MineBadge className={OVER_IMAGE} />}
-      </>
-    ) : undefined;
+  const line = c.match && c.accepting !== false ? cardMatchLine(c.match) : null;
+  const badges = (
+    <>
+      <PhaseBadge campaign={c} now={now} className={OVER_IMAGE} />
+      {c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
+      {c.mine && <MineBadge className={OVER_IMAGE} />}
+    </>
+  );
   return (
     <CoverCard
       cover={c.cover}
@@ -190,7 +217,10 @@ export function MarketplaceCampaignCard({
       }
     >
       <div className="space-y-1">
-        <BrandLine company={c.brand.company} />
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <BrandLine company={c.brand.company} />
+          {recruit && <RecruitTypeBadge className="h-5 shrink-0 px-1.5 text-[11px]" />}
+        </div>
         <h2 className={TITLE}>
           <button type="button" onClick={onOpen} className={STRETCHED} title={c.name}>
             <span className="line-clamp-2">{c.name}</span>
@@ -217,22 +247,44 @@ export function MarketplaceCampaignCard({
         <PlatformIcons platforms={c.platforms} className="ml-auto" />
       </div>
 
-      <dl className="mt-auto grid grid-cols-2 gap-x-3 border-t border-border pt-3">
-        <Fact label="Ngân sách">
-          <span className="font-semibold text-primary tabular-nums" title={formatVnd(c.budget)}>
-            {formatVndShort(c.budget)}
-          </span>
+      <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
+        {recruit ? (
+          <>
+            <Fact label="Phần thưởng">
+              <span className="font-semibold text-primary tabular-nums">{rewardShort(c.recruitment!.reward)}</span>
+            </Fact>
+            <Fact label="Đã ứng tuyển">
+              <span className="tabular-nums">
+                {c.applicationCount} / {c.recruitment!.slots}
+              </span>
+              {c.phase !== 'APPLY' && c.phase !== 'UPCOMING' && (
+                <span className="block text-xs font-normal text-muted-foreground tabular-nums">Đã chọn {c.selectedCount ?? 0}</span>
+              )}
+            </Fact>
+          </>
+        ) : (
+          <>
+            <Fact label="Ngân sách">
+              <span className="font-semibold text-primary tabular-nums" title={formatVnd(c.budget)}>
+                {formatVndShort(c.budget)}
+              </span>
+            </Fact>
+            <Fact label="Hạn ứng tuyển">
+              {c.applyDeadline ? (
+                <span className="flex flex-col">
+                  <span className="tabular-nums">{formatDay(c.applyDeadline)}</span>
+                  <CountdownText countdown={countdown} />
+                </span>
+              ) : (
+                'Không giới hạn'
+              )}
+            </Fact>
+          </>
+        )}
+        <Fact label="Khu vực">
+          <RegionLine regions={c.regions} className="max-w-full" />
         </Fact>
-        <Fact label="Hạn ứng tuyển">
-          {c.applyDeadline ? (
-            <span className="flex flex-col">
-              <span className="tabular-nums">{formatDay(c.applyDeadline)}</span>
-              <CountdownText countdown={countdown} />
-            </span>
-          ) : (
-            'Không giới hạn'
-          )}
-        </Fact>
+        <Fact label="Workflow">{workflowLabel(c.draftReview)}</Fact>
       </dl>
 
       {(c.mine || c.myBooking) && (

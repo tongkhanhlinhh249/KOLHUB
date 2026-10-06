@@ -37,6 +37,7 @@ import {
   parseMarketplaceTab,
   platformName,
   toMarketplaceFilters,
+  TYPE_FILTERS,
   withParam,
   type MarketplaceQuery,
   type MarketplaceTab,
@@ -96,7 +97,7 @@ async function loadTab(tab: MarketplaceTab, filters: MarketplaceFilters): Promis
 }
 
 const COUNT_TEXT: Record<MarketplaceTab, (n: number) => string> = {
-  'tat-ca': (n) => `${n} chiến dịch đang nhận đề xuất`,
+  'tat-ca': (n) => `${n} chiến dịch trên Sàn`,
   'da-luu': (n) => `${n} chiến dịch đã lưu`,
   'da-ung-tuyen': (n) => `${n} đề xuất đã gửi`,
 };
@@ -171,6 +172,7 @@ export function MarketplacePage() {
 
   const chips: FilterChip[] = [];
   if (query.keyword) chips.push({ key: 'keyword', label: `“${query.keyword}”`, remove: () => change({ keyword: undefined }) });
+  if (query.type) chips.push({ key: 'type', label: TYPE_FILTERS.find((t) => t.key === query.type)!.label, remove: () => change({ type: undefined }) });
   if (query.category) chips.push({ key: 'category', label: query.category, remove: () => change({ category: undefined }) });
   if (query.platform) chips.push({ key: 'platform', label: platformName(query.platform), remove: () => change({ platform: undefined }) });
   if (query.budget)
@@ -287,6 +289,14 @@ export function MarketplacePage() {
         searchLabel="Tìm chiến dịch theo tên, nhãn hàng hoặc brief"
         renderFilters={(triggerClass) => (
           <>
+            <FilterSelect
+              label="Loại chiến dịch"
+              allLabel="Mọi loại chiến dịch"
+              value={query.type}
+              options={TYPE_FILTERS.map((t) => ({ key: t.key, label: t.label }))}
+              onChange={(type) => change({ type })}
+              className={triggerClass}
+            />
             <IconFilterSelect
               label="Lĩnh vực"
               allLabel="Tất cả lĩnh vực"
@@ -313,8 +323,8 @@ export function MarketplacePage() {
             />
           </>
         )}
-        filterGridClass="grid-cols-3"
-        inlineFilterClass="@4xl:w-40"
+        filterGridClass="grid-cols-2"
+        inlineFilterClass="@4xl:w-44"
         renderSort={(className) => (
           <SortSelect
             value={query.sort}

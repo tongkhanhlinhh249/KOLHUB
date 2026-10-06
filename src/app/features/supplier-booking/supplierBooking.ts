@@ -8,9 +8,12 @@ import {
   type BookingAction,
   type BookingActor,
   type BookingEvent,
+  type BookingOrigin,
   type BookingStatus,
   type BookingView,
   type CampaignMatch,
+  type CampaignType,
+  type RecruitPhase,
   type Deliverable,
   type DeliverableType,
   type KolCategory,
@@ -20,6 +23,7 @@ import {
   type RoleKey,
 } from '../../services';
 import type { Tone } from '../shared/StatusBadges';
+import { RECRUIT_STAGE_LABEL, recruitStage, recruitStageTone } from '../shared/recruitView';
 import { CAMPAIGNS_PATH, MARKETPLACE_PATH, SUPPLIER_CAMPAIGNS_PATH } from '../../auth/roles';
 
 const DAY = 86_400_000;
@@ -195,7 +199,16 @@ export function countByTab(list: TabInput[]): Record<BookingTab, number> {
   return out;
 }
 
-type NeedsInput = Pick<BookingView, 'status' | 'awaiting' | 'payment'>;
+type NeedsInput = Pick<BookingView, 'status' | 'awaiting' | 'payment'> & {
+  origin?: BookingOrigin;
+  acceptedAt?: number;
+  price?: number;
+  campaign?: { type?: CampaignType };
+};
+
+/** An application to a "Tuyển nhiều KOL" campaign (stages instead of negotiation). */
+export const isRecruitBooking = (b: { origin?: BookingOrigin; campaign?: { type?: CampaignType } }) =>
+  b.origin === 'APPLICATION' && b.campaign?.type === 'OPEN_RECRUITMENT';
 
 /**
  * The supplier has something to do now: answer an invite / counter-offer, deliver a draft or post,
@@ -219,8 +232,13 @@ export function needsSupplier(b: NeedsInput): boolean {
   }
 }
 
-/** Status label from the supplier's point of view. */
+/**
+ * Status label from the supplier's point of view. Open recruitment reads as stages: Đã ứng tuyển → Đã được chọn →
+ * Đang thực hiện → Hoàn tất / Không được chọn (payment steps keep their own wording).
+ */
 export function supplierStatusLabel(b: NeedsInput): string {
+  if (isRecruitBooking(b) && b.status !== 'VERIFIED') return RECRUIT_STAGE_LABEL[recruitStage(b)];
+  if (b.status === 'VERIFIED' && b.price === 0) return b.payment.brandMarkedAt ? 'Hoàn tất' : 'Chờ Nhãn hàng xác nhận hoàn tất';
   if (b.status === 'SENT') return 'Lời mời mới';
   if (b.status === 'APPLIED') return 'Chờ Nhãn hàng phản hồi';
   if (b.status === 'NEGOTIATING') return b.awaiting === 'SUPPLIER' ? 'Nhãn hàng trả giá' : 'Chờ Nhãn hàng phản hồi giá';
@@ -229,6 +247,7 @@ export function supplierStatusLabel(b: NeedsInput): string {
 }
 
 export function statusTone(b: NeedsInput): Tone {
+  if (isRecruitBooking(b) && !needsSupplier(b)) return recruitStageTone(recruitStage(b));
   const s: BookingStatus = b.status;
   if (s === 'DECLINED') return 'error';
   if (s === 'CANCELLED' || s === 'EXPIRED') return 'neutral';
@@ -237,9 +256,36 @@ export function statusTone(b: NeedsInput): Tone {
   return 'info';
 }
 
+const dm = (iso?: string) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '');
+
 /** What the supplier should do next (one sentence), or null. */
-export function nextStepText(b: Pick<BookingView, 'status' | 'awaiting' | 'payment' | 'price' | 'items' | 'allowedActions'>): string | null {
+export function nextStepText(
+  b: Pick<BookingView, 'status' | 'awaiting' | 'payment' | 'price' | 'items' | 'allowedActions'> & {
+    origin?: BookingOrigin;
+    campaign?: { type?: CampaignType; phase?: RecruitPhase; recruitment?: BookingView['campaign']['recruitment'] };
+  },
+): string | null {
   const missingChannel = b.items.some((i) => !i.channelId);
+  const can = (a: BookingView['allowedActions'][number]) => b.allowedActions.includes(a);
+  const product = can('CONFIRM_PRODUCT_RECEIVED') ? ' Nhãn hàng đã gửi sản phẩm: bấm "Đã nhận sản phẩm" khi bạn nhận được hàng.' : '';
+  if (isRecruitBooking(b)) {
+    const t = b.campaign?.recruitment?.timeline;
+    if (b.status === 'APPLIED') {
+      return b.campaign?.phase === 'SELECT'
+        ? `Nhãn hàng đang chọn KOL. Kết quả có trước hết ngày ${dm(t?.selectEnd)}.`
+        : `Bạn đã ứng tuyển. Nhãn hàng chọn KOL trong giai đoạn Chọn lọc (${dm(t?.selectStart)} – ${dm(t?.selectEnd)}). Bạn vẫn sửa hoặc rút được đến hết giai đoạn Ứng tuyển.`;
+    }
+    if (b.status === 'DECLINED' || b.status === 'EXPIRED') return 'Rất tiếc, bạn không được chọn ở chiến dịch này. Hãy xem các chiến dịch khác trên Sàn.';
+    if (b.status === 'ACCEPTED') {
+      return can('SUBMIT_POST')
+        ? `Bạn đã được chọn! Đăng bài theo yêu cầu (chiến dịch không cần duyệt nháp) rồi gửi link bài đăng.${product}`
+        : `Bạn đã được chọn! Sản xuất nội dung và nộp bản nháp để Nhãn hàng duyệt.${product}`;
+    }
+  }
+  if (b.status === 'VERIFIED' && b.price === 0) return 'Bài đăng đã xác minh. Chờ Nhãn hàng xác nhận hoàn tất.';
+  if (product && ['IN_PRODUCTION', 'CONTENT_REVIEW', 'CONTENT_APPROVED', 'PUBLISHED', 'VERIFIED', 'COMPLETED'].includes(b.status)) {
+    return `${nextStepText({ ...b, allowedActions: b.allowedActions.filter((a) => a !== 'CONFIRM_PRODUCT_RECEIVED') }) ?? ''}${product}`.trim();
+  }
   switch (b.status) {
     case 'SENT':
     case 'NEGOTIATING':
@@ -251,7 +297,9 @@ export function nextStepText(b: Pick<BookingView, 'status' | 'awaiting' | 'payme
         ? 'Nhãn hàng mời bạn tham gia chiến dịch. Chấp nhận, trả giá hoặc từ chối lời mời.'
         : 'Nhãn hàng đề xuất giá mới. Chấp nhận, trả giá tiếp hoặc từ chối.';
     case 'ACCEPTED':
-      return 'Booking đã chốt. Sản xuất nội dung và nộp bản nháp để Nhãn hàng duyệt.';
+      return can('SUBMIT_POST')
+        ? 'Booking đã chốt. Đăng bài theo yêu cầu (chiến dịch không cần duyệt nháp) rồi gửi link bài đăng.'
+        : 'Booking đã chốt. Sản xuất nội dung và nộp bản nháp để Nhãn hàng duyệt.';
     case 'IN_PRODUCTION':
       return 'Nhãn hàng yêu cầu chỉnh sửa. Xem góp ý và nộp lại bản nháp.';
     case 'CONTENT_REVIEW':
@@ -326,8 +374,16 @@ export const BUDGET_RANGES: { key: BudgetRange; label: string; min?: number; max
   { key: 'tren-200', label: 'Trên 200 triệu', min: 200 * M + 1 },
 ];
 
+/** ?loai= values of the campaign type filter. */
+export type TypeParam = 'booking' | 'tuyen-nhieu';
+export const TYPE_FILTERS: { key: TypeParam; label: string; type: CampaignType }[] = [
+  { key: 'booking', label: 'Booking riêng', type: 'BOOKING' },
+  { key: 'tuyen-nhieu', label: 'Tuyển nhiều KOL', type: 'OPEN_RECRUITMENT' },
+];
+
 export interface MarketplaceQuery {
   keyword?: string;
+  type?: TypeParam;
   category?: KolCategory;
   platform?: Platform;
   budget?: BudgetRange;
@@ -350,6 +406,8 @@ export function parseMarketplaceParams(p: URLSearchParams, categories: readonly 
   if (pf && PLATFORM_KEYS.includes(pf)) q.platform = pf;
   const b = p.get('ngan-sach') as BudgetRange | null;
   if (b && BUDGET_KEYS.includes(b)) q.budget = b;
+  const t = p.get('loai') as TypeParam | null;
+  if (t && TYPE_FILTERS.some((x) => x.key === t)) q.type = t;
   return q;
 }
 
@@ -361,6 +419,7 @@ export function mergeMarketplaceParams(prev: URLSearchParams, q: MarketplaceQuer
   set('linh-vuc', q.category);
   set('nen-tang', q.platform);
   set('ngan-sach', q.budget);
+  set('loai', q.type);
   set('sap-xep', q.sort === 'match' ? undefined : q.sort);
   return next;
 }
@@ -401,7 +460,7 @@ export function memberSinceText(iso: string): string {
   return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
-export const marketplaceFilterCount = (q: MarketplaceQuery) => [q.category, q.platform, q.budget].filter(Boolean).length;
+export const marketplaceFilterCount = (q: MarketplaceQuery) => [q.type, q.category, q.platform, q.budget].filter(Boolean).length;
 export const hasMarketplaceFilters = (q: MarketplaceQuery) => !!q.keyword || marketplaceFilterCount(q) > 0;
 
 /** URL query → service filters. */
@@ -410,6 +469,8 @@ export function toMarketplaceFilters(q: MarketplaceQuery): MarketplaceFilters {
   if (q.keyword) f.keyword = q.keyword;
   if (q.category) f.category = q.category;
   if (q.platform) f.platform = q.platform;
+  const type = TYPE_FILTERS.find((x) => x.key === q.type)?.type;
+  if (type) f.type = type;
   const range = BUDGET_RANGES.find((b) => b.key === q.budget);
   if (range?.min !== undefined) f.budgetMin = range.min;
   if (range?.max !== undefined) f.budgetMax = range.max;
