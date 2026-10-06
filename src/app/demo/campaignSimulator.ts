@@ -1,6 +1,6 @@
 import { CAMPAIGNS_PATH } from '../auth/roles';
 import { bookingDetailPath } from '../features/supplier-booking/supplierBooking';
-import { DEMO_ACCOUNTS, normalizeEmail, type DemoActor, type DemoAccountKey } from '../services';
+import { DEMO_ACCOUNTS, normalizeEmail, type DemoAccountKey, type DemoBookingRow, type DemoCampaignOption } from '../services';
 import type { DemoLink } from './demoLinks';
 
 type SignedInKey = Exclude<DemoAccountKey, 'guest'>;
@@ -27,9 +27,19 @@ export function supplierBookingLink(bookingId: string, supplierEmail: string | u
   return { label: `Góc nhìn ${supplierName}`, path: bookingDetailPath(bookingId), account };
 }
 
-/** Who acts, in words: "Nhãn hàng", the supplier's name, or "Hệ thống". */
-export function actorName(actor: DemoActor, supplierName: string): string {
-  if (actor === 'BRAND') return 'Nhãn hàng';
-  if (actor === 'SUPPLIER') return supplierName;
-  return 'Hệ thống';
+export interface CampaignEntry {
+  campaign: DemoCampaignOption;
+  rows: DemoBookingRow[];
+}
+
+/**
+ * Campaigns shown in a role section: the brand sees every campaign and booking; a KOL / MCN only its own bookings
+ * (supplier email = signed-in email), and only campaigns that have some.
+ */
+export function entriesFor(entries: CampaignEntry[], brand: boolean, email: string | undefined): CampaignEntry[] {
+  if (brand) return entries;
+  const me = email ? normalizeEmail(email) : '';
+  return entries
+    .map((e) => ({ ...e, rows: e.rows.filter((r) => !!me && !!r.supplierEmail && normalizeEmail(r.supplierEmail) === me) }))
+    .filter((e) => e.rows.length > 0);
 }

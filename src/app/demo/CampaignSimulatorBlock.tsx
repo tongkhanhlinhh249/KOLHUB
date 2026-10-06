@@ -1,57 +1,75 @@
 import { useState } from 'react';
-import { ArrowRight, ChevronRight, FastForward, Loader2, UserCheck, UserPlus } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
 import { Switch } from '../components/ui/switch';
 import { cn } from '../components/ui/utils';
-import { CAMPAIGN_STATUS_LABEL, demoCampaignService, RECRUIT_PHASE_LABEL, type DemoBookingRow, type CampaignType, type DemoCampaignOption, type DemoStep } from '../services';
-import { BookingStatusBadge, SupplierTypeBadge } from '../features/campaigns/CampaignParts';
-import { formatPrice } from '../features/campaigns/campaignView';
+import { useAuth } from '../auth/AuthContext';
+import {
+  CAMPAIGN_STATUS_LABEL,
+  demoCampaignService,
+  RECRUIT_PHASE_LABEL,
+  type CampaignType,
+  type DemoBookingRow,
+  type DemoCampaignOption,
+  type DemoStep,
+} from '../services';
+import { BookingStatusBadge } from '../features/campaigns/CampaignParts';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
+import type { DemoLink } from './demoLinks';
 import { DemoPanelSection } from './DemoPanelSection';
-import { actorName, brandCampaignLink, supplierBookingLink } from './campaignSimulator';
-import { groupSteps, SIDE_LABEL, type CampaignSide, type RoleTab } from './demoTabs';
+import { brandCampaignLink, entriesFor, supplierBookingLink, type CampaignEntry } from './campaignSimulator';
+import { orderSteps, stepLabel, type CampaignSide, type RoleTab } from './demoTabs';
 import { useDemoOpen } from './useDemoOpen';
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Không thực hiện được bước này.');
 
-/**
- * "Chiến dịch" of a role tab: a shared campaign picker plus each booking's steps, grouped by who acts (the tab's
- * side first). Steps run on behalf of either side without switching accounts, through the real booking service
- * (same rules, KOL Safety scan on drafts); open screens reload on their own because the demo store is observable.
- * The brand tab also has the campaign-level controls (Tuyển nhiều KOL, Workflow); KOL / MCN tabs list only their
- * own kind of booking.
- */
-/** Demo campaigns are split by type: each type runs its own flow. */
-const CAMPAIGN_KINDS: { type: CampaignType; label: string; flow: string }[] = [
-  { type: 'BOOKING', label: 'Booking riêng', flow: 'Mời / ứng tuyển → trả giá → chốt → nộp nháp → đăng bài → thanh toán → hoàn tất.' },
-  { type: 'OPEN_RECRUITMENT', label: 'Tuyển nhiều KOL', flow: 'Ứng tuyển → Chọn lọc (chọn đủ suất) → Đăng bài → Đánh giá; phần thưởng cố định, có thể tặng sản phẩm.' },
+const CAMPAIGN_KINDS: { type: CampaignType; label: string }[] = [
+  { type: 'BOOKING', label: 'Booking riêng' },
+  { type: 'OPEN_RECRUITMENT', label: 'Tuyển nhiều KOL' },
 ];
 
-export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone(): void }) {
-  const campaigns = useLiveQuery(() => demoCampaignService.listCampaigns(), []);
+/** Small icon button that opens a demo screen as the right account. */
+function OpenLink({ link, title, locked, opening, onOpen }: { link: DemoLink; title: string; locked: boolean; opening: string | null; onOpen(l: DemoLink): void }) {
+  return (
+    <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0" title={title} aria-label={title} disabled={locked} onClick={() => onOpen(link)}>
+      {opening === link.label ? <Loader2 className="animate-spin" aria-hidden /> : <ExternalLink aria-hidden />}
+    </Button>
+  );
+}
+
+/**
+ * Campaign states of the current role: type switch, campaign select and one compact row per booking with buttons
+ * named by the target state. Steps of the other side stay runnable (after the role's own). KOL / MCN see only the
+ * signed-in account's bookings; the brand also gets the campaign-level controls.
+ */
+export function CampaignSimulatorBlock({ role, onDone }: { role: RoleTab; onDone(): void }) {
+  const { account } = useAuth();
+  const brand = role === 'biz';
+  const side: CampaignSide = brand ? 'BRAND' : 'SUPPLIER';
+  const data = useLiveQuery(async (): Promise<CampaignEntry[]> => {
+    const cs = await demoCampaignService.listCampaigns();
+    const rows = await Promise.all(cs.map((c) => demoCampaignService.listBookings(c.id)));
+    return cs.map((campaign, i) => ({ campaign, rows: rows[i] }));
+  }, []);
   const [picked, setPicked] = useState<string | null>(null);
   const [kind, setKind] = useState<CampaignType>('BOOKING');
-  const all = campaigns.data ?? [];
-  const list = all.filter((c) => c.type === kind);
-  const campaignId = picked && list.some((c) => c.id === picked) ? picked : list[0]?.id;
-  const campaign = list.find((c) => c.id === campaignId);
-  const bookings = useLiveQuery(() => (campaignId ? demoCampaignService.listBookings(campaignId) : Promise.resolve([])), [campaignId]);
   const { open, busy: opening } = useDemoOpen(onDone);
   const [running, setRunning] = useState<string | null>(null);
   const locked = running !== null || opening !== null;
-  const brandTab = tab === 'biz';
-  const side: CampaignSide = brandTab ? 'BRAND' : 'SUPPLIER';
-  const supplierType = tab === 'kol' ? 'KOL' : tab === 'mcn' ? 'MCN' : null;
-  const rows = (bookings.data ?? []).filter((r) => !supplierType || r.view.supplier.type === supplierType);
 
-  const run = async (row: DemoBookingRow, step: DemoStep) => {
+  const entries = entriesFor(data.data ?? [], brand, account?.email);
+  const list = entries.filter((e) => e.campaign.type === kind);
+  const entry = list.find((e) => e.campaign.id === picked) ?? list[0];
+  const campaign = entry?.campaign;
+
+  const run = async (row: DemoBookingRow, step: DemoStep, label: string) => {
     setRunning(`${row.view.id}:${step.key}`);
     try {
       await demoCampaignService.run(row.view.id, step.key);
-      toast.success(`${step.label}: xong`);
+      toast.success(`${label}: xong`);
     } catch (e) {
       toast.error(errText(e));
     } finally {
@@ -60,7 +78,7 @@ export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone()
   };
 
   const brandLink =
-    campaign && brandTab
+    campaign && brand
       ? brandCampaignLink(
           campaign.id,
           campaign.brandEmail,
@@ -69,15 +87,10 @@ export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone()
       : null;
 
   return (
-    <DemoPanelSection
-      title="Giả lập chiến dịch"
-      count={bookings.data ? rows.length : undefined}
-      description="Chạy từng bước thay cho bất kỳ bên nào, không cần đổi tài khoản."
-    >
+    <DemoPanelSection title="Chiến dịch">
       <div role="radiogroup" aria-label="Loại chiến dịch" className="grid grid-cols-2 gap-1 rounded-[8px] bg-muted p-1">
         {CAMPAIGN_KINDS.map((k) => {
           const on = k.type === kind;
-          const n = all.filter((c) => c.type === k.type).length;
           return (
             <button
               key={k.type}
@@ -91,66 +104,63 @@ export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone()
               )}
             >
               <span className="truncate">{k.label}</span>
-              {campaigns.data && <span className="text-xs tabular-nums opacity-70">{n}</span>}
+              {data.data && <span className="text-xs tabular-nums opacity-70">{entries.filter((e) => e.campaign.type === k.type).length}</span>}
             </button>
           );
         })}
       </div>
-      <p className="text-xs text-muted-foreground">{CAMPAIGN_KINDS.find((k) => k.type === kind)?.flow}</p>
-      {campaigns.loading && !campaigns.data ? (
+
+      {data.loading && !data.data ? (
         <Skeleton className="h-10 w-full" />
       ) : (
-        <Select value={campaignId ?? ''} onValueChange={setPicked} disabled={!list.length}>
-          <SelectTrigger className="h-11 w-full md:h-10" aria-label="Chọn chiến dịch">
-            <SelectValue placeholder="Chưa có chiến dịch loại này" />
-          </SelectTrigger>
-          <SelectContent>
-            {list.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                <span className="truncate">
-                  {c.name} · {c.bookingCount} booking
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      {campaign && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="min-w-0">
-            {campaign.brandName} · {CAMPAIGN_STATUS_LABEL[campaign.status]}
-          </span>
-          {brandLink && (
-            <Button type="button" variant="outline" size="sm" className="h-9" disabled={locked} onClick={() => void open(brandLink)}>
-              {opening === brandLink.label ? <Loader2 className="animate-spin" aria-hidden /> : <ArrowRight aria-hidden />}
-              Mở chiến dịch
-            </Button>
-          )}
+        <div className="flex items-center gap-1">
+          <Select value={campaign?.id ?? ''} onValueChange={setPicked} disabled={!list.length}>
+            <SelectTrigger className="h-10 min-w-0 flex-1" aria-label="Chọn chiến dịch">
+              <SelectValue placeholder="Chưa có chiến dịch" />
+            </SelectTrigger>
+            <SelectContent>
+              {list.map((e) => (
+                <SelectItem key={e.campaign.id} value={e.campaign.id}>
+                  <span className="truncate">
+                    {e.campaign.name} · {brand ? e.campaign.bookingCount : e.rows.length} booking
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {brandLink && <OpenLink link={brandLink} title="Mở chiến dịch" locked={locked} opening={opening} onOpen={(l) => void open(l)} />}
         </div>
       )}
 
-      {campaign && brandTab && <CampaignControls campaign={campaign} locked={locked} />}
+      {campaign && brand && <CampaignControls campaign={campaign} locked={locked} />}
 
       <div className="space-y-2">
-        {bookings.loading && !bookings.data ? (
-          <>
-            <Skeleton className="h-28 w-full" />
-            <Skeleton className="h-28 w-full" />
-          </>
-        ) : !rows.length ? (
+        {data.loading && !data.data ? (
+          <Skeleton className="h-20 w-full" />
+        ) : !entry || !entry.rows.length ? (
           <p className="rounded-lg bg-muted p-3 text-xs text-muted-foreground">
-            {supplierType && bookings.data?.length
-              ? `Chiến dịch này chưa có booking của ${supplierType}. Chọn chiến dịch khác.`
+            {!brand
+              ? kind === 'OPEN_RECRUITMENT'
+                ? 'Chưa có booking. Nhãn hàng bấm “Thêm ứng viên”.'
+                : 'Tài khoản này chưa có booking.'
               : campaign?.type === 'OPEN_RECRUITMENT'
-                ? brandTab
-                  ? 'Chưa có ứng viên. Bấm “Thêm 3 ứng viên mẫu” trong giai đoạn Ứng tuyển.'
-                  : 'Chưa có ứng viên. Thêm ứng viên mẫu ở tab Nhãn hàng.'
-                : 'Chiến dịch này chưa có booking. Mời KOL từ trang chiến dịch hoặc chọn chiến dịch khác.'}
+                ? 'Chưa có ứng viên. Bấm “Thêm ứng viên”.'
+                : 'Chưa có booking.'}
           </p>
         ) : (
-          rows.map((row) => (
-            <BookingRow key={row.view.id} row={row} side={side} running={running} locked={locked} opening={opening} onRun={run} onOpen={open} />
+          entry.rows.map((row) => (
+            <BookingRow
+              key={row.view.id}
+              row={row}
+              side={side}
+              brandName={entry.campaign.brandName}
+              recruit={entry.campaign.type === 'OPEN_RECRUITMENT'}
+              running={running}
+              locked={locked}
+              opening={opening}
+              onRun={run}
+              onOpen={(l) => void open(l)}
+            />
           ))
         )}
       </div>
@@ -161,6 +171,8 @@ export function CampaignSimulatorBlock({ tab, onDone }: { tab: RoleTab; onDone()
 function BookingRow({
   row,
   side,
+  brandName,
+  recruit,
   running,
   locked,
   opening,
@@ -169,93 +181,61 @@ function BookingRow({
 }: {
   row: DemoBookingRow;
   side: CampaignSide;
+  brandName: string;
+  recruit: boolean;
   running: string | null;
   locked: boolean;
   opening: string | null;
-  onRun(row: DemoBookingRow, step: DemoStep): void;
-  onOpen(link: NonNullable<ReturnType<typeof supplierBookingLink>>): void;
+  onRun(row: DemoBookingRow, step: DemoStep, label: string): void;
+  onOpen(link: DemoLink): void;
 }) {
   const { view, steps } = row;
   const supplierName = view.supplier.name;
   const kols = [...new Set(view.items.map((i) => i.displayName))].join(', ');
-  const supplierLink = supplierBookingLink(view.id, row.supplierEmail, supplierName);
-  const isRunning = (s: DemoStep) => running === `${view.id}:${s.key}`;
-  const groups = groupSteps(steps, side);
+  // Brand: the KOL(s); MCN: its KOL(s) on this booking (same brand on every row); KOL: the brand.
+  const name = side === 'BRAND' ? kols || supplierName : view.supplier.type === 'MCN' ? kols || brandName : brandName;
+  const supplierLink = side === 'SUPPLIER' ? supplierBookingLink(view.id, row.supplierEmail, supplierName) : null;
+  const ctx = { status: view.status, price: view.price, recruit };
+  const otherName = { BRAND: 'Nhãn hàng', SUPPLIER: view.supplier.type === 'MCN' ? 'MCN' : 'KOL' } as const;
 
   return (
-    <div className="space-y-2 rounded-lg border border-border p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-foreground">{kols || supplierName}</p>
-          <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            {view.supplier.type === 'MCN' && <span className="truncate">qua {supplierName}</span>}
-            <SupplierTypeBadge type={view.supplier.type} />
-            <span>{formatPrice(view.price)}</span>
-          </p>
-        </div>
+    <div className="space-y-2 rounded-lg border border-border p-2.5">
+      <div className="flex items-center gap-2">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground" title={name}>
+          {name}
+        </p>
         <BookingStatusBadge status={view.status} className="shrink-0" />
+        {supplierLink && <OpenLink link={supplierLink} title="Mở booking" locked={locked} opening={opening} onOpen={onOpen} />}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        {steps.waiting ? (
-          steps.waiting
-        ) : steps.next ? (
-          <>
-            Đến lượt: <span className="font-medium text-foreground">{actorName(steps.next, supplierName)}</span>
-          </>
-        ) : steps.primary ? (
-          'Đã hoàn tất, chờ hai bên đánh giá'
-        ) : view.status === 'COMPLETED' ? (
-          'Đã hoàn tất, không còn bước nào'
-        ) : (
-          'Đã kết thúc, không còn bước nào'
-        )}
-      </p>
-
-      {groups.map((g) => (
-        <div key={g.side} className="space-y-1.5">
-          <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{SIDE_LABEL[g.side]}</p>
-          {g.primary && (
-            <Button type="button" className="h-11 w-full justify-start md:h-9" disabled={locked} onClick={() => onRun(row, g.primary!)}>
-              {isRunning(g.primary) ? <Loader2 className="animate-spin" aria-hidden /> : <ChevronRight aria-hidden />}
-              <span className="truncate">{g.primary.label}</span>
-            </Button>
-          )}
-          {g.secondary.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {g.secondary.map((s) => (
-                <Button
-                  key={s.key}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className={`h-9 ${s.key === 'DECLINE' ? 'text-destructive hover:text-destructive' : ''}`}
-                  disabled={locked}
-                  onClick={() => onRun(row, s)}
-                >
-                  {isRunning(s) && <Loader2 className="animate-spin" aria-hidden />}
-                  {s.label}
-                </Button>
-              ))}
-            </div>
-          )}
+      {steps.waiting && <p className="text-xs text-muted-foreground">{steps.waiting}</p>}
+      {(steps.primary || steps.secondary.length > 0) && (
+        <div className="flex flex-wrap gap-1.5">
+          {orderSteps(steps, side).map(({ step, primary, other }) => {
+            const label = stepLabel(step, ctx);
+            const full = other ? `${label} (${otherName[other]})` : label;
+            return (
+              <Button
+                key={step.key}
+                type="button"
+                size="sm"
+                variant={primary ? 'default' : 'outline'}
+                className={cn('h-8', !primary && step.key === 'DECLINE' && 'text-destructive hover:text-destructive')}
+                disabled={locked}
+                onClick={() => onRun(row, step, full)}
+              >
+                {running === `${view.id}:${step.key}` && <Loader2 className="animate-spin" aria-hidden />}
+                {label}
+                {other && <span className="text-[10px] font-normal opacity-70">({otherName[other]})</span>}
+              </Button>
+            );
+          })}
         </div>
-      ))}
-
-      {supplierLink && side === 'SUPPLIER' && (
-        <Button type="button" variant="ghost" size="sm" className="h-9" disabled={locked} onClick={() => onOpen(supplierLink)}>
-          {opening === supplierLink.label ? <Loader2 className="animate-spin" aria-hidden /> : <ArrowRight aria-hidden />}
-          Mở góc nhìn {supplierName}
-        </Button>
       )}
     </div>
   );
 }
 
-/**
- * Campaign-level controls: "Tuyển nhiều KOL" phase / slots with sample applicants, pick-to-fill and "next phase";
- * the "Duyệt nháp" (Workflow) switch for any campaign.
- */
+/** Brand only: "Tuyển nhiều KOL" phase controls and the "Duyệt nháp" switch. */
 function CampaignControls({ campaign: c, locked }: { campaign: DemoCampaignOption; locked: boolean }) {
   const [busy, setBusy] = useState<string | null>(null);
   const recruit = c.type === 'OPEN_RECRUITMENT';
@@ -271,71 +251,61 @@ function CampaignControls({ campaign: c, locked }: { campaign: DemoCampaignOptio
   };
   const disabled = locked || busy !== null;
   const free = (c.slots ?? 0) - (c.selected ?? 0);
+  const spin = (key: string) => busy === key && <Loader2 className="animate-spin" aria-hidden />;
   return (
-    <div className="space-y-2 rounded-lg bg-muted/60 p-3">
+    <div className="space-y-2 rounded-lg bg-muted/60 p-2.5">
       {recruit && (
         <>
           <p className="text-xs text-muted-foreground">
-            Giai đoạn: <span className="font-medium text-foreground">{c.phase ? RECRUIT_PHASE_LABEL[c.phase] : '—'}</span> · Đã chọn{' '}
+            {c.phase ? RECRUIT_PHASE_LABEL[c.phase] : CAMPAIGN_STATUS_LABEL[c.status]} · Đã chọn{' '}
             <span className="font-medium text-foreground tabular-nums">
               {c.selected ?? 0}/{c.slots ?? 0}
-            </span>{' '}
-            · {c.waiting ?? 0} chờ chọn
+            </span>
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {c.phase === 'APPLY' && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9"
-                disabled={disabled}
-                onClick={() => void act('apply', async () => `Đã thêm ${await demoCampaignService.simulateApplicants(c.id, 3)} ứng viên mẫu`)}
-              >
-                {busy === 'apply' ? <Loader2 className="animate-spin" aria-hidden /> : <UserPlus aria-hidden />}
-                Thêm 3 ứng viên mẫu
-              </Button>
-            )}
-            {c.phase === 'SELECT' && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9"
-                disabled={disabled || !c.waiting || free <= 0}
-                onClick={() => void act('pick', async () => `Nhãn hàng đã chọn ${await demoCampaignService.pickWinners(c.id)} ứng viên`)}
-              >
-                {busy === 'pick' ? <Loader2 className="animate-spin" aria-hidden /> : <UserCheck aria-hidden />}
-                Nhãn hàng chọn đủ suất
-              </Button>
-            )}
-            {c.phase !== 'ENDED' && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9"
-                disabled={disabled}
-                onClick={() => void act('next', async () => `Đã chuyển sang giai đoạn ${RECRUIT_PHASE_LABEL[await demoCampaignService.advancePhase(c.id)]}`)}
-              >
-                {busy === 'next' ? <Loader2 className="animate-spin" aria-hidden /> : <FastForward aria-hidden />}
-                Sang giai đoạn tiếp
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-background"
+              disabled={disabled || c.phase !== 'APPLY'}
+              onClick={() => void act('apply', async () => `Đã thêm ${await demoCampaignService.simulateApplicants(c.id, 3)} ứng viên`)}
+            >
+              {spin('apply')}
+              Thêm ứng viên
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-background"
+              disabled={disabled || c.phase !== 'SELECT' || !c.waiting || free <= 0}
+              onClick={() => void act('pick', async () => `Đã chọn ${await demoCampaignService.pickWinners(c.id)} ứng viên`)}
+            >
+              {spin('pick')}
+              Chọn đủ suất
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 bg-background"
+              disabled={disabled || c.phase === 'ENDED'}
+              onClick={() => void act('next', async () => `Sang ${RECRUIT_PHASE_LABEL[await demoCampaignService.advancePhase(c.id)]}`)}
+            >
+              {spin('next')}
+              Giai đoạn tiếp
+            </Button>
           </div>
         </>
       )}
-      <label className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span>
-          Workflow: <span className="font-medium text-foreground">{c.draftReview ? 'Duyệt nháp' : 'Đăng trực tiếp'}</span>
-        </span>
+      <label className="flex items-center justify-between gap-3 text-xs text-foreground">
+        Duyệt nháp
         <Switch
           checked={c.draftReview}
           disabled={disabled}
-          aria-label="Bật/tắt Duyệt nháp"
-          onCheckedChange={() =>
-            void act('workflow', async () => ((await demoCampaignService.toggleDraftReview(c.id)) ? 'Đã bật Duyệt nháp' : 'Đã tắt Duyệt nháp: KOL đăng trực tiếp'))
-          }
+          aria-label="Duyệt nháp"
+          onCheckedChange={() => void act('workflow', async () => ((await demoCampaignService.toggleDraftReview(c.id)) ? 'Đã bật Duyệt nháp' : 'Đã tắt Duyệt nháp'))}
         />
       </label>
     </div>

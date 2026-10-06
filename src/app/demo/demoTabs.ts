@@ -1,52 +1,38 @@
-import type { DemoAccountKey, DemoStep } from '../services';
+import type { BookingStatus, DemoAccountKey, DemoStep, ProfileStatus } from '../services';
 
-/** Tabs of the demo panel, one per role plus "Hệ thống". */
-export type DemoTab = 'biz' | 'kol' | 'mcn' | 'admin' | 'system';
 /** Role of a demo account (the guest is its own role). */
 export type DemoRole = 'guest' | 'kol' | 'mcn' | 'biz';
+/** Roles that have their own section in the demo panel. */
+export type RoleTab = Exclude<DemoRole, 'guest'>;
 
-export const DEMO_TABS: { id: DemoTab; label: string }[] = [
-  { id: 'biz', label: 'Nhãn hàng' },
-  { id: 'kol', label: 'KOL' },
-  { id: 'mcn', label: 'MCN' },
-  { id: 'admin', label: 'Admin' },
-  { id: 'system', label: 'Hệ thống' },
-];
+/** Blocks of the role section, in order. */
+export type DemoBlock = 'hint' | 'profile' | 'campaign';
 
-/** Blocks of the panel; each tab lists its own, in order. */
-export type DemoBlock = 'profile' | 'campaign' | 'admin' | 'violations' | 'funnel' | 'data' | 'external' | 'assumptions';
-
-export const TAB_BLOCKS: Record<DemoTab, DemoBlock[]> = {
-  biz: ['campaign'],
-  kol: ['profile', 'campaign'],
-  mcn: ['profile', 'campaign'],
-  admin: ['admin', 'violations', 'funnel'],
-  system: ['data', 'external', 'assumptions'],
-};
+export const ROLE_SECTION_LABEL: Record<RoleTab, string> = { biz: 'Nhãn hàng', kol: 'KOL', mcn: 'MCN' };
 
 export function roleOfAccount(key: DemoAccountKey | undefined): DemoRole {
   if (!key || key === 'guest') return 'guest';
   return key.split('-')[0] as DemoRole;
 }
 
-/** Tab opened by default for the signed-in account; a guest starts on KOL (sign-up and profile are KOL-first). */
-export function defaultTab(key: DemoAccountKey | undefined): DemoTab {
-  const role = roleOfAccount(key);
-  return role === 'guest' ? 'kol' : role;
+/** The current role's section only: brand → campaign states; KOL/MCN → profile + campaign states; guest → a hint. */
+export function sectionsFor(role: DemoRole): DemoBlock[] {
+  switch (role) {
+    case 'biz':
+      return ['campaign'];
+    case 'kol':
+    case 'mcn':
+      return ['profile', 'campaign'];
+    default:
+      return ['hint'];
+  }
 }
 
-const isTab = (v: unknown): v is DemoTab => DEMO_TABS.some((t) => t.id === v);
-
-/** Last manual choice (saved with the role it was made for), or the role default once the role has changed. */
-export function restoreTab(saved: unknown, key: DemoAccountKey | undefined): DemoTab {
-  const s = saved as { tab?: unknown; role?: unknown } | null;
-  if (s && isTab(s.tab) && s.role === roleOfAccount(key)) return s.tab;
-  return defaultTab(key);
-}
-
-/** Role tabs that have a "Tài khoản" switch between a new and a verified sample account. */
-export type RoleTab = Extract<DemoTab, 'biz' | 'kol' | 'mcn'>;
-export const isRoleTab = (t: DemoTab): t is RoleTab => t === 'biz' || t === 'kol' || t === 'mcn';
+/** Collapsed tools at the bottom of the panel, closed by default, for every role. */
+export const COLLAPSED_SECTIONS = [
+  { id: 'admin', label: 'Admin' },
+  { id: 'system', label: 'Hệ thống' },
+] as const;
 
 export const ROLE_ACCOUNTS: Record<RoleTab, { fresh: Exclude<DemoAccountKey, 'guest'>; verified: Exclude<DemoAccountKey, 'guest'> }> = {
   biz: { fresh: 'biz-new', verified: 'biz-verified' },
@@ -54,40 +40,96 @@ export const ROLE_ACCOUNTS: Record<RoleTab, { fresh: Exclude<DemoAccountKey, 'gu
   mcn: { fresh: 'mcn-new', verified: 'mcn-verified' },
 };
 
-/**
- * "Hồ sơ mẫu" (fill a new profile) only works for a signed-in KOL/MCN with a new profile:
- * `use` when the current account is that one, otherwise the account to switch to. Not offered on the brand tab.
- */
-export function sampleProfileAccess(tab: DemoTab, key: DemoAccountKey | undefined): { kind: 'use' } | { kind: 'switch'; to: DemoAccountKey } | null {
-  if (tab !== 'kol' && tab !== 'mcn') return null;
-  const fresh = ROLE_ACCOUNTS[tab].fresh;
-  return key === fresh ? { kind: 'use' } : { kind: 'switch', to: fresh };
-}
-
 /** eKYC result picker: KOL only (MCN has no eKYC step). */
-export const showsEkyc = (tab: DemoTab) => tab === 'kol';
+export const showsEkyc = (role: DemoRole) => role === 'kol';
 
-export type CampaignSide = 'BRAND' | 'SUPPLIER';
-export const SIDE_LABEL: Record<CampaignSide | 'SYSTEM', string> = {
-  BRAND: 'Thao tác của Nhãn hàng',
-  SUPPLIER: 'Thao tác của KOL/MCN',
-  SYSTEM: 'Hệ thống',
+/** Short profile state for the "Hồ sơ: …" badge. */
+export const PROFILE_STATE_LABEL: Record<ProfileStatus, string> = {
+  DRAFT: 'Chưa gửi',
+  SUBMITTED: 'Chờ duyệt',
+  APPROVED: 'Đã xác thực',
+  NEEDS_FIX: 'Cần bổ sung',
+  REJECTED: 'Bị từ chối',
 };
 
-export interface StepGroup {
-  side: CampaignSide | 'SYSTEM';
-  primary?: DemoStep;
-  secondary: DemoStep[];
+export type ProfileAction = 'fill' | 'submit' | 'approve' | 'requestFix' | 'reject' | 'useFresh';
+
+/**
+ * Next-state buttons of the profile section: draft → fill / submit; submitted → approve / request more / reject
+ * (Admin shortcuts); approved or rejected → switch to the new sample profile (unless already on it).
+ */
+export function profileActions(status: ProfileStatus | undefined, onFresh: boolean): ProfileAction[] {
+  switch (status) {
+    case 'DRAFT':
+    case 'NEEDS_FIX':
+      return ['fill', 'submit'];
+    case 'SUBMITTED':
+      return ['approve', 'requestFix', 'reject'];
+    case 'APPROVED':
+    case 'REJECTED':
+      return onFresh ? [] : ['useFresh'];
+    default:
+      return [];
+  }
 }
 
-/** A booking's steps grouped by who acts, `first` side first, then the other side, then system steps; empty groups dropped. */
-export function groupSteps(steps: { primary?: DemoStep; secondary: DemoStep[] }, first: CampaignSide): StepGroup[] {
-  const order: StepGroup['side'][] = [first, first === 'BRAND' ? 'SUPPLIER' : 'BRAND', 'SYSTEM'];
-  return order
-    .map((side) => ({
-      side,
-      primary: steps.primary?.actor === side ? steps.primary : undefined,
-      secondary: steps.secondary.filter((s) => s.actor === side),
-    }))
-    .filter((g) => g.primary || g.secondary.length);
+export type CampaignSide = 'BRAND' | 'SUPPLIER';
+
+/** Plain button text of a step: the verb or the result only. */
+export function stepLabel(step: DemoStep, ctx: { status: BookingStatus; price: number; recruit: boolean }): string {
+  switch (step.key) {
+    case 'SUPPLIER_ACCEPT':
+      return 'Chấp nhận';
+    case 'SUPPLIER_COUNTER':
+      return ctx.price > 0 ? 'Trả giá' : 'Báo giá';
+    case 'BRAND_ACCEPT':
+      return ctx.status === 'APPLIED' ? 'Nhận ứng viên' : 'Chốt giá';
+    case 'BRAND_COUNTER':
+      return 'Trả giá';
+    case 'DECLINE':
+      return ctx.recruit && step.actor === 'BRAND' && ctx.status === 'APPLIED' ? 'Loại' : 'Từ chối';
+    case 'EXPIRE':
+      return 'Cho hết hạn';
+    case 'SUBMIT_DRAFT':
+      return 'Nộp nháp';
+    case 'APPROVE_CONTENT':
+      return 'Duyệt nháp';
+    case 'REQUEST_CHANGES':
+      return 'Yêu cầu sửa';
+    case 'SUBMIT_POST':
+      return 'Đăng bài';
+    case 'MARK_PAID':
+      return ctx.price > 0 ? 'Đánh dấu đã trả' : 'Hoàn tất';
+    case 'CONFIRM_PAID':
+      return 'Đã nhận tiền';
+    case 'RATE':
+      return 'Đánh giá 5 sao';
+    case 'SELECT':
+      return 'Chọn';
+    case 'PRODUCT_SENT':
+      return 'Gửi sản phẩm';
+    case 'PRODUCT_RECEIVED':
+      return 'Đã nhận hàng';
+  }
+}
+
+export interface OrderedStep {
+  step: DemoStep;
+  primary: boolean;
+  /** Set when the step belongs to the other side ("Nhãn hàng" / "KOL" / "MCN"). */
+  other?: 'BRAND' | 'SUPPLIER';
+}
+
+/** A booking's steps in one flat list: the section's own side first, then the other side, then system steps. */
+export function orderSteps(steps: { primary?: DemoStep; secondary: DemoStep[] }, first: CampaignSide): OrderedStep[] {
+  const all = [...(steps.primary ? [steps.primary] : []), ...steps.secondary];
+  const rank = (s: DemoStep) => (s.actor === first ? 0 : s.actor === 'SYSTEM' ? 2 : 1);
+  return all
+    .map((step, i) => ({ step, i }))
+    .sort((a, b) => rank(a.step) - rank(b.step) || a.i - b.i)
+    .map(({ step }) => ({
+      step,
+      primary: step === steps.primary,
+      ...(step.actor !== first && step.actor !== 'SYSTEM' ? { other: step.actor } : {}),
+    }));
 }

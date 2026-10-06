@@ -5,7 +5,7 @@ import { DemoPanelSection } from './DemoPanelSection';
 /** "Giả định": temporary decisions of the demo where the business spec is open, collapsed by default. */
 export function AssumptionsBlock() {
   return (
-    <DemoPanelSection title="Giả định" description="Quyết định tạm của bản demo, chờ khách xác nhận.">
+    <DemoPanelSection title="Giả định" description="Quyết định tạm, chờ xác nhận.">
       <Accordion type="multiple" className="-mt-1">
         <AccordionItem value="open-questions">
           <AccordionTrigger className="min-h-11 py-2 text-left text-sm md:min-h-9">Câu hỏi mở ({ASSUMPTIONS.length})</AccordionTrigger>

@@ -439,7 +439,7 @@ export function AdminSimulator() {
     <DemoPanelSection
       title="Duyệt hồ sơ"
       count={data ? data.profiles.length + data.changes.length + data.ekycCases.length : undefined}
-      description="Thay Admin duyệt hồ sơ, thay đổi và case eKYC; gửi email/SMS giả."
+      description="Duyệt thay Admin, gửi email/SMS giả."
     >
       {!data ? (
         <div className="space-y-2" aria-busy="true">

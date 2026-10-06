@@ -17,7 +17,7 @@ export function FunnelView() {
   const rows = useLiveQuery(async () => (subject ? funnelService.get(subject) : []), [subject]);
 
   return (
-    <DemoPanelSection title="Phễu đăng ký" description="Thời điểm hoàn thành từng bước của một hành trình.">
+    <DemoPanelSection title="Phễu đăng ký" description="Thời điểm từng bước đăng ký.">
       {!list.length ? (
         <p className="text-xs text-muted-foreground">Chưa có hành trình nào. Hãy đăng ký một tài khoản KOL mới.</p>
       ) : (

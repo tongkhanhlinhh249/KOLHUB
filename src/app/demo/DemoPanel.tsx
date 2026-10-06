@@ -1,9 +1,9 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { FlaskConical } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { reviewService, violationService } from '../services';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
 import { AdminSimulator } from './AdminSimulator';
@@ -13,7 +13,7 @@ import { DemoDataBlock } from './DemoDataBlock';
 import { ExternalLinksBlock } from './DemoLinksBlock';
 import { DemoGroupHeading } from './DemoPanelSection';
 import { DemoRoleBlock } from './DemoRoleBlock';
-import { DEMO_TABS, isRoleTab, restoreTab, roleOfAccount, TAB_BLOCKS, type DemoBlock, type DemoTab } from './demoTabs';
+import { COLLAPSED_SECTIONS, ROLE_SECTION_LABEL, roleOfAccount, sectionsFor, type DemoBlock, type DemoRole } from './demoTabs';
 import { FunnelView } from './FunnelView';
 import { useRoleSwitch } from './RoleSwitcher';
 import { SampleProfileBlock } from './SampleProfileBlock';
@@ -21,18 +21,7 @@ import { ViolationReviewBlock } from './ViolationReviewBlock';
 
 export { DemoPanelSection } from './DemoPanelSection';
 
-const TAB_KEY = 'kolhub.demo.tab';
-
-function readSavedTab(): unknown {
-  try {
-    const raw = sessionStorage.getItem(TAB_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Pending items for Admin (profiles, changes, eKYC cases, violation reports and appeals), for the tab badge. */
+/** Pending items for Admin (profiles, changes, eKYC cases, violation reports and appeals), for the section badge. */
 function useAdminPending(): number | null {
   const reviews = useLiveQuery(() => reviewService.listAdminQueue(), []);
   const violations = useLiveQuery(() => violationService.adminQueue(), []);
@@ -42,86 +31,65 @@ function useAdminPending(): number | null {
 }
 
 /**
- * Body of the demo panel: compact "Vai trò" header, then one tab per role (Nhãn hàng · KOL · MCN · Admin · Hệ thống)
- * showing only that role's tools. Opens on the signed-in role's tab; a manual choice is kept for the session until
- * the role changes.
+ * Body of the demo panel: compact "Vai trò" header, then only the signed-in role's section (state switches), then
+ * Admin and Hệ thống collapsed at the bottom.
  */
 function DemoPanelBody({ onDone }: { onDone(): void }) {
   const { current } = useRoleSwitch(onDone);
   const role = roleOfAccount(current?.key);
-  const [saved, setSaved] = useState<unknown>(readSavedTab);
-  const tab = restoreTab(saved, current?.key);
   const pending = useAdminPending();
 
-  const choose = (t: string) => {
-    const next = { tab: t, role };
-    setSaved(next);
-    try {
-      sessionStorage.setItem(TAB_KEY, JSON.stringify(next));
-    } catch {
-      // Storage unavailable (private mode): the choice lasts while the panel is open.
-    }
-  };
-
-  const block = (t: DemoTab, b: DemoBlock): ReactNode => {
+  const block = (r: DemoRole, b: DemoBlock): ReactNode => {
     switch (b) {
+      case 'hint':
+        return <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Chọn vai trò ở trên để xem demo</p>;
       case 'profile':
-        return (
-          (t === 'kol' || t === 'mcn') && (
-            <>
-              <DemoGroupHeading>Trạng thái hồ sơ</DemoGroupHeading>
-              <SampleProfileBlock tab={t} onDone={onDone} />
-            </>
-          )
-        );
+        return (r === 'kol' || r === 'mcn') && <SampleProfileBlock key={current?.key} role={r} onDone={onDone} />;
       case 'campaign':
-        return (
-          isRoleTab(t) && (
-            <>
-              <DemoGroupHeading>Chiến dịch</DemoGroupHeading>
-              <CampaignSimulatorBlock tab={t} onDone={onDone} />
-            </>
-          )
-        );
-      case 'admin':
-        return <AdminSimulator />;
-      case 'violations':
-        return <ViolationReviewBlock />;
-      case 'funnel':
-        return <FunnelView />;
-      case 'data':
-        return <DemoDataBlock onDone={onDone} />;
-      case 'external':
-        return <ExternalLinksBlock />;
-      case 'assumptions':
-        return <AssumptionsBlock />;
+        return r !== 'guest' && <CampaignSimulatorBlock key={current?.key} role={r} onDone={onDone} />;
     }
   };
 
   return (
     <div className="space-y-3 p-3 pb-safe sm:p-4">
       <DemoRoleBlock onDone={onDone} />
-      <Tabs value={tab} onValueChange={choose}>
-        <TabsList aria-label="Công cụ demo theo vai trò" className="flex h-auto w-full gap-0.5 p-1">
-          {DEMO_TABS.map((t) => (
-            <TabsTrigger key={t.id} value={t.id} className="h-9 min-w-0 flex-auto gap-1 px-1.5 text-xs">
-              <span className="truncate">{t.label}</span>
-              {t.id === 'admin' && pending !== null && pending > 0 && (
-                <Badge className="h-4 min-w-4 shrink-0 rounded-full px-1 py-0 text-[10px] tabular-nums" aria-label={`${pending} mục chờ xử lý`}>
-                  {pending}
-                </Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {DEMO_TABS.map((t) => (
-          <TabsContent key={t.id} value={t.id} className="mt-3 space-y-3">
-            {TAB_BLOCKS[t.id].map((b) => (
-              <Fragment key={b}>{block(t.id, b)}</Fragment>
-            ))}
-          </TabsContent>
+      <div className="space-y-3">
+        {role !== 'guest' && <DemoGroupHeading>{ROLE_SECTION_LABEL[role]}</DemoGroupHeading>}
+        {sectionsFor(role).map((b) => (
+          <div key={b}>{block(role, b)}</div>
         ))}
-      </Tabs>
+      </div>
+      <Accordion type="multiple" className="rounded-xl border border-border px-3">
+        {COLLAPSED_SECTIONS.map((s, i) => (
+          <AccordionItem key={s.id} value={s.id} className={i === COLLAPSED_SECTIONS.length - 1 ? 'border-b-0' : undefined}>
+            <AccordionTrigger className="min-h-11 gap-2 py-2 text-sm hover:no-underline md:min-h-9">
+              <span className="flex flex-1 items-center gap-2">
+                {s.label}
+                {s.id === 'admin' && pending !== null && pending > 0 && (
+                  <Badge className="h-4 min-w-4 rounded-full px-1 py-0 text-[10px] tabular-nums" aria-label={`${pending} mục chờ xử lý`}>
+                    {pending}
+                  </Badge>
+                )}
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-3 pb-3">
+              {s.id === 'admin' ? (
+                <>
+                  <AdminSimulator />
+                  <ViolationReviewBlock />
+                  <FunnelView />
+                </>
+              ) : (
+                <>
+                  <DemoDataBlock onDone={onDone} />
+                  <ExternalLinksBlock />
+                  <AssumptionsBlock />
+                </>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
     </div>
   );
 }

@@ -127,9 +127,9 @@ export function ViolationReviewBlock() {
 
   return (
     <DemoPanelSection
-      title="Báo cáo vi phạm"
+      title="Vi phạm"
       count={q.data ? q.data.pending.length + q.data.appealed.length : undefined}
-      description="Thay Admin xác minh vi phạm và xử lý khiếu nại."
+      description="Xác minh báo cáo, xử lý khiếu nại."
     >
       {!q.data ? (
         <div className="space-y-2" aria-busy="true">
