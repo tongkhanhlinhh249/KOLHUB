@@ -1,4 +1,5 @@
-import { ChevronsUpDown, LogOut } from 'lucide-react';
+import { ChevronsUpDown, ExternalLink, LogOut, Store } from 'lucide-react';
+import { MARKETPLACE_PATH } from '../auth/roles';
 import { useAuth } from '../auth/AuthContext';
 import { useIdentity } from '../auth/useIdentity';
 import { IdentityAvatar } from './IdentityAvatar';
@@ -77,6 +78,19 @@ export function AccountMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {variant !== 'market' && (
+          <>
+            <DropdownMenuItem asChild className="min-h-11 md:min-h-0">
+              <a href={MARKETPLACE_PATH} target="_blank" rel="noopener noreferrer">
+                <Store />
+                <span className="flex-1">Mở Sàn chiến dịch</span>
+                <ExternalLink className="size-3.5 text-muted-foreground" aria-hidden />
+                <span className="sr-only">(mở tab mới)</span>
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem variant="destructive" onSelect={handleLogout} className="min-h-11 md:min-h-0">
           <LogOut />
           Đăng xuất

@@ -177,7 +177,6 @@ const SAFETY_ROWS = [
 
 const COLLAB_ROWS = [
   ['Chiến dịch', 'Chiến dịch', '/chien-dich-cua-toi', 'Hợp tác'],
-  ['Sàn chiến dịch', 'Sàn', '/san', 'Hợp tác'],
   ['Chiến dịch quan tâm', 'Quan tâm', '/chien-dich-da-luu', 'Hợp tác'],
   ['Tin nhắn', 'Tin nhắn', '/tin-nhan', 'Hợp tác'],
   ['Bài đã đăng', 'Bài đăng', '/bai-da-dang', 'Hợp tác'],
@@ -188,7 +187,7 @@ const COLLAB_ROWS = [
 const SUPPORT_ROW = ['Hỗ trợ', 'Hỗ trợ', '/ho-tro', 'Hỗ trợ'];
 
 describe('bottomNavOf', () => {
-  test('KOL/MCN: 4 tab (Tổng quan, Chiến dịch, Sàn, Ứng dụng) + "Thêm" (MCN: Quản lý KOL; tin nhắn, quan tâm, bài đã đăng, thu nhập, câu hỏi, kênh, thông tin hồ sơ, vi phạm, hỗ trợ)', () => {
+  test('KOL/MCN: 4 tab (Tổng quan, Chiến dịch, Quan tâm, Ứng dụng) + "Thêm" (MCN: Quản lý KOL; tin nhắn, bài đã đăng, thu nhập, câu hỏi, kênh, thông tin hồ sơ, vi phạm, hỗ trợ)', () => {
     for (const [role, base] of [
       ['kolhub.user.kol', '/ho-so-kol'],
       ['kolhub.user.mcn', '/ho-so-mcn'],
@@ -197,13 +196,12 @@ describe('bottomNavOf', () => {
       expect(nav.items.map((i) => [i.label, i.path])).toEqual([
         ['Tổng quan', `${base}/tong-quan`],
         ['Chiến dịch', '/chien-dich-cua-toi'],
-        ['Sàn', '/san'],
+        ['Quan tâm', '/chien-dich-da-luu'],
         ['Ứng dụng', '/ung-dung'],
       ]);
       expect(nav.more.map((m) => m.label)).toEqual([
         ...(role === 'kolhub.user.mcn' ? ['Quản lý KOL'] : []),
         'Tin nhắn',
-        'Chiến dịch quan tâm',
         'Bài đã đăng',
         'Thu nhập',
         'Câu hỏi của tôi',
@@ -217,7 +215,7 @@ describe('bottomNavOf', () => {
         expect(resolveAccess(role, p)).toEqual({ allow: true });
     }
   });
-  test('Nhãn hàng: 4 tab + "Thêm" (Sàn chiến dịch, Tin nhắn, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp, Hỗ trợ); khách: mọi mục menu là tab', () => {
+  test('Nhãn hàng: 4 tab + "Thêm" (Tin nhắn, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp, Hỗ trợ); khách: mọi mục menu là tab', () => {
     const nav = bottomNavOf('kolhub.user.biz');
     expect(nav.items.map((i) => [i.label, i.path])).toEqual([
       ['Tìm KOL', '/tim-kiem-kol'],
@@ -225,7 +223,7 @@ describe('bottomNavOf', () => {
       ['Kênh', '/danh-sach-kenh'],
       ['Đã lưu', '/danh-sach-da-luu'],
     ]);
-    expect(nav.more.map((m) => m.path)).toEqual(['/san', '/tin-nhan', '/ung-dung', '/vi-pham-kol', '/tai-khoan-doanh-nghiep', '/ho-tro']);
+    expect(nav.more.map((m) => m.path)).toEqual(['/tin-nhan', '/ung-dung', '/vi-pham-kol', '/tai-khoan-doanh-nghiep', '/ho-tro']);
     expect(isNavActive('/chien-dich/cmp-1/sua', nav.items[1])).toBe(true);
     for (const p of [...nav.items.map((i) => i.path), ...nav.more.map((m) => m.path)])
       expect(resolveAccess('kolhub.user.biz', p)).toEqual({ allow: true });
@@ -276,7 +274,6 @@ describe('roleOf / ROLE_CONFIG / getPageMeta', () => {
       ['Danh sách kênh', '/danh-sach-kenh', 'Tìm KOL'],
       ['Danh sách đã lưu', '/danh-sach-da-luu', 'Tìm KOL'],
       ['Chiến dịch', '/chien-dich', 'Hợp tác'],
-      ['Sàn chiến dịch', '/san', 'Hợp tác'],
       ['Tin nhắn', '/tin-nhan', 'Hợp tác'],
       ['Ứng dụng', '/ung-dung', 'Kiểm duyệt'],
       ['Danh sách vi phạm', '/vi-pham-kol', 'Kiểm duyệt'],

@@ -15,7 +15,6 @@ import {
   MonitorPlay,
   Search,
   ShieldAlert,
-  Store,
   UserPlus,
   Users,
   Wallet,
@@ -99,7 +98,7 @@ const SUPPORT_ITEM: MenuItem = { icon: LifeBuoy, label: 'Hỗ trợ', shortLabel
 /** Icon of the header bell (Thông báo). */
 export const NOTIFICATIONS_ICON = Bell;
 
-/** Brand: 10 menu items → 4 tabs + "Thêm" (Sàn chiến dịch, Tin nhắn, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp, Hỗ trợ). */
+/** Brand: 9 menu items → 4 tabs + "Thêm" (Tin nhắn, Ứng dụng, Danh sách vi phạm, Tài khoản doanh nghiệp, Hỗ trợ). */
 const BRAND_BOTTOM_NAV: BottomNavConfig = {
   items: [
     { icon: Search, label: 'Tìm KOL', path: '/tim-kiem-kol' },
@@ -107,7 +106,7 @@ const BRAND_BOTTOM_NAV: BottomNavConfig = {
     { icon: MonitorPlay, label: 'Kênh', path: CHANNEL_DIRECTORY_PATH },
     { icon: BookMarked, label: 'Đã lưu', path: '/danh-sach-da-luu' },
   ],
-  more: [MARKETPLACE_PATH, MESSAGES_PATH, APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep', SUPPORT_PATH],
+  more: [MESSAGES_PATH, APPS_PATH, BRAND_VIOLATIONS_PATH, '/tai-khoan-doanh-nghiep', SUPPORT_PATH],
 };
 
 /** Video/channel checks now live in the external tool (via "Ứng dụng"); the in-app mock pages stay routable only. */
@@ -126,8 +125,8 @@ function profileMenu(base: string, group: string, identityIcon: LucideIcon): Men
 }
 
 /**
- * "Hợp tác" group (campaign booking beta). KOL/MCN: "Chiến dịch" (invites, applications and bookings they work on)
- * + "Sàn chiến dịch" (leaves the shell for the public Sàn layout). Brand: own campaigns + the Sàn (read-only).
+ * "Hợp tác" group (campaign booking beta). KOL/MCN: "Chiến dịch" (invites, applications and bookings they work on).
+ * The Sàn is a separate public channel (/san), not a menu item: it opens from the account menu ("Mở Sàn chiến dịch").
  */
 export const COLLAB_GROUP = 'Hợp tác';
 /** KOL/MCN "Chiến dịch" page (was /booking). */
@@ -138,11 +137,9 @@ export const LEGACY_SUPPLIER_BOOKING_PATH = '/booking';
 export const PORTFOLIO_PATH = '/bai-da-dang';
 /** KOL/MCN "Thu nhập": record-only ledger of cash / product rewards (payment happens outside KOL Hub). */
 export const EARNINGS_PATH = '/thu-nhap';
-const MARKETPLACE_ITEM: MenuItem = { icon: Store, label: 'Sàn chiến dịch', shortLabel: 'Sàn', path: MARKETPLACE_PATH, group: COLLAB_GROUP };
 const MESSAGES_ITEM: MenuItem = { icon: MessagesSquare, label: 'Tin nhắn', shortLabel: 'Tin nhắn', path: MESSAGES_PATH, group: COLLAB_GROUP };
 const COLLAB_MENU: MenuItem[] = [
   { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH, group: COLLAB_GROUP },
-  MARKETPLACE_ITEM,
   { icon: Bookmark, label: 'Chiến dịch quan tâm', shortLabel: 'Quan tâm', path: INTERESTED_PATH, group: COLLAB_GROUP },
   MESSAGES_ITEM,
   { icon: Images, label: 'Bài đã đăng', shortLabel: 'Bài đăng', path: PORTFOLIO_PATH, group: COLLAB_GROUP },
@@ -164,13 +161,12 @@ function creatorBottomNav(base: string, extraMore: string[] = []): BottomNavConf
     items: [
       { icon: LayoutDashboard, label: 'Tổng quan', path: `${base}/tong-quan` },
       { icon: Megaphone, label: 'Chiến dịch', path: SUPPLIER_CAMPAIGNS_PATH },
-      { icon: Store, label: 'Sàn', path: MARKETPLACE_PATH },
+      { icon: Bookmark, label: 'Quan tâm', path: INTERESTED_PATH },
       { icon: LayoutGrid, label: 'Ứng dụng', path: APPS_PATH },
     ],
     more: [
       ...extraMore,
       MESSAGES_PATH,
-      INTERESTED_PATH,
       PORTFOLIO_PATH,
       EARNINGS_PATH,
       MY_QUESTIONS_PATH,
@@ -188,7 +184,6 @@ const BRAND_MENU: MenuItem[] = [
   { icon: MonitorPlay, label: 'Danh sách kênh', shortLabel: 'Kênh', path: CHANNEL_DIRECTORY_PATH, group: 'Tìm KOL' },
   { icon: BookMarked, label: 'Danh sách đã lưu', shortLabel: 'Đã lưu', path: '/danh-sach-da-luu', group: 'Tìm KOL' },
   { icon: Megaphone, label: 'Chiến dịch', shortLabel: 'Chiến dịch', path: CAMPAIGNS_PATH, group: COLLAB_GROUP },
-  MARKETPLACE_ITEM,
   MESSAGES_ITEM,
   { icon: LayoutGrid, label: 'Ứng dụng', shortLabel: 'Ứng dụng', path: APPS_PATH, group: SAFETY_GROUP },
   { icon: ShieldAlert, label: 'Danh sách vi phạm', shortLabel: 'Vi phạm', path: BRAND_VIOLATIONS_PATH, group: SAFETY_GROUP },
@@ -368,6 +363,9 @@ export function getPageMeta(path: string, role?: RoleKey): { title: string; grou
   const p = cleanPath(path);
   const app = APP_PAGES[p];
   if (app) return { ...app, group: ROLE_CONFIG[role && role !== 'kolhub.guest' ? role : 'kolhub.user.kol'].label };
+  // The Sàn is its own public channel (no menu item): titled like before, group = the viewer's role.
+  if (matches(p, MARKETPLACE_PATH))
+    return { title: 'Sàn chiến dịch', group: ROLE_CONFIG[role && role !== 'kolhub.guest' ? role : 'kolhub.user.kol'].label, description: DESCRIPTIONS[MARKETPLACE_PATH] };
   const order = role ? [role, ...ROLE_KEYS.filter((r) => r !== role)] : ROLE_KEYS;
   for (const r of order) {
     const item = ROLE_CONFIG[r].menu.find((m) => matches(p, m.path));
