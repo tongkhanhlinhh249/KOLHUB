@@ -268,7 +268,7 @@ export function seedRecruitment(
     const at = ago(9 - i, 2 + i);
     const id = i === 0 ? SEED_RECRUIT_BOOKING.saoVietApplied : `bk-seed-rc-chon-${i}`;
     const b = base(id, selecting.id, ids.brand, a, at);
-    b.note = i === 0 ? 'Đề xuất kênh nấu ăn gia đình của KOL Minh Thư.' : '';
+    b.note = i === 0 ? 'Đề xuất một kênh TikTok về đời sống gia đình trong mạng lưới của chúng tôi.' : '';
     b.application = application(ANSWERS[i % ANSWERS.length], selectingSurvey, SHIP[i % SHIP.length], at);
     if (i === 4) {
       // Picked yesterday-ish (start of "Chọn lọc").

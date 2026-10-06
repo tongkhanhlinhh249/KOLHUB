@@ -276,8 +276,8 @@ function AnswerForm({ q }: { q: CampaignQAView }) {
   if (!editing) {
     return (
       <div className="space-y-1 rounded-[8px] bg-primary/5 p-3">
-        <p className="text-xs text-muted-foreground">Bạn trả lời · {q.answeredAt ? formatDayTime(q.answeredAt) : ''}</p>
-        <p className="text-sm whitespace-pre-line text-foreground">{q.answer}</p>
+        <p className="text-xs text-muted-foreground">Bạn trả lời{q.answeredAt ? ` · ${formatDayTime(q.answeredAt)}` : ''}</p>
+        <p className="text-sm whitespace-pre-line text-foreground">{q.answer ?? text}</p>
         <Button type="button" variant="link" className="h-11 px-0 md:h-auto" onClick={() => setEditing(true)}>
           Sửa câu trả lời
         </Button>

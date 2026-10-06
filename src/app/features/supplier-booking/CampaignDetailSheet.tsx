@@ -38,7 +38,7 @@ import {
 import { SupplierGate } from './useSupplierAccess';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { ConditionsList, PhaseBadge, RecruitTimeline, RecruitTypeBadge, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
-import { regionText, rewardShort, workflowLabel } from '../shared/recruitView';
+import { RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, workflowLabel } from '../shared/recruitView';
 import { CampaignQASection } from './CampaignQA';
 
 /**
@@ -85,6 +85,8 @@ export function CampaignDetailSheet({
   const myBookingId = c?.myBooking?.id ?? (applied && applied.campaignId === c?.id ? applied.id : undefined);
   // Sàn v2: an application the brand has not answered yet can be edited or withdrawn here.
   const editable = supplier && access.approved && c?.myBooking?.origin === 'APPLICATION' && c.myBooking.status === 'APPLIED';
+  // "Tuyển nhiều KOL": editable only while "Ứng tuyển" lasts; it can still be withdrawn until picked.
+  const canEdit = editable && (c?.type !== 'OPEN_RECRUITMENT' || c?.phase === 'APPLY');
 
   const startEdit = async () => {
     if (!c?.myBooking) return;
@@ -112,10 +114,13 @@ viewer === 'guest' ? (
               ) : myBookingId ? (
                 <div className="flex flex-col gap-3 @lg:flex-row @lg:items-center @lg:justify-between">
                   <p className="text-sm text-foreground">
-                    {c.myBooking
-                      ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${c.myBooking.status === 'SENT' ? 'Lời mời mới' : BOOKING_STATUS_LABEL[c.myBooking.status]}`
-                      : 'Bạn đã ứng tuyển · Chờ Nhãn hàng phản hồi'}
-                    {recruit && c.myBooking?.status === 'APPLIED' ? ' · Chờ giai đoạn Chọn lọc' : ''}
+                    {recruit
+                      ? c.myBooking && c.myBooking.status !== 'APPLIED'
+                        ? `Bạn đã ứng tuyển · ${RECRUIT_STAGE_LABEL[recruitStage(c.myBooking)]}`
+                        : 'Bạn đã ứng tuyển · Chờ Nhãn hàng chọn trong giai đoạn Chọn lọc'
+                      : c.myBooking
+                        ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${c.myBooking.status === 'SENT' ? 'Lời mời mới' : BOOKING_STATUS_LABEL[c.myBooking.status]}`
+                        : 'Bạn đã ứng tuyển · Chờ Nhãn hàng phản hồi'}
                   </p>
                   <div className="grid grid-cols-2 gap-2 @lg:flex @lg:items-center">
                     {editable && (
@@ -126,12 +131,14 @@ viewer === 'guest' ? (
                           className="h-11 text-destructive hover:text-destructive md:h-9"
                           onClick={() => setWithdrawOpen(true)}
                         >
-                          Rút đề xuất
+                          {recruit ? 'Rút ứng tuyển' : 'Rút đề xuất'}
                         </Button>
+                        {canEdit && (
                         <Button type="button" variant="outline" className="h-11 md:h-9" disabled={loadingEdit} onClick={() => void startEdit()}>
                           {loadingEdit ? <Loader2 className="animate-spin" aria-hidden /> : <Pencil aria-hidden />}
-                          Sửa đề xuất
+                          {recruit ? 'Sửa ứng tuyển' : 'Sửa đề xuất'}
                         </Button>
+                        )}
                       </>
                     )}
                     <Link to={bookingDetailPath(myBookingId)} className={buttonVariants({ className: cn('h-11 md:h-9', editable && 'col-span-2') })}>

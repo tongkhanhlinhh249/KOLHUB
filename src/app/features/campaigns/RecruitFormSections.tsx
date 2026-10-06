@@ -140,10 +140,12 @@ export function RecruitSection({ values: v, set, errors }: { values: CampaignFor
         <div className="space-y-3 rounded-[8px] border border-border p-3">
           <div className="flex items-start gap-3">
             <Checkbox id={`${id}-product`} checked={v.hasProduct} onCheckedChange={(c) => set('hasProduct', c === true, 'product')} className="mt-0.5" />
-            <Label htmlFor={`${id}-product`} className="flex-col items-start gap-0.5 font-normal">
-              <span className="text-sm font-medium text-foreground">Tặng kèm sản phẩm</span>
-              <span className="text-xs text-muted-foreground">KOL nhập địa chỉ nhận hàng và số điện thoại khi ứng tuyển. Bạn ghi nhận “Đã gửi sản phẩm”.</span>
-            </Label>
+            <div className="min-w-0 space-y-0.5">
+              <Label htmlFor={`${id}-product`} className="text-sm font-medium text-foreground">
+                Tặng kèm sản phẩm
+              </Label>
+              <p className="text-xs text-muted-foreground">KOL nhập địa chỉ nhận hàng và số điện thoại khi ứng tuyển. Bạn ghi nhận “Đã gửi sản phẩm”.</p>
+            </div>
           </div>
           {v.hasProduct && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -322,14 +324,16 @@ export function WorkflowSection({ value, onChange }: { value: boolean; onChange(
   return (
     <Section title="Workflow">
       <div className="flex items-start justify-between gap-4 rounded-[8px] border border-border p-3" id={fieldId('draftReview')}>
-        <Label htmlFor={`${id}-dr`} className="flex-col items-start gap-0.5 font-normal">
-          <span className="text-sm font-medium text-foreground">Duyệt nháp</span>
-          <span className="text-xs text-muted-foreground">
+        <div className="min-w-0 space-y-0.5">
+          <Label htmlFor={`${id}-dr`} className="text-sm font-medium text-foreground">
+            Duyệt nháp
+          </Label>
+          <p className="text-xs text-muted-foreground">
             {value
               ? 'Bật: KOL gửi bản nháp (kèm kiểm tra KOL Safety) để bạn duyệt trước khi đăng.'
               : 'Tắt: KOL đăng bài trực tiếp theo yêu cầu rồi gửi link, không qua bước duyệt nháp.'}
-          </span>
-        </Label>
+          </p>
+        </div>
         <Switch id={`${id}-dr`} checked={value} onCheckedChange={onChange} className="mt-0.5" />
       </div>
     </Section>
