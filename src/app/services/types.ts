@@ -71,6 +71,12 @@ export type ErrorCode =
   | 'KOLHUB-4507'
   | 'KOLHUB-4508'
   | 'KOLHUB-4509'
+  | 'KOLHUB-4510'
+  | 'KOLHUB-4511'
+  | 'KOLHUB-4512'
+  | 'KOLHUB-4513'
+  | 'KOLHUB-4514'
+  | 'KOLHUB-4515'
   // --- violations ---
   | 'KOLHUB-4601'
   | 'KOLHUB-4602'

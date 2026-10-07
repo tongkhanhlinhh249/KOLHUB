@@ -17,7 +17,9 @@ import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import { useAuth } from '../../auth/AuthContext';
-import { MAX_VIDEO_SEC, safetyService, validateVideo, type SafetyVideo } from '../../services';
+import { Link } from 'react-router';
+import { APPS_PATH } from '../../auth/roles';
+import { kolSafetyReportService, MAX_VIDEO_SEC, safetyService, validateVideo, type SafetyVideo } from '../../services';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { SafetyVideoCard, VERDICT_UI, VIDEO_GRID, VideoGridSkeleton, ViolationBox } from './SafetyParts';
 import { readVideoFile } from './videoFile';
@@ -28,9 +30,40 @@ const SCAN_MS = 2000;
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 
 /** /kiem-duyet/video — upload a video, get a mock compliance verdict, then post it (SAFE/GRAY only). */
+/**
+ * "Quét trước khi đăng": KOL/MCN need KOL Safety switched on and the "Bảo vệ" plan (checks a draft before posting
+ * so a new post does not suspend the channel's Khiên An toàn). Other accounts reach the tool as before.
+ */
 export function VideoCheckPage() {
   const { account } = useAuth();
   const accountId = account?.id ?? '';
+  const creator = account?.type === 'KOL' || account?.type === 'MCN';
+  const settings = useLiveQuery(() => (creator ? kolSafetyReportService.getSettings(accountId) : Promise.resolve(null)), [creator, accountId]);
+  if (creator && !settings.data) return <VideoGridSkeleton />;
+  const s = settings.data;
+  if (s && (!s.enabled || !s.plan.prePublishScan)) {
+    return (
+      <div className="mx-auto w-full max-w-3xl p-4 md:p-6">
+        <Alert>
+          <AlertCircle className="size-4" aria-hidden />
+          <AlertDescription className="space-y-2">
+            <p>
+              {!s.enabled
+                ? 'KOL Safety đang tắt. Bật trong mục Ứng dụng để quét nội dung.'
+                : 'Quét trước khi đăng có trong gói Bảo vệ của KOL Safety: kiểm tra bản nháp trước khi đăng để không mất Khiên An toàn.'}
+            </p>
+            <Link to={APPS_PATH} className="text-sm font-medium text-primary hover:underline">
+              {!s.enabled ? 'Mở Ứng dụng' : 'Xem gói Bảo vệ'}
+            </Link>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  return <VideoCheckContent accountId={accountId} />;
+}
+
+function VideoCheckContent({ accountId }: { accountId: string }) {
   const q = useLiveQuery(
     async () => {
       const [videos, stats] = await Promise.all([safetyService.listVideos(accountId), safetyService.stats(accountId)]);

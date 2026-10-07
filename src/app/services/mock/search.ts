@@ -100,7 +100,7 @@ export function createSearchService(deps: SearchServiceDeps) {
 
     const scored: { k: PublicKol; score: number; followers: number }[] = [];
     for (const p of state.kolProfiles) {
-      const k = toPublicKol(p, state.channels, t);
+      const k = toPublicKol(p, state.channels, t, state.kolSafetyReports);
       if (!k) continue;
       if (q.category && k.category !== q.category) continue;
       if (q.region && k.region !== q.region) continue;

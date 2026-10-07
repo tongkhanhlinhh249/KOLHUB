@@ -57,6 +57,7 @@ import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatCompactVi, formatFollowers } from '../biz-search/format';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { VERDICT_UI } from './SafetyParts';
+import { ShieldPanel } from './ShieldParts';
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 const day = (t: number) => format(t, 'dd/MM/yyyy');
@@ -91,6 +92,7 @@ export function KolSafetyReportPage() {
   const isMcn = account?.type === 'MCN';
   const [params, setParams] = useSearchParams();
   const channelsQ = useLiveQuery(() => kolSafetyReportService.listChannels(accountId), [accountId]);
+  const settingsQ = useLiveQuery(() => kolSafetyReportService.getSettings(accountId), [accountId]);
   const channels = channelsQ.data;
   const selectedId = params.get('kenh');
   const channel = channels?.find((c) => c.id === selectedId) ?? channels?.[0];
@@ -106,7 +108,19 @@ export function KolSafetyReportPage() {
     );
 
   let body: ReactNode;
-  if (channelsQ.loading && !channels) {
+  if (settingsQ.data && !settingsQ.data.enabled) {
+    body = (
+      <Alert>
+        <AlertCircle className="size-4" aria-hidden />
+        <AlertDescription className="space-y-2">
+          <p>KOL Safety đang tắt nên tính năng quét nội dung và Khiên An toàn bị ẩn. Bật lại trong mục Ứng dụng để dùng.</p>
+          <Link to={APPS_PATH} className="text-sm font-medium text-primary hover:underline">
+            Mở Ứng dụng
+          </Link>
+        </AlertDescription>
+      </Alert>
+    );
+  } else if (channelsQ.loading && !channels) {
     body = <PageSkeleton />;
   } else if (channelsQ.error && !channels) {
     body = (
@@ -330,9 +344,15 @@ function ChannelReportView({
     <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-end @3xl:justify-between">
       <ChannelPicker channels={channels} value={channel.id} onChange={onSelect} />
       <div className="grid grid-cols-2 gap-2 @3xl:flex">
-        <Button type="button" className="h-11 rounded-[8px] md:h-9" onClick={() => void rescan()} disabled={scanning || !report}>
+        <Button
+          type="button"
+          className="h-11 rounded-[8px] md:h-9"
+          onClick={() => void rescan()}
+          disabled={scanning || !report || report.rescansLeft === 0}
+          title={report?.rescansLeft === 0 ? 'Đã hết lượt quét lại miễn phí tháng này — nâng cấp gói Bảo vệ trong mục Ứng dụng' : undefined}
+        >
           {scanning ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <ScanSearch aria-hidden />}
-          {scanning ? 'Đang quét…' : 'Quét lại'}
+          {scanning ? 'Đang quét…' : report?.rescansLeft !== undefined ? `Quét lại (còn ${report.rescansLeft})` : 'Quét lại'}
         </Button>
         <Button
           type="button"
@@ -384,6 +404,7 @@ function ChannelReportView({
         </div>
       )}
       <div className={cn('space-y-4 transition-opacity', scanning && 'opacity-60')} aria-busy={scanning || undefined}>
+        <ShieldPanel accountId={accountId} report={report} />
         <SummaryRow channel={channel} report={report} summary={summary} sharing={sharing} onShare={(v) => void toggleShare(v)} />
         <div className="grid gap-4 @4xl:grid-cols-2">
           <CategoryCard totals={summary.categoryTotals} onPick={pickCategory} />

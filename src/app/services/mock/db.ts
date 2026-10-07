@@ -16,7 +16,7 @@ import type {
 } from '../profile-types';
 // --- KOL Safety ---
 import type { SafetyMonitor, SafetyVideo } from '../safety-types';
-import type { KolSafetyReportState } from '../kol-safety-report-types';
+import type { KolSafetyReportState, KolSafetySettings } from '../kol-safety-report-types';
 // --- violations ---
 import type { Violation } from '../violation-types';
 // --- campaign booking (beta) ---
@@ -114,6 +114,8 @@ export interface DemoState {
   notificationReads: NotificationReadState[];
   // --- KOL Safety – Tổng hợp kênh (optional: created on first "Quét lại" / share, no seed change) ---
   kolSafetyReports?: KolSafetyReportState[];
+  /** KOL Safety app switch and plan per KOL/MCN account (optional, no seed change). */
+  kolSafetySettings?: KolSafetySettings[];
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

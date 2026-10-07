@@ -12,6 +12,7 @@ import { formatFollowers } from '../biz-search/format';
 import { FieldBadges } from '../biz-search/KolMedia';
 import { PlatformIcon, platformLabel } from '../biz-search/PlatformIcon';
 import { ChannelLink, channelName } from './ChannelParts';
+import { PublicShieldBadge } from '../safety/ShieldParts';
 
 /** Clicks on these never open the detail (links, buttons, switches, the menu and its portal). */
 const INTERACTIVE = 'a, button, input, label, [role="menu"], [role="menuitem"], [role="switch"], [data-row-ignore]';
@@ -56,6 +57,8 @@ export interface ChannelRowProps {
   url: string;
   /** Badge valid-until (ISO or ms) when the channel currently has a valid badge. */
   verifiedUntil?: string | number;
+  /** "Khiên An toàn nội dung" shown to brands. */
+  shield?: 'ACTIVE' | 'SUSPENDED';
   /** Line under the link — owner KOL (Brand) or review status (KOL/MCN). */
   subline?: ReactNode;
   fields: ActivityField[];
@@ -83,6 +86,7 @@ export function ChannelRow({
   handle,
   url,
   verifiedUntil,
+  shield,
   subline,
   fields,
   region,
@@ -118,6 +122,7 @@ export function ChannelRow({
                   <span className="sr-only"> — kênh {platformLabel(platform)}, xem chi tiết kênh</span>
                 </button>
                 {verifiedUntil !== undefined && <VerifiedMark until={verifiedUntil} />}
+                <PublicShieldBadge shield={shield} />
               </div>
               <ChannelLink url={url} />
               {subline && <div className="min-w-0 pt-0.5">{subline}</div>}

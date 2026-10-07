@@ -18,6 +18,8 @@ import {
   type PublicChannel,
 } from '../bizTypes';
 import type { Channel, KolProfile } from '../profile-types';
+import type { KolSafetyReportState } from '../kol-safety-report-types';
+import { publicShieldOf } from './contentShield';
 import type { DemoState } from './db';
 import { channelTotals } from './socialListening';
 
@@ -134,7 +136,12 @@ function publicVideos(channels: Channel[]): LatestVideo[] {
  * status (the public profile and saved lists still open for BADGE_EXPIRED / INACTIVE KOLs, BR-62).
  * `channels` may be all channels of the state; only the profile owner's are used.
  */
-export function publicKolOf(profile: KolProfile, channels: Channel[], now: number): PublicKol | null {
+/** Shield of a channel as brands see it, from the KOL Safety states (any owner). */
+export function shieldOfChannel(reports: KolSafetyReportState[] | undefined, channelId: string, now: number) {
+  return publicShieldOf(reports?.find((r) => r.channelId === channelId && r.shield)?.shield, now);
+}
+
+export function publicKolOf(profile: KolProfile, channels: Channel[], now: number, reports?: KolSafetyReportState[]): PublicKol | null {
   if (profile.status !== 'APPROVED' || !profile.kolId) return null;
   const own = channels.filter((c) => c.ownerId === profile.accountId && c.ownerType === 'KOL');
   if (!own.some((c) => c.status === 'VERIFIED' || c.status === 'EXPIRED')) return null;
@@ -169,6 +176,7 @@ export function publicKolOf(profile: KolProfile, channels: Channel[], now: numbe
       latestVideos: publicVideos([c]).slice(0, PROFILE_VIDEO_LIMIT),
       badge: channelBadge(c, now)!,
       badgeExpiresAt: c.badgeExpiresAt !== undefined ? new Date(c.badgeExpiresAt).toISOString() : '',
+      ...(shieldOfChannel(reports, c.id, now) ? { contentShield: shieldOfChannel(reports, c.id, now) } : {}),
     })),
     searchChannels: searchable.map((c) => ({ platform: c.platform, followers: followersOf(c), badge: 'VERIFIED' as const })),
     platforms,
@@ -183,8 +191,8 @@ export function publicKolOf(profile: KolProfile, channels: Channel[], now: numbe
 }
 
 /** The single search projection: null unless the KOL is searchable (BR-54: ≥ 1 channel verified + active + unexpired). */
-export function toPublicKol(profile: KolProfile, channels: Channel[], now: number): PublicKol | null {
-  const kol = publicKolOf(profile, channels, now);
+export function toPublicKol(profile: KolProfile, channels: Channel[], now: number, reports?: KolSafetyReportState[]): PublicKol | null {
+  const kol = publicKolOf(profile, channels, now, reports);
   return kol && kol.listingStatus === 'VISIBLE' ? kol : null;
 }
 
@@ -192,7 +200,7 @@ export function toPublicKol(profile: KolProfile, channels: Channel[], now: numbe
 export function listPublicKols(state: DemoState, now: number): PublicKol[] {
   const out: PublicKol[] = [];
   for (const p of state.kolProfiles) {
-    const k = publicKolOf(p, state.channels, now);
+    const k = publicKolOf(p, state.channels, now, state.kolSafetyReports);
     if (k) out.push(k);
   }
   return out;
@@ -200,5 +208,5 @@ export function listPublicKols(state: DemoState, now: number): PublicKol[] {
 
 export function findPublicKol(state: DemoState, kolId: string, now: number): PublicKol | null {
   const p = state.kolProfiles.find((x) => x.kolId === kolId);
-  return p ? publicKolOf(p, state.channels, now) : null;
+  return p ? publicKolOf(p, state.channels, now, state.kolSafetyReports) : null;
 }

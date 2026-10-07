@@ -2,8 +2,8 @@ import { expect, test } from 'vitest';
 import { RELEASE_PLAIN, STORY_STEPS } from './storySteps';
 import { ALL_STORIES, EPICS, RELEASES, STORY_ROLES, storiesFor } from './userStories';
 
-test('các đợt đi đúng thứ tự R0 → R6, mỗi đợt có ít nhất một US', () => {
-  expect(RELEASES.map((r) => r.key)).toEqual(['R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6']);
+test('các đợt đi đúng thứ tự R0 → R7, mỗi đợt có ít nhất một US', () => {
+  expect(RELEASES.map((r) => r.key)).toEqual(['R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7']);
   for (const r of RELEASES) expect(r.stories.length).toBeGreaterThan(0);
 });
 
@@ -78,6 +78,6 @@ test('lọc theo Epic, và kết hợp vai trò + Epic', () => {
 test('lọc theo vai trò', () => {
   const r0 = RELEASES[0];
   expect(storiesFor(r0, null)).toBe(r0.stories);
-  expect(storiesFor(r0, 'Khách').map((s) => s.id)).toEqual(['R0-11']);
+  expect(storiesFor(r0, 'Khách')).toEqual([]);
   expect(storiesFor(RELEASES[3], 'Khách')).toEqual([]);
 });

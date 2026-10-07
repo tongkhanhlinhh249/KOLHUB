@@ -34,6 +34,7 @@ export const RELEASE_PLAIN: Record<ReleaseKey, { name: string; goal: string }> =
   R4: { name: 'Sàn dễ tìm hơn', goal: 'Gợi ý chiến dịch hợp với bạn, tìm và lọc, lưu, hỏi đáp, ảnh bìa.' },
   R5: { name: 'Dùng hằng ngày', goal: 'Mở app là biết việc cần làm; theo dõi tiền, đánh giá và bài đã đăng.' },
   R6: { name: 'Tuyển nhiều KOL', goal: 'Một chiến dịch tuyển nhiều KOL với phần thưởng cố định, Nhãn hàng chọn người theo đợt.' },
+  R7: { name: 'Badge Xác thực & Khiên An toàn', goal: 'Đủ hồ sơ + mọi kênh có Khiên An toàn (quét 10 bài gần nhất) thì đạt Badge Xác thực Kol.gov.vn.' },
 };
 
 export const STORY_STEPS: Record<string, PlainStory> = {
@@ -153,16 +154,6 @@ export const STORY_STEPS: Record<string, PlainStory> = {
       { screen: 'Tab "Booking"', checks: ['Hợp tác đang chờ bạn nằm trên cùng', 'Bấm vào để mở chi tiết'] },
     ],
   },
-  'R0-11': {
-    title: 'Mở Sàn chiến dịch',
-    summary: 'Sàn là trang công khai riêng, ai cũng mở được, kể cả chưa đăng nhập.',
-    steps: [
-      { screen: 'Mở Sàn', checks: ['Menu tài khoản → "Mở Sàn chiến dịch" (mở tab mới)', 'Hoặc gửi link Sàn cho người khác'] },
-      { screen: 'Đầu trang Sàn', checks: ['Ô tìm chiến dịch', 'Chưa đăng nhập: "Đăng nhập" / "Đăng ký"', 'Đã đăng nhập: "Vào KOLHUB" để quay về; Nhãn hàng có thêm "Đăng chiến dịch"'] },
-      { screen: 'Lưu ý', checks: ['Đăng xuất hay đổi vai trò khi đang ở Sàn thì vẫn ở lại Sàn'] },
-    ],
-  },
-
   // R1 — Nhãn hàng mời KOL
   'R1-1': {
     title: 'Mời KOL vào chiến dịch',
@@ -486,6 +477,54 @@ export const STORY_STEPS: Record<string, PlainStory> = {
       { screen: 'Menu → Hoạt động → "Nội dung chiến dịch"', checks: ['Tab "Chờ duyệt": mọi bản nháp đang chờ, ghi rõ chiến dịch và KOL/MCN', 'Bấm "Duyệt" hoặc "Yêu cầu sửa" ngay tại đây'] },
       { screen: 'Tab "Bài đã đăng"', checks: ['Tổng lượt xem, thích, bình luận, chia sẻ, tương tác', 'Bảng từng bài đã xác minh, kèm tên chiến dịch'] },
       { screen: 'Ô "Tất cả chiến dịch"', checks: ['Chọn một chiến dịch để chỉ xem nội dung của chiến dịch đó', 'Bấm "Mở booking" → mở đúng hợp tác trong trang chiến dịch'] },
+    ],
+  },
+
+  // R7 — Badge Xác thực & Khiên An toàn
+  'R7-1': {
+    title: 'Bật/tắt KOL Safety và chọn gói',
+    summary: 'KOL/MCN tự bật hoặc tắt KOL Safety và chọn gói Miễn phí hay Bảo vệ.',
+    steps: [
+      { screen: 'Menu → "Ứng dụng" → khối "KOL Safety"', checks: ['Gạt công tắc để bật/tắt', 'Tắt: ẩn phần quét và điểm, không chia sẻ điểm cho Nhãn hàng; khiên đã có vẫn hiện'] },
+      { screen: '"Gói KOL Safety"', checks: ['Miễn phí: xin khiên, 3 lượt quét lại mỗi kênh mỗi tháng, khiếu nại', 'Bảo vệ: quét lại không giới hạn, quét trước khi đăng, giám sát tự động', 'Bấm "Dùng gói …" để đổi (demo, chưa thanh toán)'] },
+    ],
+  },
+  'R7-2': {
+    title: 'Xin Khiên An toàn cho kênh',
+    summary: 'Hệ thống xét 10 bài gần nhất của kênh; đạt thì kênh có Khiên An toàn.',
+    steps: [
+      { screen: 'Ứng dụng → KOL Safety → chọn kênh', checks: ['Xem khối "Khiên An toàn nội dung"', 'Kênh phải có dấu xác thực trước'] },
+      { screen: 'Bấm "Xin Khiên An toàn"', checks: ['Đạt khi 10 bài gần nhất không có bài Vi phạm và tối đa 2 bài Cần xem lại', 'Chưa đạt: hiện lý do; gỡ bài hoặc quét lại khi có bài mới thì khiên tự cấp', 'Xin khiên miễn phí'] },
+    ],
+  },
+  'R7-3': {
+    title: 'Khiên bị tạm treo',
+    summary: 'Có bài mới không đạt thì khiên bị tạm treo 7 ngày để chủ kênh xử lý.',
+    steps: [
+      { screen: 'Khối khiên báo "Tạm treo"', checks: ['Hiện số ngày còn lại để xử lý', 'Danh sách bài chưa đạt, mỗi bài có nút "Đã gỡ bài"'] },
+      { screen: 'Xử lý', checks: ['Gỡ bài hoặc quét lại có bài mới đạt → khiên trở lại', 'Hoặc khiếu nại nếu máy nhận nhầm', 'Quá 7 ngày không xử lý → khiên bị thu hồi, phải xin lại'] },
+    ],
+  },
+  'R7-4': {
+    title: 'Khiếu nại khi máy nhận nhầm',
+    summary: 'KOL/MCN khiếu nại, đội vận hành KOLHUB xem lại và quyết định.',
+    steps: [
+      { screen: 'Khối khiên → "Khiếu nại"', checks: ['Ghi lý do (tối đa 1.000 ký tự) → "Gửi khiếu nại"', 'Trong lúc xét, hạn 7 ngày tạm dừng', 'Khiếu nại miễn phí'] },
+      { screen: 'Đội vận hành (Bảng demo → Admin → "Khiếu nại Khiên An toàn")', checks: ['"Chấp nhận" → kênh có lại khiên', '"Từ chối" → giữ nguyên, chủ kênh thấy lý do từ chối'] },
+    ],
+  },
+  'R7-5': {
+    title: 'Xem mình còn thiếu gì để có Badge',
+    summary: 'Trang Tổng quan cho biết đã đạt Badge Xác thực Kol.gov.vn chưa và còn thiếu gì.',
+    steps: [
+      { screen: 'Tổng quan hồ sơ → khối "Badge Xác thực Kol.gov.vn"', checks: ['Tiêu chí 1: hồ sơ đã khai báo đủ và được duyệt', 'Tiêu chí 2: mọi kênh đã xác thực có Khiên An toàn (x/y kênh)', 'Bấm một kênh để mở báo cáo KOL Safety của kênh đó'] },
+    ],
+  },
+  'R7-6': {
+    title: 'Nhãn hàng thấy khiên trên kênh',
+    summary: 'Nhãn hàng thấy kênh nào có Khiên An toàn khi tìm KOL.',
+    steps: [
+      { screen: 'Hồ sơ KOL và Danh sách kênh', checks: ['Nhãn xanh "Khiên An toàn": kênh đạt', 'Nhãn vàng "Khiên tạm treo": kênh đang xử lý vi phạm', 'Điểm từng bài chỉ hiện khi chủ kênh bật chia sẻ'] },
     ],
   },
 

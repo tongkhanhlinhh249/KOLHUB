@@ -13,6 +13,7 @@ import type { KolVideo, PublicChannel } from '../../services';
 import { platformMetrics } from '../shared/platformMetrics';
 import { formatCompactVi } from './format';
 import { PlatformIcon, platformLabel } from './PlatformIcon';
+import { PublicShieldBadge } from '../safety/ShieldParts';
 
 /** ~1.3 cards visible on mobile, ~3.3 from sm — the partly visible last card hints that the row scrolls. */
 const SLIDE = 'basis-[76%] pl-3 sm:basis-[30%]';
@@ -148,6 +149,7 @@ function ChannelCard({
             ) : (
               <span className="shrink-0 text-xs text-muted-foreground">· Hết hạn dấu</span>
             )}
+            <PublicShieldBadge shield={c.contentShield} />
           </span>
           <span className="block truncate text-xs text-muted-foreground">{handleOf(c)}</span>
         </span>

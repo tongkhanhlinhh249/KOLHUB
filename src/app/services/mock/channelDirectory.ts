@@ -14,7 +14,7 @@ import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
 import { channelContent } from './socialListening';
 import { PROFILE_VIDEO_LIMIT } from '../bizTypes';
-import { isLinkKeyword, isSearchableChannel, normalizeText, normalizeUrl, publicKolOf, scaleOf, type PublicKol } from './directory';
+import { isLinkKeyword, isSearchableChannel, normalizeText, normalizeUrl, publicKolOf, scaleOf, shieldOfChannel, type PublicKol } from './directory';
 
 export interface ChannelDirectoryDeps {
   db: Db;
@@ -38,7 +38,7 @@ function newestVideo(c: Channel): LatestVideo | undefined {
 }
 
 /** One directory row, built field by field from the channel and its owner's public projection. */
-function itemOf(c: Channel, k: PublicKol): ChannelDirectoryItem {
+function itemOf(c: Channel, k: PublicKol, state: DemoState, now: number): ChannelDirectoryItem {
   const followers = c.stats?.followers ?? 0;
   const item: ChannelDirectoryItem = {
     channelId: c.id,
@@ -53,6 +53,8 @@ function itemOf(c: Channel, k: PublicKol): ChannelDirectoryItem {
     displayName: k.displayName,
     fields: k.fields.map((f) => ({ ...f })),
   };
+  const shield = shieldOfChannel(state.kolSafetyReports, c.id, now);
+  if (shield) item.contentShield = shield;
   const video = newestVideo(c);
   if (video) item.latestVideo = video;
   if (k.avatar) item.avatar = k.avatar;
@@ -65,14 +67,14 @@ function itemOf(c: Channel, k: PublicKol): ChannelDirectoryItem {
 export function listDirectoryChannels(state: DemoState, now: number): ChannelDirectoryItem[] {
   const kols = new Map<string, PublicKol>();
   for (const p of state.kolProfiles) {
-    const k = publicKolOf(p, state.channels, now);
+    const k = publicKolOf(p, state.channels, now, state.kolSafetyReports);
     if (k) kols.set(p.accountId, k);
   }
   const out: ChannelDirectoryItem[] = [];
   for (const c of state.channels) {
     if (c.ownerType !== 'KOL' || !isSearchableChannel(c, now)) continue;
     const k = kols.get(c.ownerId);
-    if (k) out.push(itemOf(c, k));
+    if (k) out.push(itemOf(c, k, state, now));
   }
   return out;
 }
@@ -82,9 +84,9 @@ export function findDirectoryChannel(state: DemoState, channelId: string, now: n
   const c = state.channels.find((x) => x.id === channelId);
   if (!c || c.ownerType !== 'KOL' || !isSearchableChannel(c, now)) return null;
   const profile = state.kolProfiles.find((p) => p.accountId === c.ownerId);
-  const k = profile ? publicKolOf(profile, state.channels, now) : null;
+  const k = profile ? publicKolOf(profile, state.channels, now, state.kolSafetyReports) : null;
   if (!k) return null;
-  const item = itemOf(c, k);
+  const item = itemOf(c, k, state, now);
   const pub = k.channels.find((pc) => pc.platform === c.platform && pc.url === item.url);
   return {
     ...item,

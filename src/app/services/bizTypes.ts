@@ -162,6 +162,8 @@ export interface PublicChannel {
   /** Badge status of the channel. */
   badge: BadgeState;
   badgeExpiresAt: string;
+  /** "Khiên An toàn nội dung" (KOL Safety): ACTIVE / SUSPENDED; absent = none. */
+  contentShield?: 'ACTIVE' | 'SUSPENDED';
 }
 
 export interface KolPublicProfile {

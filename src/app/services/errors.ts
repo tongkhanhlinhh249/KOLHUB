@@ -150,6 +150,18 @@ function safetyMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Không tìm thấy video hoặc kênh. Có thể mục này đã bị xoá.';
     case 'KOLHUB-4509':
       return 'Video đang được kiểm tra, vui lòng đợi kết quả.';
+    case 'KOLHUB-4510':
+      return 'KOL Safety đang tắt. Bật ứng dụng KOL Safety trong mục Ứng dụng để quét nội dung.';
+    case 'KOLHUB-4511':
+      return 'Đã hết lượt quét lại miễn phí của kênh trong tháng này. Nâng cấp gói Bảo vệ để quét thêm.';
+    case 'KOLHUB-4512':
+      return 'Kênh cần có dấu xác thực trước khi xin Khiên An toàn.';
+    case 'KOLHUB-4513':
+      return 'Khiên An toàn không ở trạng thái cho phép thao tác này. Vui lòng tải lại.';
+    case 'KOLHUB-4514':
+      return 'Vui lòng nhập lý do khiếu nại (tối đa 1.000 ký tự).';
+    case 'KOLHUB-4515':
+      return 'Tính năng này cần gói Bảo vệ của KOL Safety.';
     default:
       return violationMessage(code, meta);
   }

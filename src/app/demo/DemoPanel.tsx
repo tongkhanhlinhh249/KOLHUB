@@ -4,7 +4,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '..
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
-import { reviewService, violationService } from '../services';
+import { kolSafetyReportService, reviewService, violationService } from '../services';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
 import { AdminSimulator } from './AdminSimulator';
 import { AssumptionsBlock } from './AssumptionsBlock';
@@ -17,17 +17,19 @@ import { COLLAPSED_SECTIONS, ROLE_SECTION_LABEL, roleOfAccount, sectionsFor, typ
 import { FunnelView } from './FunnelView';
 import { useRoleSwitch } from './RoleSwitcher';
 import { SampleProfileBlock } from './SampleProfileBlock';
+import { ShieldAppealsBlock } from './ShieldAppealsBlock';
 import { ViolationReviewBlock } from './ViolationReviewBlock';
 
 export { DemoPanelSection } from './DemoPanelSection';
 
-/** Pending items for Admin (profiles, changes, eKYC cases, violation reports and appeals), for the section badge. */
+/** Pending items for Admin (profiles, changes, eKYC cases, violation reports and appeals, shield appeals), for the section badge. */
 function useAdminPending(): number | null {
   const reviews = useLiveQuery(() => reviewService.listAdminQueue(), []);
   const violations = useLiveQuery(() => violationService.adminQueue(), []);
-  if (!reviews.data || !violations.data) return null;
+  const shields = useLiveQuery(() => kolSafetyReportService.listShieldAppeals(), []);
+  if (!reviews.data || !violations.data || !shields.data) return null;
   const r = reviews.data;
-  return r.profiles.length + r.changes.length + r.ekycCases.length + violations.data.pending.length + violations.data.appealed.length;
+  return r.profiles.length + r.changes.length + r.ekycCases.length + violations.data.pending.length + violations.data.appealed.length + shields.data.length;
 }
 
 /**
@@ -77,6 +79,7 @@ function DemoPanelBody({ onDone }: { onDone(): void }) {
                 <>
                   <AdminSimulator />
                   <ViolationReviewBlock />
+                  <ShieldAppealsBlock />
                   <FunnelView />
                 </>
               ) : (

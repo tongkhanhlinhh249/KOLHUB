@@ -5,16 +5,24 @@
 import { KolhubError } from '../types';
 import type { Channel } from '../profile-types';
 import type { SafetyVerdict, IssueSeverity } from '../safety-types';
-import type {
-  ChannelReport,
-  ContentCategory,
-  ContentFilter,
-  ContentFinding,
-  KolSafetyChannel,
-  KolSafetyReportState,
-  ReportSummary,
-  ScannedContent,
+import {
+  KOL_SAFETY_PLANS,
+  SHIELD_APPEAL_MAX,
+  type ChannelReport,
+  type ContentCategory,
+  type ContentFilter,
+  type ContentFinding,
+  type KolSafetyChannel,
+  type KolSafetyPlanKey,
+  type KolSafetyReportState,
+  type KolSafetySettings,
+  type KolSafetySettingsView,
+  type ReportSummary,
+  type ScannedContent,
+  type ShieldAppealItem,
+  type ChannelShieldRow,
 } from '../kol-safety-report-types';
+import { decidedShield, publicShieldOf, reevaluatedShield, requestedShield, shieldViewOf, shieldWindow, windowPasses } from './contentShield';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
 import { normalizeText } from './directory';
@@ -329,7 +337,7 @@ function publishTime(channelId: string, seq: number, state: Pick<KolSafetyReport
 }
 
 /** The 30 newest contents (newest first) given the persisted state (or the default first scan). */
-export function buildChannelReport(channel: ChannelRef, state: KolSafetyReportState | undefined, now: number): ChannelReport {
+export function buildChannelReport(channel: ChannelRef & { verified?: boolean }, state: KolSafetyReportState | undefined, now: number): ChannelReport {
   const st = state ?? { firstScanAt: defaultFirstScanAt(now), rescans: [], shared: false };
   const latest = REPORT_SIZE - 1 + st.rescans.length;
   const items: ScannedContent[] = [];
@@ -343,6 +351,7 @@ export function buildChannelReport(channel: ChannelRef, state: KolSafetyReportSt
     items,
     shared: st.shared,
     ...(st.sharedAt !== undefined ? { sharedAt: st.sharedAt } : {}),
+    shield: shieldViewOf(state?.shield, items, state?.removedIds, channel.verified ?? false, now),
   };
 }
 
@@ -518,6 +527,87 @@ export function createKolSafetyReportService(deps: KolSafetyReportDeps) {
     return r;
   }
 
+  // --- app switch + plan (absent = on, FREE) ---
+  function settingsOf(s: DemoState, accountId: string): KolSafetySettingsView {
+    const row = s.kolSafetySettings?.find((x) => x.accountId === accountId);
+    const plan = KOL_SAFETY_PLANS.find((p) => p.key === (row?.plan ?? 'FREE'))!;
+    return { enabled: row?.enabled !== false, plan: structuredClone(plan), ...(row?.planSince !== undefined ? { planSince: row.planSince } : {}) };
+  }
+  function ensureSettings(s: DemoState, accountId: string): KolSafetySettings {
+    s.kolSafetySettings ??= [];
+    let row = s.kolSafetySettings.find((x) => x.accountId === accountId);
+    if (!row) {
+      row = { accountId, enabled: true, plan: 'FREE' };
+      s.kolSafetySettings.push(row);
+    }
+    return row;
+  }
+  /** Scans, shield requests and sharing need the app switched on (4510). */
+  function requireEnabled(s: DemoState, accountId: string): void {
+    if (!settingsOf(s, accountId).enabled) throw new KolhubError('KOLHUB-4510');
+  }
+  /** "Quét lại" done on the channel in the current calendar month. */
+  function rescansThisMonth(r: KolSafetyReportState | undefined, t: number): number {
+    const d = new Date(t);
+    return (r?.rescans ?? []).filter((x) => {
+      const m = new Date(x);
+      return m.getFullYear() === d.getFullYear() && m.getMonth() === d.getMonth();
+    }).length;
+  }
+  /** Report plus the re-scans left this month (undefined = unlimited plan). */
+  function withQuota(s: DemoState, accountId: string, report: ChannelReport, t: number): ChannelReport {
+    const limit = settingsOf(s, accountId).plan.rescansPerMonth;
+    if (limit === null) return report;
+    return { ...report, rescansLeft: Math.max(0, limit - rescansThisMonth(stateOf(s, accountId, report.channelId), t)) };
+  }
+
+  async function getSettings(accountId: string): Promise<KolSafetySettingsView> {
+    await wait();
+    return settingsOf(db.read(), accountId);
+  }
+
+  /** "Ứng dụng › KOL Safety" on / off. Off: scanning features hidden and the report is no longer shared with brands. */
+  async function setEnabled(accountId: string, enabled: boolean): Promise<KolSafetySettingsView> {
+    await wait();
+    let out!: KolSafetySettingsView;
+    db.update((s) => {
+      ensureSettings(s, accountId).enabled = enabled;
+      if (!enabled) for (const r of s.kolSafetyReports ?? []) if (r.accountId === accountId && r.shared) {
+        r.shared = false;
+        delete r.sharedAt;
+      }
+      out = settingsOf(s, accountId);
+    });
+    return out;
+  }
+
+  /** Demo plan switch (no payment): "Miễn phí" / "Bảo vệ". */
+  async function setPlan(accountId: string, plan: KolSafetyPlanKey): Promise<KolSafetySettingsView> {
+    await wait();
+    if (!KOL_SAFETY_PLANS.some((p) => p.key === plan)) throw new KolhubError('KOLHUB-4515');
+    let out!: KolSafetySettingsView;
+    db.update((s) => {
+      const row = ensureSettings(s, accountId);
+      if (row.plan !== plan) {
+        row.plan = plan;
+        row.planSince = now();
+      }
+      out = settingsOf(s, accountId);
+    });
+    return out;
+  }
+
+  /** Shield of every own channel (Tổng quan › "Badge Xác thực" checklist). */
+  async function listShields(accountId: string): Promise<ChannelShieldRow[]> {
+    await wait();
+    const s = db.read();
+    const t = now();
+    return channelsOf(s, accountId).map((ch) => {
+      const report = buildChannelReport(ch, stateOf(s, accountId, ch.id), t);
+      return { channelId: ch.id, platform: ch.platform, handle: ch.handle, verified: ch.verified, status: report.shield.status, passes: report.shield.passes };
+    });
+  }
+
   async function listChannels(accountId: string): Promise<KolSafetyChannel[]> {
     await wait();
     return channelsOf(db.read(), accountId);
@@ -526,12 +616,17 @@ export function createKolSafetyReportService(deps: KolSafetyReportDeps) {
   async function getReport(accountId: string, channelId: string): Promise<ChannelReport> {
     await wait();
     const s = db.read();
-    return buildChannelReport(ownChannel(s, accountId, channelId), stateOf(s, accountId, channelId), now());
+    const t = now();
+    return withQuota(s, accountId, buildChannelReport(ownChannel(s, accountId, channelId), stateOf(s, accountId, channelId), t), t);
   }
 
   /** "Quét lại": one new content is analysed and added on top (simulated 1.2–1.8 s). */
   async function rescan(accountId: string, channelId: string): Promise<ChannelReport> {
-    ownChannel(db.read(), accountId, channelId);
+    const before = db.read();
+    ownChannel(before, accountId, channelId);
+    requireEnabled(before, accountId);
+    const limit = settingsOf(before, accountId).plan.rescansPerMonth;
+    if (limit !== null && rescansThisMonth(stateOf(before, accountId, channelId), now()) >= limit) throw new KolhubError('KOLHUB-4511');
     await wait(1200 + Math.random() * 600);
     const t = now();
     let out!: ChannelReport;
@@ -541,7 +636,11 @@ export function createKolSafetyReportService(deps: KolSafetyReportDeps) {
       // Keep times strictly increasing so contents stay in order even on rapid clicks.
       const last = r.rescans.at(-1) ?? r.firstScanAt;
       r.rescans.push(Math.max(t, last + 1));
-      out = buildChannelReport(ch, r, t);
+      // A new content may suspend (or restore) the shield.
+      const report = buildChannelReport(ch, r, t);
+      const next = reevaluatedShield(r.shield, windowPasses(shieldWindow(report.items, r.removedIds)), t);
+      if (next) r.shield = next;
+      out = withQuota(s, accountId, buildChannelReport(ch, r, t), t);
     });
     return out;
   }
@@ -551,6 +650,7 @@ export function createKolSafetyReportService(deps: KolSafetyReportDeps) {
     await wait();
     const t = now();
     let out!: ChannelReport;
+    if (shared) requireEnabled(db.read(), accountId);
     db.update((s) => {
       const ch = ownChannel(s, accountId, channelId);
       const r = ensureState(s, accountId, channelId, t);
@@ -562,7 +662,110 @@ export function createKolSafetyReportService(deps: KolSafetyReportDeps) {
     return out;
   }
 
-  return { listChannels, getReport, rescan, setShared };
+  /** Runs `fn` on the persisted state of an own channel and returns the fresh report. */
+  async function mutate(accountId: string, channelId: string, fn: (r: KolSafetyReportState, report: ChannelReport, t: number) => void): Promise<ChannelReport> {
+    await wait();
+    const t = now();
+    let out!: ChannelReport;
+    db.update((s) => {
+      const ch = ownChannel(s, accountId, channelId);
+      requireEnabled(s, accountId);
+      const r = ensureState(s, accountId, channelId, t);
+      fn(r, buildChannelReport(ch, r, t), t);
+      out = withQuota(s, accountId, buildChannelReport(ch, r, t), t);
+    });
+    return out;
+  }
+
+  /** "Xin Khiên An toàn": the channel needs its "dấu xác thực" (4512); granted when the window passes, else FAILED. */
+  function requestShield(accountId: string, channelId: string): Promise<ChannelReport> {
+    return mutate(accountId, channelId, (r, report, t) => {
+      if (!report.shield.channelVerified) throw new KolhubError('KOLHUB-4512');
+      if (!report.shield.canRequest) throw new KolhubError('KOLHUB-4513');
+      r.shield = requestedShield(report.shield.passes, t);
+    });
+  }
+
+  /** "Đã gỡ bài": a flagged content of the window leaves the evaluation; the shield is re-evaluated. */
+  function markRemoved(accountId: string, channelId: string, contentId: string): Promise<ChannelReport> {
+    return mutate(accountId, channelId, (r, report, t) => {
+      if (!report.shield.canMarkRemoved || !report.shield.window.flaggedIds.includes(contentId)) throw new KolhubError('KOLHUB-4513');
+      r.removedIds = [...(r.removedIds ?? []), contentId];
+      const next = reevaluatedShield(r.shield, windowPasses(shieldWindow(report.items, r.removedIds)), t);
+      if (next) r.shield = next;
+    });
+  }
+
+  /** "Khiếu nại" (SUSPENDED / FAILED): 1–1000 characters (4514); reviewed by the KOLHUB operations team. */
+  function appealShield(accountId: string, channelId: string, note: string): Promise<ChannelReport> {
+    const text = (note ?? '').trim();
+    if (!text || [...text].length > SHIELD_APPEAL_MAX) return Promise.reject(new KolhubError('KOLHUB-4514'));
+    return mutate(accountId, channelId, (r, report, t) => {
+      if (!report.shield.canAppeal || !r.shield) throw new KolhubError('KOLHUB-4513');
+      r.shield = { ...r.shield, appeal: { at: t, note: text, status: 'PENDING' } };
+    });
+  }
+
+  // --- KOLHUB operations (Demo Panel › Admin) ---
+
+  /** Pending shield appeals, oldest first. */
+  async function listShieldAppeals(): Promise<ShieldAppealItem[]> {
+    await wait();
+    const s = db.read();
+    const t = now();
+    const out: ShieldAppealItem[] = [];
+    for (const r of s.kolSafetyReports ?? []) {
+      if (r.shield?.appeal?.status !== 'PENDING') continue;
+      const c = s.channels.find((x) => x.id === r.channelId);
+      if (!c) continue;
+      const ch = toChannel(s, c);
+      const report = buildChannelReport(ch, r, t);
+      const owner = s.kolProfiles.find((p) => p.accountId === r.accountId) ?? s.mcnProfiles?.find((p) => p.accountId === r.accountId);
+      out.push({
+        accountId: r.accountId,
+        ownerName: (owner && profileDisplayName(owner)) || r.accountId,
+        channelId: r.channelId,
+        platform: ch.platform,
+        handle: ch.handle,
+        appeal: { ...r.shield.appeal },
+        window: report.shield.window,
+      });
+    }
+    return out.sort((a, b) => a.appeal.at - b.appeal.at);
+  }
+
+  /** Accept (shield ACTIVE) or reject (suspension continues) a pending appeal; 4513 when none is pending. */
+  async function decideShieldAppeal(accountId: string, channelId: string, accept: boolean, note?: string): Promise<void> {
+    await wait();
+    const t = now();
+    db.update((s) => {
+      const r = stateOf(s, accountId, channelId);
+      if (!r?.shield || r.shield.appeal?.status !== 'PENDING') throw new KolhubError('KOLHUB-4513');
+      r.shield = decidedShield(r.shield, accept, note?.trim() || undefined, t);
+    });
+  }
+
+  return {
+    listChannels,
+    getReport,
+    rescan,
+    setShared,
+    getSettings,
+    listShields,
+    setEnabled,
+    setPlan,
+    requestShield,
+    markRemoved,
+    appealShield,
+    listShieldAppeals,
+    decideShieldAppeal,
+  };
+}
+
+/** Brand-facing shield of a channel (any owner): ACTIVE / SUSPENDED, or undefined. */
+export function channelShield(s: DemoState, channelId: string, now: number) {
+  const r = s.kolSafetyReports?.find((x) => x.channelId === channelId && x.shield);
+  return publicShieldOf(r?.shield, now);
 }
 
 export type KolSafetyReportService = ReturnType<typeof createKolSafetyReportService>;

@@ -30,6 +30,8 @@ export interface ChannelDirectoryItem {
   verifiedAt: string;
   /** ISO date the badge expires. */
   badgeExpiresAt: string;
+  /** "Khiên An toàn nội dung" (KOL Safety): ACTIVE / SUSPENDED; absent = none. */
+  contentShield?: 'ACTIVE' | 'SUSPENDED';
   latestVideo?: LatestVideo;
   // Owner KOL (public fields only)
   kolId: string;

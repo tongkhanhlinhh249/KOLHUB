@@ -4,9 +4,9 @@
 // (§ = its sections). The prototype wins where they differ; the difference is kept in `confirm` ("Cần BA xác nhận").
 // Error messages are verbatim from services/errors.ts (codes KOLHUB-xxxx, shown here without the prefix).
 
-export type EpicKey = 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'E7' | 'E8' | 'EK';
+export type EpicKey = 'E1' | 'E2' | 'E3' | 'E4' | 'E5' | 'E6' | 'E7' | 'E8' | 'E9' | 'EK';
 export type StoryRole = 'Nhãn hàng' | 'KOL' | 'MCN' | 'Khách' | 'Hệ thống';
-export type ReleaseKey = 'R0' | 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6';
+export type ReleaseKey = 'R0' | 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7';
 
 export interface Epic {
   key: EpicKey;
@@ -57,6 +57,7 @@ export const EPICS: Epic[] = [
   { key: 'E6', name: 'Đăng bài, thanh toán & đánh giá' },
   { key: 'E7', name: 'Không gian làm việc của NCC' },
   { key: 'E8', name: 'Tuyển nhiều KOL' },
+  { key: 'E9', name: 'Badge Xác thực & KOL Safety' },
   { key: 'EK', name: 'Nền tảng kỹ thuật' },
 ];
 
@@ -356,24 +357,6 @@ export const RELEASES: Release[] = [
         errors: [{ code: '4801', when: 'Không tồn tại hoặc của Nhãn hàng khác', message: M.e4801 }],
         notes: ['R0 cần tab Tổng quan, Booking, Ứng tuyển, Nội dung. Tab Báo cáo: R3-4. Tab Hỏi đáp: R4-8.'],
         source: 'CampaignDetailPage.tsx · CampaignTabs.tsx (OverviewTab, BookingsTab, ReportTab) · campaignView.ts (parseDetailTab, sortBookings) · campaignRules.ts (campaignStats)',
-      },
-      {
-        id: 'R0-11',
-        epic: 'E2',
-        roles: ['KOL', 'MCN', 'Nhãn hàng', 'Khách'],
-        title: 'Khung Sàn riêng và lối vào',
-        story: 'Là người dùng KOLHUB, tôi muốn mở Sàn như một trang công khai riêng để chia sẻ chiến dịch và quay lại app dễ dàng.',
-        screens: ['Layout Sàn · Header và footer', 'Menu tài khoản (trong app) · "Mở Sàn chiến dịch"'],
-        api: [],
-        rules: [
-          '/san và /san/<id> dùng layout riêng ngoài khung app, rộng tối đa 1200px, mở cho mọi vai trò kể cả Khách (không bao giờ bị chuyển hướng).',
-          'Header Sàn: logo → /san, ô tìm ?q=. Khách: "Đăng nhập" / "Đăng ký". Đã đăng nhập: "Vào KOLHUB" + menu tài khoản; Nhãn hàng thêm "Đăng chiến dịch" → /chien-dich/tao.',
-          'Sàn không có trong sidebar hay thanh tab điện thoại; mở bằng "Mở Sàn chiến dịch" trong menu tài khoản (tab mới).',
-          'Đăng xuất hoặc đổi vai trò khi đang ở Sàn thì ở lại Sàn; dữ liệu tải lại theo vai trò mới.',
-          'Link cũ: /san-chien-dich → /san (giữ query); /san?chien-dich=<id> → /san/<id>.',
-        ],
-        source: '§12 · MarketplaceLayout.tsx · AccountMenu.tsx · roles.ts (PUBLIC_PATHS) · routes.tsx',
-        confirm: 'Spec §12: Sàn là mục menu nhóm "Hợp tác" và tab "Sàn" trên điện thoại. Prototype đã bỏ khỏi sidebar/thanh tab, chỉ mở qua menu tài khoản; tab điện thoại thành "Yêu thích". Xác nhận.',
       },
     ],
   },
@@ -1291,6 +1274,131 @@ export const RELEASES: Release[] = [
         ],
         source: 'Không có trong spec · mock/booking.ts (markProductSent, confirmProductReceived) · BookingSheet.tsx (ProductBlock) · BookingDetailSheet.tsx',
         confirm: 'Có hạn gửi sản phẩm không? Có chặn hoàn tất (R0-7) hoặc đăng bài cho tới khi NCC xác nhận đã nhận hàng không?',
+      },
+    ],
+  },
+  {
+    key: 'R7',
+    name: 'Badge Xác thực & Khiên An toàn',
+    goal: 'Badge Xác thực Kol.gov.vn gồm hai tiêu chí: hồ sơ khai báo đủ và được duyệt, và mọi kênh đã xác thực có Khiên An toàn nội dung (KOL Safety xét 10 nội dung gần nhất). Đội vận hành KOLHUB xét khiếu nại. Quét để xin khiên miễn phí; gói Bảo vệ thu phí.',
+    stories: [
+      {
+        id: 'R7-1',
+        epic: 'E9',
+        roles: ['KOL', 'MCN'],
+        title: 'Bật/tắt KOL Safety và chọn gói',
+        story: 'Là KOL/MCN, tôi muốn bật/tắt KOL Safety và chọn gói để chỉ dùng phần quét và chấm điểm khi tôi cần.',
+        screens: ['/ung-dung · thẻ KOL Safety (nhãn "Đã bật" / "Đang tắt") · khối "KOL Safety" có công tắc và "Gói KOL Safety"'],
+        api: ['kolSafetyReportService.getSettings(accountId)', 'kolSafetyReportService.setEnabled(accountId, enabled)', 'kolSafetyReportService.setPlan(accountId, plan)'],
+        rules: [
+          'Mặc định bật (chưa có cài đặt = bật), gói Miễn phí.',
+          'Tắt: ẩn tính năng quét và điểm KOL Safety (trang báo cáo hiện thông báo "KOL Safety đang tắt…"), ngừng chia sẻ điểm cho Nhãn hàng; khiên đã có vẫn hiện.',
+          'Khi tắt, quét lại, xin khiên, gỡ bài, khiếu nại, bật chia sẻ đều bị chặn (4510).',
+          'Gói Miễn phí (0 ₫): xin Khiên An toàn, 3 lượt quét lại mỗi kênh mỗi tháng, khiếu nại. Gói Bảo vệ ("Sẽ công bố"): quét lại không giới hạn, quét trước khi đăng, giám sát tự động, báo cáo chi tiết.',
+          'Hết lượt quét lại miễn phí: nút "Quét lại (còn 0)" khoá; service 4511. "Quét trước khi đăng" (/kiem-duyet/video) chỉ mở với gói Bảo vệ.',
+          'Chuyển gói là demo, chưa thanh toán: toast "Đã chuyển sang gói …" ("Demo: chưa thanh toán thật.").',
+        ],
+        errors: [
+          { code: '4510', when: 'Thao tác quét khi KOL Safety đang tắt', message: 'KOL Safety đang tắt. Bật ứng dụng KOL Safety trong mục Ứng dụng để quét nội dung.' },
+          { code: '4511', when: 'Gói Miễn phí đã dùng hết lượt quét lại của kênh trong tháng', message: 'Đã hết lượt quét lại miễn phí của kênh trong tháng này. Nâng cấp gói Bảo vệ để quét thêm.' },
+        ],
+        source: 'Brainstorm 07/10/2026 · features/apps/KolSafetySettings.tsx · services/mock/kolSafetyReport.ts (settingsOf, rescansThisMonth) · kol-safety-report-types.ts (KOL_SAFETY_PLANS)',
+        confirm: 'Giá gói Bảo vệ, số lượt quét lại miễn phí (đang để 3/kênh/tháng) và mặc định bật hay tắt KOL Safety cho tài khoản mới chưa chốt. Nếu Kol.gov.vn là cổng nhà nước, việc thu phí cần cơ sở pháp lý.',
+      },
+      {
+        id: 'R7-2',
+        epic: 'E9',
+        roles: ['KOL', 'MCN'],
+        title: 'Xin Khiên An toàn cho kênh',
+        story: 'Là KOL/MCN, tôi muốn xin Khiên An toàn cho từng kênh để Nhãn hàng thấy nội dung của tôi an toàn.',
+        screens: ['/kiem-duyet/kol-safety?kenh=<id> · khối "Khiên An toàn nội dung" · nút "Xin Khiên An toàn"'],
+        api: ['kolSafetyReportService.getReport(accountId, channelId) → shield', 'kolSafetyReportService.requestShield(accountId, channelId)'],
+        states: 'Chưa xin khiên → Đạt Khiên An toàn | Chưa đạt',
+        rules: [
+          'Chỉ kênh đã có dấu xác thực mới xin được (4512).',
+          'Xét 10 nội dung gần nhất (bỏ các bài đã đánh dấu "Đã gỡ bài"): 0 Vi phạm và tối đa 2 Cần xem lại → Đạt; ngược lại Chưa đạt kèm lý do.',
+          'Khối khiên luôn hiện "10 nội dung gần nhất: x an toàn · y cần xem lại · z vi phạm".',
+          'Chưa đạt: gỡ bài không đạt ("Đã gỡ bài") hoặc quét lại khi có bài mới — khiên tự cấp khi đạt; hoặc khiếu nại (R7-4).',
+          'Xin khiên miễn phí, không trừ lượt quét.',
+        ],
+        errors: [
+          { code: '4512', when: 'Kênh chưa có dấu xác thực', message: 'Kênh cần có dấu xác thực trước khi xin Khiên An toàn.' },
+          { code: '4513', when: 'Kênh đã có khiên / đang xét', message: 'Khiên An toàn không ở trạng thái cho phép thao tác này. Vui lòng tải lại.' },
+        ],
+        source: 'Brainstorm 07/10/2026 · services/mock/contentShield.ts (shieldWindow, windowPasses, requestedShield) · features/safety/ShieldParts.tsx (ShieldPanel)',
+        confirm: 'Ngưỡng "0 Vi phạm, tối đa 2 Cần xem lại" là giả định: cần chạy KOL Safety trên khoảng 50 kênh thật × 10 bài, đo tỉ lệ báo nhầm rồi mới chốt.',
+      },
+      {
+        id: 'R7-3',
+        epic: 'E9',
+        roles: ['KOL', 'MCN', 'Hệ thống'],
+        title: 'Tạm treo, gỡ bài và thu hồi khiên',
+        story: 'Là hệ thống, tôi tạm treo khiên khi có nội dung mới không đạt và cho chủ kênh thời gian xử lý trước khi thu hồi.',
+        screens: ['Khối "Khiên An toàn nội dung" · danh sách bài chưa đạt · nút "Đã gỡ bài"'],
+        api: ['kolSafetyReportService.rescan(accountId, channelId)', 'kolSafetyReportService.markRemoved(accountId, channelId, contentId)'],
+        states: 'Đạt → Tạm treo (7 ngày) → Đạt lại | Đã thu hồi',
+        rules: [
+          'Mỗi lần quét có nội dung mới, khiên được xét lại. Đang đạt mà không còn đạt → Tạm treo, hạn 7 ngày.',
+          'Trong hạn: "Đã gỡ bài" bỏ bài khỏi lần xét (nội dung kế tiếp được tính); đạt lại thì khiên khôi phục, giữ ngày cấp cũ.',
+          'Quá hạn mà không xử lý (và không có khiếu nại đang chờ) → Đã thu hồi; phải "Xin lại Khiên An toàn" khi 10 nội dung gần nhất đạt.',
+          'Nhãn hàng thấy "Khiên tạm treo" trong thời gian tạm treo hoặc đang khiếu nại.',
+        ],
+        errors: [{ code: '4513', when: 'Gỡ bài không nằm trong danh sách chưa đạt', message: 'Khiên An toàn không ở trạng thái cho phép thao tác này. Vui lòng tải lại.' }],
+        source: 'services/mock/contentShield.ts (reevaluatedShield, effectiveShieldStatus) · kolSafetyReport.ts (rescan, markRemoved)',
+        confirm: '"Đã gỡ bài" trong prototype chỉ là tự khai báo, chưa kiểm tra bài đã gỡ thật trên nền tảng. Thời hạn 7 ngày và mức phạt khi tái phạm chưa chốt.',
+      },
+      {
+        id: 'R7-4',
+        epic: 'E9',
+        roles: ['KOL', 'MCN', 'Hệ thống'],
+        title: 'Khiếu nại, đội vận hành KOLHUB xét',
+        story: 'Là KOL/MCN, tôi muốn khiếu nại khi KOL Safety nhận nhầm để giữ khiên mà không phải gỡ bài.',
+        screens: ['Khối khiên · "Khiếu nại" → hộp "Khiếu nại kết quả KOL Safety"', 'Bảng demo › Admin › "Khiếu nại Khiên An toàn" · "Chấp nhận" / "Từ chối"'],
+        api: ['kolSafetyReportService.appealShield(accountId, channelId, note)', 'kolSafetyReportService.listShieldAppeals()', 'kolSafetyReportService.decideShieldAppeal(accountId, channelId, accept, note?)'],
+        states: 'Tạm treo | Chưa đạt → Đang xét khiếu nại → Đạt (chấp nhận) | giữ nguyên (từ chối)',
+        rules: [
+          'Khiếu nại khi khiên Tạm treo hoặc Chưa đạt; lý do 1–1.000 ký tự; miễn phí.',
+          'Đang xét: hiện "Đang xét khiếu nại", hạn 7 ngày tạm dừng.',
+          'Đội vận hành KOLHUB chấp nhận → khiên Đạt; từ chối → giữ trạng thái cũ, hạn chạy tiếp; chủ kênh thấy "Khiếu nại … bị từ chối: <ghi chú>".',
+          'Hàng chờ xếp khiếu nại cũ nhất trước, tính vào số mục chờ của Admin.',
+        ],
+        errors: [
+          { code: '4514', when: 'Lý do trống hoặc quá 1.000 ký tự', message: 'Vui lòng nhập lý do khiếu nại (tối đa 1.000 ký tự).' },
+          { code: '4513', when: 'Không ở trạng thái được khiếu nại / không có khiếu nại đang chờ', message: 'Khiên An toàn không ở trạng thái cho phép thao tác này. Vui lòng tải lại.' },
+        ],
+        source: 'Quyết định 07/10/2026: đội vận hành KOLHUB xét · contentShield.ts (decidedShield) · demo/ShieldAppealsBlock.tsx',
+        confirm: 'Cam kết thời hạn xét khiếu nại (SLA) và quy trình xem lại video chưa có.',
+      },
+      {
+        id: 'R7-5',
+        epic: 'E9',
+        roles: ['KOL', 'MCN'],
+        title: 'Badge Xác thực Kol.gov.vn trên Tổng quan',
+        story: 'Là KOL/MCN, tôi muốn thấy mình còn thiếu gì để đạt Badge Xác thực Kol.gov.vn.',
+        screens: ['/ho-so-kol|mcn/tong-quan · khối "Badge Xác thực Kol.gov.vn" (cột phải)'],
+        api: ['kolSafetyReportService.listShields(accountId)', 'kolSafetyReportService.getSettings(accountId)'],
+        rules: [
+          'Hai tiêu chí: "Hồ sơ đã khai báo đủ và được duyệt" và "Mọi kênh đã xác thực có Khiên An toàn (x/y kênh)".',
+          'Đạt khi hồ sơ đã duyệt, có ít nhất 1 kênh đã xác thực và mọi kênh đã xác thực đều Đạt Khiên An toàn.',
+          'Danh sách kênh kèm trạng thái khiên; bấm một kênh → mở báo cáo KOL Safety của kênh đó. Kênh chưa có dấu: "Chưa có dấu xác thực".',
+          'KOL Safety đang tắt: "KOL Safety đang tắt. Bật trong Ứng dụng để quét và xin khiên."',
+        ],
+        source: 'Brainstorm 07/10/2026 · features/safety/VerificationBadgeCard.tsx (verificationBadge)',
+        confirm: 'Badge cấp cho tài khoản hay cho từng kênh, và nơi Badge hiện ra ngoài (cổng Kol.gov.vn, hồ sơ công khai) chưa chốt. Prototype chỉ hiện trạng thái đạt/chưa đạt ở Tổng quan.',
+      },
+      {
+        id: 'R7-6',
+        epic: 'E9',
+        roles: ['Nhãn hàng'],
+        title: 'Nhãn hàng thấy Khiên An toàn của kênh',
+        story: 'Là Nhãn hàng, tôi muốn thấy kênh nào có Khiên An toàn để chọn KOL yên tâm hơn.',
+        screens: ['Hồ sơ KOL (Tìm KOL) › danh sách kênh', '/danh-sach-kenh · dòng kênh'],
+        api: ['PublicChannel.contentShield', 'ChannelDirectoryItem.contentShield'],
+        rules: [
+          'Nhãn "Khiên An toàn" (xanh) khi kênh đạt; "Khiên tạm treo" (vàng) khi tạm treo hoặc đang khiếu nại; không có nhãn ở các trạng thái khác.',
+          'Nhãn hàng không thấy điểm từng bài trừ khi chủ kênh bật "Chia sẻ cho Nhãn hàng" (và KOL Safety đang bật).',
+        ],
+        source: 'services/mock/directory.ts (shieldOfChannel) · channelDirectory.ts · features/safety/ShieldParts.tsx (PublicShieldBadge)',
       },
     ],
   },

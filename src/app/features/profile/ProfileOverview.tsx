@@ -7,6 +7,7 @@ import { ProfileHeader } from './ProfileHeader';
 import { ServiceBanner } from './ServiceBanner';
 import { SubmitDialog } from './SubmitDialog';
 import { CampaignWorkspace, SavedCampaignsStrip } from '../creator/CampaignWorkspace';
+import { VerificationBadgeCard } from '../safety/VerificationBadgeCard';
 
 const NO_KOLS: McnKolRow[] = [];
 /**
@@ -48,6 +49,7 @@ export function ProfileOverview({
           />
         </div>
         <aside className="min-w-0 space-y-4" aria-label="Dịch vụ và trạng thái xét duyệt">
+          <VerificationBadgeCard accountId={p.accountId} approved={approved} />
           {approved && <SavedCampaignsStrip accountId={p.accountId} />}
           <ServiceBanner />
           <ReviewStatusBox profile={view.profile} channels={channels} />
