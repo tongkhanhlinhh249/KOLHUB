@@ -35,14 +35,14 @@ export function BookingStatusBadge({ status, className }: { status: BookingStatu
   );
 }
 
-/** "Riêng tư" (lock) / "Trên sàn" (globe) — compact label for rows and headers. */
+/** "Riêng tư" (lock) / "Trên Sàn chiến dịch" (globe) — same wording as the form and CAMPAIGN_VISIBILITY_LABEL. */
 export function VisibilityLabel({ visibility, className }: { visibility: CampaignVisibility; className?: string }) {
   const market = visibility === 'MARKETPLACE';
   const Icon = market ? Globe2 : Lock;
   return (
     <span className={cn('inline-flex items-center gap-1 text-xs text-muted-foreground', className)}>
       <Icon className="size-3.5 shrink-0" aria-hidden />
-      {market ? 'Trên sàn' : 'Riêng tư'}
+      {market ? 'Trên Sàn chiến dịch' : 'Riêng tư'}
     </span>
   );
 }

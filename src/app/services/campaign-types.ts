@@ -29,7 +29,7 @@ export interface Deliverable {
 export type CampaignVisibility = 'PRIVATE' | 'MARKETPLACE';
 export const CAMPAIGN_VISIBILITY_LABEL: Record<CampaignVisibility, string> = {
   PRIVATE: 'Riêng tư',
-  MARKETPLACE: 'Đăng lên Sàn chiến dịch',
+  MARKETPLACE: 'Trên Sàn chiến dịch',
 };
 
 /**
@@ -779,6 +779,9 @@ export interface BookingCampaignSummary {
   negotiation: boolean;
   contract: boolean;
   regions: string[];
+  /** "Điều kiện tham gia" (with regions). */
+  categories: KolCategory[];
+  target?: CampaignTarget;
   /** "Ảnh chiến dịch" (16:9 cover), when the brand added one. */
   cover?: StoredFile;
 }

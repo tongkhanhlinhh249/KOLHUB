@@ -14,8 +14,8 @@ import {
   type ProfileStatus,
 } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
-import { ConditionsList, PhaseBadge, RecruitTimeline, RecruitTypeBadge, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
-import { RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, workflowLabel } from '../shared/recruitView';
+import { CampaignTypeBadge, ConditionsList, PhaseBadge, RecruitTimeline, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
+import { contractLabel, priceRuleLabel, RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, workflowLabel } from '../shared/recruitView';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
 import { CampaignQASection } from './CampaignQA';
@@ -61,7 +61,7 @@ export function CampaignDetailHeader({ campaign: c, now }: { campaign: Marketpla
       <h1 className="text-xl font-semibold break-words text-foreground md:text-2xl">{c.name}</h1>
       <div className="flex flex-wrap items-center gap-2">
         <PhaseBadge campaign={c} now={now} />
-        {isRecruit(c) && <RecruitTypeBadge />}
+        <CampaignTypeBadge type={c.type} />
         {c.myBooking && <MyBookingBadge myBooking={c.myBooking} />}
         {c.mine && <MineBadge />}
         <PlatformIcons platforms={c.platforms} withLabel />
@@ -82,7 +82,7 @@ function DeadlineValue({ campaign: c, now }: { campaign: MarketplaceCampaign; no
 
 /**
  * Main column: Phù hợp với bạn, key facts, Lịch trình (only where the rail is hidden: `narrowOnlyClass`),
- * Phần thưởng, Điều kiện tham gia, Hướng dẫn chiến dịch, Yêu cầu nội dung, Hỏi đáp, Nhãn hàng.
+ * Phần thưởng, Điều kiện tham gia, Bản tóm tắt sáng tạo, Yêu cầu nội dung, Hỏi đáp, Nhãn hàng.
  */
 export function CampaignDetailSections({
   campaign: c,
@@ -105,11 +105,14 @@ export function CampaignDetailSections({
         </SheetSection>
       )}
 
-      <dl className="grid grid-cols-2 gap-4 rounded-[8px] border border-border bg-card p-4 @lg:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-4 rounded-[8px] border border-border bg-card p-4 @lg:grid-cols-3">
         {recruit ? (
           <>
             <Fact label="Phần thưởng / KOL">
               <span className="font-semibold text-primary tabular-nums">{rewardShort(c.recruitment!.reward)}</span>
+            </Fact>
+            <Fact label="Tổng ngân sách dự kiến">
+              <span className="tabular-nums">{formatVnd(c.budget)}</span>
             </Fact>
             <Fact label="Đã ứng tuyển">
               <span className="tabular-nums">
@@ -129,6 +132,8 @@ export function CampaignDetailSections({
         )}
         <Fact label="Khu vực">{regionText(c.regions)}</Fact>
         <Fact label="Workflow">{workflowLabel(c.draftReview)}</Fact>
+        {!recruit && <Fact label="Thương lượng giá">{priceRuleLabel(c.negotiation)}</Fact>}
+        <Fact label="Hợp đồng">{contractLabel(c.contract)}</Fact>
       </dl>
 
       {recruit && (
@@ -144,8 +149,9 @@ export function CampaignDetailSections({
           <RewardBlock reward={c.recruitment!.reward} slots={c.recruitment!.slots} />
         ) : (
           <p className="text-sm text-foreground">
-            Ngân sách chiến dịch <span className="font-semibold text-primary tabular-nums">{formatVnd(c.budget)}</span>. Bạn đề xuất giá cho phần việc
-            của mình khi ứng tuyển, Nhãn hàng có thể thương lượng.
+            Ngân sách chiến dịch <span className="font-semibold text-primary tabular-nums">{formatVnd(c.budget)}</span>. {c.negotiation
+              ? 'Bạn đề xuất giá cho phần việc của mình khi ứng tuyển, Nhãn hàng có thể thương lượng.'
+              : 'Bạn đề xuất giá cho phần việc của mình khi ứng tuyển. Giá cố định: Nhãn hàng chấp nhận hoặc từ chối, không trả giá.'}
           </p>
         )}
       </SheetSection>
@@ -154,7 +160,7 @@ export function CampaignDetailSections({
         <ConditionsList target={c.target} categories={c.categories} regions={c.regions} />
       </SheetSection>
 
-      <SheetSection title="Hướng dẫn chiến dịch">
+      <SheetSection title="Bản tóm tắt sáng tạo">
         <div className="space-y-3">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Mục tiêu</p>
@@ -173,6 +179,7 @@ export function CampaignDetailSections({
       </SheetSection>
 
       <SheetSection title="Yêu cầu nội dung">
+        <p className="text-xs text-muted-foreground">Hạng mục nội dung</p>
         <ul className="divide-y divide-border rounded-[8px] border border-border bg-card">
           {c.deliverables.map((d, i) => (
             <li key={i} className="flex min-h-12 items-center gap-3 px-3 py-2 text-sm">
@@ -227,12 +234,17 @@ export function CampaignScheduleCard({ campaign: c, now }: { campaign: Marketpla
         <p className="border-t border-border pt-3 text-sm text-foreground tabular-nums">
           Đã ứng tuyển <span className="font-semibold">{c.applicationCount}</span> / {c.recruitment!.slots} suất
         </p>
+        {c.selectedCount !== undefined && (
+          <p className="text-sm text-foreground tabular-nums">
+            Đã chọn <span className="font-semibold">{c.selectedCount}</span> / {c.recruitment!.slots} suất
+          </p>
+        )}
       </div>
     );
   }
   return (
     <dl className="space-y-3 rounded-[8px] border border-border bg-card p-4">
-      <Fact label="Thời gian">{formatDayRange(c.startDate, c.endDate)}</Fact>
+      <Fact label="Thời gian chạy">{formatDayRange(c.startDate, c.endDate)}</Fact>
       <Fact label="Hạn ứng tuyển">
         <DeadlineValue campaign={c} now={now} />
       </Fact>

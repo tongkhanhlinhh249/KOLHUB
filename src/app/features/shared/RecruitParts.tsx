@@ -28,6 +28,16 @@ export function PhaseBadge({ campaign, now, className }: { campaign: Parameters<
   );
 }
 
+/** Campaign type chip on every detail surface: "Booking riêng" (neutral) or "Tuyển nhiều KOL" (accent). */
+export function CampaignTypeBadge({ type, className }: { type?: string; className?: string }) {
+  if (type === 'OPEN_RECRUITMENT') return <RecruitTypeBadge className={className} />;
+  return (
+    <span className={cn('inline-flex h-6 items-center rounded-md border border-border bg-card px-2 text-xs font-medium whitespace-nowrap text-muted-foreground', className)}>
+      Booking riêng
+    </span>
+  );
+}
+
 /** "Tuyển nhiều KOL" chip. */
 export function RecruitTypeBadge({ className }: { className?: string }) {
   return (

@@ -18,13 +18,13 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import { CampaignCover } from '../shared/CampaignCover';
 import { MessageButton } from '../inbox/MessageButton';
-import { BOOKING_NOTE_MAX, bookingService, KolhubError, type BookingView } from '../../services';
+import { BOOKING_NOTE_MAX, bookingService, CAMPAIGN_STATUS_LABEL, KolhubError, type BookingView } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFollowers } from '../biz-search/format';
 import { channelName, ChannelLink } from '../channels/ChannelParts';
 import { useLiveQuery } from '../shared/useLiveQuery';
-import { ApplicationDetailsBlock, RecruitStageStepper, RecruitTimeline, WorkflowNote } from '../shared/RecruitParts';
-import { recruitStage, rewardText } from '../shared/recruitView';
+import { ApplicationDetailsBlock, CampaignTypeBadge, ConditionsList, RecruitStageStepper, RecruitTimeline, WorkflowNote } from '../shared/RecruitParts';
+import { contractLabel, priceRuleLabel, recruitStage, rewardText } from '../shared/recruitView';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { AssignItemsDialog, CounterDialog, DraftDialog, PostDialog, RateDialog } from './BookingDialogs';
 import { DraftCard, PostCard } from './ContentParts';
@@ -233,7 +233,10 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
           <div className="flex flex-wrap items-center gap-2">
             <BookingStatusBadge booking={b} />
             <OriginBadge origin={b.origin} />
-            {recruit && <span className="text-xs font-medium text-primary">Tuyển nhiều KOL</span>}
+            <CampaignTypeBadge type={b.campaign.type} />
+            {b.campaign.status !== 'OPEN' && b.campaign.status !== 'RUNNING' && (
+              <span className="text-xs text-muted-foreground">Chiến dịch: {CAMPAIGN_STATUS_LABEL[b.campaign.status]}</span>
+            )}
             {needs && <NeedsYouMarker />}
             <MessageButton bookingId={b.id} className="ml-auto" />
           </div>
@@ -248,7 +251,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
                 <span className={cn('text-base font-semibold tabular-nums', b.price > 0 ? 'text-primary' : 'text-muted-foreground')}>{priceText(b.price)}</span>
               </Fact>
             )}
-            <Fact label="Thời gian chiến dịch">{formatDayRange(b.campaign.startDate, b.campaign.endDate) || '—'}</Fact>
+            <Fact label="Thời gian chạy">{formatDayRange(b.campaign.startDate, b.campaign.endDate) || '—'}</Fact>
             {recruit && preAccept && b.expiresAt !== undefined && (
               <Fact label="Có kết quả trước">
                 <span className="tabular-nums">{formatDateTime(b.expiresAt)}</span>
@@ -288,6 +291,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
                   {b.reward.product.name}
                   <span className="font-normal text-muted-foreground tabular-nums">· trị giá {formatVnd(b.reward.product.value)}</span>
                 </p>
+                {b.reward.product.note && <p className="text-xs text-muted-foreground">{b.reward.product.note}</p>}
                 <ul className="space-y-1">
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className={cn('mt-0.5 size-4 shrink-0', b.shipment?.sentAt ? 'text-chart-4' : 'text-muted-foreground/40')} aria-hidden />
@@ -420,11 +424,19 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
                 <Fact label="Nền tảng">
                   <PlatformIcons platforms={b.campaign.platforms} withLabel />
                 </Fact>
-                <Fact label="Hạn ứng tuyển">{b.campaign.applyDeadline ? formatDay(b.campaign.applyDeadline) : 'Không giới hạn'}</Fact>
-                <Fact label="Hạng mục chiến dịch" className="col-span-2">
+                {b.campaign.visibility === 'MARKETPLACE' && (
+                  <Fact label="Hạn ứng tuyển">{b.campaign.applyDeadline ? formatDay(b.campaign.applyDeadline) : 'Không giới hạn'}</Fact>
+                )}
+                {!recruit && <Fact label="Thương lượng giá">{priceRuleLabel(b.campaign.negotiation)}</Fact>}
+                <Fact label="Hợp đồng">{contractLabel(b.campaign.contract)}</Fact>
+                <Fact label="Hạng mục nội dung" className="col-span-2">
                   {deliverablesSummary(b.campaign.deliverables) || '—'}
                 </Fact>
               </dl>
+              <div className="@container space-y-1.5">
+                <p className="text-xs text-muted-foreground">Điều kiện tham gia</p>
+                <ConditionsList target={b.campaign.target} categories={b.campaign.categories} regions={b.campaign.regions} />
+              </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">Mục tiêu</p>
                 <LongText text={b.campaign.objective} />

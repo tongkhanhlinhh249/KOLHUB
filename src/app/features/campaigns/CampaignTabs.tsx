@@ -154,37 +154,20 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
           )}
           <Panel title="Thông tin">
             <dl className="grid grid-cols-1 gap-3">
-              <Meta label="Thời gian">{formatDateRange(c.startDate, c.endDate)}</Meta>
-              <Meta label={c.type === 'OPEN_RECRUITMENT' ? `Tổng giá trị (${c.recruitment?.slots ?? 0} suất)` : 'Ngân sách'}>
+              <Meta label="Thời gian chạy">{formatDateRange(c.startDate, c.endDate)}</Meta>
+              <Meta label={c.type === 'OPEN_RECRUITMENT' ? `Tổng ngân sách dự kiến (${c.recruitment?.slots ?? 0} suất)` : 'Ngân sách'}>
                 {c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập'}
               </Meta>
               <Meta label="Hiển thị">
                 <VisibilityLabel visibility={c.visibility} className="text-sm text-foreground" />
                 {c.visibility === 'MARKETPLACE' && (
                   <span className="block text-xs text-muted-foreground">
-                    {c.applyDeadline ? `Nhận đề xuất đến ${formatIsoDay(c.applyDeadline)}` : 'Nhận đề xuất đến khi kết thúc'}
+                    {c.applyDeadline ? `Hạn ứng tuyển: ${formatIsoDay(c.applyDeadline)}` : 'Hạn ứng tuyển: không giới hạn (đến khi kết thúc)'}
                   </span>
                 )}
               </Meta>
               <Meta label="Nền tảng">
                 <PlatformIcons platforms={c.platforms} />
-              </Meta>
-              <Meta label="Lĩnh vực">
-                {c.categories.length === 0 ? (
-                  'Không giới hạn'
-                ) : (
-                  <ul className="mt-1 flex flex-wrap gap-1.5">
-                    {c.categories.map((cat) => {
-                      const Icon = fieldIcon(cat);
-                      return (
-                        <li key={cat} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-foreground">
-                          <Icon className="size-3.5" aria-hidden />
-                          {cat}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
               </Meta>
             </dl>
           </Panel>

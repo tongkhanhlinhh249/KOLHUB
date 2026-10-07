@@ -619,14 +619,14 @@ export function CampaignFormPage() {
               current={values.visibility}
               onSelect={(v) => set('visibility', v)}
               icon={<Globe2 className="size-4" aria-hidden />}
-              title="Đăng lên Sàn chiến dịch"
+              title="Trên Sàn chiến dịch"
               text="KOL/MCN đã được duyệt có thể xem và gửi đề xuất. Bạn vẫn mời thêm được."
             />
           </div>
           {values.visibility === 'MARKETPLACE' && (
             <FormRow
               id={fieldId('applyDeadline')}
-              label="Hạn nhận đề xuất"
+              label="Hạn ứng tuyển"
               optional
               error={errors.applyDeadline}
               hint="Sau ngày này chiến dịch không nhận đề xuất mới. Để trống: nhận đến khi kết thúc."

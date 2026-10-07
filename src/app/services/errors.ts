@@ -227,7 +227,7 @@ function campaignFieldLabel(field?: string): string {
     case 'visibility':
       return 'Chế độ hiển thị';
     case 'applyDeadline':
-      return 'Hạn nhận đề xuất';
+      return 'Hạn ứng tuyển';
     case 'cover':
       return 'Ảnh chiến dịch';
     case 'note':

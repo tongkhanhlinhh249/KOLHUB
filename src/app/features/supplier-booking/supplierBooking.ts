@@ -294,6 +294,11 @@ export function nextStepText(
       if (b.awaiting !== 'SUPPLIER') return 'Đang chờ Nhãn hàng phản hồi đề xuất của bạn.';
       if (missingChannel) return 'Một số hạng mục chưa có kênh đăng. Hãy giao KOL/kênh trước khi chấp nhận.';
       if (b.price <= 0) return 'Nhãn hàng chưa đưa giá. Hãy báo giá (Trả giá) để Nhãn hàng xác nhận.';
+      // "Đàm phán" off: fixed price, no counter-offer.
+      if (!can('COUNTER'))
+        return b.status === 'SENT'
+          ? 'Nhãn hàng mời bạn tham gia chiến dịch với giá cố định. Chấp nhận hoặc từ chối lời mời.'
+          : 'Giá cố định: chấp nhận hoặc từ chối.';
       return b.status === 'SENT'
         ? 'Nhãn hàng mời bạn tham gia chiến dịch. Chấp nhận, trả giá hoặc từ chối lời mời.'
         : 'Nhãn hàng đề xuất giá mới. Chấp nhận, trả giá tiếp hoặc từ chối.';

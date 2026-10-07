@@ -316,7 +316,7 @@ const HINT: Partial<Record<FormField, string>> = {
   dates: 'Cần ngày bắt đầu và ngày kết thúc; ngày kết thúc không trước ngày bắt đầu và chưa qua.',
   platforms: 'Chọn ít nhất một nền tảng.',
   deliverables: 'Cần ít nhất một hạng mục; nền tảng của hạng mục phải nằm trong các nền tảng đã chọn, số lượng 1–100.',
-  applyDeadline: 'Hạn nhận đề xuất không được sau ngày kết thúc và chưa qua.',
+  applyDeadline: 'Hạn ứng tuyển không được sau ngày kết thúc và chưa qua.',
   objective: 'Tối đa 5.000 ký tự.',
   brief: 'Tối đa 5.000 ký tự.',
   contentRules: 'Tối đa 5.000 ký tự.',

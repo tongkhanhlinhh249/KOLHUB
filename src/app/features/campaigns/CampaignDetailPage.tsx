@@ -7,7 +7,7 @@ import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { bookingService, campaignService, KolhubError, phaseOfTimeline, type CampaignView } from '../../services';
-import { PhaseBadge, RecruitTypeBadge } from '../shared/RecruitParts';
+import { CampaignTypeBadge, PhaseBadge } from '../shared/RecruitParts';
 import { rewardShort } from '../shared/recruitView';
 import { brandLockedView } from '../shared/BrandLocked';
 import { CampaignCover } from '../shared/CampaignCover';
@@ -63,7 +63,7 @@ function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <CampaignStatusBadge status={c.status} />
-              {r && <RecruitTypeBadge />}
+              <CampaignTypeBadge type={c.type} />
               {r && c.status !== 'DRAFT' && <PhaseBadge campaign={{ type: 'OPEN_RECRUITMENT', phase: phaseOfTimeline(r.timeline, Date.now()), recruitment: r }} now={Date.now()} />}
               <VisibilityLabel visibility={c.visibility} />
             </div>

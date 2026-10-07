@@ -666,6 +666,8 @@ function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCam
     negotiation: negotiationOn(c),
     contract: contractOn(c),
     regions: [...(c.regions ?? [])],
+    categories: [...c.categories],
+    ...(c.target ? { target: { ...c.target } } : {}),
     id: c.id,
     name: c.name,
     objective: c.objective,
