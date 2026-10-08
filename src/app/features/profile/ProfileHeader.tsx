@@ -124,7 +124,7 @@ export function ProfileHeader({ view, onSubmit }: ProfileHeaderProps) {
           </div>
           <Progress value={completeness.percent} className="h-2" aria-label={`Hồ sơ hoàn thiện ${completeness.percent}%`} />
           <ul className="flex flex-wrap gap-2" aria-label="Các bước hoàn thiện hồ sơ">
-            {completeness.milestones.map((m) => {
+            {completeness.milestones.filter((m) => m.key !== 'submitted').map((m) => {
               const badge = milestoneBadge(profile.ownerType, m.key);
               const pill = 'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-sm';
               return (
