@@ -36,8 +36,9 @@ function stateText(c: Channel, now: number): string {
 }
 
 /**
- * Demo Panel › KOL/MCN: xác thực kênh qua KOL Safety. KOL Safety là hệ thống ngoài nên kết quả quét được giả
- * lập: chọn kết quả lần quét tới, quét đủ ngay, kênh chưa đủ nội dung, đẩy hạn dấu tới còn 7 ngày / hết hạn.
+ * Demo Panel › KOL/MCN: xác thực kênh qua KOL Safety. Việc quét diễn ra trên KOL Safety (hệ thống ngoài) nên kết
+ * quả được giả lập ở đây: KOL Safety quét một lượt (theo "Kết quả lần quét tới"), quét đủ ngay, kênh chưa đủ nội
+ * dung, đẩy hạn dấu tới còn 7 ngày / hết hạn, đưa về chưa xác thực.
  */
 export function SafetySimulatorBlock() {
   const { account } = useAuth();
@@ -111,6 +112,19 @@ export function SafetySimulatorBlock() {
 
           {selected && (
             <div className="flex flex-wrap gap-2">
+              {selected.status === 'SAFETY_PENDING' || canRenew(selected, now) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 md:h-8"
+                  disabled={busy || !selected.safety || !!selected.safety.passedAt}
+                  title={!selected.safety ? 'KOL/MCN cần bấm Xác thực trên kênh trước để chốt danh sách' : undefined}
+                  onClick={() => run(() => safetyVerificationService.scan(ownerId, selected.id), 'KOL Safety đã quét và gửi kết quả')}
+                >
+                  KOL Safety quét một lượt
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="sm"

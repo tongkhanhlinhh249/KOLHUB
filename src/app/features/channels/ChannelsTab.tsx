@@ -212,8 +212,8 @@ export function ChannelsTab({
         region={assignedTo ? assignedTo.region : region}
         followers={c.stats?.followers}
         trailing={
-          // Fixed width on wide rows so the columns line up whether or not the "Xác thực" button is shown.
-          <div className="flex flex-wrap items-center justify-end gap-3 @4xl:w-60 @4xl:flex-nowrap">
+          // Min width on wide rows: columns line up whether or not a button is shown, and a longer button widens it instead of overlapping.
+          <div className="flex flex-wrap items-center justify-end gap-3 @4xl:min-w-60 @4xl:flex-nowrap">
             <SafetyActionButton channel={c} now={now} onOpen={() => setSafetyId(c.id)} />
             <ActiveSwitch channel={c} accountId={accountId} />
           </div>

@@ -229,7 +229,8 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
   }
 
   /**
-   * KOL Safety quét một nội dung (hoặc mọi nội dung chưa quét / chưa đạt khi không truyền `itemId`).
+   * Giả lập KOL Safety quét một nội dung (hoặc mọi nội dung chưa quét / chưa đạt khi không truyền `itemId`) và
+ * gửi kết quả về KOL Hub (webhook). KOL Hub không có nút quét: chỉ Demo Panel gọi hàm này.
    * Quét lại không giới hạn (BR-15). Giả lập: lần đầu vài nội dung không đạt; quét lại sau khi KOL
    * gỡ/chỉnh thì đạt. Demo Panel có thể ép kết quả lần quét tiếp theo.
    */
@@ -264,6 +265,12 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
       c.updatedAt = t;
       if (safety.items.every((i) => i.verdict === 'PASS')) complete(s, c, t);
     });
+    return owned(db.read(), accountId, channelId);
+  }
+
+  /** Hỏi lại KOL Safety trạng thái theo link kênh (EC-08, nút "Làm mới"); ở mock chỉ đọc lại kết quả đã có. */
+  async function refresh(accountId: string, channelId: string): Promise<Channel> {
+    await wait();
     return owned(db.read(), accountId, channelId);
   }
 
@@ -349,7 +356,7 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
     });
   }
 
-  return { start, scan, demoPassAll, demoResetSafety, demoNextVerdict, demoSetNextVerdict, demoSetContentCount, demoSetDaysLeft };
+  return { start, scan, refresh, demoPassAll, demoResetSafety, demoNextVerdict, demoSetNextVerdict, demoSetContentCount, demoSetDaysLeft };
 }
 
 export type SafetyVerificationService = ReturnType<typeof createSafetyVerificationService>;

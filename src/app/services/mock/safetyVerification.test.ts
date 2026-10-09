@@ -158,3 +158,13 @@ describe('Demo Panel', () => {
     expect(read(c.id)).toMatchObject({ status: 'SAFETY_PENDING', safety: undefined, safetyPassedAt: undefined, badgeExpiresAt: undefined });
   });
 });
+
+describe('Làm mới (EC-08)', () => {
+  test('refresh trả về kết quả KOL Safety đã gửi, không tự quét', async () => {
+    const c = await channels.add(h.kolId, { url: 'tiktok.com/@vy', proofImage: png });
+    await safety.start(h.kolId, c.id, true);
+    const r = await safety.refresh(h.kolId, c.id);
+    expect(r.safety!.items.every((i) => i.verdict === undefined)).toBe(true);
+    await expect(safety.refresh(h.mcnId, c.id)).rejects.toThrow('NOT_OWNER');
+  });
+});

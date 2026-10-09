@@ -69,20 +69,21 @@ export function SafetyStatusBadge({ channel, now }: { channel: Channel; now: num
   return <ToneBadge tone={p.purpose === 'RENEW' && left === undefined ? 'error' : 'warning'}>{text}</ToneBadge>;
 }
 
-/** Nút trên dòng kênh khi cần làm gì với KOL Safety: Xác thực / Tiếp tục quét / Gia hạn (mở sheet). */
+/** Nút trên dòng kênh khi cần làm gì với KOL Safety: Xác thực / Tiến độ (đang quét trên KOL Safety) / Gia hạn (mở sheet). */
 export function SafetyActionButton({ channel, now, onOpen }: { channel: Channel; now: number; onOpen(): void }) {
   if (!needsSafetyAction(channel, now)) return null;
   const p = safetyProgress(channel, now);
   return (
     <Button type="button" size="sm" className="h-11 shrink-0 md:h-8" onClick={onOpen}>
       <ShieldCheck aria-hidden />
-      {p.purpose === 'RENEW' ? 'Gia hạn' : p.phase === 'IN_PROGRESS' ? 'Tiếp tục quét' : 'Xác thực'}
+      {p.purpose === 'RENEW' ? 'Gia hạn' : p.phase === 'IN_PROGRESS' ? 'Tiến độ' : 'Xác thực'}
       <span className="sr-only"> KOL Safety cho kênh {channelName(channel.handle, channel.url)}</span>
     </Button>
   );
 }
 
-function ItemRow({ item, busy, onScan }: { item: SafetyItem; busy: boolean; onScan(): void }) {
+/** One locked item with the result KOL Safety reported (read-only: scanning happens on KOL Safety). */
+function ItemRow({ item }: { item: SafetyItem }) {
   const long = item.durationSec !== undefined && item.durationSec > SAFETY_SCAN_SECONDS;
   return (
     <li className="space-y-2 rounded-lg border border-border p-3">
@@ -115,11 +116,7 @@ function ItemRow({ item, busy, onScan }: { item: SafetyItem; busy: boolean; onSc
             Không đạt
           </span>
         )}
-        {item.verdict !== 'PASS' && (
-          <Button type="button" size="sm" variant="outline" className="h-9 shrink-0 md:h-8" disabled={busy} onClick={onScan}>
-            {item.verdict === 'FAIL' ? 'Quét lại' : 'Quét'}
-          </Button>
-        )}
+        {!item.verdict && <span className="shrink-0 text-xs font-medium text-muted-foreground">Chưa quét</span>}
       </div>
       {item.verdict === 'FAIL' && item.reason && (
         <p className="rounded-md bg-destructive/5 p-2 text-xs text-foreground">
@@ -184,7 +181,13 @@ export function SafetyVerifySheet({
     window.open(SAFETY_TOOL_URL, '_blank', 'noopener,noreferrer');
     void run(() => safetyVerificationService.start(accountId, c.id, consent));
   };
-  const scan = (itemId?: string) => c && run(() => safetyVerificationService.scan(accountId, c.id, itemId));
+  // EC-08: ask KOL Safety again for the latest result (the scan itself happens on KOL Safety).
+  const refresh = () =>
+    c &&
+    run(async () => {
+      await safetyVerificationService.refresh(accountId, c.id);
+      toast.success('Đã cập nhật kết quả từ KOL Safety');
+    });
 
   let body: ReactNode = null;
   if (c && p && justPassed && safety) {
@@ -205,6 +208,7 @@ export function SafetyVerifySheet({
     );
   } else if (c && p && p.phase === 'IN_PROGRESS' && safety) {
     const pending = safety.items.filter((i) => i.verdict !== 'PASS').length;
+    const unscanned = safety.items.filter((i) => !i.verdict).length;
     body = (
       <>
         <div className="space-y-3 border-b border-border p-4">
@@ -212,34 +216,42 @@ export function SafetyVerifySheet({
             <span className="font-medium text-foreground">
               {p.passed}/{p.required} nội dung đạt
             </span>
-            {p.failed > 0 && <span className="text-destructive">{p.failed} chưa đạt</span>}
+            <span className="text-xs text-muted-foreground">
+              {p.failed > 0 && <span className="text-destructive">{p.failed} không đạt · </span>}
+              {unscanned} chưa quét
+            </span>
           </div>
           <Progress value={(p.passed / p.required) * 100} className="h-2" aria-label={`${p.passed}/${p.required} nội dung đạt`} />
           <p className="text-xs text-muted-foreground">
             Danh sách chốt lúc {format(safety.snapshotAt, 'HH:mm dd/MM/yyyy')}, giữ đến {format(p.snapshotExpiresAt!, 'dd/MM/yyyy')}. Nội
-            dung đăng sau thời điểm chốt không làm đổi danh sách. Mỗi lần quét trừ token trên KOL Safety.
+            dung đăng sau thời điểm chốt không làm đổi danh sách. Việc quét làm trên KOL Safety (mỗi lần quét trừ token
+            ở đó); KOL Hub tự cập nhật kết quả.
           </p>
+          {p.failed > 0 && (
+            <p className="text-xs text-foreground">{p.failed} nội dung không đạt: gỡ hoặc chỉnh trên nền tảng rồi quét lại trên KOL Safety.</p>
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button type="button" className="h-11 flex-1 md:h-9" disabled={busy || pending === 0} onClick={() => scan()}>
-              {busy ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />}
-              Quét {pending} nội dung chưa đạt
-            </Button>
-            <Button type="button" variant="outline" className="h-11 md:h-9" asChild>
-              <a href={safety.reportUrl} target="_blank" rel="noreferrer">
+            <Button type="button" className="h-11 flex-1 md:h-9" asChild>
+              <a href={SAFETY_TOOL_URL} target="_blank" rel="noopener noreferrer">
                 <ExternalLink aria-hidden />
-                Báo cáo trên KOL Safety
+                Quét {pending} nội dung trên KOL Safety
+                <span className="sr-only"> (mở tab mới)</span>
               </a>
+            </Button>
+            <Button type="button" variant="outline" className="h-11 md:h-9" disabled={busy} onClick={refresh}>
+              {busy ? <Loader2 className="animate-spin" aria-hidden /> : <RefreshCw aria-hidden />}
+              Làm mới
             </Button>
           </div>
         </div>
         <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4" aria-label="Nội dung được xét">
           {safety.items.map((i) => (
-            <ItemRow key={i.id} item={i} busy={busy} onScan={() => scan(i.id)} />
+            <ItemRow key={i.id} item={i} />
           ))}
         </ol>
       </>
@@ -276,8 +288,9 @@ export function SafetyVerifySheet({
         )}
         <Button type="button" className="h-11 w-full md:h-9" disabled={!consent || busy} onClick={start}>
           {busy ? <Loader2 className="animate-spin" aria-hidden /> : <ExternalLink aria-hidden />}
-          Mở KOL Safety
+          Mở KOL Safety để quét
         </Button>
+        <p className="text-xs text-muted-foreground">Việc quét làm trên KOL Safety. Quét xong, kết quả từng nội dung tự cập nhật về đây.</p>
       </div>
     );
   }
