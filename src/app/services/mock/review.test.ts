@@ -8,7 +8,7 @@ import { toPublicKol } from './directory';
 import { createReviewService, nextOwnerId, pendingChannelsOf } from './review';
 import { syncChannelStats } from './socialListening';
 import { VERIFIED_MCN_ACCOUNT_ID } from './mcnSeed';
-import { makeHarness, type Harness } from './testHarness';
+import { makeHarness, passSafety, type Harness } from './testHarness';
 
 const png: StoredFile = { name: 'p.png', type: 'image/png', size: 100 };
 const png2: StoredFile = { name: 'p2.png', type: 'image/png', size: 200 };
@@ -121,7 +121,7 @@ describe('submit', () => {
 });
 
 describe('approve / requestFix / reject', () => {
-  test('duyệt: c1 Đạt, c2 Cần bổ sung → hồ sơ APPROVED, c1 dấu 12 tháng, c2 có lý do', async () => {
+  test('duyệt: c1 Đạt, c2 Cần bổ sung → hồ sơ APPROVED, c1 dấu 90 ngày, c2 có lý do', async () => {
     const { c1, c2 } = readyKol(h);
     await review.submit(h.kolId, ALL);
     await review.approve(h.kolId, { [c1]: { verdict: 'PASS' }, [c2]: { verdict: 'NEEDS_FIX', reason: 'Ảnh không thấy tên kênh' } });
@@ -129,7 +129,7 @@ describe('approve / requestFix / reject', () => {
     expect(findProfile(s, h.kolId)).toMatchObject({ status: 'APPROVED', kolId: 'KOL-2026-0041' });
     expect(s.channels.find((c) => c.id === c1)).toMatchObject({
       status: 'VERIFIED',
-      badgeExpiresAt: new Date(2027, 8, 27, 9, 0).getTime(),
+      badgeExpiresAt: new Date(2026, 11, 26, 9, 0).getTime(),
     });
     // Mock social listening fills stats for the passed channel only.
     const stats = s.channels.find((c) => c.id === c1)!.stats!;
@@ -142,7 +142,7 @@ describe('approve / requestFix / reject', () => {
     expect(h.notices[0]).toMatchObject({ target: 'kol@demo.kolhub.vn', title: 'Kết quả xét duyệt hồ sơ' });
     expect(h.notices[1].target).toBe('0912000001');
     expect(h.notices[0].body).toBe(
-      'KOL Hub: Hồ sơ của bạn đã được duyệt. 1 kênh nhận dấu Kênh xác thực, hiệu lực đến 27/09/2027.',
+      'KOL Hub: Hồ sơ của bạn đã được duyệt. 1 kênh nhận dấu Kênh xác thực, hiệu lực đến 26/12/2026.',
     );
     expect(h.notices[2].body).toBe('KOL Hub: 1 kênh cần bổ sung. Vui lòng mở Quản lý kênh để xem lý do.');
     expect(s.reviewRequests[0]).toMatchObject({ status: 'APPROVED', decidedAt: h.clock.t });
@@ -214,13 +214,14 @@ describe('approve / requestFix / reject', () => {
   test('hồ sơ APPROVED thêm kênh mới → approve chỉ đổi kênh, hồ sơ vẫn APPROVED, kolId giữ nguyên', async () => {
     await approvedKol(h);
     const c3 = await channels.add(h.kolId, { url: 'youtube.com/@vytest', proofImage: png });
+    passSafety(h, c3.id);
     expect(pendingChannelsOf(h.db.read(), h.kolId).map((c) => c.id)).toEqual([c3.id]);
     h.notices.length = 0;
     await review.approve(h.kolId, { [c3.id]: { verdict: 'PASS' } });
     const s = h.db.read();
     expect(findProfile(s, h.kolId)).toMatchObject({ status: 'APPROVED', kolId: 'KOL-2026-0041' });
     expect(s.channels.find((c) => c.id === c3.id)!.status).toBe('VERIFIED');
-    expect(h.notices[0].body).toBe('KOL Hub: Kênh mới của bạn đã được duyệt. 1 kênh nhận dấu Kênh xác thực, hiệu lực đến 27/09/2027.');
+    expect(h.notices[0].body).toBe('KOL Hub: Kênh mới của bạn đã được duyệt. 1 kênh nhận dấu Kênh xác thực, hiệu lực đến 26/12/2026.');
   });
 
   test('KOL thứ hai được duyệt → KOL-2026-0042', async () => {
@@ -236,6 +237,7 @@ describe('approve / requestFix / reject', () => {
       p.ekycStatus = 'PASSED';
     });
     const c = await channels.add('k2', { url: 'tiktok.com/@k2', proofImage: png });
+    passSafety(h, c.id);
     await review.submit('k2', ALL);
     await review.approve('k2', { [c.id]: { verdict: 'PASS' } });
     expect(findProfile(h.db.read(), 'k2')).toMatchObject({ kolId: 'KOL-2026-0042' });
@@ -271,7 +273,7 @@ describe('KOL được duyệt → phép chiếu công khai (toPublicKol)', () =
         likes: expect.any(Number),
         latestVideos: expect.any(Array),
         badge: 'VERIFIED',
-        badgeExpiresAt: new Date(2027, 8, 27, 9, 0).toISOString(),
+        badgeExpiresAt: new Date(2026, 11, 26, 9, 0).toISOString(),
       },
     ]);
     expect(k.totalFollowers).toBeGreaterThanOrEqual(10_000);
@@ -282,7 +284,7 @@ describe('KOL được duyệt → phép chiếu công khai (toPublicKol)', () =
 
   test('badgeExpiresAt === now → loại', async () => {
     await approvedKol(h);
-    expect(pub(new Date(2027, 8, 27, 9, 0).getTime())).toBeNull();
+    expect(pub(new Date(2026, 11, 26, 9, 0).getTime())).toBeNull();
   });
 
   test('tắt kênh → loại', async () => {
@@ -325,7 +327,7 @@ describe('admin queue', () => {
   test('hồ sơ APPROVED có kênh mới vào hàng chờ', async () => {
     await approvedKol(h);
     expect(notSeedMcn((await review.listAdminQueue()).profiles)).toEqual([]);
-    await channels.add(h.kolId, { url: 'youtube.com/@vytest', proofImage: png });
+    passSafety(h, (await channels.add(h.kolId, { url: 'youtube.com/@vytest', proofImage: png })).id);
     expect(notSeedMcn((await review.listAdminQueue()).profiles).map((p) => p.status)).toEqual(['APPROVED']);
   });
 

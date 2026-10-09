@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowLeft, Globe2, ImagePlus, Loader2, Lock, Plus, RefreshCw, Send, Trash2, X } from 'lucide-react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ArrowLeft, ChevronDown, Globe2, ImagePlus, Loader2, Plus, RefreshCw, Send, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -8,17 +8,19 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Skeleton } from '../../components/ui/skeleton';
+import { Textarea } from '../../components/ui/textarea';
 import { cn } from '../../components/ui/utils';
 import {
   campaignService,
   CAMPAIGN_NAME_MAX,
+  CAMPAIGN_TEXT_MAX,
   DELIVERABLE_QTY_MAX,
   DELIVERABLE_TYPES,
   KOL_CATEGORIES,
   KolhubError,
   PLATFORMS,
+  type CampaignType,
   type CampaignView,
-  type CampaignVisibility,
   type DeliverableType,
   type Platform,
   type StoredFile,
@@ -33,6 +35,7 @@ import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
 import { CampaignFeatures } from './FeatureCards';
 import { RecruitSection, TypeSection } from './RecruitFormSections';
 import {
+  ADVANCED_FIELDS,
   COVER_ACCEPT,
   coverFileError,
   EMPTY_FORM,
@@ -46,9 +49,63 @@ import {
   type DeliverableRow,
   type FormField,
 } from './campaignForm';
+import { CampaignTypeDialog, TYPE_PARAM, typeFromParam } from './CampaignTypeDialog';
 import { campaignPath, CAMPAIGNS_PATH, formatVndInput } from './campaignView';
 
 const fieldId = (f: FormField) => `cf-${f}`;
+
+/** Booking riêng: every platform is offered in a deliverable row (there is no separate platform picker). */
+const ALL_PLATFORM_KEYS: Platform[] = PLATFORMS.map((p) => p.key);
+
+/** A new deliverable row reuses the platform of the last row (TikTok when there is none). */
+const lastPlatforms = (rows: DeliverableRow[]): Platform[] => (rows.length ? [rows[rows.length - 1].platform] : []);
+
+/** One line of the current advanced settings, shown while "Tính năng nâng cao" is collapsed. */
+function advancedSummary(v: CampaignFormValues): string {
+  return [
+    `Đàm phán: ${v.negotiation ? 'bật' : 'tắt'}`,
+    `Duyệt nháp: ${v.draftReview ? 'bật' : 'tắt'}`,
+    `Hợp đồng: ${v.contract ? 'bật' : 'tắt'}`,
+    ...(v.useContentRules ? ['Có quy định nội dung'] : []),
+  ].join(' · ');
+}
+
+/**
+ * "Tính năng nâng cao" of a Booking riêng form: collapsed by default with a one-line summary of the current
+ * settings; opens on demand or when the service reports an error on a field inside it.
+ */
+function AdvancedBlock({ open, onOpenChange, summary, children }: { open: boolean; onOpenChange(open: boolean): void; summary: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section aria-labelledby={`${id}-title`} className="rounded-xl border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        aria-expanded={open}
+        aria-controls={`${id}-body`}
+        className="flex w-full items-start gap-3 rounded-xl p-4 text-left hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+          <SlidersHorizontal className="size-5" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1 space-y-0.5">
+          <span id={`${id}-title`} className="block text-base font-semibold text-foreground">
+            Tính năng nâng cao
+          </span>
+          <span className="block text-sm text-muted-foreground">
+            {open ? 'Đàm phán, duyệt nháp, hợp đồng, quy định nội dung.' : summary}
+          </span>
+        </span>
+        <ChevronDown className={cn('mt-2 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden />
+      </button>
+      {open && (
+        <div id={`${id}-body`} className="space-y-5 border-t border-border px-4 py-4">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function DeliverableEditor({
   row,
@@ -250,47 +307,9 @@ function CoverField({
   );
 }
 
-function VisibilityOption({
-  value,
-  current,
-  onSelect,
-  icon,
-  title,
-  text,
-}: {
-  value: CampaignVisibility;
-  current: CampaignVisibility;
-  onSelect(v: CampaignVisibility): void;
-  icon: ReactNode;
-  title: string;
-  text: string;
-}) {
-  const active = value === current;
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      onClick={() => onSelect(value)}
-      className={cn(
-        'flex min-h-11 items-start gap-3 rounded-[8px] border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        active ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/60',
-      )}
-    >
-      <span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full', active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-        {icon}
-      </span>
-      <span className="min-w-0 space-y-0.5">
-        <span className="block text-sm font-medium text-foreground">{title}</span>
-        <span className="block text-xs text-muted-foreground">{text}</span>
-      </span>
-    </button>
-  );
-}
-
 function FormSkeleton() {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 p-4 md:p-6" aria-busy="true" aria-label="Đang tải chiến dịch">
+    <div className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6" aria-busy="true" aria-label="Đang tải chiến dịch">
       {[0, 1, 2].map((i) => (
         <Card key={i} className="gap-3 p-4 md:p-6">
           <Skeleton className="h-5 w-40" />
@@ -306,22 +325,30 @@ function FormSkeleton() {
  * /chien-dich/tao and /chien-dich/:id/sua — campaign form. Only the name is needed for a draft;
  * "Đăng chiến dịch" saves then publishes, and the service's KOLHUB-4803 `field` is shown under that field.
  */
+/** New campaign of the chosen type: empty form with one default deliverable row (Video · TikTok · 1) ready to edit. */
+const newForm = (type: CampaignType = 'BOOKING'): CampaignFormValues => ({ ...EMPTY_FORM, type, deliverables: [newDeliverable([])] });
+
 export function CampaignFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const typeParam = typeFromParam(searchParams.get('loai'));
+  // New campaign opened without a type (e.g. an old link): ask for it first, like the "Tạo chiến dịch" button.
+  const [typeDialog, setTypeDialog] = useState(!id && !typeParam);
   const [loaded, setLoaded] = useState<CampaignView | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
-  const [values, setValues] = useState<CampaignFormValues>(EMPTY_FORM);
+  const [values, setValues] = useState<CampaignFormValues>(() => newForm(typeParam));
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
   const [busy, setBusy] = useState<'draft' | 'publish' | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   /** Id once saved (a new campaign becomes a draft on its first save; later saves update it). */
   const savedId = useRef<string | undefined>(id);
 
   useEffect(() => {
     savedId.current = id;
     if (!id) {
-      setValues(EMPTY_FORM);
+      setValues(newForm(typeParam));
       setLoaded(null);
       return;
     }
@@ -367,12 +394,20 @@ export function CampaignFormPage() {
   const typeLocked = (loaded?.stats.total ?? 0) > 0;
 
   const showError = (e: unknown) => {
-    const field = e instanceof KolhubError && e.code === 'KOLHUB-4803' ? e.meta?.field : undefined;
+    const raw = e instanceof KolhubError && e.code === 'KOLHUB-4803' ? e.meta?.field : undefined;
+    // Booking riêng has no platform picker: "no platform" means "no deliverable".
+    const field = !recruit && raw === 'platforms' ? 'deliverables' : raw;
     if (isFormField(field)) {
-      setErrors({ [field]: fieldErrorText(field, (e as Error).message) });
-      const el = document.getElementById(fieldId(field));
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el?.focus({ preventScroll: true });
+      // The hint follows the field the service named (e.g. "platforms" → add a deliverable).
+      setErrors({ [field]: fieldErrorText(raw ?? field, (e as Error).message) });
+      const inAdvanced = !recruit && ADVANCED_FIELDS.includes(field);
+      if (inAdvanced) setAdvancedOpen(true);
+      // Wait one frame when the advanced block has to open first.
+      requestAnimationFrame(() => {
+        const el = document.getElementById(fieldId(field));
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el?.focus({ preventScroll: true });
+      });
       toast.error('Vui lòng kiểm tra lại thông tin', { description: (e as Error).message });
     } else {
       toast.error(errText(e));
@@ -406,10 +441,15 @@ export function CampaignFormPage() {
   };
 
   const cancelHref = id ? campaignPath(id) : CAMPAIGNS_PATH;
+  // A new campaign keeps its type in the URL (?loai=) so a reload opens the same form.
+  const pickType = (t: CampaignType) => {
+    set('type', t);
+    if (!id) setSearchParams({ loai: TYPE_PARAM[t] }, { replace: true });
+  };
 
   return (
     <form
-      className="mx-auto w-full max-w-3xl space-y-4 p-4 pb-28 md:p-6"
+      className="mx-auto w-full max-w-6xl space-y-4 p-4 pb-28 md:p-6"
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -459,201 +499,294 @@ export function CampaignFormPage() {
         <LoadError message="Chiến dịch không còn ở trạng thái cho phép sửa (chỉ sửa khi Bản nháp hoặc Đang mở)." />
       )}
 
-      <fieldset disabled={!editable || busy !== null} className="min-w-0 space-y-4">
-        <TypeSection value={values.type} onChange={(t) => set('type', t)} locked={typeLocked} error={errors.type} />
+      <fieldset
+        disabled={!editable || busy !== null}
+        className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6"
+      >
+        <div className="min-w-0 lg:col-span-2">
+          <TypeSection value={values.type} onChange={pickType} locked={typeLocked} error={errors.type} />
+        </div>
 
-        <Section title="Ảnh chiến dịch" description="Hiển thị trên thẻ chiến dịch ở Sàn chiến dịch và trong danh sách của bạn. Không bắt buộc.">
-          <CoverField
-            id={fieldId('cover')}
-            value={values.cover}
-            error={errors.cover}
-            onChange={(v) => set('cover', v)}
-            onError={(message) => setErrors((e) => ({ ...e, cover: message }))}
-          />
-        </Section>
-
-        {recruit ? (
-          <RecruitSection values={values} set={set} errors={errors} />
-        ) : (
-        <Section title="Ngân sách và thời gian">
-          <FormRow id={fieldId('budget')} label="Ngân sách (VND)" error={errors.budget} hint="Tổng ngân sách dự kiến cho chiến dịch.">
-            {(d) => (
-              <div className="relative">
-                <Input
-                  id={fieldId('budget')}
-                  inputMode="numeric"
-                  value={values.budget}
-                  onChange={(e) => set('budget', formatVndInput(e.target.value))}
-                  placeholder="VD: 100.000.000"
-                  aria-invalid={!!errors.budget || undefined}
-                  aria-describedby={d}
-                  className="h-11 pr-10 tabular-nums md:h-10"
-                />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground" aria-hidden>
-                  ₫
-                </span>
-              </div>
-            )}
-          </FormRow>
-          <FormRow id={fieldId('dates')} label="Thời gian chạy" error={errors.dates}>
-            {(d) => (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor={fieldId('dates')} className="text-xs font-normal text-muted-foreground">
-                    Ngày bắt đầu
-                  </Label>
-                  <Input
-                    id={fieldId('dates')}
-                    type="date"
-                    value={values.startDate}
-                    onChange={(e) => set('startDate', e.target.value, 'dates')}
-                    aria-invalid={!!errors.dates || undefined}
-                    aria-describedby={d}
-                    className="h-11 md:h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="cf-endDate" className="text-xs font-normal text-muted-foreground">
-                    Ngày kết thúc
-                  </Label>
-                  <Input
-                    id="cf-endDate"
-                    type="date"
-                    value={values.endDate}
-                    min={values.startDate || undefined}
-                    onChange={(e) => set('endDate', e.target.value, 'dates')}
-                    aria-invalid={!!errors.dates || undefined}
-                    aria-describedby={d}
-                    className="h-11 md:h-10"
-                  />
-                </div>
-              </div>
-            )}
-          </FormRow>
-        </Section>
-        )}
-
-        <Section title="Nền tảng và lĩnh vực">
-          <FormRow id={fieldId('platforms')} label="Nền tảng" error={errors.platforms} hint="Chọn một hoặc nhiều nền tảng.">
-            {(d) => (
-              <ChipGroup id={fieldId('platforms')} label="Nền tảng" describedBy={d} invalid={!!errors.platforms}>
-                {PLATFORMS.map((p) => (
-                  <ChipToggle key={p.key} pressed={values.platforms.includes(p.key)} onClick={() => set('platforms', toggle(values.platforms, p.key))}>
-                    <PlatformIcon platform={p.key} />
-                    {p.label}
-                  </ChipToggle>
-                ))}
-              </ChipGroup>
-            )}
-          </FormRow>
-          <FormRow id={fieldId('categories')} label="Lĩnh vực" optional error={errors.categories} hint="Giúp KOL/MCN trên Sàn tìm thấy chiến dịch phù hợp.">
-            {(d) => (
-              <ChipGroup id={fieldId('categories')} label="Lĩnh vực" describedBy={d} invalid={!!errors.categories}>
-                {KOL_CATEGORIES.map((cat) => {
-                  const Icon = fieldIcon(cat);
-                  return (
-                    <ChipToggle key={cat} pressed={values.categories.includes(cat)} onClick={() => set('categories', toggle(values.categories, cat))}>
-                      <Icon className="size-4 shrink-0" aria-hidden />
-                      {cat}
-                    </ChipToggle>
-                  );
-                })}
-              </ChipGroup>
-            )}
-          </FormRow>
-        </Section>
-
-        <Section title="Hạng mục nội dung" description="Những gì KOL cần sản xuất, ví dụ 3 video TikTok và 1 bài đăng Facebook.">
-          <div id={fieldId('deliverables')} tabIndex={-1} className="@container space-y-3 focus-visible:outline-none">
-            {values.deliverables.length > 0 && (
-              <ul className="space-y-2" aria-label="Hạng mục nội dung">
-                {values.deliverables.map((row, i) => (
-                  <DeliverableEditor
-                    key={i}
-                    row={row}
-                    index={i}
-                    platforms={values.platforms}
-                    onChange={(next) => set('deliverables', values.deliverables.map((r, j) => (j === i ? next : r)))}
-                    onRemove={() => set('deliverables', values.deliverables.filter((_, j) => j !== i))}
-                  />
-                ))}
-              </ul>
-            )}
-            {errors.deliverables && (
-              <p className="text-xs text-destructive" role="alert">
-                {errors.deliverables}
-              </p>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 md:h-9"
-              onClick={() => set('deliverables', [...values.deliverables, newDeliverable(values.platforms)])}
-            >
-              <Plus aria-hidden />
-              Thêm hạng mục
-            </Button>
-          </div>
-        </Section>
-
-        {recruit ? (
-          <Section title="Hiển thị">
-            <p className="flex items-start gap-2 text-sm text-foreground">
-              <Globe2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-              Chiến dịch Tuyển nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
-            </p>
+        {/* Side column (above the sections on phones): cover image, sticky while the long form scrolls. */}
+        <aside className="min-w-0 lg:sticky lg:top-4 lg:order-2" aria-label="Ảnh chiến dịch">
+          <Section title="Ảnh chiến dịch" description="Hiện trên thẻ chiến dịch ở Sàn và trong danh sách của bạn. Không bắt buộc.">
+            <CoverField
+              id={fieldId('cover')}
+              value={values.cover}
+              error={errors.cover}
+              onChange={(v) => set('cover', v)}
+              onError={(message) => setErrors((e) => ({ ...e, cover: message }))}
+            />
           </Section>
-        ) : (
-        <Section title="Hiển thị">
-          <div role="radiogroup" aria-label="Chế độ hiển thị" id={fieldId('visibility')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <VisibilityOption
-              value="PRIVATE"
-              current={values.visibility}
-              onSelect={(v) => set('visibility', v)}
-              icon={<Lock className="size-4" aria-hidden />}
-              title="Riêng tư"
-              text="Chỉ những KOL/MCN bạn mời mới thấy chiến dịch."
-            />
-            <VisibilityOption
-              value="MARKETPLACE"
-              current={values.visibility}
-              onSelect={(v) => set('visibility', v)}
-              icon={<Globe2 className="size-4" aria-hidden />}
-              title="Trên Sàn chiến dịch"
-              text="KOL/MCN đã được duyệt có thể xem và gửi đề xuất. Bạn vẫn mời thêm được."
-            />
-          </div>
-          {values.visibility === 'MARKETPLACE' && (
-            <FormRow
-              id={fieldId('applyDeadline')}
-              label="Hạn ứng tuyển"
-              optional
-              error={errors.applyDeadline}
-              hint="Sau ngày này chiến dịch không nhận đề xuất mới. Để trống: nhận đến khi kết thúc."
-            >
-              {(d) => (
-                <Input
-                  id={fieldId('applyDeadline')}
-                  type="date"
-                  value={values.applyDeadline}
-                  max={values.endDate || undefined}
-                  onChange={(e) => set('applyDeadline', e.target.value)}
-                  aria-invalid={!!errors.applyDeadline || undefined}
-                  aria-describedby={d}
-                  className="h-11 sm:max-w-60 md:h-10"
-                />
-              )}
-            </FormRow>
-          )}
-        </Section>
-        )}
+        </aside>
 
-        <CampaignFeatures values={values} set={set} errors={errors} />
+        <div className="min-w-0 space-y-4 lg:order-1">
+
+        {recruit ? (
+          <>
+            <RecruitSection values={values} set={set} errors={errors} />
+            <Section title="Nền tảng và lĩnh vực">
+              <FormRow id={fieldId('platforms')} label="Nền tảng" error={errors.platforms} hint="Chọn một hoặc nhiều nền tảng.">
+                {(d) => (
+                  <ChipGroup id={fieldId('platforms')} label="Nền tảng" describedBy={d} invalid={!!errors.platforms}>
+                    {PLATFORMS.map((p) => (
+                      <ChipToggle key={p.key} pressed={values.platforms.includes(p.key)} onClick={() => set('platforms', toggle(values.platforms, p.key))}>
+                        <PlatformIcon platform={p.key} />
+                        {p.label}
+                      </ChipToggle>
+                    ))}
+                  </ChipGroup>
+                )}
+              </FormRow>
+              <FormRow id={fieldId('categories')} label="Lĩnh vực" optional error={errors.categories} hint="Giúp KOL/MCN trên Sàn tìm thấy chiến dịch phù hợp.">
+                {(d) => (
+                  <ChipGroup id={fieldId('categories')} label="Lĩnh vực" describedBy={d} invalid={!!errors.categories}>
+                    {KOL_CATEGORIES.map((cat) => {
+                      const Icon = fieldIcon(cat);
+                      return (
+                        <ChipToggle key={cat} pressed={values.categories.includes(cat)} onClick={() => set('categories', toggle(values.categories, cat))}>
+                          <Icon className="size-4 shrink-0" aria-hidden />
+                          {cat}
+                        </ChipToggle>
+                      );
+                    })}
+                  </ChipGroup>
+                )}
+              </FormRow>
+            </Section>
+
+            <Section title="Hạng mục nội dung" description="Những gì KOL cần sản xuất, ví dụ 3 video TikTok và 1 bài đăng Facebook.">
+              <div id={fieldId('deliverables')} tabIndex={-1} className="@container space-y-3 focus-visible:outline-none">
+                {values.deliverables.length > 0 && (
+                  <ul className="space-y-2" aria-label="Hạng mục nội dung">
+                    {values.deliverables.map((row, i) => (
+                      <DeliverableEditor
+                        key={i}
+                        row={row}
+                        index={i}
+                        platforms={values.platforms}
+                        onChange={(next) => set('deliverables', values.deliverables.map((r, j) => (j === i ? next : r)))}
+                        onRemove={() => set('deliverables', values.deliverables.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </ul>
+                )}
+                {errors.deliverables && (
+                  <p className="text-xs text-destructive" role="alert">
+                    {errors.deliverables}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 md:h-9"
+                  onClick={() => set('deliverables', [...values.deliverables, newDeliverable(values.platforms)])}
+                >
+                  <Plus aria-hidden />
+                  Thêm hạng mục
+                </Button>
+              </div>
+            </Section>
+
+            <Section title="Hiển thị">
+              <p className="flex items-start gap-2 text-sm text-foreground">
+                <Globe2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                Chiến dịch Tuyển nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
+              </p>
+            </Section>
+
+            <CampaignFeatures values={values} set={set} errors={errors} />
+          </>
+        ) : (
+          <>
+            <Section title="Nội dung cần làm" description="KOL làm theo các hạng mục và brief này. Nền tảng của chiến dịch lấy theo hạng mục.">
+              <div id={fieldId('deliverables')} tabIndex={-1} className="@container space-y-3 focus-visible:outline-none">
+                {values.deliverables.length > 0 && (
+                  <ul className="space-y-2" aria-label="Hạng mục nội dung">
+                    {values.deliverables.map((row, i) => (
+                      <DeliverableEditor
+                        key={i}
+                        row={row}
+                        index={i}
+                        platforms={ALL_PLATFORM_KEYS}
+                        onChange={(next) => set('deliverables', values.deliverables.map((r, j) => (j === i ? next : r)))}
+                        onRemove={() => set('deliverables', values.deliverables.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </ul>
+                )}
+                {errors.deliverables && (
+                  <p className="text-xs text-destructive" role="alert">
+                    {errors.deliverables}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 md:h-9"
+                  onClick={() => set('deliverables', [...values.deliverables, newDeliverable(lastPlatforms(values.deliverables))])}
+                >
+                  <Plus aria-hidden />
+                  Thêm hạng mục
+                </Button>
+              </div>
+
+              <FormRow
+                id={fieldId('brief')}
+                label="Brief"
+                error={errors.brief}
+                hint={`Thông điệp chính, câu chuyện, điểm cần nhấn mạnh. Bắt buộc khi tạo chiến dịch. ${[...values.brief].length.toLocaleString('vi-VN')}/${CAMPAIGN_TEXT_MAX.toLocaleString('vi-VN')}`}
+              >
+                {(d) => (
+                  <Textarea
+                    id={fieldId('brief')}
+                    value={values.brief}
+                    maxLength={CAMPAIGN_TEXT_MAX}
+                    rows={5}
+                    onChange={(e) => set('brief', e.target.value)}
+                    placeholder="VD: Giới thiệu sữa hạt vị mới cho gia đình trẻ, nhấn mạnh ít đường, quay cảnh bữa sáng"
+                    aria-invalid={!!errors.brief || undefined}
+                    aria-describedby={d}
+                  />
+                )}
+              </FormRow>
+
+            </Section>
+
+            <Section title="Ngân sách và thời gian">
+              <FormRow id={fieldId('budget')} label="Ngân sách (VND)" error={errors.budget} hint="Tổng ngân sách dự kiến cho chiến dịch.">
+                {(d) => (
+                  <div className="relative">
+                    <Input
+                      id={fieldId('budget')}
+                      inputMode="numeric"
+                      value={values.budget}
+                      onChange={(e) => set('budget', formatVndInput(e.target.value))}
+                      placeholder="VD: 100.000.000"
+                      aria-invalid={!!errors.budget || undefined}
+                      aria-describedby={d}
+                      className="h-11 pr-10 tabular-nums md:h-10"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground" aria-hidden>
+                      ₫
+                    </span>
+                  </div>
+                )}
+              </FormRow>
+              <FormRow id={fieldId('dates')} label="Thời gian chạy" error={errors.dates}>
+                {(d) => (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label htmlFor={fieldId('dates')} className="text-xs font-normal text-muted-foreground">
+                        Ngày bắt đầu
+                      </Label>
+                      <Input
+                        id={fieldId('dates')}
+                        type="date"
+                        value={values.startDate}
+                        onChange={(e) => set('startDate', e.target.value, 'dates')}
+                        aria-invalid={!!errors.dates || undefined}
+                        aria-describedby={d}
+                        className="h-11 md:h-10"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="cf-endDate" className="text-xs font-normal text-muted-foreground">
+                        Ngày kết thúc
+                      </Label>
+                      <Input
+                        id="cf-endDate"
+                        type="date"
+                        value={values.endDate}
+                        min={values.startDate || undefined}
+                        onChange={(e) => set('endDate', e.target.value, 'dates')}
+                        aria-invalid={!!errors.dates || undefined}
+                        aria-describedby={d}
+                        className="h-11 md:h-10"
+                      />
+                    </div>
+                  </div>
+                )}
+              </FormRow>
+            </Section>
+
+            <AdvancedBlock open={advancedOpen} onOpenChange={setAdvancedOpen} summary={advancedSummary(values)}>
+              <FormRow id={fieldId('objective')} label="Mục tiêu" optional error={errors.objective}>
+                {(d) => (
+                  <Textarea
+                    id={fieldId('objective')}
+                    value={values.objective}
+                    maxLength={CAMPAIGN_TEXT_MAX}
+                    rows={2}
+                    onChange={(e) => set('objective', e.target.value)}
+                    placeholder="VD: Tăng nhận biết sản phẩm với nhóm gia đình trẻ"
+                    aria-invalid={!!errors.objective || undefined}
+                    aria-describedby={d}
+                  />
+                )}
+              </FormRow>
+
+              <div className="space-y-3">
+                {values.visibility === 'MARKETPLACE' && (
+                  <FormRow
+                    id={fieldId('applyDeadline')}
+                    label="Hạn ứng tuyển"
+                    optional
+                    error={errors.applyDeadline}
+                    hint="Sau ngày này chiến dịch không nhận đề xuất mới. Để trống: nhận đến khi kết thúc."
+                  >
+                    {(d) => (
+                      <Input
+                        id={fieldId('applyDeadline')}
+                        type="date"
+                        value={values.applyDeadline}
+                        max={values.endDate || undefined}
+                        onChange={(e) => set('applyDeadline', e.target.value)}
+                        aria-invalid={!!errors.applyDeadline || undefined}
+                        aria-describedby={d}
+                        className="h-11 sm:max-w-60 md:h-10"
+                      />
+                    )}
+                  </FormRow>
+                )}
+
+                {values.visibility === 'MARKETPLACE' && (
+                  <>
+                  <FormRow id={fieldId('categories')} label="Lĩnh vực" optional error={errors.categories} hint="Giúp KOL/MCN trên Sàn tìm thấy chiến dịch phù hợp.">
+                    {(d) => (
+                      <ChipGroup id={fieldId('categories')} label="Lĩnh vực" describedBy={d} invalid={!!errors.categories}>
+                        {KOL_CATEGORIES.map((cat) => {
+                          const Icon = fieldIcon(cat);
+                          return (
+                            <ChipToggle key={cat} pressed={values.categories.includes(cat)} onClick={() => set('categories', toggle(values.categories, cat))}>
+                              <Icon className="size-4 shrink-0" aria-hidden />
+                              {cat}
+                            </ChipToggle>
+                          );
+                        })}
+                      </ChipGroup>
+                    )}
+                  </FormRow>
+
+                  </>
+                )}
+              </div>
+              <CampaignFeatures values={values} set={set} errors={errors} variant="advanced" />
+            </AdvancedBlock>
+          </>
+        )}
+        </div>
       </fieldset>
+
+      <CampaignTypeDialog
+        open={typeDialog}
+        onOpenChange={setTypeDialog}
+        onPick={pickType}
+      />
 
       {editable && (
         <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:sticky md:bottom-0 md:-mx-6 md:rounded-b-[8px]">
-          <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-2 px-4 py-3 md:px-6">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-3 md:px-6">
             <p className="hidden min-w-0 flex-1 text-sm text-muted-foreground sm:block" aria-live="polite">
               {!values.name.trim()
                 ? 'Hãy đặt tên cho chiến dịch của bạn để bắt đầu tạo.'

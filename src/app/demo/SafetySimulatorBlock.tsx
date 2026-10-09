@@ -1,0 +1,183 @@
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { useAuth } from '../auth/AuthContext';
+import { Button } from '../components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  canRenew,
+  channelService,
+  daysLeft,
+  SAFETY_REQUIRED,
+  safetyProgress,
+  safetyVerificationService,
+  type Channel,
+} from '../services';
+import { channelName } from '../features/channels/ChannelParts';
+import { PLATFORM_LABEL } from '../features/shared/StatusBadges';
+import { useLiveQuery } from '../features/shared/useLiveQuery';
+import { DemoPanelSection } from './DemoPanelSection';
+
+type Verdict = 'AUTO' | 'PASS' | 'FAIL';
+const VERDICTS: { key: Verdict; label: string }[] = [
+  { key: 'AUTO', label: 'Tự động (vài nội dung không đạt lần đầu)' },
+  { key: 'PASS', label: 'Đạt' },
+  { key: 'FAIL', label: 'Không đạt' },
+];
+
+function stateText(c: Channel, now: number): string {
+  if (c.status === 'SAFETY_PENDING') {
+    const p = safetyProgress(c, now);
+    return p.phase === 'IN_PROGRESS' ? `Chờ KOL Safety · ${p.passed}/${p.required}` : 'Chờ KOL Safety · chưa quét';
+  }
+  if (c.status === 'PENDING_REVIEW') return 'Chờ Admin duyệt';
+  if (c.status === 'NEEDS_FIX') return 'Cần bổ sung';
+  const left = daysLeft(c, now);
+  return left === undefined ? 'Hết hạn dấu' : `Đã xác thực · còn ${left} ngày`;
+}
+
+/**
+ * Demo Panel › KOL/MCN: xác thực kênh qua KOL Safety. KOL Safety là hệ thống ngoài nên kết quả quét được giả
+ * lập: chọn kết quả lần quét tới, quét đủ ngay, kênh chưa đủ nội dung, đẩy hạn dấu tới còn 7 ngày / hết hạn.
+ */
+export function SafetySimulatorBlock() {
+  const { account } = useAuth();
+  const ownerId = account?.id;
+  const q = useLiveQuery(() => (ownerId ? channelService.list(ownerId) : Promise.resolve([] as Channel[])), [ownerId]);
+  const channels = q.data ?? [];
+  const [channelId, setChannelId] = useState<string | undefined>();
+  const [verdict, setVerdict] = useState<Verdict>(() => safetyVerificationService.demoNextVerdict());
+  const [busy, setBusy] = useState(false);
+
+  const now = Date.now();
+  // Mặc định: kênh đầu tiên đang cần hành động KOL Safety.
+  const selected =
+    channels.find((c) => c.id === channelId) ??
+    channels.find((c) => c.status === 'SAFETY_PENDING' || canRenew(c, now)) ??
+    channels[0];
+
+  const run = async (fn: () => Promise<unknown>, ok: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      toast.success(ok);
+    } catch (e) {
+      toast.error(e instanceof Error && e.message === 'NOT_VERIFIABLE' ? 'Kênh này chưa cần xác thực / gia hạn.' : 'Không thực hiện được.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onVerdict = (v: Verdict) => {
+    setVerdict(v);
+    void safetyVerificationService.demoSetNextVerdict(v);
+  };
+
+  if (!ownerId) return null;
+  return (
+    <DemoPanelSection title="Xác thực kênh (KOL Safety)" description="Giả lập kết quả quét của KOL Safety cho kênh của tài khoản này.">
+      {channels.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Chưa có kênh. Thêm kênh ở Quản lý kênh hoặc bấm “Điền hồ sơ mẫu”.</p>
+      ) : (
+        <div className="space-y-2.5">
+          <Select value={selected?.id} onValueChange={setChannelId}>
+            <SelectTrigger className="h-11 w-full md:h-9" aria-label="Chọn kênh">
+              <SelectValue placeholder="Chọn kênh" />
+            </SelectTrigger>
+            <SelectContent>
+              {channels.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {PLATFORM_LABEL[c.platform]} · {channelName(c.handle, c.url)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {selected && <p className="text-xs text-muted-foreground">Trạng thái: {stateText(selected, now)}</p>}
+
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-foreground">Kết quả lần quét tới</p>
+            <Select value={verdict} onValueChange={(v) => onVerdict(v as Verdict)}>
+              <SelectTrigger className="h-11 w-full md:h-9" aria-label="Kết quả lần quét tới">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VERDICTS.map((v) => (
+                  <SelectItem key={v.key} value={v.key}>
+                    {v.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selected && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-11 md:h-8"
+                disabled={busy}
+                onClick={() => run(() => safetyVerificationService.demoPassAll(selected.id), 'Đã quét đủ — tất cả nội dung đạt')}
+              >
+                Quét đủ ngay
+              </Button>
+              {selected.status !== 'SAFETY_PENDING' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 md:h-8"
+                  disabled={busy}
+                  onClick={() => run(() => safetyVerificationService.demoResetSafety(selected.id), 'Kênh về Chưa xác thực KOL Safety')}
+                >
+                  Chưa xác thực
+                </Button>
+              )}
+              {selected.status === 'SAFETY_PENDING' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 md:h-8"
+                  disabled={busy}
+                  onClick={() => {
+                    const short = selected.demoContentCount === undefined;
+                    return run(
+                      () => safetyVerificationService.demoSetContentCount(selected.id, short ? Math.floor(SAFETY_REQUIRED[selected.platform] / 2) : undefined),
+                      short ? 'Kênh giờ chưa đủ nội dung' : 'Kênh đã đủ nội dung',
+                    );
+                  }}
+                >
+                  {selected.demoContentCount === undefined ? 'Chưa đủ nội dung' : 'Đủ nội dung'}
+                </Button>
+              )}
+              {(selected.status === 'VERIFIED' || selected.status === 'EXPIRED') && (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 md:h-8"
+                    disabled={busy}
+                    onClick={() => run(() => safetyVerificationService.demoSetDaysLeft(selected.id, 7), 'Dấu còn 7 ngày')}
+                  >
+                    Còn 7 ngày
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 md:h-8"
+                    disabled={busy}
+                    onClick={() => run(() => safetyVerificationService.demoSetDaysLeft(selected.id, 0), 'Dấu đã hết hạn')}
+                  >
+                    Hết hạn
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </DemoPanelSection>
+  );
+}

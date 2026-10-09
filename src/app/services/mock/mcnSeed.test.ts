@@ -44,18 +44,16 @@ test('12 kênh MCN (FB/YT/TikTok): 6 xác thực, 2 hết hạn dấu, 2 chờ d
   expect(chs.every((c) => c.handle.trim() !== '')).toBe(true);
 });
 
-test('kênh xác thực: có số liệu, dấu hết hạn sau 12 tháng, 1 kênh sắp hết hạn trong 30 ngày', () => {
+test('kênh xác thực: có số liệu, dấu theo kỳ 90 ngày (gia hạn KOL Safety), 3 kênh còn ≤ 30 ngày', () => {
   const verified = seeded.channels.filter((c) => c.status === 'VERIFIED' || c.status === 'EXPIRED');
   for (const c of verified) {
     expect(c.stats?.followers).toBeGreaterThan(0);
     expect(c.stats!.latestVideos.length).toBeGreaterThan(0);
-    const d = new Date(c.verifiedAt!);
-    d.setMonth(d.getMonth() + 12);
-    expect(c.badgeExpiresAt).toBe(d.getTime());
+    expect((c.badgeExpiresAt! - c.verifiedAt!) % (90 * DAY)).toBe(0);
   }
   const live = seeded.channels.filter((c) => c.status === 'VERIFIED');
-  expect(live.every((c) => c.badgeExpiresAt! > NOW)).toBe(true);
-  expect(live.filter((c) => c.badgeExpiresAt! - NOW <= 30 * DAY)).toHaveLength(1);
+  expect(live.every((c) => c.badgeExpiresAt! > NOW && c.badgeExpiresAt! - NOW <= 90 * DAY)).toBe(true);
+  expect(live.filter((c) => c.badgeExpiresAt! - NOW <= 30 * DAY)).toHaveLength(3);
   expect(seeded.channels.filter((c) => c.status === 'EXPIRED').every((c) => c.badgeExpiresAt! < NOW)).toBe(true);
 });
 

@@ -61,7 +61,7 @@ export function legacySectionPath(ownerType: OwnerType, tab: string | null | und
   return profilePath(ownerType, isProfileSection(tab) ? tab : DEFAULT_PROFILE_SECTION, opts);
 }
 
-export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
+export type MilestoneKey = 'contact' | 'staff' | 'identity' | 'channel' | 'safety' | 'submitted';
 
 /** MCN "Quản lý KOL" (assign channels to KOLs); `openAssign` adds ?gan=1 so the page opens its assign dialog. */
 export function mcnKolsPath(opts?: { openAssign?: boolean }): string {
@@ -81,6 +81,7 @@ const MILESTONE_TARGET: Record<MilestoneKey, Target> = {
   staff: 'nhan-su',
   identity: 'dinh-danh',
   channel: 'kenh',
+  safety: 'kenh',
   submitted: 'tong-quan',
 };
 
@@ -91,6 +92,7 @@ export function milestoneBadge(ownerType: OwnerType, key: MilestoneKey): { label
     staff: 'Nhân sự',
     identity: ownerType === 'KOL' ? 'eKYC' : 'GCN ĐKDN',
     channel: 'Kênh & ảnh',
+    safety: 'KOL Safety',
     submitted: 'Gửi xét duyệt',
   };
   return { label: labels[key], to: targetPath(ownerType, MILESTONE_TARGET[key]) };
@@ -105,6 +107,7 @@ const CHECKLIST_TARGET: Partial<Record<ChecklistKey, Target>> = {
   contact: 'lien-he',
   staff: 'nhan-su',
   channel: 'kenh',
+  safety: 'kenh',
   kols: 'kol',
 };
 

@@ -16,6 +16,7 @@ import { DemoRoleBlock } from './DemoRoleBlock';
 import { COLLAPSED_SECTIONS, ROLE_SECTION_LABEL, roleOfAccount, sectionsFor, type DemoBlock, type DemoRole } from './demoTabs';
 import { FunnelView } from './FunnelView';
 import { useRoleSwitch } from './RoleSwitcher';
+import { SafetySimulatorBlock } from './SafetySimulatorBlock';
 import { SampleProfileBlock } from './SampleProfileBlock';
 import { ShieldAppealsBlock } from './ShieldAppealsBlock';
 import { ViolationReviewBlock } from './ViolationReviewBlock';
@@ -47,6 +48,8 @@ function DemoPanelBody({ onDone }: { onDone(): void }) {
         return <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Chọn vai trò ở trên để xem demo</p>;
       case 'profile':
         return (r === 'kol' || r === 'mcn') && <SampleProfileBlock key={current?.key} role={r} onDone={onDone} />;
+      case 'safety':
+        return (r === 'kol' || r === 'mcn') && <SafetySimulatorBlock key={current?.key} />;
       case 'campaign':
         return r !== 'guest' && <CampaignSimulatorBlock key={current?.key} role={r} onDone={onDone} />;
     }

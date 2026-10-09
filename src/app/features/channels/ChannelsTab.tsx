@@ -33,6 +33,7 @@ import {
 import { ActiveSwitch, NeedsFixCallout } from './ChannelParts';
 import { ChannelRow, ROW_MENU_ITEM } from './ChannelRow';
 import { OwnerChannelSheet } from './OwnerChannelSheet';
+import { SafetyActionButton, SafetyStatusBadge, SafetyVerifySheet } from './SafetyVerify';
 import { useMcnChannelOwners } from '../mcn-kols/useMcnChannelOwners';
 import {
   applyChannelPatch,
@@ -112,6 +113,8 @@ export function ChannelsTab({
     return statusMode ? statusOnlyQuery(parsed) : parsed;
   }, [paramsKey, statusMode]);
   const [sheet, setSheet] = useState<{ open: boolean; channel?: Channel }>({ open: false });
+  // "Xác thực trên KOL Safety" / "Gia hạn" sheet (channel id; the channel itself comes from the live list).
+  const [safetyId, setSafetyId] = useState<string | null>(null);
   const detail = useChannelParam();
   // MCN only ('status' mode): channel owner (assigned KOL / Kênh riêng MCN), `?kol=` filter, assign.
   const owners = useMcnChannelOwners(accountId, statusMode, profileStatus);
@@ -198,19 +201,23 @@ export function ChannelsTab({
         url={c.url}
         verifiedUntil={channelBadge(c, now) === 'VERIFIED' ? c.badgeExpiresAt : undefined}
         subline={
-          owners.enabled ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-              <ChannelStatusBadge channel={c} now={now} />
-              {owners.tag(c)}
-            </div>
-          ) : (
-            <ChannelStatusBadge channel={c} now={now} />
-          )
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1.5">
+            {/* "Chờ KOL Safety" is already said by the KOL Safety badge. */}
+            {c.status !== 'SAFETY_PENDING' && <ChannelStatusBadge channel={c} now={now} />}
+            <SafetyStatusBadge channel={c} now={now} />
+            {owners.enabled && owners.tag(c)}
+          </div>
         }
         fields={assignedTo ? (assignedTo.fields ?? []) : fields}
         region={assignedTo ? assignedTo.region : region}
         followers={c.stats?.followers}
-        trailing={<ActiveSwitch channel={c} accountId={accountId} />}
+        trailing={
+          // Fixed width on wide rows so the columns line up whether or not the "Xác thực" button is shown.
+          <div className="flex flex-wrap items-center justify-end gap-3 @4xl:w-60 @4xl:flex-nowrap">
+            <SafetyActionButton channel={c} now={now} onOpen={() => setSafetyId(c.id)} />
+            <ActiveSwitch channel={c} accountId={accountId} />
+          </div>
+        }
         onOpen={() => detail.openChannel(c.id)}
         footer={
           c.status === 'NEEDS_FIX' && (
@@ -364,6 +371,11 @@ export function ChannelsTab({
         renderExtra={owners.enabled ? owners.detailSection : undefined}
       />
       {owners.dialog}
+      <SafetyVerifySheet
+        channel={safetyId ? channels?.find((c) => c.id === safetyId) : undefined}
+        accountId={accountId}
+        onOpenChange={(open) => !open && setSafetyId(null)}
+      />
       <ChannelFormSheet
         open={sheet.open}
         onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}

@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { RadioGroup, RadioGroupItem } from '../../components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Textarea } from '../../components/ui/textarea';
 import { cn } from '../../components/ui/utils';
@@ -72,38 +73,47 @@ const TYPE_ICON: Record<CampaignType, ReactNode> = {
 };
 
 /** "Booking riêng" / "Tuyển nhiều KOL" radio cards; locked once the campaign has bookings. */
+/**
+ * Compact type switch of the form: the type is picked in the "Tạo chiến dịch" dialog, here only a radio to change
+ * it (locked once the campaign has bookings), with the selected type's one-line description.
+ */
 export function TypeSection({ value, onChange, locked, error }: { value: CampaignType; onChange(v: CampaignType): void; locked: boolean; error?: string }) {
+  const labelId = useId();
+  const current = CAMPAIGN_TYPES.find((t) => t.key === value);
   return (
-    <Section title="Loại chiến dịch" description={locked ? 'Chiến dịch đã có booking nên không đổi được loại.' : 'Chọn cách bạn làm việc với KOL/MCN.'}>
-      <div role="radiogroup" aria-label="Loại chiến dịch" id={fieldId('type')} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {CAMPAIGN_TYPES.map((t) => {
-          const active = t.key === value;
-          return (
-            <button
+    <div className="space-y-1.5 rounded-[8px] border border-border bg-card px-4 py-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+        <span id={labelId} className="shrink-0 text-sm font-semibold text-foreground">
+          Loại chiến dịch
+        </span>
+        <RadioGroup
+          id={fieldId('type')}
+          aria-labelledby={labelId}
+          value={value}
+          onValueChange={(v) => onChange(v as CampaignType)}
+          className="flex flex-wrap gap-x-5 gap-y-2"
+        >
+          {CAMPAIGN_TYPES.map((t) => (
+            <label
               key={t.key}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              disabled={locked && !active}
-              onClick={() => onChange(t.key)}
               className={cn(
-                'flex min-h-11 items-start gap-3 rounded-[8px] border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                active ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-muted/60',
+                'flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground md:min-h-8',
+                locked && t.key !== value && 'cursor-not-allowed opacity-50',
               )}
             >
-              <span className={cn('mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full', active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-                {TYPE_ICON[t.key]}
-              </span>
-              <span className="min-w-0 space-y-0.5">
-                <span className="block text-sm font-medium text-foreground">{t.label}</span>
-                <span className="block text-xs text-muted-foreground">{t.description}</span>
-              </span>
-            </button>
-          );
-        })}
+              <RadioGroupItem value={t.key} disabled={locked && t.key !== value} />
+              <span className="text-muted-foreground">{TYPE_ICON[t.key]}</span>
+              {t.label}
+            </label>
+          ))}
+        </RadioGroup>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {locked ? 'Chiến dịch đã có booking nên không đổi được loại. ' : ''}
+        {current?.description}
+      </p>
       <ErrorText error={error} />
-    </Section>
+    </div>
   );
 }
 

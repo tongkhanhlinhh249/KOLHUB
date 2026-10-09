@@ -12,7 +12,7 @@ export const ASSUMPTIONS: { question: string; decision: string }[] = [
   { question: 'BR-55 lọc "thuộc MCN"', decision: 'Ẩn, vì liên kết KOL–MCN ngoài phạm vi' },
   {
     question: 'KOL Safety trong menu',
-    decision: 'Nhóm "Kiểm duyệt (KOL Safety)": kiểm tra video trước khi đăng + kiểm duyệt kênh TikTok/Facebook/YouTube (kết quả mô phỏng)',
+    decision: 'Nhóm "Kiểm duyệt (KOL Safety)": kiểm tra video trước khi đăng + kiểm duyệt kênh TikTok/Facebook/Instagram/YouTube (kết quả mô phỏng)',
   },
   {
     question: 'Danh sách vi phạm cho Nhãn hàng',

@@ -139,6 +139,7 @@ describe('thương lượng', () => {
     as(BRAND);
     const cid = (await campaigns.create({
       name: 'Thử',
+      brief: 'Brief thử',
       budget: 10_000_000,
       startDate: '2099-01-01',
       endDate: '2099-02-01',
@@ -160,6 +161,7 @@ describe('thương lượng', () => {
     as(BRAND);
     const cid = (await campaigns.create({
       name: 'Chỉ Facebook',
+      brief: 'Brief thử',
       budget: 10_000_000,
       startDate: '2099-01-01',
       endDate: '2099-02-01',

@@ -3,7 +3,6 @@ import { Link, Navigate, useLocation, useSearchParams } from 'react-router';
 import { AlertCircle, AlertTriangle, ChevronRight, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
-import { cn } from '../../components/ui/utils';
 import { Skeleton } from '../../components/ui/skeleton';
 import { useAuth } from '../../auth/AuthContext';
 import { channelService, ekycService, mcnKolService, profileService, type McnKolRow, type OwnerType } from '../../services';
@@ -131,8 +130,9 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
     [setParams],
   );
 
+  // Same width as the other wide pages (Danh sách kênh, Chiến dịch) so no space is wasted on either side.
   return (
-    <div className={cn('mx-auto w-full space-y-4 p-4 md:p-6', isOverview ? 'max-w-7xl' : 'max-w-5xl')}>
+    <div className="mx-auto w-full max-w-[1600px] space-y-4 p-4 md:p-6">
       {q.loading && !ready ? (
         <PageSkeleton withHeader={isOverview} />
       ) : q.error || !q.data || !ready ? (

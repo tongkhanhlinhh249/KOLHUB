@@ -6,3 +6,9 @@ dist/
 package.json.bak
 .claude/worktrees/
 .vercel
+
+# Biến môi trường và khóa bí mật
+.env
+.env.*
+!.env.example
+*.pem

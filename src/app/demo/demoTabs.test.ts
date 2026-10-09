@@ -13,8 +13,8 @@ test('vai trò của tài khoản demo', () => {
 
 test('mỗi vai trò chỉ thấy phần của mình; Admin và Hệ thống luôn thu gọn ở cuối', () => {
   expect(sectionsFor('biz')).toEqual(['campaign']);
-  expect(sectionsFor('kol')).toEqual(['profile', 'campaign']);
-  expect(sectionsFor('mcn')).toEqual(['profile', 'campaign']);
+  expect(sectionsFor('kol')).toEqual(['profile', 'safety', 'campaign']);
+  expect(sectionsFor('mcn')).toEqual(['profile', 'safety', 'campaign']);
   expect(sectionsFor('guest')).toEqual(['hint']);
   expect(COLLAPSED_SECTIONS.map((s) => s.label)).toEqual(['Admin', 'Hệ thống']);
   expect(showsEkyc('kol')).toBe(true);

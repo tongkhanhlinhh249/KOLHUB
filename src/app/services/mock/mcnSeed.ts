@@ -1,8 +1,7 @@
 // Approved sample MCN "Sao Việt Media" (quick-login "Tổ chức/MCN (đã xác thực)") with the channels it manages.
-import { addMonths } from 'date-fns';
 import type { Channel, McnProfile, Platform, StoredFile } from '../profile-types';
 import type { StoredAccount } from './db';
-import { channelHandle } from './channelRules';
+import { BADGE_VALID_DAYS, channelHandle } from './channelRules';
 import { syncChannelStats } from './socialListening';
 
 const DAY = 86_400_000;
@@ -97,7 +96,9 @@ export function seedVerifiedMcn(now: number, password: string): SeededMcn {
       const verifiedAt = now - s.verifiedDaysAgo * DAY;
       base.status = s.kind === 'verified' ? 'VERIFIED' : 'EXPIRED';
       base.verifiedAt = verifiedAt;
-      const expiresAt = addMonths(verifiedAt, 12).getTime();
+      let expiresAt = verifiedAt + BADGE_VALID_DAYS * DAY;
+      // Verified channels were renewed every 90 days on KOL Safety; expired ones lapsed after their first term.
+      while (s.kind === 'verified' && expiresAt <= now) expiresAt += BADGE_VALID_DAYS * DAY;
       base.badgeExpiresAt = expiresAt;
       // Expired channels keep the stats of their last sync (when the badge ran out).
       base.stats = syncChannelStats(base, s.kind === 'verified' ? now : expiresAt);

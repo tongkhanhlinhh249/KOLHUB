@@ -4,7 +4,7 @@ import type { LatestVideo, Platform } from '../bizTypes';
 import type { Channel } from '../profile-types';
 
 const DAY = 86_400_000;
-const LISTENED: readonly Platform[] = ['facebook', 'youtube', 'tiktok'];
+const LISTENED: readonly Platform[] = ['facebook', 'instagram', 'youtube', 'tiktok'];
 
 /** Every distinct content image of creators.ts, used as sample video thumbnails. */
 export const IMAGE_POOL: string[] = [...new Set(creators.flatMap((c) => c.contentImages as string[]))];
@@ -23,6 +23,7 @@ export function videoUrl(platform: Platform, channel: string, n: number): string
   const base = channel.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
   if (platform === 'youtube') return `https://youtube.com/watch?v=${base.replace(/[^a-z0-9]/gi, '')}${n}`;
   if (platform === 'tiktok') return `https://${base}/video/${n}`;
+  if (platform === 'instagram') return `https://instagram.com/p/${base.replace(/[^a-z0-9]/gi, '')}${n}`;
   return `https://${base}/videos/${n}`;
 }
 
@@ -34,7 +35,7 @@ function hash(s: string): number {
 
 /**
  * Stats "pulled" from the platform for a verified channel: deterministic from the URL (stable
- * followers + 2–6 newest-first videos from the sample image pool). Only FB / YouTube / TikTok (BR-20).
+ * followers + 2–6 newest-first videos from the sample image pool). Only FB / Instagram / YouTube / TikTok (BR-20).
  */
 const keyOf = (url: string) =>
   url.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^(www|m)\./, '').replace(/\/+$/, '');

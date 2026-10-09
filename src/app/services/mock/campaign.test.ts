@@ -97,7 +97,7 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     expect(c.stats.total).toBe(0);
     await expect(svc.create({ name: ' ' })).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'name' } });
     await expect(svc.create({ name: 'A', startDate: '2026-02-30' })).rejects.toMatchObject({ meta: { field: 'dates' } });
-    await expect(svc.create({ name: 'A', platforms: ['instagram' as never] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
+    await expect(svc.create({ name: 'A', platforms: ['twitter' as never] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
   });
 
   test('đăng: thiếu thông tin → 4803 theo trường; đủ → OPEN, có publishedAt', async () => {
@@ -115,6 +115,15 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     expect(open.publishedAt).toBe(h.now());
     expect(open.applyDeadline).toBeUndefined();
     await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4802' });
+  });
+
+  test('Booking riêng: brief bắt buộc khi đăng và khi sửa chiến dịch đang mở (4803 brief)', async () => {
+    const c = await svc.create({ ...complete(), name: 'Book 1 KOL', brief: '   ' });
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'brief' } });
+    await svc.update(c.id, { brief: 'Giới thiệu vị mới, nhấn mạnh ít đường' });
+    const open = await svc.publish(c.id);
+    expect(open.status).toBe('OPEN');
+    await expect(svc.update(c.id, { brief: '' })).rejects.toMatchObject({ meta: { field: 'brief' } });
   });
 
   test('sửa: OPEN phải còn đủ thông tin; RUNNING/COMPLETED không sửa được (4802)', async () => {

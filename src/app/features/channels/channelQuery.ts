@@ -1,13 +1,15 @@
 // URL-synced state of the "Quản lý kênh" page (KOL/MCN) + pure filter/sort over the owner's channels.
-import { channelBadge, normalizeText, normalizeUrl, PLATFORMS, type Channel, type Platform } from '../../services';
+import { canRenew, channelBadge, normalizeText, normalizeUrl, PLATFORMS, type Channel, type Platform } from '../../services';
 
-export type ChannelStatusFilter = 'verified' | 'pending' | 'needs_fix' | 'expired';
+export type ChannelStatusFilter = 'safety' | 'pending' | 'needs_fix' | 'verified' | 'expiring' | 'expired';
 export type ChannelActiveFilter = 'on' | 'off';
 export type ChannelSort = 'updated' | 'followers' | 'expiry';
 export const CHANNEL_STATUS_OPTIONS: { key: ChannelStatusFilter; label: string }[] = [
-  { key: 'verified', label: 'Đã xác thực' },
+  { key: 'safety', label: 'Chờ KOL Safety' },
   { key: 'pending', label: 'Chờ duyệt' },
   { key: 'needs_fix', label: 'Cần bổ sung' },
+  { key: 'verified', label: 'Đã xác thực' },
+  { key: 'expiring', label: 'Sắp hết hạn' },
   { key: 'expired', label: 'Hết hạn dấu' },
 ];
 
@@ -106,21 +108,27 @@ export function channelFilterCount(q: ChannelQuery): number {
   return [q.status, q.active].filter(Boolean).length + (q.platforms?.length ? 1 : 0);
 }
 
-/** Which status bucket a channel is in; a VERIFIED channel past its badge date counts as expired. */
+/**
+ * Which status bucket a channel is in; a VERIFIED channel past its badge date counts as expired, and one
+ * with ≤ 14 days left (renewal window) as "Sắp hết hạn".
+ */
 export function channelStatusOf(ch: Channel, now: number): ChannelStatusFilter {
   switch (ch.status) {
+    case 'SAFETY_PENDING':
+      return 'safety';
     case 'PENDING_REVIEW':
       return 'pending';
     case 'NEEDS_FIX':
       return 'needs_fix';
     default:
-      return channelBadge(ch, now) === 'VERIFIED' ? 'verified' : 'expired';
+      if (channelBadge(ch, now) !== 'VERIFIED') return 'expired';
+      return canRenew(ch, now) ? 'expiring' : 'verified';
   }
 }
 
 /** Channel counts per status option (the "Tất cả" count is `channels.length`). */
 export function countByStatus(channels: Channel[], now: number): Record<ChannelStatusFilter, number> {
-  const counts: Record<ChannelStatusFilter, number> = { verified: 0, pending: 0, needs_fix: 0, expired: 0 };
+  const counts: Record<ChannelStatusFilter, number> = { safety: 0, pending: 0, needs_fix: 0, verified: 0, expiring: 0, expired: 0 };
   for (const c of channels) counts[channelStatusOf(c, now)] += 1;
   return counts;
 }
@@ -179,7 +187,7 @@ export interface ChannelStatusTab {
   count: number;
 }
 
-/** "Tất cả" + every status option with its count, always all five (the old tabs never hid a 0). */
+/** "Tất cả" + every status option with its count, always all of them (the old tabs never hid a 0). */
 export function channelStatusTabs(channels: Channel[], now: number): ChannelStatusTab[] {
   const counts = countByStatus(channels, now);
   return [

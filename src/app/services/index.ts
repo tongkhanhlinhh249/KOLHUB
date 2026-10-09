@@ -9,6 +9,7 @@ import { noticeInbox } from './noticeInbox';
 import { createProfileService } from './mock/profile';
 import { createEkycService } from './mock/ekyc';
 import { createChannelService } from './mock/channel';
+import { createSafetyVerificationService } from './mock/safetyVerification';
 import { createReviewService } from './mock/review';
 import { createFunnelService } from './mock/funnel';
 
@@ -47,6 +48,20 @@ export const profileService = createProfileService({ db, now: Date.now });
 export const ekycService = createEkycService({ db, now: Date.now });
 export const channelService = createChannelService({ db, now: Date.now });
 export const reviewService = createReviewService({ db, now: Date.now, notify: noticeInbox.publish });
+export const safetyVerificationService = createSafetyVerificationService({ db, now: Date.now, notify: noticeInbox.publish });
+export type { SafetyVerificationService, SafetyProgress, SafetyPhase } from './mock/safetyVerification';
+export {
+  BADGE_VALID_DAYS,
+  RENEW_WINDOW_DAYS,
+  SAFETY_CONTENT_LABEL,
+  SAFETY_REQUIRED,
+  SAFETY_SCAN_SECONDS,
+  SAFETY_SNAPSHOT_DAYS,
+  SAFETY_TYPE_LABEL,
+  canRenew,
+  daysLeft,
+  safetyProgress,
+} from './mock/safetyVerification';
 export const funnelService = createFunnelService({ db, now: Date.now });
 export const subscribeData = db.subscribe;
 export { noticeInbox };

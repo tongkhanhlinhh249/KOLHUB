@@ -32,7 +32,7 @@ test('services/index xuất identityOf và DEMO_ACCOUNTS cho thanh chuyển vai 
 test('safetyService được export cùng các kiểu KOL Safety', async () => {
   const { safetyService, MONITOR_PLATFORMS } = await import('./index');
   expect(typeof safetyService.uploadVideo).toBe('function');
-  expect(MONITOR_PLATFORMS).toEqual(['tiktok', 'facebook', 'youtube']);
+  expect(MONITOR_PLATFORMS).toEqual(['tiktok', 'facebook', 'instagram', 'youtube']);
 });
 
 test('dịch vụ chiến dịch / booking / gói được export (beta)', async () => {

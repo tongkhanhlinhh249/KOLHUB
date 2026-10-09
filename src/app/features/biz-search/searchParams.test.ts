@@ -15,7 +15,7 @@ test('parse đủ khoá', () =>
   ).toEqual({ keyword: 'chau', category: 'Du lịch', platforms: ['tiktok', 'youtube'], sort: 'newest', page: 2, view: 'list' }));
 
 test('giá trị lạ bị bỏ', () =>
-  expect(parseSearchParams(new URLSearchParams('nenTang=instagram,tiktok&quyMo=huge&trang=abc&sapXep=x&khuVuc=Paris'))).toEqual({
+  expect(parseSearchParams(new URLSearchParams('nenTang=twitter,tiktok&quyMo=huge&trang=abc&sapXep=x&khuVuc=Paris'))).toEqual({
     platforms: ['tiktok'],
     sort: 'relevance',
     page: 1,

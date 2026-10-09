@@ -22,7 +22,7 @@ const NAV =
   'static size-9 translate-x-0 translate-y-0 rounded-lg border-border bg-card shadow-none disabled:opacity-40 [&_svg]:size-4';
 
 /** Label pill per platform content type. */
-const CONTENT_TYPE: Record<string, string> = { youtube: 'Video', tiktok: 'Video', facebook: 'Reel' };
+const CONTENT_TYPE: Record<string, string> = { youtube: 'Video', tiktok: 'Video', facebook: 'Reel', instagram: 'Reels' };
 
 /** Stable pseudo-random numbers for mock engagement (same video → same numbers). */
 function seedOf(text: string): number {

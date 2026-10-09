@@ -54,7 +54,7 @@ describe('overviewSections', () => {
     const sections = overviewSections(input(s, h.kolId));
     expect(sections.map((x) => [x.key, x.missing, x.complete])).toEqual([
       ['thong-tin', 2, false],
-      ['kenh', 1, false],
+      ['kenh', 2, false],
     ]);
     const info = sections[0];
     expect(info.items.map((i) => [i.key, i.to, i.required])).toEqual([
@@ -64,7 +64,8 @@ describe('overviewSections', () => {
     expect(info.items[1].detail).toBe('Thiếu 4 trường');
     expect(info.items[1].hint).toBe('Còn thiếu: Họ tên KOL/KOC, Tỉnh/Thành phố, Địa chỉ, Lĩnh vực chính');
     expect(sections[1].items[0]).toMatchObject({ key: 'channel', ok: false, detail: 'Chưa có', to: '/ho-so-kol/kenh' });
-    expect(overviewProgress(sections)).toMatchObject({ missing: 3, firstIncomplete: { key: 'thong-tin' } });
+    expect(sections[1].items[1]).toMatchObject({ key: 'safety', ok: false, detail: 'Chưa có kênh', to: '/ho-so-kol/kenh' });
+    expect(overviewProgress(sections)).toMatchObject({ missing: 4, firstIncomplete: { key: 'thong-tin' } });
   });
 
   test('KOL đủ: mọi thẻ Đã đủ, eKYC hiện họ tên và số giấy tờ đã che', () => {
@@ -100,6 +101,7 @@ describe('overviewSections', () => {
       ['contact', true, true],
       ['staff', true, false],
       ['channel', true, false],
+      ['safety', true, false],
       ['kols', false, false],
     ]);
     expect(flat.filter((x) => x[2]).map((x) => [x[0], x[1]])).toEqual(i.view.checklist.map((c) => [c.key, c.ok]));
@@ -127,7 +129,7 @@ describe('overviewSections', () => {
     const sections = overviewSections(input(s, h.mcnId));
     expect(sections.map((x) => [x.key, x.complete, x.missing, x.suggestions])).toEqual([
       ['thong-tin', true, 0, 1],
-      ['kenh', true, 0, 1],
+      ['kenh', true, 0, 2],
       ['kol', true, 0, 1],
     ]);
     expect(overviewProgress(sections)).toEqual({ missing: 0, firstIncomplete: undefined });
@@ -145,14 +147,14 @@ describe('overviewSections', () => {
 describe('stats', () => {
   test('channelStats: đếm theo trạng thái, đang tắt, nền tảng', () => {
     const chs = [
-      channel('a', { status: 'VERIFIED', badgeExpiresAt: NOW + 1000 }),
+      channel('a', { status: 'VERIFIED', badgeExpiresAt: NOW + 30 * 86_400_000 }),
       channel('a', { status: 'VERIFIED', badgeExpiresAt: NOW - 1, platform: 'tiktok' }),
       channel('a', { status: 'NEEDS_FIX', active: false, platform: 'tiktok' }),
       channel('a', { platform: 'youtube' }),
     ];
     expect(channelStats(chs, NOW)).toEqual({
       total: 4,
-      byStatus: { verified: 1, pending: 1, needs_fix: 1, expired: 1 },
+      byStatus: { safety: 0, verified: 1, expiring: 0, pending: 1, needs_fix: 1, expired: 1 },
       off: 1,
       activeWithProof: 3,
       platforms: ['facebook', 'tiktok', 'youtube'],

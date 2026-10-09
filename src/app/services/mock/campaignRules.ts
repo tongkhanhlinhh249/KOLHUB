@@ -251,6 +251,8 @@ export function validateForOpen(c: Campaign, now: number, publishing = false): v
     return;
   }
   if (!isPrice(c.budget)) throw bad('budget');
+  // Booking riêng: the brief is what the invited KOL works from, so it is required to open the campaign.
+  if (!c.brief.trim()) throw bad('brief');
   if (!c.startDate || !c.endDate || c.startDate > c.endDate || endOfDay(c.endDate) < now) throw bad('dates');
   if (c.platforms.length === 0) throw bad('platforms');
   if (c.deliverables.length === 0 || c.deliverables.some((d) => !c.platforms.includes(d.platform))) throw bad('deliverables');
@@ -458,6 +460,7 @@ const POST_HOSTS: Record<Platform, string[]> = {
   tiktok: ['tiktok.com', 'vt.tiktok.com', 'vm.tiktok.com'],
   youtube: ['youtube.com', 'youtu.be'],
   facebook: ['facebook.com', 'fb.com', 'fb.watch'],
+  instagram: ['instagram.com', 'instagr.am'],
 };
 
 /** Host of an http(s) link without www./m.; null when it is not a link. */

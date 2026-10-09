@@ -179,7 +179,7 @@ function NoChannels({ manageHref }: { manageHref: string }) {
       </div>
       <p className="font-semibold text-foreground">Kết nối kênh để quét</p>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Thêm kênh TikTok, YouTube hoặc Facebook trong Quản lý kênh, KOL Safety sẽ tổng hợp 30 nội dung gần nhất của kênh.
+        Thêm kênh TikTok, YouTube, Facebook hoặc Instagram trong Quản lý kênh, KOL Safety sẽ tổng hợp 30 nội dung gần nhất của kênh.
       </p>
       <Link to={manageHref} className={cn(buttonVariants(), 'h-11 rounded-[8px] md:h-9')}>
         Đi tới Quản lý kênh

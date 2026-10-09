@@ -108,14 +108,17 @@ export function ChannelFormSheet({ open, onOpenChange, accountId, channel }: Cha
       >
         <SheetHeader className="border-b border-border p-4 pr-12 text-left">
           <SheetTitle>{channel ? 'Sửa kênh' : 'Thêm kênh'}</SheetTitle>
-          <SheetDescription>Hỗ trợ kênh Facebook, YouTube và TikTok.</SheetDescription>
+          <SheetDescription>Hỗ trợ kênh Facebook, Instagram, YouTube và TikTok.</SheetDescription>
         </SheetHeader>
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
           <div className="flex-1 space-y-5 overflow-y-auto p-4">
-            {channel?.status === 'VERIFIED' && (
+            {channel && channel.status !== 'SAFETY_PENDING' && (
               <Alert>
                 <AlertTriangle className="size-4 text-chart-5" aria-hidden />
-                <AlertDescription>Đổi link hoặc ảnh sẽ tạm ngừng dấu Kênh xác thực cho tới khi được duyệt lại.</AlertDescription>
+                <AlertDescription>
+                  {channel.status === 'VERIFIED' ? 'Đổi link hoặc ảnh sẽ tạm ngừng dấu Kênh xác thực. ' : ''}
+                  Đổi link kênh phải xác thực lại trên KOL Safety từ đầu; chỉ đổi ảnh quản lý thì gửi Admin duyệt lại.
+                </AlertDescription>
               </Alert>
             )}
 

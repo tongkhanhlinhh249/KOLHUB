@@ -16,7 +16,7 @@ export interface PlainStory {
 
 export const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Nhãn hàng', meaning: 'Công ty hoặc agency thuê KOL làm nội dung.' },
-  { term: 'KOL', meaning: 'Người làm nội dung, có kênh TikTok, YouTube hoặc Facebook.' },
+  { term: 'KOL', meaning: 'Người làm nội dung, có kênh TikTok, YouTube, Facebook hoặc Instagram.' },
   { term: 'MCN', meaning: 'Công ty quản lý nhiều KOL.' },
   { term: 'Sàn chiến dịch', meaning: 'Nơi đăng chiến dịch công khai để KOL/MCN vào xem và ứng tuyển.' },
   { term: 'Đề xuất', meaning: 'KOL/MCN tự xin tham gia một chiến dịch.' },
@@ -49,7 +49,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
         checks: [
           'Ngân sách lớn hơn 0',
           'Ngày bắt đầu không sau ngày kết thúc; ngày kết thúc chưa qua',
-          'Chọn ít nhất 1 nền tảng: TikTok, YouTube hoặc Facebook',
+          'Chọn ít nhất 1 nền tảng: TikTok, YouTube, Facebook hoặc Instagram',
           'Thêm ít nhất 1 hạng mục (Video, Bài đăng hoặc Livestream), số lượng 1–100',
           'Chọn "Đăng lên Sàn chiến dịch" hoặc "Riêng tư" (chỉ mời)',
         ],
@@ -114,7 +114,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Đăng bài xong, KOL/MCN gửi link để hệ thống kiểm tra.',
     steps: [
       { screen: 'Chiến dịch của tôi → mở hợp tác → "Gửi link bài đăng"', checks: ['Chỉ bấm được sau khi nháp đã được duyệt (hoặc chiến dịch không cần duyệt nháp)', 'Dán link bài; nhiều hạng mục thì chọn hạng mục'] },
-      { screen: 'Bấm "Gửi và xác minh"', checks: ['Link phải là TikTok, YouTube hoặc Facebook, đúng nền tảng đã chốt', 'Link sai → báo "Link bài đăng không hợp lệ hoặc không thuộc nền tảng đã chốt."', 'Đúng → "Bài đăng đã được xác minh", kèm lượt xem, thích…'] },
+      { screen: 'Bấm "Gửi và xác minh"', checks: ['Link phải là TikTok, YouTube, Facebook hoặc Instagram, đúng nền tảng đã chốt', 'Link sai → báo "Link bài đăng không hợp lệ hoặc không thuộc nền tảng đã chốt."', 'Đúng → "Bài đăng đã được xác minh", kèm lượt xem, thích…'] },
       { screen: 'Sau khi gửi', checks: ['Còn hạng mục chưa có bài → nhắc gửi tiếp', 'Đủ bài → chuyển sang chờ Nhãn hàng thanh toán'] },
     ],
   },

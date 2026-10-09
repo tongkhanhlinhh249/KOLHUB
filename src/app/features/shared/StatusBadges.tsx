@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
-import { Facebook, Music2, Youtube, type LucideProps } from 'lucide-react';
+import { Facebook, Instagram, Music2, Youtube, type LucideProps } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
 import { cn } from '../../components/ui/utils';
-import { channelBadge, type Channel, type Platform, type ProfileStatus } from '../../services';
+import { channelBadge, daysLeft, RENEW_WINDOW_DAYS, safetyProgress, type Channel, type Platform, type ProfileStatus } from '../../services';
 
 // The kit has no success/warning tokens: chart-4 (green) and chart-5 (amber) stand in for them.
 const TONE = {
@@ -65,6 +65,15 @@ export function EmailVerifiedBadge({ className }: { className?: string }) {
 export function ChannelStatusBadge({ channel, now = Date.now() }: { channel: Channel; now?: number }) {
   let main: ReactNode;
   switch (channel.status) {
+    case 'SAFETY_PENDING': {
+      const p = safetyProgress(channel, now);
+      main = (
+        <ToneBadge tone="warning">
+          Chờ KOL Safety{p.phase === 'IN_PROGRESS' ? ` · ${p.passed}/${p.required} đạt` : ''}
+        </ToneBadge>
+      );
+      break;
+    }
     case 'PENDING_REVIEW':
       main = <ToneBadge tone="info">Chờ duyệt</ToneBadge>;
       break;
@@ -72,13 +81,18 @@ export function ChannelStatusBadge({ channel, now = Date.now() }: { channel: Cha
       main = <ToneBadge tone="warning">Cần bổ sung</ToneBadge>;
       break;
     default:
-      main =
-        channelBadge(channel, now) === 'VERIFIED' ? (
-          // Validity date lives in the shield tooltip / detail header — not repeated in the pill.
-          <ToneBadge tone="success">Đã xác thực</ToneBadge>
-        ) : (
-          <ToneBadge tone="error">Hết hạn dấu</ToneBadge>
+      if (channelBadge(channel, now) === 'VERIFIED') {
+        // Validity date lives in the shield tooltip / detail header — only the renewal window shows days left.
+        const left = daysLeft(channel, now);
+        main = (
+          <>
+            <ToneBadge tone="success">Đã xác thực</ToneBadge>
+            {left !== undefined && left <= RENEW_WINDOW_DAYS && <ToneBadge tone="warning">Còn {left} ngày</ToneBadge>}
+          </>
         );
+      } else {
+        main = <ToneBadge tone="error">Hết hạn dấu</ToneBadge>;
+      }
   }
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -88,8 +102,8 @@ export function ChannelStatusBadge({ channel, now = Date.now() }: { channel: Cha
   );
 }
 
-const PLATFORM_ICON = { facebook: Facebook, youtube: Youtube, tiktok: Music2 };
-export const PLATFORM_LABEL: Record<Platform, string> = { facebook: 'Facebook', youtube: 'YouTube', tiktok: 'TikTok' };
+const PLATFORM_ICON = { facebook: Facebook, instagram: Instagram, youtube: Youtube, tiktok: Music2 };
+export const PLATFORM_LABEL: Record<Platform, string> = { facebook: 'Facebook', instagram: 'Instagram', youtube: 'YouTube', tiktok: 'TikTok' };
 
 export function PlatformIcon({ platform, ...props }: { platform: Platform } & LucideProps) {
   const Icon = PLATFORM_ICON[platform];

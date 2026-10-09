@@ -25,6 +25,9 @@ export function verifiedText(until: string | number): string {
   return `Kênh đã xác thực, hiệu lực đến ${format(new Date(until), 'dd/MM/yyyy')}`;
 }
 
+/** Phạm vi kiểm tra cạnh dấu xác thực (BR-35): chỉ 3 phút đầu mỗi video. */
+export const SAFETY_SCOPE_NOTE = 'Đã kiểm tra bởi KOL Safety: 3 phút đầu của mỗi video trong các nội dung gần nhất. Phần sau phút thứ 3 không được kiểm tra.';
+
 /** Shield icon with the badge's valid-until date in a tooltip (no "Đã xác thực" pill). */
 export function VerifiedMark({ until, className }: { until: string | number; className?: string }) {
   const text = verifiedText(until);
@@ -34,7 +37,7 @@ export function VerifiedMark({ until, className }: { until: string | number; cla
         <span
           role="img"
           tabIndex={0}
-          aria-label={text}
+          aria-label={`${text}. ${SAFETY_SCOPE_NOTE}`}
           data-row-ignore
           className={cn(
             'inline-flex shrink-0 rounded-sm text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
@@ -44,7 +47,10 @@ export function VerifiedMark({ until, className }: { until: string | number; cla
           <ShieldCheck className="size-4" aria-hidden />
         </span>
       </TooltipTrigger>
-      <TooltipContent>{text}</TooltipContent>
+      <TooltipContent className="max-w-72">
+        <p className="font-medium">{text}</p>
+        <p className="mt-1 opacity-90">{SAFETY_SCOPE_NOTE}</p>
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -108,7 +114,7 @@ export function ChannelRow({
     <Card className="@container cursor-pointer gap-0 p-4 transition-colors hover:bg-accent/40" onClick={onRowClick}>
       <div className="flex items-start gap-2 @4xl:items-center">
         <div className="flex min-w-0 flex-1 flex-col gap-3 @4xl:flex-row @4xl:items-center @4xl:gap-6">
-          <div className="flex min-w-0 items-start gap-3 @4xl:min-w-[18rem] @4xl:flex-1">
+          <div className="flex min-w-0 items-start gap-3 @4xl:min-w-[22rem] @4xl:flex-1">
             <PlatformIcon platform={platform} mono className="size-12 shrink-0 rounded-xl" />
             <div className="min-w-0 space-y-1">
               <div className="flex min-w-0 items-center gap-1.5">

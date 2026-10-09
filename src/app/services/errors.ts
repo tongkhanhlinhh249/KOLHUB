@@ -112,9 +112,13 @@ function phase2Message(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4201':
       return `Link kênh này đã được đăng ký trên KOL Hub.${meta?.ownedByOther ? ' Chúng tôi đã ghi nhận để xử lý tranh chấp.' : ''}`;
     case 'KOLHUB-4202':
-      return 'Chỉ hỗ trợ link kênh Facebook, YouTube hoặc TikTok.';
+      return 'Chỉ hỗ trợ link kênh Facebook, Instagram, YouTube hoặc TikTok.';
     case 'KOLHUB-4203':
       return 'Ảnh phải là JPG hoặc PNG, tối đa 10 MB.';
+    case 'KOLHUB-4210':
+      return `Kênh cần ít nhất ${meta?.required ?? 'N'} nội dung. Đăng thêm rồi xác thực lại.`;
+    case 'KOLHUB-4211':
+      return 'Danh sách nội dung đã quá 7 ngày. Bấm xác thực lại để lấy danh sách mới.';
     case 'KOLHUB-4301':
       return 'File GCN phải là JPG, PNG hoặc PDF.';
     case 'KOLHUB-4302':

@@ -57,6 +57,9 @@ export type ErrorCode =
   | 'KOLHUB-4201'
   | 'KOLHUB-4202'
   | 'KOLHUB-4203'
+  // --- Xác thực kênh qua KOL Safety ---
+  | 'KOLHUB-4210'
+  | 'KOLHUB-4211'
   | 'KOLHUB-4301'
   | 'KOLHUB-4302'
   | 'KOLHUB-4303'
@@ -131,6 +134,10 @@ export interface KolhubErrorMeta {
   /** KOLHUB-4818: slots of the campaign and how many are still free. */
   slots?: number;
   remaining?: number;
+  // --- xác thực kênh qua KOL Safety ---
+  /** KOLHUB-4210: N nội dung cần có / số nội dung kênh đang có. */
+  required?: number;
+  have?: number;
 }
 
 /** Business error carrying a KOLHUB-xxxx code; message is the Vietnamese text from errorMessage(). */

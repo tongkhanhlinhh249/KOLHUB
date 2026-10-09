@@ -81,6 +81,7 @@ function addSampleChannels(state: DemoState, p: KolProfile | McnProfile, t: numb
   const specs: [Platform, (sfx: string) => string][] = [
     ['tiktok', (sfx) => `https://www.tiktok.com/@${slug}${sfx}`],
     ['facebook', (sfx) => `https://www.facebook.com/${slug}${sfx}`],
+    ['instagram', (sfx) => `https://www.instagram.com/${slug}${sfx}`],
   ];
   const first = !state.channels.some((c) => c.ownerId === p.accountId);
   const added = specs.map(([platform, make], i) => {
@@ -93,7 +94,9 @@ function addSampleChannels(state: DemoState, p: KolProfile | McnProfile, t: numb
       url,
       handle: channelHandle(url),
       proofImage: { ...SAMPLE_PROOF },
-      status: 'PENDING_REVIEW',
+      // Mẫu: TikTok đã đạt KOL Safety (Chờ duyệt) để hồ sơ gửi được; Facebook, Instagram còn chờ xác thực ở Quản lý kênh.
+      status: platform === 'tiktok' ? 'PENDING_REVIEW' : 'SAFETY_PENDING',
+      ...(platform === 'tiktok' ? { safetyPassedAt: t } : {}),
       active: true,
       createdAt: t + i,
       updatedAt: t + i,
@@ -119,7 +122,8 @@ function assignSampleKol(state: DemoState, p: McnProfile, t: number) {
 /**
  * "Điền nhanh hồ sơ mẫu": fills every required AND recommended item of a DRAFT / NEEDS_FIX KOL or MCN
  * profile with sample data — contact (+ bio / fields for KOL), MCN content staff, KOL eKYC PASSED with
- * identity, MCN org fields + GCN file, 2 sample channels with proof (PENDING_REVIEW) when there is no
+ * identity, MCN org fields + GCN file, 3 sample channels with proof (TikTok PENDING_REVIEW, already
+ * passed KOL Safety; Facebook + Instagram SAFETY_PENDING, verified from "Quản lý kênh") when there is no
  * active one, MCN: one channel assigned to an approved KOL. Existing values are kept. Never submits.
  * Throws NOT_EDITABLE for any other profile status.
  */

@@ -96,13 +96,31 @@ const blank = (s: string) => !s.trim();
  * "Tính năng của chiến dịch": the toggleable parts of a campaign. Turning a card off clears its data on save
  * (see formToInput); "Đàm phán" and "Hợp đồng" are stored flags that the booking rules follow.
  */
-export function CampaignFeatures({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
+export function CampaignFeatures({
+  values: v,
+  set,
+  errors,
+  variant = 'full',
+}: {
+  values: CampaignFormValues;
+  set: Setter;
+  errors: Errors;
+  /**
+   * 'full' (Tuyển nhiều KOL): every card with its heading. 'advanced' (Booking riêng, inside "Tính năng nâng cao"):
+   * no brief card (the brief is a main field), no reward cards; conditions and survey only when on the Sàn.
+   */
+  variant?: 'full' | 'advanced';
+}) {
   const recruit = v.type === 'OPEN_RECRUITMENT';
+  const advanced = variant === 'advanced';
+  const onSan = v.visibility === 'MARKETPLACE';
   const textCount = (s: string) => `${[...s].length.toLocaleString('vi-VN')}/${CAMPAIGN_TEXT_MAX.toLocaleString('vi-VN')}`;
   const conditionsEmpty = v.regions.length === 0 && !v.ageMin && !v.ageMax && v.gender === 'ANY' && !v.minFollowers;
 
   return (
     <div className="space-y-3">
+      {!advanced && (
+        <>
       <div className="space-y-0.5 px-1">
         <h2 className="text-base font-semibold text-foreground">Tính năng của chiến dịch</h2>
         <p className="text-sm text-muted-foreground">Bật phần bạn cần. Tắt một phần thì phần đó không áp dụng cho chiến dịch.</p>
@@ -180,6 +198,9 @@ export function CampaignFeatures({ values: v, set, errors }: { values: CampaignF
         </p>
       )}
 
+        </>
+      )}
+
       <FeatureCard
         icon={Handshake}
         title="Đàm phán"
@@ -243,6 +264,8 @@ export function CampaignFeatures({ values: v, set, errors }: { values: CampaignF
         <TermsFields values={v} set={set} errors={errors} />
       </FeatureCard>
 
+      {(!advanced || onSan) && (
+        <>
       <FeatureCard
         icon={UserCheck}
         title="Điều kiện tham gia"
@@ -269,6 +292,8 @@ export function CampaignFeatures({ values: v, set, errors }: { values: CampaignF
       >
         <SurveyFields values={v} set={set} errors={errors} />
       </FeatureCard>
+        </>
+      )}
     </div>
   );
 }

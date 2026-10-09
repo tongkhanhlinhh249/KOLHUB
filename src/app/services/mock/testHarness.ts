@@ -30,3 +30,13 @@ export function makeHarness(): Harness {
     notices: [],
   };
 }
+
+/** The channel reached N/N on KOL Safety (SAFETY_PENDING → PENDING_REVIEW), like safetyVerificationService.scan. */
+export function passSafety(h: Harness, channelId: string): void {
+  h.db.update((s) => {
+    const c = s.channels.find((x) => x.id === channelId);
+    if (!c) throw new Error('CHANNEL_NOT_FOUND');
+    c.status = 'PENDING_REVIEW';
+    c.safetyPassedAt = h.clock.t;
+  });
+}

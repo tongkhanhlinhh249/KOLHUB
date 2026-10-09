@@ -12,6 +12,8 @@ import {
   recruitBudget,
   suggestTimeline,
   toggle,
+  deliverablePlatforms,
+  ADVANCED_FIELDS,
 } from './campaignForm';
 
 const campaign: Campaign = {
@@ -141,6 +143,7 @@ test('Tính năng của chiến dịch: bật/tắt từng thẻ; tắt thì xo�
   const on = {
     ...EMPTY_FORM,
     name: 'X',
+    visibility: 'MARKETPLACE' as const,
     contentRules: 'Gắn #QuangCao',
     useContentRules: true,
     regions: ['Hà Nội'],
@@ -152,6 +155,8 @@ test('Tính năng của chiến dịch: bật/tắt từng thẻ; tắt thì xo�
   expect(formToInput(on).terms).toHaveLength(2);
   const off = formToInput({ ...on, useContentRules: false, useConditions: false, useSurvey: false, contract: false, negotiation: false });
   expect(off).toMatchObject({ contentRules: '', regions: [], target: null, survey: [], terms: [], contract: false, negotiation: false });
+  // Booking riêng Riêng tư (chỉ mời): điều kiện tham gia và khảo sát không áp dụng → bỏ khi lưu.
+  expect(formToInput({ ...on, visibility: 'PRIVATE' })).toMatchObject({ regions: [], target: null, survey: [], contentRules: 'Gắn #QuangCao' });
   // Tuyển nhiều KOL: tắt "Đề nghị trả phí" → tiền mặt 0.
   const recruit = { ...on, type: 'OPEN_RECRUITMENT' as const, slots: '3', rewardCash: '1.000.000', payCash: false, hasProduct: true, productName: 'Quà', productValue: '200.000' };
   expect(formToInput(recruit).recruitment!.reward.cash).toBe(0);
@@ -163,4 +168,24 @@ test('Tính năng của chiến dịch: đọc trạng thái bật/tắt từ ch
   expect(base).toMatchObject({ useContentRules: false, useConditions: false, useSurvey: false, negotiation: false, contract: false });
   const full = formFromCampaign({ ...campaign, contentRules: 'Quy định', regions: ['Huế'], survey: [{ id: 'q-1', text: 'Câu', required: false }] });
   expect(full).toMatchObject({ useContentRules: true, useConditions: true, useSurvey: true, negotiation: true, contract: true });
+});
+
+test('Booking riêng: nền tảng lấy theo hạng mục, không có ô chọn nền tảng riêng', () => {
+  const v = {
+    ...EMPTY_FORM,
+    name: 'Book 1 KOL',
+    platforms: ['youtube' as const],
+    deliverables: [
+      { type: 'VIDEO' as const, platform: 'tiktok' as const, quantity: '2' },
+      { type: 'POST' as const, platform: 'instagram' as const, quantity: '1' },
+      { type: 'VIDEO' as const, platform: 'tiktok' as const, quantity: '1' },
+    ],
+  };
+  expect(deliverablePlatforms(v.deliverables)).toEqual(['tiktok', 'instagram']);
+  expect(formToInput(v).platforms).toEqual(['tiktok', 'instagram']);
+  expect(formToInput({ ...v, deliverables: [] }).platforms).toEqual([]);
+  // Tuyển nhiều KOL giữ ô chọn nền tảng.
+  expect(formToInput({ ...v, type: 'OPEN_RECRUITMENT' }).platforms).toEqual(['youtube']);
+  expect(ADVANCED_FIELDS).toContain('visibility');
+  expect(ADVANCED_FIELDS).not.toContain('brief');
 });

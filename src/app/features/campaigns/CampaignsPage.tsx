@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Ban, BellDot, FileSearch, Lock, Megaphone, Plus } from 'lucide-react';
-import { Button, buttonVariants } from '../../components/ui/button';
+import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { bookingService, campaignService, type BrandBookingCounts } from '../../services';
@@ -14,6 +14,7 @@ import { StepTabs } from '../shared/StepTabs';
 import { listViewValue, parseListView, TABLE_DEFAULT_QUERY, VIEW_PARAM, type ListView } from '../shared/tableView';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ConfirmAction } from './BookingActions';
+import { CampaignTypeDialog } from './CampaignTypeDialog';
 import { EmptyBlock, errText, LoadError } from './CampaignParts';
 import { CampaignCardGrid, CampaignTable, groupBookings, type CampaignBulkKind } from './CampaignListViews';
 import {
@@ -22,7 +23,6 @@ import {
   CAMPAIGN_SORTS,
   CAMPAIGN_TABS,
   CAMPAIGN_TYPE_OPTIONS,
-  CAMPAIGNS_PATH,
   countCampaignTabs,
   countCampaignTypes,
   hasCampaignFilters,
@@ -99,6 +99,8 @@ export function CampaignsPage() {
   const [campaigns, bookings, counts] = q.data ?? [];
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<{ kind: CampaignBulkKind; ids: string[] } | null>(null);
+  // "Tạo chiến dịch" asks for the campaign type first, then opens the form.
+  const [typeDialog, setTypeDialog] = useState(false);
 
   // The list params are rebuilt from the query, so ?xem= is carried over explicitly.
   const write = (next: CampaignListQuery, v: string | null = viewParam) => {
@@ -141,10 +143,10 @@ export function CampaignsPage() {
   };
 
   const createLink = (
-    <Link to={`${CAMPAIGNS_PATH}/tao`} className={buttonVariants({ className: 'h-11 md:h-10' })}>
+    <Button type="button" className="h-11 md:h-10" onClick={() => setTypeDialog(true)}>
       <Plus aria-hidden />
       Tạo chiến dịch
-    </Link>
+    </Button>
   );
 
   const chips = [
@@ -288,6 +290,7 @@ export function CampaignsPage() {
           onConfirm={runBulk}
         />
       )}
+      <CampaignTypeDialog open={typeDialog} onOpenChange={setTypeDialog} />
     </div>
   );
 }
