@@ -104,7 +104,7 @@ export function ActiveSwitch({ channel, accountId, className }: { channel: Chann
   };
 
   return (
-    <label className={cn('flex min-h-11 cursor-pointer items-center gap-2 text-sm text-foreground', className)}>
+    <label className={cn('flex min-h-11 cursor-pointer items-center gap-2 text-sm whitespace-nowrap text-foreground', className)}>
       <Switch
         checked={channel.active}
         disabled={toggling}

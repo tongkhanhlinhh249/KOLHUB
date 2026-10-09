@@ -1,4 +1,5 @@
-import { addMonths, format } from 'date-fns';
+import { format } from 'date-fns';
+import { BADGE_VALID_DAYS } from './channelRules';
 import type {
   ChangeRequest,
   Channel,
@@ -100,7 +101,7 @@ export function createReviewService(deps: ReviewServiceDeps) {
   async function approve(ownerId: string, verdicts: Record<string, ChannelVerdict>): Promise<void> {
     await wait();
     const t = now();
-    const expires = addMonths(t, 12).getTime();
+    const expires = t + BADGE_VALID_DAYS * 86_400_000;
     const messages: string[] = [];
     let target: AnyProfile | undefined;
 

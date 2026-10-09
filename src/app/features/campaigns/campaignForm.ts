@@ -215,6 +215,8 @@ function qty(text: string): number {
  */
 export function formToInput(v: CampaignFormValues): CampaignInput {
   const recruit = v.type === 'OPEN_RECRUITMENT';
+  // Conditions and survey apply to applicants only: a private Booking riêng (invites only) drops them.
+  const applyForm = recruit || v.visibility === 'MARKETPLACE';
   const ageMin = intOrUndefined(v.ageMin);
   const ageMax = intOrUndefined(v.ageMax);
   const minFollowers = parseVndInput(v.minFollowers);
@@ -241,9 +243,9 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     draftReview: v.draftReview,
     negotiation: v.negotiation,
     contract: v.contract,
-    regions: v.useConditions ? v.regions : [],
-    target: v.useConditions && Object.keys(target).length ? target : null,
-    survey: v.useSurvey ? v.survey.filter((q) => q.text.trim()).map((q) => ({ ...(q.id ? { id: q.id } : {}), text: q.text, required: q.required })) : [],
+    regions: applyForm && v.useConditions ? v.regions : [],
+    target: applyForm && v.useConditions && Object.keys(target).length ? target : null,
+    survey: applyForm && v.useSurvey ? v.survey.filter((q) => q.text.trim()).map((q) => ({ ...(q.id ? { id: q.id } : {}), text: q.text, required: q.required })) : [],
     terms: v.contract ? v.terms.filter((t) => t.text.trim()).map((t) => ({ ...(t.id ? { id: t.id } : {}), text: t.text })) : [],
   };
   return {
@@ -254,7 +256,8 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     budget: parseVndInput(v.budget) ?? 0,
     startDate: v.startDate,
     endDate: v.endDate,
-    platforms: v.platforms,
+    // Booking riêng has no separate platform picker: the platforms are those of its deliverables.
+    platforms: recruit ? v.platforms : deliverablePlatforms(v.deliverables),
     categories: v.categories,
     deliverables: v.deliverables.map((d) => ({ type: d.type, platform: d.platform, quantity: qty(d.quantity) })),
     contentRules: v.useContentRules ? v.contentRules : '',
@@ -270,6 +273,27 @@ export function recruitBudget(v: CampaignFormValues): number {
   const per = (v.payCash ? (parseVndInput(v.rewardCash) ?? 0) : 0) + (v.hasProduct ? (parseVndInput(v.productValue) ?? 0) : 0);
   return Number.isFinite(slots) ? slots * per : 0;
 }
+
+/** Platforms of the deliverable rows, without duplicates, in row order. */
+export function deliverablePlatforms(rows: DeliverableRow[]): Platform[] {
+  return [...new Set(rows.map((r) => r.platform))];
+}
+
+/** Fields shown inside "Tính năng nâng cao" of a Booking riêng form (an error on one opens that block). */
+export const ADVANCED_FIELDS: readonly string[] = [
+  'objective',
+  'visibility',
+  'applyDeadline',
+  'categories',
+  'negotiation',
+  'draftReview',
+  'contentRules',
+  'contract',
+  'terms',
+  'regions',
+  'target',
+  'survey',
+];
 
 /** New deliverable row: first selected platform, 1 video. */
 export function newDeliverable(platforms: Platform[]): DeliverableRow {
@@ -314,11 +338,11 @@ const HINT: Partial<Record<FormField, string>> = {
   name: 'Tên chiến dịch từ 1 đến 150 ký tự.',
   budget: 'Nhập ngân sách lớn hơn 0 để đăng chiến dịch.',
   dates: 'Cần ngày bắt đầu và ngày kết thúc; ngày kết thúc không trước ngày bắt đầu và chưa qua.',
-  platforms: 'Chọn ít nhất một nền tảng.',
-  deliverables: 'Cần ít nhất một hạng mục; nền tảng của hạng mục phải nằm trong các nền tảng đã chọn, số lượng 1–100.',
+  platforms: 'Cần ít nhất một hạng mục nội dung (nền tảng lấy theo hạng mục).',
+  deliverables: 'Cần ít nhất một hạng mục, số lượng 1–100. Với Tuyển nhiều KOL, nền tảng của hạng mục phải nằm trong các nền tảng đã chọn.',
   applyDeadline: 'Hạn ứng tuyển không được sau ngày kết thúc và chưa qua.',
   objective: 'Tối đa 5.000 ký tự.',
-  brief: 'Tối đa 5.000 ký tự.',
+  brief: 'Brief bắt buộc khi đăng chiến dịch Booking riêng, tối đa 5.000 ký tự.',
   contentRules: 'Tối đa 5.000 ký tự.',
   type: 'Không đổi được loại chiến dịch khi đã có booking.',
   slots: 'Số suất từ 1 đến 500 và không ít hơn số KOL đã chọn.',

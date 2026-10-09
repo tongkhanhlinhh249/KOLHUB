@@ -6,7 +6,7 @@ export type DemoRole = 'guest' | 'kol' | 'mcn' | 'biz';
 export type RoleTab = Exclude<DemoRole, 'guest'>;
 
 /** Blocks of the role section, in order. */
-export type DemoBlock = 'hint' | 'profile' | 'campaign';
+export type DemoBlock = 'hint' | 'profile' | 'safety' | 'campaign';
 
 export const ROLE_SECTION_LABEL: Record<RoleTab, string> = { biz: 'Nhãn hàng', kol: 'KOL', mcn: 'MCN' };
 
@@ -15,14 +15,14 @@ export function roleOfAccount(key: DemoAccountKey | undefined): DemoRole {
   return key.split('-')[0] as DemoRole;
 }
 
-/** The current role's section only: brand → campaign states; KOL/MCN → profile + campaign states; guest → a hint. */
+/** The current role's section only: brand → campaign states; KOL/MCN → profile + KOL Safety + campaign states; guest → a hint. */
 export function sectionsFor(role: DemoRole): DemoBlock[] {
   switch (role) {
     case 'biz':
       return ['campaign'];
     case 'kol':
     case 'mcn':
-      return ['profile', 'campaign'];
+      return ['profile', 'safety', 'campaign'];
     default:
       return ['hint'];
   }

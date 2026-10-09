@@ -33,7 +33,7 @@ function validateInput(input: ChannelInput) {
 
 const sameFile = (a: StoredFile, b: StoredFile) => a.name === b.name && a.size === b.size && a.type === b.type;
 
-/** Mock channel service (BR-20..24). There is deliberately no remove (BR-23). */
+/** Mock channel service (BR-20..24). New channels start at SAFETY_PENDING (xác thực KOL Safety). There is deliberately no remove (BR-23). */
 export function createChannelService(deps: ChannelServiceDeps) {
   const { db, now } = deps;
   const wait = () => (deps.delay === false ? Promise.resolve() : fakeDelay());
@@ -74,7 +74,7 @@ export function createChannelService(deps: ChannelServiceDeps) {
         url: input.url.trim(),
         handle: channelHandle(input.url),
         proofImage: input.proofImage,
-        status: 'PENDING_REVIEW',
+        status: 'SAFETY_PENDING',
         active: true,
         createdAt: t,
         updatedAt: t,
@@ -92,7 +92,8 @@ export function createChannelService(deps: ChannelServiceDeps) {
     const t = now();
     db.update((s) => {
       const c = owned(s, accountId, channelId);
-      const changed = normalizeChannelUrl(input.url) !== normalizeChannelUrl(c.url) || !sameFile(input.proofImage, c.proofImage);
+      const linkChanged = normalizeChannelUrl(input.url) !== normalizeChannelUrl(c.url);
+      const changed = linkChanged || !sameFile(input.proofImage, c.proofImage);
       if (!changed) return;
       const platform = validateInput(input);
       if (findProfile(s, accountId)?.status === 'SUBMITTED' && c.status === 'PENDING_REVIEW') throw new Error('LOCKED_IN_REVIEW');
@@ -106,7 +107,14 @@ export function createChannelService(deps: ChannelServiceDeps) {
       c.url = input.url.trim();
       c.handle = channelHandle(input.url);
       c.proofImage = input.proofImage;
-      c.status = 'PENDING_REVIEW';
+      // BR-24: sửa link = kênh khác → xác thực KOL Safety lại từ đầu; chỉ sửa ảnh quản lý → về Chờ duyệt
+      // nếu kênh đã đạt KOL Safety, còn kênh chưa đạt thì vẫn Chờ KOL Safety.
+      if (linkChanged) {
+        c.safety = undefined;
+        c.safetyPassedAt = undefined;
+        c.demoContentCount = undefined;
+      }
+      c.status = linkChanged || c.status === 'SAFETY_PENDING' ? 'SAFETY_PENDING' : 'PENDING_REVIEW';
       c.note = undefined;
       c.updatedAt = t;
     });

@@ -1,9 +1,10 @@
 // Phase 3 (Brand/Agency) types and constants: KOL directory, search, public profile, saved lists.
 
-export type Platform = 'facebook' | 'youtube' | 'tiktok';
+export type Platform = 'facebook' | 'instagram' | 'youtube' | 'tiktok';
 
 export const PLATFORMS: { key: Platform; label: string }[] = [
   { key: 'facebook', label: 'Facebook' },
+  { key: 'instagram', label: 'Instagram' },
   { key: 'youtube', label: 'YouTube' },
   { key: 'tiktok', label: 'TikTok' },
 ];
@@ -39,7 +40,8 @@ export const KOL_SCALES: { key: KolScale; label: string; min: number; max: numbe
   { key: 'mega', label: 'Mega (≥ 1M)', min: 1_000_000, max: Infinity },
 ];
 
-export type ChannelStatus = 'PENDING_REVIEW' | 'VERIFIED' | 'NEEDS_FIX' | 'EXPIRED';
+/** SAFETY_PENDING: chưa đủ N nội dung gần nhất đạt KOL Safety (xác thực kênh qua KOL Safety). */
+export type ChannelStatus = 'SAFETY_PENDING' | 'PENDING_REVIEW' | 'VERIFIED' | 'NEEDS_FIX' | 'EXPIRED';
 
 export type FieldMedal = 'gold' | 'silver' | 'none';
 
@@ -56,7 +58,7 @@ export interface ActivityField {
 /** @deprecated alias kept for the UI; same shape as ActivityField. */
 export type KolField = ActivityField;
 
-/** A recent video of a channel, only ever on Facebook / YouTube / TikTok (BR-20). */
+/** A recent video of a channel, only ever on Facebook / Instagram / YouTube / TikTok (BR-20). */
 export interface LatestVideo {
   platform: Platform;
   thumbnail: string;

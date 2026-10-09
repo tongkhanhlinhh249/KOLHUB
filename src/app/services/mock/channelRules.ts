@@ -2,6 +2,9 @@
 import { KolhubError } from '../types';
 import { MAX_FILE_BYTES, type Channel, type Platform, type StoredFile } from '../profile-types';
 
+/** Dấu xác thực kênh hiệu lực 3 tháng (QĐ-12), prototype tính 90 ngày. */
+export const BADGE_VALID_DAYS = 90;
+
 const IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const GCN_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
@@ -21,6 +24,8 @@ const PLATFORM_BY_HOST: Record<string, Platform> = {
   'facebook.com': 'facebook',
   'fb.com': 'facebook',
   'fb.watch': 'facebook',
+  'instagram.com': 'instagram',
+  'instagr.am': 'instagram',
   'youtube.com': 'youtube',
   'youtu.be': 'youtube',
   'tiktok.com': 'tiktok',
@@ -43,7 +48,7 @@ function parse(url: string): { host: string; path: string } | null {
   return { host, path };
 }
 
-/** Facebook / YouTube / TikTok channel link → platform; anything else → null (BR-20). */
+/** Facebook / Instagram / YouTube / TikTok channel link → platform; anything else → null (BR-20). */
 export function detectPlatform(url: string): Platform | null {
   const p = parse(url);
   if (!p || !p.path) return null;

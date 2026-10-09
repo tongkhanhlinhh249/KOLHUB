@@ -3,11 +3,19 @@ import { creators } from '../../data/creators';
 import type { ActivityField, FieldMedal, KolCategory, KolRegion, LatestVideo, Platform, SavedList } from '../bizTypes';
 import type { Channel, IdentityRecord, KolProfile, StoredFile } from '../profile-types';
 import type { StoredAccount } from './db';
+import { BADGE_VALID_DAYS } from './channelRules';
 import { channelBadge, normalizeText } from './directory';
 import { maskIdNo, normalizeName } from './profileRules';
 import { IMAGE_POOL, VIDEO_TITLES, videoUrl } from './socialListening';
 
 const DAY = 86_400_000;
+
+/** Badge 90 days from verification, renewed every 90 days (KOL Safety) until it is in the future. */
+function rolledExpiry(verifiedMs: number, now: number): number {
+  let exp = verifiedMs + BADGE_VALID_DAYS * DAY;
+  while (exp <= now) exp += BADGE_VALID_DAYS * DAY;
+  return exp;
+}
 const iso = (ms: number) => new Date(ms).toISOString();
 const pad = (n: number, w: number) => String(n).padStart(w, '0');
 
@@ -213,7 +221,7 @@ export function seedKols(now: number, password: string): SeededKols {
       status: 'VERIFIED',
       active: true,
       verifiedAt: verifiedMs,
-      badgeExpiresAt: verifiedMs + 365 * DAY,
+      badgeExpiresAt: rolledExpiry(verifiedMs, now),
       stats: { followers: s.followers, latestVideos: [], syncedAt: verifiedMs },
       createdAt: verifiedMs - 3 * DAY,
       updatedAt: verifiedMs,
@@ -227,6 +235,8 @@ export function seedKols(now: number, password: string): SeededKols {
       }
     }
     if (i === 3) for (const ch of channels.filter((c) => c.platform === 'tiktok')) ch.active = false;
+    // Renewal window (≤ 14 days left): "Sắp hết hạn" + "Gia hạn".
+    if (i === 5) for (const ch of channels) ch.badgeExpiresAt = now + 9 * DAY;
     if (i === 36 || i === 37) for (const ch of channels) ch.active = false;
     if (i === 38 || i === 39) {
       for (const ch of channels) {

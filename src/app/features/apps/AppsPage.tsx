@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { BadgeCheck, ChevronRight, ExternalLink, Plus, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { ChevronRight, ExternalLink, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { cn } from '../../components/ui/utils';
 import { useAuth } from '../../auth/AuthContext';
 import { KOL_SAFETY_PATH } from '../../auth/roles';
@@ -24,19 +24,11 @@ const APPS: AppTile[] = [
   {
     key: 'kol-safety',
     name: 'KOL Safety',
-    description: 'Kiểm tra video trước khi đăng, theo dõi kênh TikTok, YouTube, Facebook.',
+    description: 'Kiểm tra video trước khi đăng, theo dõi kênh TikTok, YouTube, Facebook, Instagram.',
     icon: ShieldCheck,
     tint: 'bg-emerald-500 text-white',
     badge: 'Đã bật',
     creatorPath: KOL_SAFETY_PATH,
-  },
-  {
-    key: 'brand-safety',
-    name: 'Brand Safety',
-    description: 'Đối chiếu video KOL với bộ quy tắc quảng cáo của nhãn hàng.',
-    icon: BadgeCheck,
-    tint: 'bg-primary text-primary-foreground',
-    badge: 'Đã bật',
   },
 ];
 
@@ -44,10 +36,9 @@ const tileClass =
   'group flex h-full min-h-20 items-center gap-3 rounded-[8px] border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
 /**
- * "Ứng dụng": the content-review apps (KOL Safety, Brand Safety) as a tile grid, like an app launcher.
- * For KOL/MCN, KOL Safety opens the in-app "Tổng hợp kênh" demo page, with a secondary "Mở công cụ đầy đủ"
- * link to the external AI Video Analysis tool. Every other tile opens that tool in a new tab; "Thêm ứng dụng"
- * too, until an app catalogue exists. On/Off per plan is shown with the badge.
+ * "Ứng dụng": the content-review app (KOL Safety) as a tile, like an app launcher. For KOL/MCN it opens the
+ * in-app "Tổng hợp kênh" demo page, with a secondary "Mở công cụ đầy đủ" link to the external AI Video Analysis
+ * tool; for other accounts the tile opens that tool in a new tab. On/Off is shown with the badge.
  */
 export function AppsPage() {
   const { account } = useAuth();
@@ -119,19 +110,6 @@ export function AppsPage() {
               </li>
             );
           })}
-          <li>
-            <a href={SAFETY_TOOL_URL} target="_blank" rel="noopener noreferrer" className={tileClass}>
-              <span className="grid size-11 shrink-0 place-items-center rounded-[10px] bg-muted text-muted-foreground">
-                <Plus className="size-5" aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold text-foreground">Thêm ứng dụng</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">Xem các gói và bật thêm tính năng.</span>
-              </span>
-              <ExternalLink className="size-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
-              <span className="sr-only">(mở tab mới)</span>
-            </a>
-          </li>
         </ul>
       </section>
       {isCreator && settingsQ.data && <KolSafetySettingsCard accountId={accountId} settings={settingsQ.data} />}

@@ -100,6 +100,11 @@ function hasActiveChannel(state: DemoState, accountId: string): boolean {
   return state.channels.some((c) => c.ownerId === accountId && activeWithProof(c));
 }
 
+/** ≥ 1 active channel (with proof) that has passed KOL Safety, i.e. no longer SAFETY_PENDING (xác thực kênh). */
+function hasSafetyChannel(state: DemoState, accountId: string): boolean {
+  return state.channels.some((c) => c.ownerId === accountId && activeWithProof(c) && c.status !== 'SAFETY_PENDING');
+}
+
 /** MCN channels currently assigned to an existing KOL (same rule as the "Quản lý KOL" list). */
 export function assignedKolChannels(state: DemoState, mcnAccountId: string): Channel[] {
   return state.channels.filter(
@@ -118,13 +123,14 @@ function hasAssignedKol(state: DemoState, mcnAccountId: string): boolean {
 export const KOLS_REQUIREMENT_LABEL = 'Có ít nhất 1 KOL được gán kênh';
 const STAFF_LABEL = 'Có nhân sự quản lý nội dung';
 export const CHANNEL_REQUIREMENT_LABEL = 'Có ít nhất 1 kênh đang hoạt động kèm ảnh';
+export const SAFETY_REQUIREMENT_LABEL = 'Có ít nhất 1 kênh đạt xác thực KOL Safety';
 
 function identityDone(p: KolProfile | McnProfile): boolean {
   return p.ownerType === 'KOL' ? p.ekycStatus === 'PASSED' : !!p.gcnFile;
 }
 
 export interface Milestone {
-  key: 'contact' | 'staff' | 'identity' | 'channel' | 'submitted';
+  key: 'contact' | 'staff' | 'identity' | 'channel' | 'safety' | 'submitted';
   label: string;
   done: boolean;
 }
@@ -136,7 +142,7 @@ export interface Completeness {
 
 /**
  * Required steps only (BR-64/65 + submitted); recommendations such as MCN KOL assignment are not counted.
- * KOL profiles have no content staff, so KOL has 4 milestones (25% each) and MCN 5 (20% each).
+ * KOL profiles have no content staff, so KOL has 5 milestones (20% each) and MCN 6.
  */
 export function completeness(state: DemoState, accountId: string): Completeness {
   const p = findProfile(state, accountId);
@@ -150,13 +156,14 @@ export function completeness(state: DemoState, accountId: string): Completeness 
       done: identityDone(p),
     },
     { key: 'channel', label: 'Có ít nhất 1 kênh hoạt động kèm ảnh', done: hasActiveChannel(state, accountId) },
+    { key: 'safety', label: SAFETY_REQUIREMENT_LABEL, done: hasSafetyChannel(state, accountId) },
     { key: 'submitted', label: 'Đã gửi xét duyệt', done: p.status !== 'DRAFT' },
   ];
   return { percent: Math.round((milestones.filter((m) => m.done).length / milestones.length) * 100), milestones };
 }
 
 export interface ChecklistItem {
-  key: 'ekyc' | 'org' | 'gcn' | 'contact' | 'staff' | 'channel' | 'kols' | 'pledges';
+  key: 'ekyc' | 'org' | 'gcn' | 'contact' | 'staff' | 'channel' | 'safety' | 'kols' | 'pledges';
   label: string;
   ok: boolean;
 }
@@ -165,8 +172,9 @@ export const PLEDGES_LABEL = 'Đã tick đủ 3 cam đoan';
 
 /**
  * BR-64 (KOL) / BR-65 (MCN) submit conditions — the required items, also the submit guard of the review
- * service. KOL: eKYC, contact, ≥ 1 active channel with proof (no content staff). MCN: 5 org fields, GCN, contact
- * (staff, channels and KOL assignment are only recommended, see profileRecommendations).
+ * service. KOL: eKYC, contact, ≥ 1 active channel with proof, ≥ 1 of them passed KOL Safety (no content staff).
+ * MCN: 5 org fields, GCN, contact (staff, channels, KOL Safety and KOL assignment are only recommended, see
+ * profileRecommendations).
  */
 export function submitChecklist(state: DemoState, accountId: string, pledges: boolean[]): ChecklistItem[] {
   const p = findProfile(state, accountId);
@@ -186,6 +194,7 @@ export function submitChecklist(state: DemoState, accountId: string, pledges: bo
       { key: 'ekyc', label: 'Đã xác thực danh tính (eKYC)', ok: p.ekycStatus === 'PASSED' },
       contact,
       { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) },
+      { key: 'safety', label: SAFETY_REQUIREMENT_LABEL, ok: hasSafetyChannel(state, accountId) },
       pledgeItem,
     ];
   }
@@ -207,6 +216,7 @@ export function profileRecommendations(state: DemoState, accountId: string): Che
   return [
     { key: 'staff', label: STAFF_LABEL, ok: hasStaff(p.staff) },
     { key: 'channel', label: CHANNEL_REQUIREMENT_LABEL, ok: hasActiveChannel(state, accountId) },
+    { key: 'safety', label: SAFETY_REQUIREMENT_LABEL, ok: hasSafetyChannel(state, accountId) },
     { key: 'kols', label: KOLS_REQUIREMENT_LABEL, ok: hasAssignedKol(state, accountId) },
   ];
 }

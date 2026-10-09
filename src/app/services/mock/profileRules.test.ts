@@ -73,13 +73,13 @@ describe('completeness', () => {
     expect(completeness(s, h.kolId)).toMatchObject({ percent: 100 });
   });
 
-  test('KOL mỗi mốc 25%: chỉ có liên hệ = 25%; nhân sự không tính cho KOL', () => {
+  test('KOL mỗi mốc 20%: chỉ có liên hệ = 20%; nhân sự không tính cho KOL', () => {
     const h = makeHarness();
     const s = withProfile(h.db.read(), h.kolId, (p) => {
       p.contact = { ...fullContact };
       p.staff = { ...staff };
     });
-    expect(completeness(s, h.kolId).percent).toBe(25);
+    expect(completeness(s, h.kolId).percent).toBe(20);
   });
 
   test('MCN: mốc định danh là có file GCN', () => {
@@ -88,18 +88,27 @@ describe('completeness', () => {
     s.mcnProfiles[0].gcnFile = { name: 'gcn.pdf', type: 'application/pdf', size: 100 };
     const c = completeness(s, h.mcnId);
     expect(c.milestones.find((m) => m.key === 'identity')).toMatchObject({ done: true, label: 'Tải Giấy chứng nhận ĐKDN' });
-    expect(c.percent).toBe(20);
+    expect(c.percent).toBe(17);
   });
 
-  test('MCN 5 mốc (có nhân sự, không tính gán KOL, mỗi mốc 20%); KOL 4 mốc không có nhân sự', () => {
+  test('MCN 6 mốc (có nhân sự, không tính gán KOL); KOL 5 mốc không có nhân sự; có mốc KOL Safety', () => {
     const h = makeHarness();
     const s = h.db.read();
-    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'submitted']);
-    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(['contact', 'identity', 'channel', 'submitted']);
+    expect(completeness(s, h.mcnId).milestones.map((m) => m.key)).toEqual(['contact', 'staff', 'identity', 'channel', 'safety', 'submitted']);
+    expect(completeness(s, h.kolId).milestones.map((m) => m.key)).toEqual(['contact', 'identity', 'channel', 'safety', 'submitted']);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
     const c = completeness(s, h.mcnId);
-    expect(c.milestones.filter((m) => m.done).map((m) => m.key)).toEqual(['channel']);
-    expect(c.percent).toBe(20);
+    expect(c.milestones.filter((m) => m.done).map((m) => m.key)).toEqual(['channel', 'safety']);
+    expect(c.percent).toBe(33);
+  });
+
+  test('kênh còn Chờ KOL Safety: đạt mốc kênh nhưng chưa đạt mốc KOL Safety', () => {
+    const h = makeHarness();
+    const s = h.db.read();
+    s.channels.push(channel(h.kolId, { status: 'SAFETY_PENDING' }));
+    const done = completeness(s, h.kolId).milestones.filter((m) => m.done).map((m) => m.key);
+    expect(done).toEqual(['channel']);
+    expect(submitChecklist(s, h.kolId, [true, true, true]).find((i) => i.key === 'safety')!.ok).toBe(false);
   });
 
   test('kênh INACTIVE không tính mốc kênh', () => {
@@ -119,7 +128,7 @@ describe('submitChecklist', () => {
       p.status = 'DRAFT';
     });
     const items = submitChecklist(s, h.kolId, [true, true, false]);
-    expect(items.map((i) => i.key)).toEqual(['ekyc', 'contact', 'channel', 'pledges']);
+    expect(items.map((i) => i.key)).toEqual(['ekyc', 'contact', 'channel', 'safety', 'pledges']);
     expect(items.filter((i) => !i.ok).map((i) => i.key)).toEqual(['ekyc', 'pledges']);
   });
 
@@ -140,25 +149,27 @@ describe('profileRecommendations', () => {
     expect(profileRecommendations(h.db.read(), h.kolId)).toEqual([]);
   });
 
-  test('MCN: nhân sự, kênh, KOL được gán kênh là khuyến nghị (không chặn gửi)', () => {
+  test('MCN: nhân sự, kênh, KOL Safety, KOL được gán kênh là khuyến nghị (không chặn gửi)', () => {
     const h = makeHarness();
     const s = h.db.read();
     const ok = () => profileRecommendations(s, h.mcnId).map((i) => [i.key, i.ok]);
     expect(ok()).toEqual([
       ['staff', false],
       ['channel', false],
+      ['safety', false],
       ['kols', false],
     ]);
     expect(profileRecommendations(s, h.mcnId).find((i) => i.key === 'kols')!.label).toBe('Có ít nhất 1 KOL được gán kênh');
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN' }));
     expect(ok().slice(1)).toEqual([
       ['channel', true],
+      ['safety', true],
       ['kols', false],
     ]);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'khong-co' }));
-    expect(ok()[2]).toEqual(['kols', false]);
+    expect(ok()[3]).toEqual(['kols', false]);
     s.channels.push(channel(h.mcnId, { ownerType: 'MCN', assignedKolAccountId: 'acc-kol-2026-0011' }));
-    expect(ok()[2]).toEqual(['kols', true]);
+    expect(ok()[3]).toEqual(['kols', true]);
   });
 });
 

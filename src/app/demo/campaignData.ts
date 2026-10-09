@@ -141,9 +141,9 @@ export const CAMPAIGN_DATA: DataGroup[] = [
       {
         key: 'platforms',
         label: 'Nền tảng',
-        type: "('tiktok' | 'youtube' | 'facebook')[]",
+        type: "('tiktok' | 'youtube' | 'facebook' | 'instagram')[]",
         required: 'Khi đăng: ≥ 1',
-        rules: 'TikTok, YouTube, Facebook.',
+        rules: 'TikTok, YouTube, Facebook, Instagram.',
         shown: { form: 'Nền tảng', san: 'Biểu tượng nền tảng ở đầu trang', supplier: 'Nền tảng', brand: 'Nền tảng' },
       },
       {

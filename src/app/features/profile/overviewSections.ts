@@ -66,11 +66,12 @@ const SECTION_OF: Record<OverviewItemKey, OverviewSectionKey> = {
   contact: 'thong-tin',
   staff: 'thong-tin',
   channel: 'kenh',
+  safety: 'kenh',
   kols: 'kol',
 };
 
 /** Row order inside a card. */
-const ITEM_ORDER: OverviewItemKey[] = ['ekyc', 'org', 'gcn', 'contact', 'staff', 'channel', 'kols'];
+const ITEM_ORDER: OverviewItemKey[] = ['ekyc', 'org', 'gcn', 'contact', 'staff', 'channel', 'safety', 'kols'];
 
 const ITEM_LABEL: Record<OverviewItemKey, string> = {
   ekyc: 'Định danh (eKYC)',
@@ -79,6 +80,7 @@ const ITEM_LABEL: Record<OverviewItemKey, string> = {
   contact: 'Liên hệ',
   staff: 'Nhân sự',
   channel: 'Kênh hoạt động kèm ảnh',
+  safety: 'Kênh đạt KOL Safety',
   kols: 'KOL được gán kênh',
 };
 
@@ -195,6 +197,11 @@ function itemDetail(key: OverviewItemKey, ok: boolean, { view, ekyc, channels, k
       const active = channels.filter((c) => c.active && !!c.proofImage).length;
       if (ok) return `${active || 'Có'} kênh`;
       return channels.length === 0 ? 'Chưa có' : 'Chưa bật kênh';
+    }
+    case 'safety': {
+      const passed = channels.filter((c) => c.active && !!c.proofImage && c.status !== 'SAFETY_PENDING').length;
+      if (ok) return `${passed} kênh`;
+      return channels.some((c) => c.status === 'SAFETY_PENDING') ? 'Chưa quét đạt' : 'Chưa có kênh';
     }
     case 'kols': {
       if (!ok) return 'Chưa gán';

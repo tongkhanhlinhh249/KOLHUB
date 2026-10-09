@@ -631,7 +631,7 @@ export function PostDialog({ open, onOpenChange, booking }: { open: boolean; onO
           className="h-11 bg-card md:h-9"
         />
         <p className="text-xs text-muted-foreground">
-          {detected ? `Nhận diện: bài đăng ${platformName(detected)}` : 'Nhận link TikTok, YouTube hoặc Facebook.'}
+          {detected ? `Nhận diện: bài đăng ${platformName(detected)}` : 'Nhận link TikTok, YouTube, Facebook hoặc Instagram.'}
         </p>
       </div>
       {booking.items.length > 1 && (

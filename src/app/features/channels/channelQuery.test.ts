@@ -30,7 +30,7 @@ function ch(p: Partial<Channel> & { id: string }): Channel {
     proofImage: { name: 'a.png', type: 'image/png', size: 1 } as Channel['proofImage'],
     status: 'VERIFIED',
     active: true,
-    badgeExpiresAt: NOW + 10,
+    badgeExpiresAt: NOW + 60 * 86_400_000,
     createdAt: 0,
     updatedAt: 0,
     ...p,
@@ -56,7 +56,7 @@ describe('parse / serialize', () => {
 
   test('giá trị lạ → mặc định / bị bỏ', () =>
     expect(
-      parseChannelParams(new URLSearchParams('q=%20&trangThai=VERIFIED&nenTang=instagram,tiktok,tiktok&hoatDong=yes&sapXep=x&view=table')),
+      parseChannelParams(new URLSearchParams('q=%20&trangThai=VERIFIED&nenTang=twitter,tiktok,tiktok&hoatDong=yes&sapXep=x&view=table')),
     ).toEqual({ platforms: ['tiktok'], sort: 'updated' }));
 
   test('toChannelParams bỏ mặc định; round-trip', () => {
@@ -94,7 +94,13 @@ describe('trạng thái', () => {
   });
 
   test('đếm theo trạng thái', () =>
-    expect(countByStatus(channels, NOW)).toEqual({ verified: 1, pending: 1, needs_fix: 1, expired: 2 }));
+    expect(countByStatus(channels, NOW)).toEqual({ safety: 0, verified: 1, expiring: 0, pending: 1, needs_fix: 1, expired: 2 }));
+
+  test('SAFETY_PENDING → Chờ KOL Safety; còn ≤ 14 ngày → Sắp hết hạn', () => {
+    expect(channelStatusOf(ch({ id: 's', status: 'SAFETY_PENDING', badgeExpiresAt: undefined }), NOW)).toBe('safety');
+    expect(channelStatusOf(ch({ id: 'x', badgeExpiresAt: NOW + 14 * 86_400_000 }), NOW)).toBe('expiring');
+    expect(channelStatusOf(ch({ id: 'y', badgeExpiresAt: NOW + 15 * 86_400_000 }), NOW)).toBe('verified');
+  });
 });
 
 describe('filterChannels', () => {
@@ -143,15 +149,17 @@ describe('status mode (MCN)', () => {
     ch({ id: 'd', badgeExpiresAt: NOW - 1 }),
   ];
 
-  test('channelStatusTabs: Tất cả + 4 trạng thái, luôn đủ 5 tab kể cả khi 0', () => {
+  test('channelStatusTabs: Tất cả + 6 trạng thái, luôn đủ 7 tab kể cả khi 0', () => {
     expect(channelStatusTabs(list, NOW)).toEqual([
       { key: 'all', label: 'Tất cả', count: 5 },
-      { key: 'verified', label: 'Đã xác thực', count: 1 },
+      { key: 'safety', label: 'Chờ KOL Safety', count: 0 },
       { key: 'pending', label: 'Chờ duyệt', count: 1 },
       { key: 'needs_fix', label: 'Cần bổ sung', count: 1 },
+      { key: 'verified', label: 'Đã xác thực', count: 1 },
+      { key: 'expiring', label: 'Sắp hết hạn', count: 0 },
       { key: 'expired', label: 'Hết hạn dấu', count: 2 },
     ]);
-    expect(channelStatusTabs([], NOW).map((t) => t.count)).toEqual([0, 0, 0, 0, 0]);
+    expect(channelStatusTabs([], NOW).map((t) => t.count)).toEqual([0, 0, 0, 0, 0, 0, 0]);
   });
 
   test('statusOnlyQuery bỏ qua từ khoá, nền tảng, hoạt động, sắp xếp', () => {

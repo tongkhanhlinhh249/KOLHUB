@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import type { StoredFile } from '../profile-types';
 import { createChannelService } from './channel';
 import { findProfile } from './profileRules';
-import { makeHarness, type Harness } from './testHarness';
+import { makeHarness, passSafety, type Harness } from './testHarness';
 
 const png: StoredFile = { name: 'proof.png', type: 'image/png', size: 2000 };
 const png2: StoredFile = { name: 'proof2.png', type: 'image/png', size: 3000 };
@@ -27,9 +27,9 @@ async function verifiedChannel() {
 }
 
 describe('channel service', () => {
-  test('thêm kênh → PENDING_REVIEW, active, handle, platform', async () => {
+  test('thêm kênh → SAFETY_PENDING (chờ xác thực KOL Safety), active, handle, platform', async () => {
     expect(await ch.add(h.kolId, { url: 'tiktok.com/@vytest', proofImage: png })).toMatchObject({
-      status: 'PENDING_REVIEW',
+      status: 'SAFETY_PENDING',
       active: true,
       platform: 'tiktok',
       handle: '@vytest',
@@ -38,8 +38,12 @@ describe('channel service', () => {
     expect(h.db.read().funnel).toEqual([expect.objectContaining({ step: 'channel_added', subject: 'kol@demo.kolhub.vn' })]);
   });
 
-  test('link Instagram → 4202, không tạo kênh', async () => {
-    await expect(ch.add(h.kolId, { url: 'instagram.com/khanhvy', proofImage: png })).rejects.toMatchObject({
+  test('link Instagram được nhận (QĐ-09)', async () => {
+    expect((await ch.add(h.kolId, { url: 'instagram.com/khanhvy', proofImage: png })).platform).toBe('instagram');
+  });
+
+  test('link X/Twitter → 4202, không tạo kênh', async () => {
+    await expect(ch.add(h.kolId, { url: 'x.com/khanhvy', proofImage: png })).rejects.toMatchObject({
       code: 'KOLHUB-4202',
     });
     expect(await ch.list(h.kolId)).toEqual([]);
@@ -85,14 +89,26 @@ describe('channel service', () => {
     expect(u).toMatchObject({ status: 'PENDING_REVIEW', badgeSuspended: true, badgeExpiresAt: undefined });
   });
 
-  test('sửa kênh NEEDS_FIX → PENDING_REVIEW, xoá lý do', async () => {
+  test('sửa ảnh kênh NEEDS_FIX → PENDING_REVIEW, xoá lý do, không quét KOL Safety lại (BR-24)', async () => {
     const c = await ch.add(h.kolId, { url: 'tiktok.com/@a', proofImage: png });
+    passSafety(h, c.id);
     h.db.update((s) => {
       Object.assign(s.channels[0], { status: 'NEEDS_FIX', note: 'Ảnh mờ' });
     });
     const u = await ch.update(h.kolId, c.id, { url: c.url, proofImage: png2 });
     expect(u.status).toBe('PENDING_REVIEW');
     expect(u.note).toBeUndefined();
+  });
+
+  test('sửa link kênh → SAFETY_PENDING, bỏ kết quả KOL Safety cũ (BR-24)', async () => {
+    const c = await verifiedChannel();
+    const u = await ch.update(h.kolId, c.id, { url: 'https://www.facebook.com/khanhvy.moi', proofImage: c.proofImage });
+    expect(u).toMatchObject({ status: 'SAFETY_PENDING', badgeExpiresAt: undefined, safetyPassedAt: undefined, safety: undefined });
+  });
+
+  test('sửa ảnh kênh chưa đạt KOL Safety → vẫn SAFETY_PENDING', async () => {
+    const c = await ch.add(h.kolId, { url: 'tiktok.com/@a', proofImage: png });
+    expect((await ch.update(h.kolId, c.id, { url: c.url, proofImage: png2 })).status).toBe('SAFETY_PENDING');
   });
 
   test('sửa link sang link đã có → 4201', async () => {
@@ -105,6 +121,7 @@ describe('channel service', () => {
 
   test('hồ sơ SUBMITTED: sửa kênh đang chờ duyệt bị chặn, bật/tắt vẫn được', async () => {
     const c = await ch.add(h.kolId, { url: 'tiktok.com/@a', proofImage: png });
+    passSafety(h, c.id);
     h.db.update((s) => {
       findProfile(s, h.kolId)!.status = 'SUBMITTED';
     });

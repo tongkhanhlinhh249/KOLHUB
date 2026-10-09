@@ -173,6 +173,15 @@ function ProfileReview({ p }: { p: QueueProfile }) {
               <span className="min-w-0 flex-1 truncate text-sm text-foreground">{c.handle}</span>
               {c.proofImage.thumbnail && <img src={c.proofImage.thumbnail} alt={`Ảnh quản lý ${c.handle}`} className="size-10 rounded object-cover" />}
             </div>
+            {/* Admin chỉ xét chủ sở hữu kênh; KOL Safety đã chấm nội dung (BR-21). */}
+            <p className="text-xs text-muted-foreground">
+              {c.safety?.passedAt
+                ? `KOL Safety: ${c.safety.required}/${c.safety.required} nội dung đạt · ${format(c.safety.passedAt, 'dd/MM/yyyy')}`
+                : c.safetyPassedAt
+                  ? `KOL Safety: đạt · ${format(c.safetyPassedAt, 'dd/MM/yyyy')}`
+                  : 'KOL Safety: đạt (dữ liệu mẫu)'}{' '}
+              · chỉ xét link và ảnh quản lý kênh
+            </p>
             <RadioGroup
               value={d.verdict ?? ''}
               onValueChange={(v) => set({ verdict: v as 'PASS' | 'NEEDS_FIX' })}

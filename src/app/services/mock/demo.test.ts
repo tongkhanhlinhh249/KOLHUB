@@ -27,7 +27,8 @@ describe('fillSampleProfile', () => {
     const own = s.channels.filter((c) => c.ownerId === h.kolId);
     expect(own.map((c) => [c.platform, c.status, c.active, !!c.proofImage])).toEqual([
       ['tiktok', 'PENDING_REVIEW', true, true],
-      ['facebook', 'PENDING_REVIEW', true, true],
+      ['facebook', 'SAFETY_PENDING', true, true],
+      ['instagram', 'SAFETY_PENDING', true, true],
     ]);
     expect(submitChecklist(s, h.kolId, [false, false, false]).filter((i) => !i.ok).map((i) => i.key)).toEqual(['pledges']);
     expect(s.reviewRequests.some((r) => r.ownerId === h.kolId)).toBe(false);
@@ -56,7 +57,7 @@ describe('fillSampleProfile', () => {
     const s = h.db.read();
     expect(findProfile(s, h.kolId)!.contact.displayName).toBe('Khánh Vy');
     expect(s.identities.filter((x) => x.accountId === h.kolId)).toHaveLength(1);
-    expect(s.channels.filter((c) => c.ownerId === h.kolId)).toHaveLength(2);
+    expect(s.channels.filter((c) => c.ownerId === h.kolId)).toHaveLength(3);
     expect(contactComplete(findProfile(s, h.kolId)!.contact)).toBe(true);
   });
 

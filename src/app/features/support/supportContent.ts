@@ -33,7 +33,7 @@ export function guideSteps(type: AccountType): GuideStep[] {
   }
   const base = creatorBase(type);
   return [
-    { title: 'Kết nối kênh', text: 'Thêm kênh TikTok, YouTube hoặc Facebook kèm ảnh màn hình quản lý kênh để nhận dấu xác thực.', to: `${base}/kenh`, cta: 'Quản lý kênh' },
+    { title: 'Kết nối kênh', text: 'Thêm kênh TikTok, YouTube, Facebook hoặc Instagram kèm ảnh màn hình quản lý kênh để nhận dấu xác thực.', to: `${base}/kenh`, cta: 'Quản lý kênh' },
     {
       title: 'Xác thực hồ sơ',
       text: type === 'MCN' ? 'Điền thông tin tổ chức, Giấy chứng nhận ĐKDN, người liên hệ rồi gửi xét duyệt.' : 'Xác thực danh tính (eKYC), điền thông tin liên hệ rồi gửi hồ sơ xét duyệt.',

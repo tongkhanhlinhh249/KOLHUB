@@ -138,10 +138,54 @@ export interface Channel {
   assignedKolAccountId?: string;
   /** When `assignedKolAccountId` was last set. */
   assignedAt?: number;
+  /** Xác thực KOL Safety đang chạy hoặc lần gần nhất (danh sách N nội dung đã chốt + kết quả từng nội dung). */
+  safety?: ChannelSafety;
+  /** Lần gần nhất kênh đủ N/N nội dung đạt KOL Safety (xác thực lần đầu hoặc gia hạn). */
+  safetyPassedAt?: number;
+  /** Demo only: số nội dung hiện có trên kênh (mặc định đủ N), để tái hiện "Kênh chưa đủ nội dung". */
+  demoContentCount?: number;
   /** Mock social-listening data, set when the channel is verified (see mock/socialListening). */
   stats?: ChannelStats;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Loại nội dung KOL Safety trả về cho từng nội dung được xét. */
+export type SafetyContentType = 'VIDEO' | 'SHORT' | 'PHOTO' | 'POST' | 'STORY' | 'NOTE';
+
+/** Một nội dung trong danh sách N nội dung gần nhất đã chốt; kết quả do KOL Safety trả về (KOL Hub không tự chấm). */
+export interface SafetyItem {
+  id: string;
+  url: string;
+  type: SafetyContentType;
+  title: string;
+  postedAt: number;
+  /** Ảnh thumbnail của nội dung (video, ảnh, story); bài viết / ghi chú chỉ có chữ thì không có. */
+  thumbnail?: string;
+  /** Thời lượng video (giây); không có với ảnh / bài viết / ghi chú. */
+  durationSec?: number;
+  /** Chưa quét = undefined. */
+  verdict?: 'PASS' | 'FAIL';
+  /** Lý do không đạt, nguyên văn KOL Safety. */
+  reason?: string;
+  /** Số giây đã quét (tối đa 3 phút đầu). */
+  scannedSec?: number;
+  scans: number;
+  checkedAt?: number;
+}
+
+/** Phản chiếu tiến độ xác thực KOL Safety của một kênh. */
+export interface ChannelSafety {
+  purpose: 'VERIFY' | 'RENEW';
+  /** N nội dung gần nhất cần đạt theo nền tảng. */
+  required: number;
+  /** Lúc chốt danh sách; hết hiệu lực sau 7 ngày nếu chưa đạt. */
+  snapshotAt: number;
+  items: SafetyItem[];
+  reportUrl: string;
+  checkedAt?: number;
+  /** Đủ N/N đạt. */
+  passedAt?: number;
 }
 
 export interface ChannelStats {

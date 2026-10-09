@@ -30,10 +30,11 @@ export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
 export const MAX_VIDEO_SEC = 10 * 60;
 export const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm'];
 
-export const MONITOR_PLATFORMS: MonitorPlatform[] = ['tiktok', 'facebook', 'youtube'];
+export const MONITOR_PLATFORMS: MonitorPlatform[] = ['tiktok', 'facebook', 'instagram', 'youtube'];
 export const MONITOR_PLATFORM_LABEL: Record<MonitorPlatform, string> = {
   tiktok: 'TikTok',
   facebook: 'Facebook',
+  instagram: 'Instagram',
   youtube: 'YouTube',
 };
 
