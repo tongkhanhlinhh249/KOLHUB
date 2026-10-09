@@ -85,11 +85,10 @@ export function SafetyActionButton({ channel, now, onOpen }: { channel: Channel;
 
 const isVideo = (t: SafetyItem['type']) => t === 'VIDEO' || t === 'SHORT' || t === 'STORY';
 
-/** 16:9 thumbnail (9:16 for Shorts / Story) with play icon and length for videos; text posts get an icon tile. */
+/** Square (1:1) thumbnail, same size for every type: play icon and length for videos; text posts get an icon tile. */
 function SafetyThumb({ item }: { item: SafetyItem }) {
   const src = safetyThumbnail(item);
-  const vertical = item.type === 'SHORT' || item.type === 'STORY';
-  const box = cn('relative shrink-0 overflow-hidden rounded-md bg-muted', vertical ? 'h-16 w-9' : 'h-12 w-20');
+  const box = 'relative size-14 shrink-0 overflow-hidden rounded-md bg-muted';
   if (!src) {
     const Icon = item.type === 'NOTE' ? StickyNote : FileText;
     return (
