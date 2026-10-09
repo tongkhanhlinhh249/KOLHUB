@@ -40,6 +40,14 @@ describe('quy tắc theo nền tảng (mục 2)', () => {
     expect(items.map((i) => i.postedAt)).toEqual([...items.map((i) => i.postedAt)].sort((a, b) => b - a));
     expect(new Set(items.map((i) => i.type)).size).toBeGreaterThan(1);
   });
+
+  test('nội dung có hình có thumbnail, bài viết / ghi chú thì không', async () => {
+    const ig = await channels.add(h.kolId, { url: 'instagram.com/vy', proofImage: png });
+    for (const i of (await safety.start(h.kolId, ig.id, true)).safety!.items) {
+      if (i.type === 'POST' || i.type === 'NOTE') expect(i.thumbnail).toBeUndefined();
+      else expect(i.thumbnail).toBeTruthy();
+    }
+  });
 });
 
 describe('xác thực lần đầu (mục 3)', () => {

@@ -10,6 +10,7 @@ import { delay as fakeDelay } from './delay';
 import { BADGE_VALID_DAYS, normalizeChannelUrl } from './channelRules';
 import { findProfile } from './profileRules';
 import { channelBadge } from './directory';
+import { IMAGE_POOL } from './socialListening';
 
 const DAY = 86_400_000;
 
@@ -132,6 +133,16 @@ export function contentCountOf(ch: Channel): number {
   return ch.demoContentCount ?? SAFETY_REQUIRED[ch.platform] + 4 + (hash(normalizeChannelUrl(ch.url)) % 40);
 }
 
+/** Nội dung có hình (video, Shorts, story, ảnh) có thumbnail; bài viết, ghi chú chỉ có chữ thì không. */
+const HAS_IMAGE: SafetyContentType[] = ['VIDEO', 'SHORT', 'STORY', 'PHOTO'];
+
+/** Thumbnail mẫu của một nội dung, cố định theo link (cả danh sách đã chốt trước khi có trường `thumbnail`). */
+export function safetyThumbnail(item: Pick<SafetyItem, 'url' | 'type' | 'thumbnail'>): string | undefined {
+  if (item.thumbnail) return item.thumbnail;
+  if (!HAS_IMAGE.includes(item.type) || IMAGE_POOL.length === 0) return undefined;
+  return IMAGE_POOL[hash(item.url) % IMAGE_POOL.length];
+}
+
 /** N nội dung mới nhất của kênh tại thời điểm `now` (danh sách chốt, BR-08, BR-16). */
 export function snapshotItems(ch: Channel, now: number): SafetyItem[] {
   const n = SAFETY_REQUIRED[ch.platform];
@@ -143,10 +154,13 @@ export function snapshotItems(ch: Channel, now: number): SafetyItem[] {
     const type = types[h % types.length];
     const isVideo = type === 'VIDEO' || type === 'SHORT' || type === 'STORY';
     const durationSec = !isVideo ? undefined : type === 'SHORT' || type === 'STORY' ? 15 + (h % 45) : 40 + (h % 600);
+    const url = `https://${base}/${type === 'STORY' ? 'stories' : type === 'SHORT' ? 'shorts' : 'p'}/${(h % 1e8).toString(36)}`;
+    const thumbnail = safetyThumbnail({ url, type });
     return {
       id: `si-${(seed % 100000).toString(36)}-${i + 1}`,
-      url: `https://${base}/${type === 'STORY' ? 'stories' : type === 'SHORT' ? 'shorts' : 'p'}/${(h % 1e8).toString(36)}`,
+      url,
       type,
+      ...(thumbnail ? { thumbnail } : {}),
       title: `${TITLES[h % TITLES.length]} #${n - i}`,
       postedAt: now - (i * 2 + 1 + (h % 2)) * DAY,
       ...(durationSec !== undefined ? { durationSec } : {}),

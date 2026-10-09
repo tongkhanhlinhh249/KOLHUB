@@ -61,6 +61,7 @@ export {
   canRenew,
   daysLeft,
   safetyProgress,
+  safetyThumbnail,
 } from './mock/safetyVerification';
 export const funnelService = createFunnelService({ db, now: Date.now });
 export const subscribeData = db.subscribe;

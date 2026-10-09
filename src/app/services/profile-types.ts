@@ -160,6 +160,8 @@ export interface SafetyItem {
   type: SafetyContentType;
   title: string;
   postedAt: number;
+  /** Ảnh thumbnail của nội dung (video, ảnh, story); bài viết / ghi chú chỉ có chữ thì không có. */
+  thumbnail?: string;
   /** Thời lượng video (giây); không có với ảnh / bài viết / ghi chú. */
   durationSec?: number;
   /** Chưa quét = undefined. */

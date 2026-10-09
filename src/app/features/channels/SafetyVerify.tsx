@@ -3,7 +3,7 @@
 // (mở tab mới sẽ làm hai tab ghi đè dữ liệu demo của nhau).
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, ExternalLink, Loader2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { CheckCircle2, FileText, Play, StickyNote, ExternalLink, Loader2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
@@ -22,6 +22,7 @@ import {
   SAFETY_SNAPSHOT_DAYS,
   SAFETY_TYPE_LABEL,
   safetyProgress,
+  safetyThumbnail,
   safetyVerificationService,
   type Channel,
   type SafetyItem,
@@ -82,25 +83,55 @@ export function SafetyActionButton({ channel, now, onOpen }: { channel: Channel;
   );
 }
 
+const isVideo = (t: SafetyItem['type']) => t === 'VIDEO' || t === 'SHORT' || t === 'STORY';
+
+/** 16:9 thumbnail (9:16 for Shorts / Story) with play icon and length for videos; text posts get an icon tile. */
+function SafetyThumb({ item }: { item: SafetyItem }) {
+  const src = safetyThumbnail(item);
+  const vertical = item.type === 'SHORT' || item.type === 'STORY';
+  const box = cn('relative shrink-0 overflow-hidden rounded-md bg-muted', vertical ? 'h-16 w-9' : 'h-12 w-20');
+  if (!src) {
+    const Icon = item.type === 'NOTE' ? StickyNote : FileText;
+    return (
+      <span className={cn(box, 'flex items-center justify-center text-muted-foreground')} aria-hidden>
+        <Icon className="size-5" />
+      </span>
+    );
+  }
+  return (
+    <span className={box}>
+      <img src={src} alt={`Ảnh ${SAFETY_TYPE_LABEL[item.type].toLowerCase()}: ${item.title}`} loading="lazy" className="size-full object-cover" />
+      {isVideo(item.type) && (
+        <>
+          <span className="absolute inset-0 flex items-center justify-center bg-black/20" aria-hidden>
+            <Play className="size-4 fill-white text-white" />
+          </span>
+          {item.durationSec !== undefined && (
+            <span className="absolute right-0.5 bottom-0.5 rounded-sm bg-black/70 px-1 text-[10px] leading-4 font-medium text-white tabular-nums">
+              {mmss(item.durationSec)}
+            </span>
+          )}
+        </>
+      )}
+    </span>
+  );
+}
+
 /** One locked item with the result KOL Safety reported (read-only: scanning happens on KOL Safety). */
 function ItemRow({ item }: { item: SafetyItem }) {
   const long = item.durationSec !== undefined && item.durationSec > SAFETY_SCAN_SECONDS;
   return (
     <li className="space-y-2 rounded-lg border border-border p-3">
       <div className="flex items-start gap-3">
+        <SafetyThumb item={item} />
         <div className="min-w-0 flex-1 space-y-1">
           <p className="truncate text-sm font-medium text-foreground" title={item.title}>
             {item.title}
           </p>
           <p className="text-xs text-muted-foreground">
             {SAFETY_TYPE_LABEL[item.type]} · {format(item.postedAt, 'dd/MM/yyyy')}
-            {item.durationSec !== undefined && (
-              <>
-                {' '}
-                · {mmss(item.durationSec)}
-                {long && ` · quét 0:00–${mmss(SAFETY_SCAN_SECONDS)}`}
-              </>
-            )}
+            {/* The length is on the thumbnail; long videos say which part KOL Safety checks. */}
+            {long && ` · quét 0:00–${mmss(SAFETY_SCAN_SECONDS)}`}
             {item.scans > 1 && ` · đã quét ${item.scans} lần`}
           </p>
         </div>
