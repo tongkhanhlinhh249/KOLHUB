@@ -4,9 +4,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '..
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
-import { kolSafetyReportService, reviewService, violationService } from '../services';
+import { campaignService, reviewService, violationService } from '../services';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
 import { AdminSimulator } from './AdminSimulator';
+import { CampaignReviewBlock } from './CampaignReviewBlock';
 import { AssumptionsBlock } from './AssumptionsBlock';
 import { CampaignSimulatorBlock } from './CampaignSimulatorBlock';
 import { DemoDataBlock } from './DemoDataBlock';
@@ -18,19 +19,18 @@ import { FunnelView } from './FunnelView';
 import { useRoleSwitch } from './RoleSwitcher';
 import { SafetySimulatorBlock } from './SafetySimulatorBlock';
 import { SampleProfileBlock } from './SampleProfileBlock';
-import { ShieldAppealsBlock } from './ShieldAppealsBlock';
 import { ViolationReviewBlock } from './ViolationReviewBlock';
 
 export { DemoPanelSection } from './DemoPanelSection';
 
-/** Pending items for Admin (profiles, changes, eKYC cases, violation reports and appeals, shield appeals), for the section badge. */
+/** Pending items for Admin (profiles, changes, eKYC cases, violation reports and appeals, campaigns to review), for the section badge. */
 function useAdminPending(): number | null {
   const reviews = useLiveQuery(() => reviewService.listAdminQueue(), []);
   const violations = useLiveQuery(() => violationService.adminQueue(), []);
-  const shields = useLiveQuery(() => kolSafetyReportService.listShieldAppeals(), []);
-  if (!reviews.data || !violations.data || !shields.data) return null;
+  const campaigns = useLiveQuery(() => campaignService.listReviewQueue(), []);
+  if (!reviews.data || !violations.data || !campaigns.data) return null;
   const r = reviews.data;
-  return r.profiles.length + r.changes.length + r.ekycCases.length + violations.data.pending.length + violations.data.appealed.length + shields.data.length;
+  return r.profiles.length + r.changes.length + r.ekycCases.length + violations.data.pending.length + violations.data.appealed.length + campaigns.data.length;
 }
 
 /**
@@ -81,8 +81,8 @@ function DemoPanelBody({ onDone }: { onDone(): void }) {
               {s.id === 'admin' ? (
                 <>
                   <AdminSimulator />
+                  <CampaignReviewBlock />
                   <ViolationReviewBlock />
-                  <ShieldAppealsBlock />
                   <FunnelView />
                 </>
               ) : (

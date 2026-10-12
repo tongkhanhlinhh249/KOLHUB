@@ -41,9 +41,7 @@ export type DemoActor = BookingParty | 'SYSTEM';
 
 export type DemoStepKey =
   | 'SUPPLIER_ACCEPT'
-  | 'SUPPLIER_COUNTER'
   | 'BRAND_ACCEPT'
-  | 'BRAND_COUNTER'
   | 'DECLINE'
   | 'EXPIRE'
   | 'SUBMIT_DRAFT'
@@ -99,7 +97,7 @@ export interface DemoBookingRow {
 
 /**
  * Steps the simulator offers for a booking, derived from the same `allowedActions` each side would get.
- * Pre-accept: the awaited side accepts (or counters when there is no price yet), counters or declines; SENT /
+ * Pre-accept: the awaited side accepts (at the fixed group reward) or declines; SENT /
  * APPLIED can also be pushed past the 7-day expiry. After the deal, the single next step of the flow.
  */
 export function demoSteps(b: Booking, status: BookingStatus, ctx: ActionContext = {}): DemoSteps {
@@ -139,18 +137,11 @@ function mainSteps(b: Booking, status: BookingStatus, ctx: ActionContext): DemoS
     const who = b.awaiting;
     const sup = who === 'SUPPLIER';
     const accept: DemoStep = sup
-      ? { key: 'SUPPLIER_ACCEPT', actor: who, label: b.origin === 'INVITE' && status === 'SENT' ? 'KOL/MCN nhận lời mời' : 'KOL/MCN đồng ý giá' }
-      : { key: 'BRAND_ACCEPT', actor: who, label: status === 'APPLIED' ? 'Nhãn hàng duyệt ứng tuyển' : 'Nhãn hàng đồng ý giá' };
-    const counter: DemoStep = sup
-      ? { key: 'SUPPLIER_COUNTER', actor: who, label: b.price > 0 ? 'KOL/MCN trả giá (+10%)' : 'KOL/MCN báo giá' }
-      : { key: 'BRAND_COUNTER', actor: who, label: 'Nhãn hàng trả giá (−10%)' };
-    const noPrice = !(b.price > 0);
-    const primary = noPrice && sup ? counter : accept;
-    if (!noPrice) secondary.push(counter);
-    else if (!sup) secondary.push(accept);
+      ? { key: 'SUPPLIER_ACCEPT', actor: who, label: 'KOL/MCN nhận lời mời' }
+      : { key: 'BRAND_ACCEPT', actor: who, label: 'Nhãn hàng duyệt ứng tuyển' };
     secondary.push({ key: 'DECLINE', actor: who, label: sup ? 'KOL/MCN từ chối' : 'Nhãn hàng từ chối' });
     if (status === 'SENT' || status === 'APPLIED') secondary.push({ key: 'EXPIRE', actor: 'SYSTEM', label: 'Cho hết hạn' });
-    return { primary, secondary, next: who };
+    return { primary: accept, secondary, next: who };
   }
   if (supplier.includes('SUBMIT_DRAFT') && status !== 'CONTENT_REVIEW') {
     return { primary: { key: 'SUBMIT_DRAFT', actor: 'SUPPLIER', label: 'KOL/MCN nộp bản nháp mẫu' }, secondary, next: 'SUPPLIER' };
@@ -225,7 +216,6 @@ export function samplePostUrl(platform: Platform, handle: string | undefined, se
   return `https://www.tiktok.com/@${h}/video/74${id}`;
 }
 
-const roundPrice = (n: number) => Math.max(1_000_000, Math.round(n / 500_000) * 500_000);
 
 export interface DemoCampaignServiceDeps {
   db: Db;
@@ -318,13 +308,6 @@ export function createDemoCampaignService(deps: DemoCampaignServiceDeps) {
         return;
       case 'BRAND_ACCEPT':
         await svc.accept(bookingId);
-        return;
-      case 'SUPPLIER_COUNTER':
-        await fillMissingChannels(b, svc);
-        await svc.counter(bookingId, b.price > 0 ? roundPrice(b.price * 1.1) : 30_000_000, 'Đề xuất giá từ chế độ demo.');
-        return;
-      case 'BRAND_COUNTER':
-        await svc.counter(bookingId, roundPrice(b.price * 0.9), 'Đề xuất giá từ chế độ demo.');
         return;
       case 'DECLINE':
         await svc.decline(bookingId, 'Từ chối từ chế độ demo.');

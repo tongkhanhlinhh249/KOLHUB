@@ -142,6 +142,9 @@ export interface Channel {
   safety?: ChannelSafety;
   /** Lần gần nhất kênh đủ N/N nội dung đạt KOL Safety (xác thực lần đầu hoặc gia hạn). */
   safetyPassedAt?: number;
+  /** SUSPENDED: lúc và lý do tạm ngừng dấu. */
+  suspendedAt?: number;
+  suspendReason?: string;
   /** Demo only: số nội dung hiện có trên kênh (mặc định đủ N), để tái hiện "Kênh chưa đủ nội dung". */
   demoContentCount?: number;
   /** Mock social-listening data, set when the channel is verified (see mock/socialListening). */
@@ -164,8 +167,10 @@ export interface SafetyItem {
   thumbnail?: string;
   /** Thời lượng video (giây); không có với ảnh / bài viết / ghi chú. */
   durationSec?: number;
-  /** Chưa quét = undefined. */
-  verdict?: 'PASS' | 'FAIL';
+  /** Chưa quét = undefined. ERROR = KOL Safety chưa kiểm tra được (không truy cập được / lỗi), không phải Đạt hay vi phạm. */
+  verdict?: 'PASS' | 'FAIL' | 'ERROR';
+  /** Nội dung đã bị sửa sau lần kiểm tra trước: kết quả cũ không dùng lại, phải quét (EP-01 §6.3). */
+  edited?: boolean;
   /** Lý do không đạt, nguyên văn KOL Safety. */
   reason?: string;
   /** Số giây đã quét (tối đa 3 phút đầu). */
@@ -186,6 +191,8 @@ export interface ChannelSafety {
   checkedAt?: number;
   /** Đủ N/N đạt. */
   passedAt?: number;
+  /** Nội dung đã gỡ khỏi danh sách, giữ kết quả cũ làm lịch sử, không tính vào kết quả hiện tại (EP-01 §6.3). */
+  history?: (SafetyItem & { removedAt: number })[];
 }
 
 export interface ChannelStats {

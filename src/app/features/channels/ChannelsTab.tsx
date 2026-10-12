@@ -200,6 +200,7 @@ export function ChannelsTab({
         handle={c.handle}
         url={c.url}
         verifiedUntil={channelBadge(c, now) === 'VERIFIED' ? c.badgeExpiresAt : undefined}
+        verifiedScope={c.safety?.passedAt ? { required: c.safety.required, listDate: c.safety.snapshotAt } : undefined}
         subline={
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1.5">
             {/* "Chờ KOL Safety" is already said by the KOL Safety badge. */}

@@ -45,7 +45,7 @@ describe('pipeline', () => {
 
 describe('Việc cần làm', () => {
   test('lời mời / đề xuất giá đang chờ KOL → trả lời trước hạn phản hồi', () => {
-    const t = todosOf(bk('a', 'SENT', { awaiting: 'SUPPLIER', expiresAt: NOW + 2 * DAY, allowedActions: ['ACCEPT', 'COUNTER', 'DECLINE'] }));
+    const t = todosOf(bk('a', 'SENT', { awaiting: 'SUPPLIER', expiresAt: NOW + 2 * DAY, allowedActions: ['ACCEPT', 'DECLINE'] }));
     expect(t).toHaveLength(1);
     expect(t[0]).toMatchObject({ kind: 'ANSWER_INVITE', label: 'Trả lời lời mời', dueAt: NOW + 2 * DAY, brandCompany: 'Công ty Demo Sữa' });
     expect(t[0].href).toBe('/chien-dich-cua-toi?tab=can-xu-ly&booking=a');

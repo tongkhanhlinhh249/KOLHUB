@@ -1,7 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Loader2, Search, Send, X } from 'lucide-react';
+import { CheckCircle2, Loader2, Search, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
@@ -19,6 +18,7 @@ import {
   searchService,
   type CampaignView,
   type Deliverable,
+  type DeliverableGroup,
   type InviteResult,
   type Platform,
   type SavedListSummary,
@@ -26,9 +26,8 @@ import {
 import { formatFollowers } from '../biz-search/format';
 import { KolAvatar } from '../biz-search/KolCard';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
-import { PriceInput } from './BookingActions';
 import { deliverableText, errText } from './CampaignParts';
-import { inviteRoutes, inviteSummary, parseVndInput, SKIP_REASON_LABEL } from './campaignView';
+import { groupRewardText, inviteRoutes, inviteSummary, SKIP_REASON_LABEL } from './campaignView';
 
 export interface PickableKol {
   kolId: string;
@@ -254,7 +253,7 @@ export function InviteResultView({ result, kolIds, names }: { result: InviteResu
             ))}
           </ul>
           {routes.some((r) => r.supplierType === 'MCN') && (
-            <p className="text-xs text-muted-foreground">KOL do MCN quản lý được gửi tới MCN đó; MCN sẽ báo giá và chọn kênh đăng.</p>
+            <p className="text-xs text-muted-foreground">KOL do MCN quản lý được gửi tới MCN đó; MCN chọn kênh đăng rồi nhận hoặc từ chối.</p>
           )}
         </section>
       )}
@@ -275,28 +274,24 @@ export function InviteResultView({ result, kolIds, names }: { result: InviteResu
   );
 }
 
-/** Deliverable + price per KOL + note, shared by both invite dialogs. */
+/** Deliverable + its group's fixed reward (read-only) + note, shared by both invite dialogs. */
 export function InviteOptionsFields({
   deliverables,
+  groups,
   deliverable,
   onDeliverable,
-  price,
-  onPrice,
   note,
   onNote,
-  priceRequired = false,
 }: {
   deliverables: Deliverable[];
+  groups: DeliverableGroup[];
   deliverable: string;
   onDeliverable(v: string): void;
-  price: string;
-  onPrice(v: string): void;
   note: string;
   onNote(v: string): void;
-  /** "Đàm phán" off: fixed price, the invite must carry it. */
-  priceRequired?: boolean;
 }) {
   const id = useId();
+  const group = groups.find((g) => g.platform === deliverables[Number(deliverable)]?.platform);
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="space-y-1.5 sm:col-span-2">
@@ -315,13 +310,9 @@ export function InviteOptionsFields({
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor={`${id}-p`}>
-          Giá mỗi KOL <span className="font-normal text-muted-foreground">{priceRequired ? '(bắt buộc)' : '(không bắt buộc)'}</span>
-        </Label>
-        <PriceInput id={`${id}-p`} value={price} onChange={onPrice} describedBy={`${id}-ph`} />
-        <p id={`${id}-ph`} className="text-xs text-muted-foreground">
-          {priceRequired ? 'Chiến dịch tắt Đàm phán: KOL/MCN chỉ chấp nhận hoặc từ chối giá này.' : 'Để trống: nhà cung cấp báo giá.'}
-        </p>
+        <p className="text-sm font-medium text-foreground">Thù lao cố định</p>
+        <p className="text-base font-semibold text-foreground tabular-nums">{group ? groupRewardText(group) : 'Chưa thiết lập'}</p>
+        <p className="text-xs text-muted-foreground">Theo nhóm đầu việc của chiến dịch. KOL/MCN nhận hoặc từ chối, không trả giá.</p>
       </div>
       <div className="space-y-1.5">
         <Label htmlFor={`${id}-n`}>
@@ -340,13 +331,12 @@ export function deliverableOption(deliverables: Deliverable[], index: string) {
 }
 
 /**
- * "Mời KOL" from a campaign: pick KOLs from saved lists and/or search (name / KOL ID), then price per KOL,
- * deliverable and note → campaignService.inviteKols. Shows the routing summary afterwards.
+ * "Mời KOL" from a campaign: pick KOLs from saved lists and/or search (name / KOL ID), then the deliverable
+ * (its group's fixed reward applies) and note → campaignService.inviteKols. Shows the routing summary afterwards.
  */
 export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: CampaignView; open: boolean; onOpenChange(open: boolean): void }) {
   const [selected, setSelected] = useState<Map<string, string>>(new Map());
   const [deliverable, setDeliverable] = useState('0');
-  const [price, setPrice] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -356,7 +346,6 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
     if (open) {
       setSelected(new Map());
       setDeliverable('0');
-      setPrice('');
       setNote('');
       setError(null);
       setResult(null);
@@ -388,7 +377,6 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
     const kolIds = [...selected.keys()];
     try {
       const r = await campaignService.inviteKols(campaign.id, kolIds, {
-        price: parseVndInput(price),
         note,
         deliverable: deliverableOption(campaign.deliverables, deliverable),
       });
@@ -414,12 +402,6 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
             <InviteResultView {...result} />
           ) : (
             <>
-              {campaign.status === 'DRAFT' && (
-                <Alert>
-                  <AlertCircle className="size-4" aria-hidden />
-                  <AlertDescription>Chiến dịch đang là bản nháp: gửi lời mời sẽ đăng chiến dịch (Đang mở) nếu thông tin đã đủ.</AlertDescription>
-                </Alert>
-              )}
               <Tabs defaultValue="saved" className="gap-3">
                 <TabsList className="h-auto w-full">
                   <TabsTrigger value="saved" className="h-11 md:h-8">
@@ -462,19 +444,16 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
 
               <InviteOptionsFields
                 deliverables={campaign.deliverables}
+                groups={campaign.groups ?? []}
                 deliverable={deliverable}
                 onDeliverable={setDeliverable}
-                price={price}
-                onPrice={setPrice}
                 note={note}
                 onNote={setNote}
-                priceRequired={campaign.negotiation === false}
               />
 
               {error && (
                 <p className="text-sm text-destructive" role="alert">
                   {error}
-                  {campaign.status === 'DRAFT' && ' Hãy sửa chiến dịch cho đủ thông tin trước khi mời.'}
                 </p>
               )}
             </>
@@ -499,7 +478,7 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
               <Button type="button" variant="outline" className="h-11 md:h-9" disabled={busy} onClick={() => onOpenChange(false)}>
                 Huỷ
               </Button>
-              <Button type="button" className="h-11 md:h-9" disabled={busy || selected.size === 0 || (campaign.negotiation === false && !parseVndInput(price))} onClick={() => void submit()}>
+              <Button type="button" className="h-11 md:h-9" disabled={busy || selected.size === 0} onClick={() => void submit()}>
                 {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
                 Gửi lời mời{selected.size ? ` (${selected.size})` : ''}
               </Button>

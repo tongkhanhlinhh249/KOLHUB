@@ -463,12 +463,12 @@ export function BookingSheet({
             </SheetHeader>
 
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
-              <Block title={recruit ? 'Phần thưởng và chọn lọc' : 'Giá và thương lượng'}>
+              <Block title={recruit ? 'Phần thưởng và chọn lọc' : 'Thù lao và phản hồi'}>
                 <div className="space-y-3 rounded-[8px] border border-border p-3">
                   <div className="flex flex-wrap items-end justify-between gap-2">
                     <div>
-                      <p className="text-xs text-muted-foreground">{recruit ? 'Phần thưởng cố định' : `Tổng giá (${b.items.length} KOL)`}</p>
-                      <p className="text-lg font-semibold text-foreground tabular-nums">{recruit ? bookingPriceText(b) : formatPrice(b.price)}</p>
+                      <p className="text-xs text-muted-foreground">{recruit ? 'Phần thưởng cố định' : `Thù lao cố định (${b.items.length} KOL)`}</p>
+                      <p className="text-lg font-semibold text-foreground tabular-nums">{bookingPriceText(b)}</p>
                     </div>
                     {pre && (
                       <div className="text-right text-xs text-muted-foreground">
@@ -547,7 +547,7 @@ export function BookingSheet({
                   className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive md:h-9"
                   onClick={() => actions.cancel(b)}
                 >
-                  {pre ? (b.origin === 'INVITE' ? 'Rút lời mời' : 'Huỷ thương lượng') : 'Huỷ booking'}
+                  {pre ? (b.origin === 'INVITE' ? 'Rút lời mời' : 'Huỷ đơn') : 'Huỷ booking'}
                 </Button>
               </SheetFooter>
             )}

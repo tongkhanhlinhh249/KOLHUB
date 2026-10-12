@@ -86,9 +86,31 @@ export interface SafetyProgress {
   required: number;
   scanned: number;
   passed: number;
+  /** Không đạt (KOL Safety kết luận). */
   failed: number;
+  /** Chưa kiểm tra được (lỗi / không truy cập được): không phải Đạt, không phải vi phạm. */
+  errored: number;
+  /** Danh sách còn thiếu bao nhiêu nội dung sau khi gỡ bài (kênh không còn đủ N nội dung). */
+  missing: number;
   /** Hạn của danh sách đã chốt. */
   snapshotExpiresAt?: number;
+}
+
+/** N/N: the list is full (no item missing after removals) and every item passed. */
+const allPassed = (s: ChannelSafety) => s.items.length >= s.required && s.items.every((i) => i.verdict === 'PASS');
+
+/**
+ * Tạm ngừng dấu của kênh đã xác thực (vi phạm đã xác nhận thuộc diện đình chỉ, EP-01 §6.5). Kênh chưa có dấu còn
+ * hạn thì không đổi. Trả về true khi đã tạm ngừng.
+ */
+export function suspendChannel(state: DemoState, channelId: string, reason: string, now: number): boolean {
+  const c = state.channels.find((x) => x.id === channelId);
+  if (!c || channelBadge(c, now) !== 'VERIFIED') return false;
+  c.status = 'SUSPENDED';
+  c.suspendedAt = now;
+  c.suspendReason = reason;
+  c.updatedAt = now;
+  return true;
 }
 
 const isSnapshotExpired = (s: ChannelSafety, now: number) => !s.passedAt && s.snapshotAt + SAFETY_SNAPSHOT_DAYS * DAY <= now;
@@ -113,7 +135,7 @@ export function safetyProgress(ch: Channel, now: number): SafetyProgress {
   const s = ch.safety;
   if (!s || s.purpose !== purpose || s.passedAt || isSnapshotExpired(s, now)) {
     const justRenewed = purpose === 'RENEW' && !!s?.passedAt && s.purpose === 'RENEW' && !canRenew(ch, now);
-    return { phase: justRenewed ? 'PASSED' : 'NOT_STARTED', purpose, required, scanned: 0, passed: 0, failed: 0 };
+    return { phase: justRenewed ? 'PASSED' : 'NOT_STARTED', purpose, required, scanned: 0, passed: 0, failed: 0, errored: 0, missing: 0 };
   }
   const scanned = s.items.filter((i) => i.verdict).length;
   const passed = s.items.filter((i) => i.verdict === 'PASS').length;
@@ -123,7 +145,9 @@ export function safetyProgress(ch: Channel, now: number): SafetyProgress {
     required: s.required,
     scanned,
     passed,
-    failed: scanned - passed,
+    failed: s.items.filter((i) => i.verdict === 'FAIL').length,
+    errored: s.items.filter((i) => i.verdict === 'ERROR').length,
+    missing: Math.max(0, s.required - s.items.length),
     snapshotExpiresAt: s.snapshotAt + SAFETY_SNAPSHOT_DAYS * DAY,
   };
 }
@@ -199,6 +223,8 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
     safety.passedAt = t;
     c.safetyPassedAt = t;
     c.updatedAt = t;
+    // A pass never overrides a suspension still in force (EP-01 §6.5): the result is kept, the status is not.
+    if (c.status === 'SUSPENDED') return;
     const name = c.handle || c.url;
     if (safety.purpose === 'VERIFY') {
       c.status = 'PENDING_REVIEW';
@@ -268,7 +294,10 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
       if (!targets.length) throw new Error('ITEM_NOT_FOUND');
       for (const i of targets) {
         const h = hash(i.url);
-        const verdict = forced !== 'AUTO' ? forced : i.scans === 0 && h % 6 === 0 ? 'FAIL' : 'PASS';
+        // AUTO: a few items fail on their first check; an unchanged failing item fails again (it has to be removed
+        // or edited, EP-01 §6.3); an edited item passes.
+        const verdict = forced !== 'AUTO' ? forced : i.verdict === 'FAIL' || (!i.edited && i.scans === 0 && h % 6 === 0) ? 'FAIL' : 'PASS';
+        i.edited = undefined;
         i.scans += 1;
         i.verdict = verdict;
         i.reason = verdict === 'FAIL' ? FAIL_REASONS[h % FAIL_REASONS.length] : undefined;
@@ -277,7 +306,7 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
       }
       safety.checkedAt = t;
       c.updatedAt = t;
-      if (safety.items.every((i) => i.verdict === 'PASS')) complete(s, c, t);
+      if (allPassed(safety)) complete(s, c, t);
     });
     return owned(db.read(), accountId, channelId);
   }
@@ -304,7 +333,9 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
       const c = demoChannel(s, channelId);
       const purpose = c.status === 'SAFETY_PENDING' ? 'VERIFY' : canRenew(c, t) ? 'RENEW' : null;
       if (!purpose) throw new Error('NOT_VERIFIABLE');
-      if (!c.safety || c.safety.purpose !== purpose || c.safety.passedAt || isSnapshotExpired(c.safety, t)) {
+      const short = !!c.safety && c.safety.items.length < c.safety.required;
+      if (short) c.demoContentCount = undefined; // demo: the channel posted enough again
+      if (!c.safety || c.safety.purpose !== purpose || c.safety.passedAt || isSnapshotExpired(c.safety, t) || short) {
         c.safety = { purpose, required: SAFETY_REQUIRED[c.platform], snapshotAt: t, items: snapshotItems(c, t), reportUrl: 'https://kolsafety.vn/bao-cao' };
       }
       for (const i of c.safety.items) {
@@ -318,11 +349,11 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
     });
   }
 
-  function demoNextVerdict(): 'AUTO' | 'PASS' | 'FAIL' {
+  function demoNextVerdict(): 'AUTO' | 'PASS' | 'FAIL' | 'ERROR' {
     return db.read().safetyDemo?.nextVerdict ?? 'AUTO';
   }
 
-  async function demoSetNextVerdict(nextVerdict: 'AUTO' | 'PASS' | 'FAIL'): Promise<void> {
+  async function demoSetNextVerdict(nextVerdict: 'AUTO' | 'PASS' | 'FAIL' | 'ERROR'): Promise<void> {
     db.update((s) => {
       s.safetyDemo = { nextVerdict };
     });
@@ -353,6 +384,84 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
     });
   }
 
+  /**
+   * Chủ kênh gỡ các bài "Không đạt" (EP-01 §6.3): bài gỡ chuyển vào lịch sử, không tính Đạt; danh sách lấy lại N nội
+   * dung mới nhất (nội dung cũ hơn lọt vào cần quét). Kênh không còn đủ N nội dung → danh sách thiếu, chưa cấp dấu.
+   * Bài còn trong danh sách, không đổi giữ nguyên kết quả (dùng lại).
+   */
+  async function demoRemoveFailed(channelId: string): Promise<number> {
+    const t = now();
+    let removed = 0;
+    db.update((s) => {
+      const c = demoChannel(s, channelId);
+      const safety = c.safety;
+      if (!safety || safety.passedAt) throw new Error('NOT_STARTED');
+      const gone = safety.items.filter((i) => i.verdict === 'FAIL');
+      if (!gone.length) throw new Error('NOTHING_TO_REMOVE');
+      removed = gone.length;
+      const have = contentCountOf(c) - gone.length;
+      c.demoContentCount = have;
+      safety.history = [...(safety.history ?? []), ...gone.map((i) => ({ ...i, removedAt: t }))];
+      safety.items = safety.items.filter((i) => i.verdict !== 'FAIL');
+      // Older posts move up into the window of the N newest, as far as the channel still has content.
+      const room = Math.min(safety.required - safety.items.length, Math.max(0, have - safety.items.length));
+      const oldest = safety.items.reduce((m, i) => Math.min(m, i.postedAt), t);
+      const extra = snapshotItems(c, t + safety.items.length)
+        .slice(0, room)
+        .map((i, k) => ({ ...i, id: `${i.id}-r${k}`, postedAt: oldest - (k + 1) * DAY }));
+      safety.items.push(...extra);
+      c.updatedAt = t;
+    });
+    return removed;
+  }
+
+  /** Chủ kênh sửa các bài "Không đạt": kết quả cũ không dùng lại được, bài phải quét lại (EP-01 §6.3). */
+  async function demoEditFailed(channelId: string): Promise<number> {
+    const t = now();
+    let edited = 0;
+    db.update((s) => {
+      const c = demoChannel(s, channelId);
+      const safety = c.safety;
+      if (!safety || safety.passedAt) throw new Error('NOT_STARTED');
+      for (const i of safety.items.filter((x) => x.verdict === 'FAIL')) {
+        i.edited = true;
+        i.verdict = undefined;
+        i.reason = undefined;
+        edited++;
+      }
+      if (!edited) throw new Error('NOTHING_TO_EDIT');
+      c.updatedAt = t;
+    });
+    return edited;
+  }
+
+  /** Admin: tạm ngừng dấu do vi phạm đã xác nhận thuộc diện đình chỉ. */
+  async function suspend(channelId: string, reason: string): Promise<void> {
+    const t = now();
+    db.update((s) => {
+      if (!suspendChannel(s, channelId, reason, t)) throw new Error('NOT_VERIFIED');
+      const c = demoChannel(s, channelId);
+      send(s, c.ownerId, `Dấu xác thực kênh ${c.handle || c.url} bị tạm ngừng: ${reason}. Kênh không nhận booking mới cho tới khi được khôi phục.`);
+    });
+  }
+
+  /**
+   * Admin: khôi phục sau quyết định xử lý hợp lệ. Còn hạn → Đã xác thực; đã qua hạn → Hết hạn (không tự khôi phục
+   * thành Đã xác thực, EP-01 §6.5).
+   */
+  async function restore(channelId: string): Promise<void> {
+    const t = now();
+    db.update((s) => {
+      const c = demoChannel(s, channelId);
+      if (c.status !== 'SUSPENDED') throw new Error('NOT_SUSPENDED');
+      c.status = c.badgeExpiresAt !== undefined && c.badgeExpiresAt > t ? 'VERIFIED' : 'EXPIRED';
+      c.suspendedAt = undefined;
+      c.suspendReason = undefined;
+      c.updatedAt = t;
+      send(s, c.ownerId, c.status === 'VERIFIED' ? `Dấu xác thực kênh ${c.handle || c.url} đã được khôi phục.` : `Kênh ${c.handle || c.url} hết tạm ngừng nhưng dấu đã quá hạn: hãy gia hạn để dùng lại.`);
+    });
+  }
+
   /** Đưa kênh về "Chưa xác thực KOL Safety" (SAFETY_PENDING, bỏ dấu và kết quả cũ) để demo lại từ đầu. */
   async function demoResetSafety(channelId: string): Promise<void> {
     const t = now();
@@ -370,7 +479,7 @@ export function createSafetyVerificationService(deps: SafetyVerificationDeps) {
     });
   }
 
-  return { start, scan, refresh, demoPassAll, demoResetSafety, demoNextVerdict, demoSetNextVerdict, demoSetContentCount, demoSetDaysLeft };
+  return { start, scan, refresh, suspend, restore, demoRemoveFailed, demoEditFailed, demoPassAll, demoResetSafety, demoNextVerdict, demoSetNextVerdict, demoSetContentCount, demoSetDaysLeft };
 }
 
 export type SafetyVerificationService = ReturnType<typeof createSafetyVerificationService>;

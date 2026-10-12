@@ -36,7 +36,7 @@ describe('money', () => {
   test('formatVnd / formatPrice', () => {
     expect(formatVnd(120_000_000)).toBe('120.000.000 ₫');
     expect(formatVnd(999)).toBe('999 ₫');
-    expect(formatPrice(0)).toBe('Chờ báo giá');
+    expect(formatPrice(0)).toBe('Chỉ sản phẩm');
     expect(formatPrice(5_000_000)).toBe('5.000.000 ₫');
   });
   test('parseVndInput / formatVndInput', () => {
@@ -73,7 +73,7 @@ describe('dates', () => {
 });
 
 describe('campaign list', () => {
-  const c = (id: string, status: 'DRAFT' | 'OPEN' | 'RUNNING' | 'COMPLETED' | 'CANCELLED', over: Record<string, unknown> = {}) => ({
+  const c = (id: string, status: 'DRAFT' | 'OPEN' | 'CLOSED' | 'COMPLETED' | 'CANCELLED', over: Record<string, unknown> = {}) => ({
     id,
     name: `Chiến dịch ${id}`,
     objective: '',
@@ -89,13 +89,13 @@ describe('campaign list', () => {
     c('a', 'DRAFT', { updatedAt: 4 }),
     c('b', 'OPEN', { visibility: 'MARKETPLACE', name: 'Tuần lễ ẩm thực', updatedAt: 3, budget: 50, startDate: '2026-10-05' }),
     c('c', 'OPEN', { updatedAt: 2, budget: 300, startDate: '2026-10-01' }),
-    c('d', 'RUNNING', { brief: 'Sữa hạt vị mới', updatedAt: 1, budget: 100 }),
+    c('d', 'CLOSED', { brief: 'Sữa hạt vị mới', updatedAt: 1, budget: 100 }),
   ];
 
   test('URL params round-trip, unknown values ignored', () => {
     const q = { tab: 'OPEN' as const, keyword: 'am thuc', visibility: 'MARKETPLACE' as const };
     const sp = toCampaignListParams(q);
-    expect(sp.toString()).toBe('trang-thai=dang-mo&q=am+thuc&hien-thi=tren-san');
+    expect(sp.toString()).toBe('trang-thai=dang-tuyen&q=am+thuc&hien-thi=tren-san');
     expect(parseCampaignListParams(sp)).toEqual(q);
     expect(parseCampaignListParams(new URLSearchParams('trang-thai=xyz&hien-thi=abc&q=%20'))).toEqual({ tab: 'all' });
     expect(toCampaignListParams({ tab: 'all' }).toString()).toBe('');
@@ -104,7 +104,7 @@ describe('campaign list', () => {
   });
 
   test('tab counts follow keyword + visibility, not the tab', () => {
-    expect(countCampaignTabs(list, { tab: 'DRAFT' })).toEqual({ all: 4, DRAFT: 1, OPEN: 2, RUNNING: 1, COMPLETED: 0, CANCELLED: 0 });
+    expect(countCampaignTabs(list, { tab: 'DRAFT' })).toEqual({ all: 4, DRAFT: 1, PENDING_REVIEW: 0, NEEDS_FIX: 0, REJECTED: 0, OPEN: 2, CLOSED: 1, COMPLETED: 0, CANCELLED: 0 });
     expect(countCampaignTabs(list, { tab: 'all', visibility: 'MARKETPLACE' })).toMatchObject({ all: 1, OPEN: 1, DRAFT: 0 });
     // accent-insensitive keyword on name / brief
     expect(applyCampaignQuery(list, { tab: 'all', keyword: 'am thuc' }).map((x) => x.id)).toEqual(['b']);
@@ -121,7 +121,7 @@ describe('campaign list', () => {
     const typed = [
       ...list,
       c('e', 'OPEN', { type: 'OPEN_RECRUITMENT', updatedAt: 5, visibility: 'MARKETPLACE' }),
-      c('f', 'RUNNING', { type: 'OPEN_RECRUITMENT', updatedAt: 6, visibility: 'MARKETPLACE' }),
+      c('f', 'CLOSED', { type: 'OPEN_RECRUITMENT', updatedAt: 6, visibility: 'MARKETPLACE' }),
     ];
     const q = { tab: 'all' as const, type: 'OPEN_RECRUITMENT' as const };
     expect(toCampaignListParams(q).toString()).toBe('loai=tuyen-nhieu');
@@ -133,7 +133,7 @@ describe('campaign list', () => {
     expect(countCampaignTypes(typed, { tab: 'OPEN' })).toEqual({ all: 3, BOOKING: 2, OPEN_RECRUITMENT: 1 });
     expect(countCampaignTypes(typed, { tab: 'all', visibility: 'MARKETPLACE' })).toEqual({ all: 3, BOOKING: 1, OPEN_RECRUITMENT: 2 });
     // status counts follow the type filter
-    expect(countCampaignTabs(typed, q)).toEqual({ all: 2, DRAFT: 0, OPEN: 1, RUNNING: 1, COMPLETED: 0, CANCELLED: 0 });
+    expect(countCampaignTabs(typed, q)).toEqual({ all: 2, DRAFT: 0, PENDING_REVIEW: 0, NEEDS_FIX: 0, REJECTED: 0, OPEN: 1, CLOSED: 1, COMPLETED: 0, CANCELLED: 0 });
     expect(countCampaignTabs(typed, { tab: 'all', type: 'BOOKING' })).toMatchObject({ all: 4, OPEN: 2 });
     expect(applyCampaignQuery(typed, q).map((x) => x.id)).toEqual(['f', 'e']);
     expect(applyCampaignQuery(typed, { tab: 'OPEN', type: 'BOOKING' }).map((x) => x.id)).toEqual(['b', 'c']);
@@ -148,10 +148,13 @@ describe('campaign list', () => {
   });
 
   test('campaignActions per status', () => {
-    expect(campaignActions('DRAFT')).toEqual({ edit: true, publish: true, close: false, cancel: true, invite: true });
-    expect(campaignActions('OPEN')).toEqual({ edit: true, publish: false, close: true, cancel: true, invite: true });
-    expect(campaignActions('RUNNING')).toEqual({ edit: false, publish: false, close: true, cancel: true, invite: true });
-    expect(campaignActions('COMPLETED')).toEqual({ edit: false, publish: false, close: false, cancel: false, invite: false });
+    const none = { edit: false, publish: false, withdraw: false, closeRecruitment: false, close: false, cancel: false, invite: false };
+    expect(campaignActions('DRAFT')).toEqual({ ...none, edit: true, publish: true });
+    expect(campaignActions('PENDING_REVIEW')).toEqual({ ...none, withdraw: true, cancel: true });
+    expect(campaignActions('NEEDS_FIX')).toEqual({ ...none, edit: true, publish: true, cancel: true });
+    expect(campaignActions('OPEN')).toEqual({ ...none, edit: true, closeRecruitment: true, cancel: true, invite: true });
+    expect(campaignActions('CLOSED')).toEqual({ ...none, close: true, cancel: true });
+    expect(campaignActions('COMPLETED')).toEqual(none);
     expect(campaignActions('CANCELLED').cancel).toBe(false);
     expect(campaignActions('OPEN', 'OPEN_RECRUITMENT').invite).toBe(false);
   });
@@ -203,21 +206,21 @@ const post = (id: string, at: number, views: number, likes: number, comments = 0
 
 describe('bookings', () => {
   test('needsBrandAction / brandTodoLabel / pendingByCampaign', () => {
-    const applied = bk({ id: '1', status: 'APPLIED', origin: 'APPLICATION', allowedActions: ['ACCEPT', 'COUNTER', 'DECLINE', 'ATTACH_CONTRACT'] });
+    const applied = bk({ id: '1', status: 'APPLIED', origin: 'APPLICATION', allowedActions: ['ACCEPT', 'DECLINE', 'ATTACH_CONTRACT'] });
     const sent = bk({ id: '2', status: 'SENT', allowedActions: ['CANCEL', 'ATTACH_CONTRACT'] });
     const review = bk({ id: '3', campaignId: 'c2', status: 'CONTENT_REVIEW', allowedActions: ['CANCEL', 'REVIEW_CONTENT'] });
     const pay = bk({ id: '4', status: 'VERIFIED', allowedActions: ['CANCEL', 'MARK_PAID'] });
     const rate = bk({ id: '5', status: 'COMPLETED', allowedActions: ['RATE'] });
-    const counter = bk({ id: '6', status: 'NEGOTIATING', allowedActions: ['ACCEPT', 'COUNTER', 'DECLINE'] });
+    const invite = bk({ id: '6', status: 'SENT', allowedActions: ['ACCEPT', 'DECLINE'] });
     expect([applied, sent, review, pay, rate].map(needsBrandAction)).toEqual([true, false, true, true, false]);
     expect(brandTodoLabel(applied)).toBe('Xem đề xuất');
-    expect(brandTodoLabel(counter)).toBe('Trả lời báo giá');
+    expect(brandTodoLabel(invite)).toBe('Trả lời lời mời');
     expect(brandTodoLabel(review)).toBe('Duyệt nội dung');
     expect(brandTodoLabel(pay)).toBe('Xác nhận thanh toán');
     expect(brandTodoLabel(sent)).toBeNull();
     expect(pendingByCampaign([applied, sent, review, pay, rate])).toEqual({ c1: 2, c2: 1 });
     expect(sortBookings([sent, { ...rate, updatedAt: 9 }, applied]).map((b) => b.id)).toEqual(['1', '5', '2']);
-    expect(openApplications([applied, sent, counter, bk({ id: '7', origin: 'APPLICATION', status: 'ACCEPTED' })]).map((b) => b.id)).toEqual(['1']);
+    expect(openApplications([applied, sent, invite, bk({ id: '7', origin: 'APPLICATION', status: 'ACCEPTED' })]).map((b) => b.id)).toEqual(['1']);
   });
 
   test('countByBookingStatus keeps lifecycle order', () => {

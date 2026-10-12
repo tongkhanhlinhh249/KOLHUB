@@ -3,7 +3,7 @@
 // (mở tab mới sẽ làm hai tab ghi đè dữ liệu demo của nhau).
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, FileText, Play, StickyNote, ExternalLink, Loader2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { CheckCircle2, CircleHelp, FileText, Play, StickyNote, ExternalLink, Loader2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
@@ -49,6 +49,8 @@ function needsSafetyAction(c: Channel, now: number): boolean {
 
 /** Trạng thái KOL Safety của kênh, cùng kiểu nhãn với trạng thái duyệt ("Chờ duyệt"…) dưới tên kênh. */
 export function SafetyStatusBadge({ channel, now }: { channel: Channel; now: number }) {
+  // Suspended: the "Tạm ngừng" status badge says it all; the KOL Safety result is not what blocks the channel.
+  if (channel.status === 'SUSPENDED') return null;
   if (!needsSafetyAction(channel, now)) {
     const at = channel.safetyPassedAt ?? channel.verifiedAt;
     return (
@@ -132,6 +134,7 @@ function ItemRow({ item }: { item: SafetyItem }) {
             {/* The length is on the thumbnail; long videos say which part KOL Safety checks. */}
             {long && ` · quét 0:00–${mmss(SAFETY_SCAN_SECONDS)}`}
             {item.scans > 1 && ` · đã quét ${item.scans} lần`}
+            {item.edited && ' · đã sửa, cần quét lại'}
           </p>
         </div>
         {item.verdict === 'PASS' && (
@@ -144,6 +147,12 @@ function ItemRow({ item }: { item: SafetyItem }) {
           <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-destructive">
             <XCircle className="size-4" aria-hidden />
             Không đạt
+          </span>
+        )}
+        {item.verdict === 'ERROR' && (
+          <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-foreground">
+            <CircleHelp className="size-4 text-chart-5" aria-hidden />
+            Chưa kiểm tra được
           </span>
         )}
         {!item.verdict && <span className="shrink-0 text-xs font-medium text-muted-foreground">Chưa quét</span>}
@@ -248,6 +257,7 @@ export function SafetyVerifySheet({
             </span>
             <span className="text-xs text-muted-foreground">
               {p.failed > 0 && <span className="text-destructive">{p.failed} không đạt · </span>}
+              {p.errored > 0 && <span>{p.errored} chưa kiểm tra được · </span>}
               {unscanned} chưa quét
             </span>
           </div>
@@ -257,9 +267,18 @@ export function SafetyVerifySheet({
             dung đăng sau thời điểm chốt không làm đổi danh sách. Việc quét làm trên KOL Safety (mỗi lần quét trừ token
             ở đó); KOL Hub tự cập nhật kết quả.
           </p>
-          {p.failed > 0 && (
-            <p className="text-xs text-foreground">{p.failed} nội dung không đạt: gỡ hoặc chỉnh trên nền tảng rồi quét lại trên KOL Safety.</p>
+          {/* UX writing of EP-01 §9. */}
+          {p.missing > 0 && (
+            <p className="rounded-md bg-chart-5/15 p-2 text-xs text-foreground">
+              Kênh cần ít nhất {p.required} nội dung đủ điều kiện. Hiện tìm thấy {p.required - p.missing}/{p.required}. Chưa cấp dấu cho tới khi đủ.
+            </p>
           )}
+          {p.failed > 0 && (
+            <p className="text-xs text-foreground">
+              {p.failed} nội dung chưa đạt tiêu chí KOL Safety. Xem kết quả để xử lý: gỡ hoặc sửa trên nền tảng rồi quét lại trên KOL Safety.
+            </p>
+          )}
+          {p.errored > 0 && <p className="text-xs text-foreground">{p.errored} nội dung chưa kiểm tra được. Đây chưa phải kết luận vi phạm.</p>}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -283,6 +302,22 @@ export function SafetyVerifySheet({
           {safety.items.map((i) => (
             <ItemRow key={i.id} item={i} />
           ))}
+          {!!safety.history?.length && (
+            <li className="list-none pt-2">
+              <details className="rounded-lg border border-dashed border-border p-3 text-sm">
+                <summary className="cursor-pointer font-medium text-foreground">Đã gỡ khỏi danh sách ({safety.history.length})</summary>
+                <p className="mt-1 text-xs text-muted-foreground">Lưu lịch sử, không tính vào kết quả hiện tại.</p>
+                <ul className="mt-2 space-y-1">
+                  {safety.history.map((h) => (
+                    <li key={h.id} className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span className="min-w-0 truncate">{h.title}</span>
+                      <span className="shrink-0">Đã gỡ {format(h.removedAt, 'dd/MM')}</span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </li>
+          )}
         </ol>
       </>
     );
@@ -290,6 +325,9 @@ export function SafetyVerifySheet({
     body = (
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-sm">
         <div className="space-y-2 rounded-lg bg-muted/60 p-3">
+          {p.purpose === 'RENEW' && c.status === 'EXPIRED' && (
+            <p className="text-foreground">Xác thực kênh đã hết hạn. Hoàn tất kiểm tra để tiếp tục tham gia chiến dịch bằng kênh này.</p>
+          )}
           <p className="font-medium text-foreground">Quy tắc {PLATFORM_LABEL[c.platform]}</p>
           <ul className="list-disc space-y-1 pl-5 text-foreground/90">
             <li>

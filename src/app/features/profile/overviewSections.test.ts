@@ -154,7 +154,7 @@ describe('stats', () => {
     ];
     expect(channelStats(chs, NOW)).toEqual({
       total: 4,
-      byStatus: { safety: 0, verified: 1, expiring: 0, pending: 1, needs_fix: 1, expired: 1 },
+      byStatus: { safety: 0, verified: 1, expiring: 0, pending: 1, needs_fix: 1, expired: 1, suspended: 0 },
       off: 1,
       activeWithProof: 3,
       platforms: ['facebook', 'tiktok', 'youtube'],

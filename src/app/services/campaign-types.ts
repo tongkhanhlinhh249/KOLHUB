@@ -25,6 +25,19 @@ export interface Deliverable {
   quantity: number;
 }
 
+/**
+ * EP-02 §4.3 "nhóm đầu việc": the deliverables of one platform, with their own slots and fixed reward. One slot =
+ * one booking of one channel in that group; the reward covers every deliverable of the group (not × quantity).
+ */
+export interface DeliverableGroup {
+  platform: Platform;
+  /** 1–1000 bookings (channels) to recruit for this group. */
+  slots: number;
+  /** Fixed reward per booking: cash VND (0 = product only) and/or a product / experience. No quotes, no ranges. */
+  reward: CampaignReward;
+}
+export const GROUP_SLOTS_MAX = 1000;
+
 /** PRIVATE = invite only; MARKETPLACE = also listed on "Sàn chiến dịch" while open for applications. */
 export type CampaignVisibility = 'PRIVATE' | 'MARKETPLACE';
 export const CAMPAIGN_VISIBILITY_LABEL: Record<CampaignVisibility, string> = {
@@ -33,17 +46,45 @@ export const CAMPAIGN_VISIBILITY_LABEL: Record<CampaignVisibility, string> = {
 };
 
 /**
- * DRAFT → (publish, or first invite) OPEN → (first booking ACCEPTED) RUNNING → (brand closes) COMPLETED.
- * DRAFT / OPEN / RUNNING → (brand cancels) CANCELLED. Closing / cancelling needs no booking in progress.
+ * EP-02 §5 (kiểm duyệt trước đăng bắt buộc): DRAFT → (gửi đăng) PENDING_REVIEW → (Admin) OPEN | NEEDS_FIX | REJECTED;
+ * NEEDS_FIX / REJECTED → (sửa, gửi lại) PENDING_REVIEW; PENDING_REVIEW → (rút) DRAFT.
+ * OPEN ("Đang tuyển") → CLOSED ("Đã đóng tuyển") when the brand closes recruitment or the apply window ends;
+ * CLOSED → COMPLETED once nothing is left to handle. Any non-final status → CANCELLED (with a reason; not while a
+ * booking is in progress). A DRAFT never submitted can be deleted.
  */
-export type CampaignStatus = 'DRAFT' | 'OPEN' | 'RUNNING' | 'COMPLETED' | 'CANCELLED';
+export type CampaignStatus = 'DRAFT' | 'PENDING_REVIEW' | 'NEEDS_FIX' | 'REJECTED' | 'OPEN' | 'CLOSED' | 'COMPLETED' | 'CANCELLED';
 export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = {
   DRAFT: 'Bản nháp',
-  OPEN: 'Đang mở',
-  RUNNING: 'Đang chạy',
+  PENDING_REVIEW: 'Chờ duyệt',
+  NEEDS_FIX: 'Cần bổ sung',
+  REJECTED: 'Không được duyệt',
+  OPEN: 'Đang tuyển',
+  CLOSED: 'Đã đóng tuyển',
   COMPLETED: 'Hoàn tất',
   CANCELLED: 'Đã huỷ',
 };
+/** Never published: not shown to suppliers anywhere. */
+export const UNPUBLISHED_STATUSES: CampaignStatus[] = ['DRAFT', 'PENDING_REVIEW', 'NEEDS_FIX', 'REJECTED'];
+
+export const CAMPAIGN_REASON_MAX = 1000;
+
+/** One step of the campaign's review / lifecycle log (EP-02 §6, lịch sử phiên bản và phản hồi). */
+export interface CampaignLogEntry {
+  at: number;
+  by: 'BRAND' | 'ADMIN' | 'SYSTEM';
+  action: 'SUBMITTED' | 'WITHDRAWN' | 'APPROVED' | 'NEEDS_FIX' | 'REJECTED' | 'CLOSED' | 'COMPLETED' | 'CANCELLED' | 'REVISION_SUBMITTED' | 'REVISION_APPROVED' | 'REVISION_REJECTED';
+  note?: string;
+}
+
+/**
+ * C2 (EP-02 §7): an edit of an OPEN campaign waiting for Admin review. The public campaign keeps the old version;
+ * `pausesApplications` = it changes the terms of a campaign without applications, so new applications stop meanwhile.
+ */
+export interface CampaignRevision {
+  patch: CampaignPatch;
+  submittedAt: number;
+  pausesApplications: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Campaign type: "Booking riêng" (negotiated) or "Tuyển nhiều KOL" (open recruitment, REVU-style)
@@ -279,7 +320,7 @@ export interface Campaign {
   name: string;
   objective: string;
   brief: string;
-  /** VND; 0 = not entered yet (drafts only). */
+  /** VND; 0 = not entered yet (drafts only). Derived: Σ group slots × (cash + product value) (recruit: slots × reward). */
   budget: number;
   /** 'YYYY-MM-DD'; optional while DRAFT. */
   startDate?: string;
@@ -302,8 +343,8 @@ export interface Campaign {
   recruitment?: Recruitment;
   /** "Duyệt nháp" (Workflow): KOL submits a draft for review before posting. Absent = on. */
   draftReview?: boolean;
-  /** "Đàm phán": Booking riêng only — off = fixed price (accept or decline; invites must carry a price). Absent = on. */
-  negotiation?: boolean;
+  /** BOOKING only: one entry per platform of `deliverables` — slots and fixed reward (EP-02: no price negotiation). */
+  groups?: DeliverableGroup[];
   /** "Hợp đồng": off = no contract file on bookings and no apply terms. Absent = on. */
   contract?: boolean;
   /** Provinces the campaign targets; empty / absent = "Toàn quốc". */
@@ -317,8 +358,19 @@ export interface Campaign {
   status: CampaignStatus;
   /** First time the campaign became OPEN. */
   publishedAt?: number;
+  /** When recruitment closed (CLOSED, by the brand or at the end of the apply window). */
+  recruitmentClosedAt?: number;
   /** When it became COMPLETED or CANCELLED. */
   closedAt?: number;
+  /** Last Admin feedback (NEEDS_FIX / REJECTED reason), shown to the brand. */
+  reviewNote?: string;
+  /** Review / lifecycle log. */
+  log?: CampaignLogEntry[];
+  /** Edit of an OPEN campaign waiting for Admin review (C2). */
+  pendingRevision?: CampaignRevision;
+  /** COMPLETED without any confirmed collaboration: "Không phát sinh hợp tác". */
+  noCollaboration?: boolean;
+  cancelReason?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -348,7 +400,8 @@ export interface CampaignInput {
    */
   recruitment?: Recruitment | null;
   draftReview?: boolean;
-  negotiation?: boolean;
+  /** BOOKING: slots + fixed reward per platform group; budget is derived from it. null clears it. */
+  groups?: DeliverableGroup[] | null;
   contract?: boolean;
   regions?: string[];
   target?: CampaignTarget | null;
@@ -493,6 +546,10 @@ export interface MarketplaceCampaign {
   saved?: boolean;
   /** Still open for applications (false only in listApplied for campaigns that closed since). */
   accepting?: boolean;
+  /** "Đã đóng tuyển" (or completed): public page, no apply button (EP-02 §8). */
+  recruitmentClosed?: boolean;
+  /** An edit of the campaign is under Admin review: new applications are paused meanwhile (EP-02 §7). */
+  paused?: boolean;
   /** getMarketplaceItem only: the "Nhãn hàng" block. */
   brandInfo?: MarketplaceBrandInfo;
   /** The viewer is the brand that owns this campaign (only ever true for a BIZ viewer). */
@@ -505,8 +562,8 @@ export interface MarketplaceCampaign {
   /** OPEN_RECRUITMENT only: applicants picked so far (selected, in progress or completed). */
   selectedCount?: number;
   draftReview: boolean;
-  /** "Đàm phán" (false for Tuyển nhiều KOL). */
-  negotiation: boolean;
+  /** BOOKING: slots and fixed reward per platform group. */
+  groups: DeliverableGroup[];
   /** "Hợp đồng". */
   contract: boolean;
   /** Empty = Toàn quốc. */
@@ -532,9 +589,9 @@ export type BookingParty = 'BRAND' | 'SUPPLIER';
 export type BookingActor = BookingParty | 'SYSTEM';
 
 /**
- * INVITE:      SENT ─(supplier counter)→ NEGOTIATING ⇄ (counters) ─(awaited party accepts)→ ACCEPTED
- *              SENT ─(supplier accepts)→ ACCEPTED
- * APPLICATION: APPLIED ─(brand accepts)→ ACCEPTED · (brand counter)→ NEGOTIATING
+ * Fixed reward per group (EP-02): no counter-offers. NEGOTIATING only remains in data from before.
+ * INVITE:      SENT ─(supplier accepts)→ ACCEPTED
+ * APPLICATION: APPLIED ─(brand accepts)→ ACCEPTED
  * Then ACCEPTED ─draft→ CONTENT_REVIEW ─approve all→ CONTENT_APPROVED | ─request changes→ IN_PRODUCTION ─draft→ …
  *      CONTENT_APPROVED ─post link(s)→ PUBLISHED ─(system verifies every item)→ VERIFIED
  *      VERIFIED ─brand marks paid + supplier confirms→ COMPLETED
@@ -699,7 +756,7 @@ export interface Booking {
   supplierAccountId: string;
   origin: BookingOrigin;
   items: BookingItem[];
-  /** Total VND for the whole booking; 0 = waiting for the supplier's quote (invite without price). */
+  /** Total cash VND for the whole booking, fixed by the campaign's group rewards (Σ per channel × group); 0 = product only. */
   price: number;
   note: string;
   /** Stored status; SENT / APPLIED may read as EXPIRED (see effective status in views). */
@@ -726,7 +783,6 @@ export interface Booking {
 
 /** What the viewer may do now; every mutation checks the same list (KOLHUB-4805 otherwise). */
 export type BookingActionKey =
-  | 'COUNTER'
   | 'ACCEPT'
   | 'DECLINE'
   | 'CANCEL'
@@ -776,7 +832,7 @@ export interface BookingCampaignSummary {
   recruitment?: Recruitment;
   phase?: RecruitPhase;
   draftReview: boolean;
-  negotiation: boolean;
+  groups: DeliverableGroup[];
   contract: boolean;
   regions: string[];
   /** "Điều kiện tham gia" (with regions). */
@@ -830,10 +886,8 @@ export interface SupplierBookingFilters {
 // --- inputs ---
 
 export interface InviteOptions {
-  /** Price per invited KOL (VND); omitted = the supplier quotes via counter. */
-  price?: number;
   note?: string;
-  /** Default: the campaign's first deliverable. `platform` defaults to that deliverable's platform. */
+  /** The price is the group's fixed reward (no price input). Default: the campaign's first deliverable. `platform` defaults to that deliverable's platform. */
   deliverable?: { type: DeliverableType; platform?: Platform; quantity?: number };
 }
 
@@ -857,8 +911,7 @@ export interface ProposalItemInput {
 
 export interface ApplyInput {
   items: ProposalItemInput[];
-  /** Total VND (BOOKING; ignored for OPEN_RECRUITMENT, which has a fixed reward). */
-  price?: number;
+  /** No price: BOOKING uses the group rewards, OPEN_RECRUITMENT the campaign reward. */
   note?: string;
   /** Survey answers by question id (required questions must be answered; 4803 `answers`). */
   answers?: Record<string, string>;

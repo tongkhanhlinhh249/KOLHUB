@@ -20,7 +20,7 @@ import type {
   SelectionResult,
   SupplierMatchContext,
 } from '../campaign-types';
-import { QA_ANSWER_MAX, QA_QUESTION_MAX } from '../campaign-types';
+import { CAMPAIGN_REASON_MAX, QA_ANSWER_MAX, QA_QUESTION_MAX, UNPUBLISHED_STATUSES, type CampaignLogEntry } from '../campaign-types';
 import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
@@ -40,7 +40,10 @@ import {
   isPrice,
   resolveItems,
   applySelection,
+  applyWindowEnded,
   checkSlots,
+  hasPublicPage,
+  sweepCampaignStatuses,
   routeKol,
   sanitizeCampaignInput,
   selectedCount,
@@ -51,7 +54,7 @@ import {
 } from './campaignRules';
 import { normalizeText, publicKolOf } from './directory';
 import { profileDisplayName } from './identity';
-import { campaignType, checkApplication, deriveRecruitmentFields, isRecruit, recruitPhase } from './recruitment';
+import { campaignType, checkApplication, deriveCampaignFields, fixedPriceOf, isRecruit, recruitPhase } from './recruitment';
 import { matchCampaign, supplierMatchContext } from './campaignMatch';
 
 export interface CampaignServiceDeps {
@@ -60,6 +63,23 @@ export interface CampaignServiceDeps {
   /** Pass false in tests to skip the fake network latency. */
   delay?: false;
   genId?: () => string;
+}
+
+/** Fields an OPEN campaign with applications may still change (EP-02 §7: ảnh, tên, mô tả giới thiệu). */
+const PRESENTATION_KEYS: string[] = ['name', 'cover', 'objective'];
+
+/** Empty values (undefined / null / '' / []) count as the same; everything else compares by value. */
+function sameValue(a: unknown, b: unknown): boolean {
+  const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+  if (empty(a) && empty(b)) return true;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** Campaign fields whose value differs between `before` and `after` (bookkeeping fields ignored). */
+function changedKeys(before: Campaign, after: Campaign): string[] {
+  const skip = new Set(['updatedAt', 'log', 'pendingRevision', 'reviewNote']);
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  return [...keys].filter((k) => !skip.has(k) && !sameValue((before as unknown as Record<string, unknown>)[k], (after as unknown as Record<string, unknown>)[k]));
 }
 
 export function createCampaignService(deps: CampaignServiceDeps) {
@@ -74,6 +94,17 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (!c) throw new KolhubError('KOLHUB-4801');
     return c;
   }
+
+  /** Current state with OPEN campaigns past their apply window closed (EP-02 §8: hết hạn luôn tự đóng). */
+  function read(): DemoState {
+    const t = now();
+    if (db.read().campaigns.some((c) => c.status === 'OPEN' && applyWindowEnded(c, t))) db.update((s) => void sweepCampaignStatuses(s, t));
+    return db.read();
+  }
+
+  const log = (c: Campaign, entry: CampaignLogEntry) => {
+    c.log = [...(c.log ?? []), entry];
+  };
 
   function save(c: Campaign) {
     db.update((s) => {
@@ -93,7 +124,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** The brand's campaigns, most recently updated first. */
   async function listMine(filters: CampaignFilters = {}): Promise<CampaignView[]> {
     await wait();
-    const state = db.read();
+    const state = read();
     const acc = currentBizAccount(state);
     const t = now();
     const statuses = filters.status === undefined ? undefined : ([] as string[]).concat(filters.status);
@@ -109,7 +140,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
 
   async function get(id: string): Promise<CampaignView> {
     await wait();
-    const state = db.read();
+    const state = read();
     return toCampaignView(state, ownCampaign(state, id), now());
   }
 
@@ -140,31 +171,52 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (clean.endDate) c.endDate = clean.endDate;
     if (clean.applyDeadline) c.applyDeadline = clean.applyDeadline;
     if (clean.cover) c.cover = clean.cover;
-    for (const k of ['recruitment', 'draftReview', 'negotiation', 'contract', 'regions', 'target', 'survey', 'terms'] as const) {
+    for (const k of ['recruitment', 'groups', 'draftReview', 'contract', 'regions', 'target', 'survey', 'terms'] as const) {
       if (clean[k] !== undefined) (c as unknown as Record<string, unknown>)[k] = clean[k];
     }
-    deriveRecruitmentFields(c);
+    deriveCampaignFields(c);
     save(c);
     return view(c.id);
   }
 
-  /** Edit while DRAFT or OPEN (4802 otherwise); an OPEN campaign must stay complete (4803). */
+  /**
+   * Edit (EP-02 §7). DRAFT / NEEDS_FIX / REJECTED: anything, checked again on submit. PENDING_REVIEW: withdraw first
+   * (4802). OPEN: the edit waits for Admin review as a revision while the public campaign keeps its current version —
+   * without applications, changed terms pause new applications; with applications, only the cover, name and
+   * description may change (4820). CLOSED / COMPLETED / CANCELLED: 4802.
+   */
   async function update(id: string, patch: CampaignPatch): Promise<CampaignView> {
     await wait();
-    const state = db.read();
+    const state = read();
     const c = structuredClone(ownCampaign(state, id));
-    if (c.status !== 'DRAFT' && c.status !== 'OPEN') throw new KolhubError('KOLHUB-4802');
+    const editable: Campaign['status'][] = ['DRAFT', 'NEEDS_FIX', 'REJECTED', 'OPEN'];
+    if (!editable.includes(c.status)) throw new KolhubError('KOLHUB-4802');
     const clean = sanitizeCampaignInput(patch ?? {});
     const t = now();
     const mine = state.bookings.filter((b) => b.campaignId === id);
     // The type decides how bookings work: it cannot change once there are bookings.
     if (clean.type && campaignType(clean) !== campaignType(c) && mine.length > 0) throw new KolhubError('KOLHUB-4803', { field: 'type' });
     const next: Campaign = { ...c, ...clean, updatedAt: t };
-    for (const k of ['startDate', 'endDate', 'applyDeadline', 'cover', 'recruitment', 'target'] as const) if (next[k] === undefined) delete next[k];
-    deriveRecruitmentFields(next);
+    for (const k of ['startDate', 'endDate', 'applyDeadline', 'cover', 'recruitment', 'groups', 'target'] as const) if (next[k] === undefined) delete next[k];
+    deriveCampaignFields(next);
     if (isRecruit(next) && next.recruitment.slots < selectedCount(state, next, t)) throw new KolhubError('KOLHUB-4803', { field: 'slots' });
-    if (next.status === 'OPEN') validateForOpen(next, t);
-    save(next);
+    if (c.status !== 'OPEN') {
+      save(next);
+      return view(id);
+    }
+    // OPEN: keep the public version; the changes become a revision for Admin review.
+    const changed = changedKeys(c, next);
+    if (changed.length === 0) return view(id);
+    const hasApplications = mine.length > 0;
+    if (hasApplications && changed.some((k) => !PRESENTATION_KEYS.includes(k))) throw new KolhubError('KOLHUB-4824');
+    validateForOpen(next, t);
+    const revisionPatch = Object.fromEntries(changed.map((k) => [k, (next as unknown as Record<string, unknown>)[k] ?? null])) as CampaignPatch;
+    db.update((s) => {
+      const sc = s.campaigns.find((x) => x.id === id)!;
+      sc.pendingRevision = { patch: revisionPatch, submittedAt: t, pausesApplications: !hasApplications };
+      sc.updatedAt = t;
+      log(sc, { at: t, by: 'BRAND', action: 'REVISION_SUBMITTED' });
+    });
     return view(id);
   }
 
@@ -174,76 +226,223 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     c.updatedAt = t;
   }
 
-  /** DRAFT → OPEN (4802 otherwise; 4803 when incomplete). MARKETPLACE campaigns appear on the marketplace. */
+  /**
+   * "Gửi đăng" (EP-02 §6.2): DRAFT / NEEDS_FIX / REJECTED → PENDING_REVIEW once complete (4803 with the field otherwise,
+   * 4802 for other statuses). Admin approves before the campaign goes public (approveReview).
+   */
   async function publish(id: string): Promise<CampaignView> {
     await wait();
-    const c = structuredClone(ownCampaign(db.read(), id));
-    if (c.status !== 'DRAFT') throw new KolhubError('KOLHUB-4802');
+    const c = structuredClone(ownCampaign(read(), id));
+    if (!['DRAFT', 'NEEDS_FIX', 'REJECTED'].includes(c.status)) throw new KolhubError('KOLHUB-4802');
     const t = now();
-    deriveRecruitmentFields(c);
+    deriveCampaignFields(c);
     validateForOpen(c, t, true);
-    open(c, t);
+    if (applyWindowEnded(c, t)) throw new KolhubError('KOLHUB-4823');
+    c.status = 'PENDING_REVIEW';
+    c.updatedAt = t;
+    log(c, { at: t, by: 'BRAND', action: 'SUBMITTED' });
     save(c);
     return view(id);
   }
 
-  /** Ends the campaign: pending invites / applications are cancelled by the system; 4817 while work is in progress. */
-  function finish(id: string, allowed: Campaign['status'][], to: 'COMPLETED' | 'CANCELLED', note: string): CampaignView {
-    const state = db.read();
+  /** "Rút về nháp": PENDING_REVIEW → DRAFT before Admin decides (4802 otherwise). */
+  async function withdraw(id: string): Promise<CampaignView> {
+    await wait();
+    const c = structuredClone(ownCampaign(read(), id));
+    if (c.status !== 'PENDING_REVIEW') throw new KolhubError('KOLHUB-4802');
+    const t = now();
+    c.status = 'DRAFT';
+    c.updatedAt = t;
+    log(c, { at: t, by: 'BRAND', action: 'WITHDRAWN' });
+    save(c);
+    return view(id);
+  }
+
+  /** Delete a DRAFT that was never submitted (EP-02 §6.5; 4802 otherwise). */
+  async function deleteDraft(id: string): Promise<void> {
+    await wait();
+    const c = ownCampaign(read(), id);
+    if (c.status !== 'DRAFT' || (c.log ?? []).some((e) => e.action === 'SUBMITTED') || db.read().bookings.some((b) => b.campaignId === id)) {
+      throw new KolhubError('KOLHUB-4802');
+    }
+    db.update((s) => {
+      s.campaigns = s.campaigns.filter((x) => x.id !== id);
+      s.savedCampaigns = s.savedCampaigns.filter((x) => x.campaignId !== id);
+    });
+  }
+
+  // --- Admin (Bảng demo): kiểm duyệt trước đăng và duyệt bản sửa ---
+
+  function anyCampaign(state: DemoState, id: string): Campaign {
+    const c = state.campaigns.find((x) => x.id === id);
+    if (!c) throw new KolhubError('KOLHUB-4801');
+    return c;
+  }
+
+  /** Campaigns waiting for Admin: submitted ones and OPEN ones with an edit under review, oldest first. */
+  async function listReviewQueue(): Promise<CampaignView[]> {
+    await wait();
+    const state = read();
+    const t = now();
+    const at = (c: Campaign) => (c.status === 'PENDING_REVIEW' ? [...(c.log ?? [])].reverse().find((e) => e.action === 'SUBMITTED')?.at ?? c.updatedAt : c.pendingRevision!.submittedAt);
+    return state.campaigns
+      .filter((c) => c.status === 'PENDING_REVIEW' || (c.status === 'OPEN' && c.pendingRevision))
+      .sort((a, b) => at(a) - at(b))
+      .map((c) => toCampaignView(state, c, t));
+  }
+
+  /**
+   * Admin approves: a submitted campaign goes OPEN (published) — unless its apply window already ended, then it goes
+   * back to NEEDS_FIX ("Hạn ứng tuyển đã qua…", EP-02 §6.3); an edit under review is applied to the OPEN campaign.
+   */
+  async function approveReview(id: string): Promise<CampaignView> {
+    await wait();
+    const t = now();
+    db.update((s) => {
+      const c = anyCampaign(s, id);
+      if (c.status === 'OPEN' && c.pendingRevision) {
+        Object.assign(c, c.pendingRevision.patch);
+        for (const k of Object.keys(c.pendingRevision.patch) as (keyof Campaign)[]) if ((c as unknown as Record<string, unknown>)[k] === null) delete (c as unknown as Record<string, unknown>)[k];
+        delete c.pendingRevision;
+        c.updatedAt = t;
+        log(c, { at: t, by: 'ADMIN', action: 'REVISION_APPROVED' });
+        return;
+      }
+      if (c.status !== 'PENDING_REVIEW') throw new KolhubError('KOLHUB-4802');
+      if (applyWindowEnded(c, t)) {
+        const note = 'Hạn ứng tuyển đã qua. Vui lòng cập nhật trước khi gửi đăng.';
+        c.status = 'NEEDS_FIX';
+        c.reviewNote = note;
+        c.updatedAt = t;
+        log(c, { at: t, by: 'ADMIN', action: 'NEEDS_FIX', note });
+        return;
+      }
+      open(c, t);
+      delete c.reviewNote;
+      log(c, { at: t, by: 'ADMIN', action: 'APPROVED' });
+    });
+    return view(id);
+  }
+
+  function reviewReason(note: string): string {
+    const r = (note ?? '').trim();
+    if (!r || [...r].length > CAMPAIGN_REASON_MAX) throw new KolhubError('KOLHUB-4825');
+    return r;
+  }
+
+  /** Admin: "Cần bổ sung" / "Không được duyệt" with a reason (4821). On an edit under review: the edit is dropped. */
+  async function decideReview(id: string, outcome: 'NEEDS_FIX' | 'REJECTED', note: string): Promise<CampaignView> {
+    await wait();
+    const r = reviewReason(note);
+    const t = now();
+    db.update((s) => {
+      const c = anyCampaign(s, id);
+      if (c.status === 'OPEN' && c.pendingRevision) {
+        delete c.pendingRevision;
+        c.reviewNote = r;
+        c.updatedAt = t;
+        log(c, { at: t, by: 'ADMIN', action: 'REVISION_REJECTED', note: r });
+        return;
+      }
+      if (c.status !== 'PENDING_REVIEW') throw new KolhubError('KOLHUB-4802');
+      c.status = outcome;
+      c.reviewNote = r;
+      c.updatedAt = t;
+      log(c, { at: t, by: 'ADMIN', action: outcome, note: r });
+    });
+    return view(id);
+  }
+
+  /**
+   * "Đóng tuyển" (EP-02 §6.4, §8): OPEN → CLOSED. Stops new applications only: invites / applications already sent are
+   * kept and handled, bookings continue.
+   */
+  async function closeRecruitment(id: string): Promise<CampaignView> {
+    await wait();
+    const c = structuredClone(ownCampaign(read(), id));
+    if (c.status !== 'OPEN') throw new KolhubError('KOLHUB-4802');
+    const t = now();
+    c.status = 'CLOSED';
+    c.recruitmentClosedAt = t;
+    delete c.pendingRevision;
+    c.updatedAt = t;
+    log(c, { at: t, by: 'BRAND', action: 'CLOSED' });
+    save(c);
+    return view(id);
+  }
+
+  /**
+   * "Hoàn tất" (EP-02 §6.5): CLOSED → COMPLETED when no application / invite is waiting and every booking has ended
+   * (4822 otherwise). Without any confirmed booking the result is "Không phát sinh hợp tác". Never automatic.
+   */
+  async function close(id: string): Promise<CampaignView> {
+    await wait();
+    const state = read();
+    const c = structuredClone(ownCampaign(state, id));
+    if (c.status !== 'CLOSED') throw new KolhubError('KOLHUB-4802');
+    const t = now();
+    const mine = state.bookings.filter((b) => b.campaignId === id).map((b) => effectiveStatus(b, c, t));
+    if (mine.some((st) => isPreAccept(st) || isInProgress(st))) throw new KolhubError('KOLHUB-4826');
+    c.status = 'COMPLETED';
+    c.closedAt = t;
+    c.noCollaboration = !mine.includes('COMPLETED');
+    c.updatedAt = t;
+    log(c, { at: t, by: 'BRAND', action: 'COMPLETED', ...(c.noCollaboration ? { note: 'Không phát sinh hợp tác' } : {}) });
+    save(c);
+    return view(id);
+  }
+
+  /**
+   * "Huỷ chiến dịch" with a reason (4821): any status but COMPLETED / CANCELLED (4802). Not while a booking is in
+   * progress (4817): those go through booking / operations first. Waiting invites / applications are cancelled by the
+   * system with the reason, so the applicants are told.
+   */
+  async function cancel(id: string, reason?: string): Promise<CampaignView> {
+    await wait();
+    const r = reviewReason(reason ?? '');
+    const state = read();
     const c = ownCampaign(state, id);
-    if (!allowed.includes(c.status)) throw new KolhubError('KOLHUB-4802');
+    if (c.status === 'COMPLETED' || c.status === 'CANCELLED') throw new KolhubError('KOLHUB-4802');
     const t = now();
     const mine = state.bookings.filter((b) => b.campaignId === id);
     if (mine.some((b) => isInProgress(effectiveStatus(b, c, t)))) throw new KolhubError('KOLHUB-4817');
     db.update((s) => {
       const sc = s.campaigns.find((x) => x.id === id)!;
-      sc.status = to;
+      sc.status = 'CANCELLED';
+      sc.cancelReason = r;
       sc.closedAt = t;
+      delete sc.pendingRevision;
       sc.updatedAt = t;
+      log(sc, { at: t, by: 'BRAND', action: 'CANCELLED', note: r });
       for (const b of s.bookings) {
         if (b.campaignId !== id || !isPreAccept(effectiveStatus(b, sc, t))) continue;
         b.status = 'CANCELLED';
         delete b.awaiting;
         b.updatedAt = t;
-        b.history.push({ at: t, by: 'SYSTEM', action: 'CANCELLED', note });
+        b.history.push({ at: t, by: 'SYSTEM', action: 'CANCELLED', note: `Chiến dịch đã bị huỷ: ${r}` });
       }
     });
     return view(id);
   }
 
-  /** OPEN / RUNNING → COMPLETED (brand decision; never automatic). */
-  async function close(id: string): Promise<CampaignView> {
-    await wait();
-    return finish(id, ['OPEN', 'RUNNING'], 'COMPLETED', 'Chiến dịch đã kết thúc.');
-  }
-
-  /** DRAFT / OPEN / RUNNING → CANCELLED. */
-  async function cancel(id: string): Promise<CampaignView> {
-    await wait();
-    return finish(id, ['DRAFT', 'OPEN', 'RUNNING'], 'CANCELLED', 'Chiến dịch đã bị huỷ.');
-  }
-
   /**
-   * Invite KOLs (by KOL ID) to a DRAFT / OPEN / RUNNING campaign. A DRAFT is validated and opened first.
+   * Invite KOLs (by KOL ID) to an OPEN ("Đang tuyển") campaign.
    * Routing (spec §4): KOLs managed by an MCN go to that MCN, grouped into one SENT booking per MCN
    * (an existing SENT invite of the same MCN on this campaign is extended); others get their own booking.
    * Unknown / unlisted KOLs and KOLs already in an occupying booking of the campaign are skipped.
    */
   async function inviteKols(campaignId: string, kolIds: string[], opts: InviteOptions = {}): Promise<InviteResult> {
     await wait();
-    const state = db.read();
+    const state = read();
     const c = structuredClone(ownCampaign(state, campaignId));
-    if (c.status !== 'DRAFT' && c.status !== 'OPEN' && c.status !== 'RUNNING') throw new KolhubError('KOLHUB-4802');
+    // EP-02: only a published campaign that is recruiting ("Đang tuyển") can invite.
+    if (c.status !== 'OPEN') throw new KolhubError('KOLHUB-4802');
     // "Tuyển nhiều KOL": KOL/MCN apply on the Sàn and the brand picks; no private invites.
     if (campaignType(c) === 'OPEN_RECRUITMENT') throw new KolhubError('KOLHUB-4802');
     const ids = [...new Set((kolIds ?? []).map((k) => (k ?? '').trim()).filter(Boolean))];
     if (ids.length === 0) throw new KolhubError('KOLHUB-4812');
-    if (opts.price !== undefined && !isPrice(opts.price)) throw new KolhubError('KOLHUB-4810');
-    // "Đàm phán" off: fixed price, so the invite must carry it (the supplier cannot quote).
-    if (c.negotiation === false && opts.price === undefined) throw new KolhubError('KOLHUB-4810');
     const note = checkNote(opts.note);
     const t = now();
-    if (c.status === 'DRAFT') validateForOpen(c, t);
     const deliverable = inviteDeliverable(c, opts.deliverable);
 
     const result: InviteResult = { bookings: [], created: 0, updated: 0, skipped: [] };
@@ -285,12 +484,13 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       );
       if (existing) {
         existing.items.push(item);
-        // Priced invites add up; if either side has no price the supplier quotes the whole booking.
-        existing.price = existing.price > 0 && opts.price !== undefined ? existing.price + opts.price : 0;
+        // Fixed reward per channel × group (EP-02): the price follows the items.
+        existing.price = fixedPriceOf(c, existing.items);
         existing.updatedAt = t;
         existing.history.push({ at: t, by: 'BRAND', action: 'ITEMS_ADDED', price: existing.price, ...(note ? { note } : {}) });
         touched.add(existing.id);
       } else {
+        const price = fixedPriceOf(c, [item]);
         const b: Booking = {
           id: newId(),
           campaignId: c.id,
@@ -299,11 +499,11 @@ export function createCampaignService(deps: CampaignServiceDeps) {
           supplierAccountId: route.supplierAccountId,
           origin: 'INVITE',
           items: [item],
-          price: opts.price ?? 0,
+          price,
           note,
           status: 'SENT',
           awaiting: 'SUPPLIER',
-          history: [{ at: t, by: 'BRAND', action: 'INVITED', price: opts.price ?? 0, ...(note ? { note } : {}) }],
+          history: [{ at: t, by: 'BRAND', action: 'INVITED', price, ...(note ? { note } : {}) }],
           contents: [],
           payment: {},
           createdAt: t,
@@ -319,7 +519,6 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       db.update((s) => {
         s.bookings = bookings;
         const sc = s.campaigns.find((x) => x.id === c.id)!;
-        if (sc.status === 'DRAFT') open(sc, t);
         sc.updatedAt = t;
       });
     }
@@ -366,6 +565,9 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       accepting: isAcceptingApplications(c, t),
       mine: c.brandAccountId === viewerId,
     };
+    // EP-02 §8: a closed campaign keeps its public page with the "Đã đóng tuyển" label; an edit under review pauses it.
+    if (c.status === 'CLOSED' || c.status === 'COMPLETED') item.recruitmentClosed = true;
+    if (c.status === 'OPEN' && c.pendingRevision?.pausesApplications) item.paused = true;
     if (ctx) item.match = matchCampaign(c, ctx);
     return item;
   }
@@ -416,7 +618,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     only?: (c: Campaign, saved: Set<string>) => boolean,
     allowPublic = false,
   ): MarketplaceCampaign[] {
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state, { allowPublic });
     const t = now();
     const { ctx, saved } = viewerContext(state, me, t);
@@ -442,15 +644,16 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** Marketplace detail (+ match, saved, brand block); 4801 unless open for applications or the supplier has a booking on it. */
   async function getMarketplaceItem(id: string): Promise<MarketplaceCampaign> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state, { allowPublic: true });
     const t = now();
     const c = state.campaigns.find((x) => x.id === id);
-    if (!c || c.status === 'DRAFT') throw new KolhubError('KOLHUB-4801');
+    if (!c || UNPUBLISHED_STATUSES.includes(c.status)) throw new KolhubError('KOLHUB-4801');
     const { ctx, saved } = viewerContext(state, me, t);
     const item = card(state, c, me.accountId, ctx, saved, t);
-    // Off the Sàn: still viewable by a supplier that has a booking on it or saved it ("Chiến dịch yêu thích").
-    if (!isListedOnMarketplace(c, t) && !(c.visibility === 'MARKETPLACE' && (item.myBooking || item.saved))) throw new KolhubError('KOLHUB-4801');
+    // Published marketplace campaigns keep a public page after recruitment closed (EP-02 §8: "Đã đóng tuyển", no apply
+    // button); a cancelled one stays viewable by a supplier that has a booking on it or saved it.
+    if (!hasPublicPage(c) && !(c.visibility === 'MARKETPLACE' && (item.myBooking || item.saved))) throw new KolhubError('KOLHUB-4801');
     return { ...item, brandInfo: brandInfoOf(state, c.brandAccountId, t) };
   }
 
@@ -459,7 +662,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** Bookmark a campaign that is open on the marketplace (4801 otherwise). Idempotent. */
   async function saveCampaign(id: string): Promise<void> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state);
     const c = state.campaigns.find((x) => x.id === id);
     if (!c || !isListedOnMarketplace(c, now())) throw new KolhubError('KOLHUB-4801');
@@ -490,13 +693,13 @@ export function createCampaignService(deps: CampaignServiceDeps) {
    */
   async function listSavedAll(): Promise<MarketplaceCampaign[]> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state);
     const t = now();
     const { ctx, saved } = viewerContext(state, me, t);
     const savedAt = new Map(state.savedCampaigns.filter((x) => x.accountId === me.accountId).map((x) => [x.campaignId, x.savedAt]));
     return state.campaigns
-      .filter((c) => saved.has(c.id) && c.status !== 'DRAFT' && c.visibility === 'MARKETPLACE')
+      .filter((c) => saved.has(c.id) && !UNPUBLISHED_STATUSES.includes(c.status) && c.visibility === 'MARKETPLACE')
       .map((c) => card(state, c, me.accountId, ctx, saved, t))
       .sort((a, b) => (savedAt.get(b.id) ?? 0) - (savedAt.get(a.id) ?? 0));
   }
@@ -508,7 +711,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
    */
   async function listApplied(filters: MarketplaceFilters = {}): Promise<AppliedCampaign[]> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state);
     const t = now();
     const ctx = supplierMatchContext(state, me.accountId, t);
@@ -542,25 +745,23 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   }
 
   /**
-   * Apply to a marketplace campaign with a proposal. MCN: items = its managed KOLs + an MCN channel assigned to
+   * Apply to a marketplace campaign with a proposal (no price: the fixed group rewards apply). MCN: items = its managed KOLs + an MCN channel assigned to
    * each; KOL: its own channels. One occupying booking per supplier per campaign (4807).
    */
   async function apply(campaignId: string, proposal: ApplyInput): Promise<BookingView> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = currentSupplier(state);
     const t = now();
     const c = state.campaigns.find((x) => x.id === campaignId);
-    if (!c || c.status === 'DRAFT' || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
+    if (!c || UNPUBLISHED_STATUSES.includes(c.status) || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
     if (!isAcceptingApplications(c, t)) throw new KolhubError('KOLHUB-4808');
     if (state.bookings.some((b) => b.campaignId === c.id && b.supplierAccountId === me.accountId && isOccupying(effectiveStatus(b, c, t)))) {
       throw new KolhubError('KOLHUB-4807');
     }
     const items = resolveItems(state, me, c, proposal?.items ?? [], t, newId);
-    // "Tuyển nhiều KOL": fixed reward, no quote.
-    const recruit = isRecruit(c);
-    if (!recruit && !isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
-    const price = recruit ? 0 : proposal.price!;
+    // No quote (EP-02): Booking riêng = the group rewards of the proposed channels; "Tuyển nhiều KOL" = the reward when picked.
+    const price = isRecruit(c) ? 0 : fixedPriceOf(c, items);
     const note = checkNote(proposal.note);
     const application = checkApplication(c, proposal, t);
     const b: Booking = {
@@ -592,9 +793,10 @@ export function createCampaignService(deps: CampaignServiceDeps) {
 
   /** The brand's open-recruitment campaign and the APPLIED applications among `bookingIds` (4801 / 4802 / 4805). */
   function selection(campaignId: string, bookingIds: string[]) {
-    const state = db.read();
+    const state = read();
     const c = ownCampaign(state, campaignId);
-    if (!isRecruit(c) || (c.status !== 'OPEN' && c.status !== 'RUNNING')) throw new KolhubError('KOLHUB-4802');
+    // Applications already sent are still handled after recruitment closed (EP-02 §6.4).
+    if (!isRecruit(c) || (c.status !== 'OPEN' && c.status !== 'CLOSED')) throw new KolhubError('KOLHUB-4802');
     const t = now();
     const ids = [...new Set((bookingIds ?? []).filter(Boolean))];
     if (ids.length === 0) throw new KolhubError('KOLHUB-4812');
@@ -651,7 +853,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** "Chốt danh sách" during "Chọn lọc": every applicant not picked yet becomes "Không được chọn". */
   async function finalizeSelection(campaignId: string): Promise<SelectionResult> {
     await wait();
-    const state = db.read();
+    const state = read();
     const c = ownCampaign(state, campaignId);
     if (!isRecruit(c)) throw new KolhubError('KOLHUB-4802');
     const t = now();
@@ -680,10 +882,10 @@ export function createCampaignService(deps: CampaignServiceDeps) {
    */
   async function listQuestions(campaignId: string): Promise<CampaignQAView[]> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state, { allowPublic: true });
     const c = state.campaigns.find((x) => x.id === campaignId);
-    if (!c || c.status === 'DRAFT' || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
+    if (!c || UNPUBLISHED_STATUSES.includes(c.status) || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
     const owner = !!me.accountId && c.brandAccountId === me.accountId;
     return state.campaignQuestions
       .filter((q) => q.campaignId === c.id && (owner || !!q.answer || (!!me.accountId && q.askerAccountId === me.accountId)))
@@ -694,7 +896,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** A signed-in KOL / MCN asks a public question on a campaign shown on the Sàn (4806 guests / brands, 4801). */
   async function askQuestion(campaignId: string, text: string): Promise<CampaignQAView> {
     await wait();
-    const state = db.read();
+    const state = read();
     const me = marketplaceViewer(state);
     const t = now();
     const c = state.campaigns.find((x) => x.id === campaignId);
@@ -721,7 +923,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   /** The owning brand answers (or edits its answer to) a question (4016 non-BIZ, 4820 unknown / another brand's). */
   async function answerQuestion(questionId: string, text: string): Promise<CampaignQAView> {
     await wait();
-    const state = db.read();
+    const state = read();
     const acc = currentBizAccount(state);
     const q = state.campaignQuestions.find((x) => x.id === questionId);
     const c = q ? state.campaigns.find((x) => x.id === q.campaignId) : undefined;
@@ -743,8 +945,14 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     create,
     update,
     publish,
+    withdraw,
+    deleteDraft,
+    closeRecruitment,
     close,
     cancel,
+    listReviewQueue,
+    approveReview,
+    decideReview,
     inviteKols,
     listMarketplace,
     getMarketplaceItem,

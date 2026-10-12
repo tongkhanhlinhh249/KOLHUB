@@ -202,7 +202,6 @@ export function ChannelDirectoryPage() {
                   handle={c.handle}
                   url={c.url}
                   verifiedUntil={c.badgeExpiresAt}
-                  shield={c.contentShield}
                   subline={<OwnerLine item={c} />}
                   fields={c.fields}
                   region={c.region}

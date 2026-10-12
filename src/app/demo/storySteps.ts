@@ -24,17 +24,21 @@ export const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Hợp tác (booking)', meaning: 'Một thoả thuận giữa Nhãn hàng và một KOL/MCN trong một chiến dịch.' },
   { term: 'Hạng mục', meaning: 'Việc cần làm, ví dụ "2 video TikTok".' },
   { term: 'Nháp', meaning: 'Bản nội dung gửi Nhãn hàng duyệt trước khi đăng thật.' },
+  { term: 'KOL Safety', meaning: 'Hệ thống bên ngoài quét nội dung kênh; việc quét và token đều làm ở đó.' },
+  { term: 'Dấu xác thực kênh', meaning: 'Kênh được Admin xác nhận đúng chủ và đạt KOL Safety trên N nội dung gần nhất; có hạn, phải gia hạn.' },
+  { term: 'KOLGOV', meaning: 'Hệ thống nhận đồng bộ hồ sơ và kết quả xác thực kênh từ KOLHUB.' },
 ];
 
 export const RELEASE_PLAIN: Record<ReleaseKey, { name: string; goal: string }> = {
   R0: { name: 'Một vòng hoàn chỉnh', goal: 'Nhãn hàng đăng chiến dịch → KOL/MCN ứng tuyển → hai bên chốt → làm nội dung → đăng bài → thanh toán.' },
   R1: { name: 'Nhãn hàng mời KOL', goal: 'Nhãn hàng tự mời KOL; KOL/MCN nhận hoặc từ chối; có thông báo khi có việc mới.' },
-  R2: { name: 'Trả giá và nhắn tin', goal: 'Hai bên trả giá qua lại, nhắn tin, huỷ khi có sự cố; Nhãn hàng tự đóng chiến dịch.' },
+  R2: { name: 'Trả giá và nhắn tin', goal: 'Nhắn tin, hết hạn, huỷ khi có sự cố; trả giá qua lại đã bỏ từ R8 (thù lao cố định).' },
   R3: { name: 'Kiểm soát nội dung', goal: 'Sửa nháp nhiều lần, kiểm tra vi phạm, hợp đồng, số liệu bài đăng, điều kiện ứng tuyển.' },
   R4: { name: 'Sàn dễ tìm hơn', goal: 'Gợi ý chiến dịch hợp với bạn, tìm và lọc, lưu, hỏi đáp, ảnh bìa.' },
   R5: { name: 'Dùng hằng ngày', goal: 'Mở app là biết việc cần làm; theo dõi tiền, đánh giá và bài đã đăng.' },
   R6: { name: 'Tuyển nhiều KOL', goal: 'Một chiến dịch tuyển nhiều KOL với phần thưởng cố định, Nhãn hàng chọn người theo đợt.' },
-  R7: { name: 'Badge Xác thực & Khiên An toàn', goal: 'Đủ hồ sơ + mọi kênh có Khiên An toàn (quét 10 bài gần nhất) thì đạt Badge Xác thực Kol.gov.vn.' },
+  R8: { name: 'Tạo, đăng và quản lý chiến dịch (EP-02)', goal: 'Tạo chiến dịch theo 4 bước, xem trước, Admin duyệt trước khi lên Sàn, quản lý sau đăng mà không đổi lời hứa với KOL.' },
+  R7: { name: 'Hồ sơ và xác thực kênh (EP-01)', goal: 'Hoàn thiện hồ sơ; mỗi kênh có dấu xác thực khi được duyệt quyền quản lý và đạt KOL Safety trên N nội dung gần nhất; gia hạn định kỳ; đồng bộ KOLGOV.' },
 };
 
 export const STORY_STEPS: Record<string, PlainStory> = {
@@ -159,9 +163,9 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     title: 'Mời KOL vào chiến dịch',
     summary: 'Nhãn hàng chủ động mời KOL thay vì chờ ứng tuyển.',
     steps: [
-      { screen: 'Trang chiến dịch → tab "Booking" → "Mời KOL"', checks: ['Chọn KOL từ danh sách đã lưu, hoặc tìm theo tên / KOL ID', 'Chọn hạng mục, giá mỗi KOL (để trống = để KOL/MCN báo giá), lời nhắn'] },
+      { screen: 'Trang chiến dịch → tab "Booking" → "Mời KOL"', checks: ['Chọn KOL từ danh sách đã lưu, hoặc tìm theo tên / KOL ID', 'Chọn hạng mục (thấy thù lao cố định của nhóm), lời nhắn'] },
       { screen: 'Hoặc từ Tìm KOL / Danh sách đã lưu → "Mời vào chiến dịch"', checks: ['Chọn chiến dịch muốn mời vào', 'Chiến dịch "Tuyển nhiều KOL" không mời được'] },
-      { screen: 'Bấm "Gửi lời mời"', checks: ['Kết quả: bao nhiêu lời mời mới, bao nhiêu KOL bị bỏ qua và vì sao', 'Mời từ chiến dịch nháp → chiến dịch tự được đăng (phải đủ thông tin)', 'Chiến dịch tắt "Đàm phán" → phải nhập giá mới gửi được'] },
+      { screen: 'Bấm "Gửi lời mời"', checks: ['Kết quả: bao nhiêu lời mời mới, bao nhiêu KOL bị bỏ qua và vì sao', 'Chỉ mời được khi chiến dịch Đang tuyển (đã được Admin duyệt)', 'Giá lời mời = thù lao nhóm × số kênh, không nhập giá'] },
     ],
   },
   'R1-2': {
@@ -178,7 +182,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'KOL/MCN xem lời mời rồi nhận hoặc từ chối.',
     steps: [
       { screen: 'Chiến dịch của tôi → tab "Cần xử lý" → mở lời mời', checks: ['Xem giá, hạng mục, hạn trả lời', 'MCN: "Giao KOL/kênh" — chọn KOL và kênh sẽ đăng', 'KOL: "Chọn kênh đăng"'] },
-      { screen: 'Bấm "Chấp nhận"', checks: ['Chỉ bấm được khi đã có giá và mọi hạng mục đã có kênh', 'Lời mời chưa có giá → phải "Báo giá" trước', 'Xong: "Đã chốt booking", bắt đầu làm nội dung'] },
+      { screen: 'Bấm "Chấp nhận"', checks: ['Chỉ bấm được khi mọi hạng mục đã có kênh', 'Chốt theo thù lao cố định; nhóm đã đủ suất → báo lỗi', 'Xong: "Đã chốt booking", bắt đầu làm nội dung'] },
       { screen: 'Hoặc "Từ chối"', checks: ['Lý do không bắt buộc', 'Nhãn hàng được báo'] },
     ],
   },
@@ -198,15 +202,15 @@ export const STORY_STEPS: Record<string, PlainStory> = {
       { screen: 'Trang "Thông báo"', checks: ['Lọc "Tất cả" / "Chưa đọc"', 'Bấm một thông báo → mở đúng hợp tác, tin nhắn hoặc câu hỏi', '"Đánh dấu tất cả đã đọc"'] },
       {
         screen: 'Khi nào có thông báo',
-        checks: ['Có lời mời, đề xuất, báo giá mới', 'Nháp được duyệt hoặc cần sửa, bài được xác minh, đã thanh toán', 'Tin nhắn mới, câu hỏi mới', 'Lời mời sắp hết hạn (còn 2 ngày)'],
+        checks: ['Có lời mời, đề xuất mới', 'Nháp được duyệt hoặc cần sửa, bài được xác minh, đã thanh toán', 'Tin nhắn mới, câu hỏi mới', 'Lời mời sắp hết hạn (còn 2 ngày)'],
       },
     ],
   },
 
   // R2 — Trả giá và nhắn tin
   'R2-1': {
-    title: 'Trả giá qua lại',
-    summary: 'Hai bên trả giá qua lại tới khi đồng ý.',
+    title: 'Trả giá qua lại (đã bỏ từ R8)',
+    summary: 'Đã bỏ theo EP-02 v1.1: mọi chiến dịch dùng thù lao cố định theo nhóm đầu việc, chỉ chấp nhận hoặc từ chối (xem R8-4).',
     steps: [
       { screen: 'Mở hợp tác → "Báo giá khác" (Nhãn hàng) / "Trả giá" (KOL/MCN)', checks: ['Chỉ bên đang đến lượt mới báo giá được', 'Nhập tổng giá mới (lớn hơn 0), lời nhắn nếu muốn'] },
       { screen: 'Sau khi gửi', checks: ['Đến lượt bên kia: chấp nhận, trả giá tiếp hoặc từ chối', 'Bên vừa gửi chỉ có thể huỷ', 'Đang trả giá thì không bị hết hạn'] },
@@ -309,7 +313,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
         checks: [
           'Bản tóm tắt sáng tạo (luôn bật): mục tiêu và brief',
           'Đề nghị trả phí, Tặng quà: phần thưởng tiền và quà (Tặng quà chỉ có ở "Tuyển nhiều KOL")',
-          'Đàm phán: tắt thì giá cố định — chỉ chấp nhận hoặc từ chối',
+          'Không còn thẻ Đàm phán: thù lao cố định khai theo nhóm đầu việc (R8-4)',
           'Duyệt nháp: tắt thì KOL/MCN đăng luôn rồi gửi link',
           'Sự tuân thủ: quy định bài đăng (hashtag, ghi nhãn quảng cáo…)',
           'Hợp đồng: điều khoản người ứng tuyển phải đồng ý, và tệp hợp đồng trong từng hợp tác',
@@ -480,52 +484,211 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     ],
   },
 
-  // R7 — Badge Xác thực & Khiên An toàn
+  // R7 — EP-01 Hồ sơ KOL/MCN và xác thực kênh
   'R7-1': {
-    title: 'Bật/tắt KOL Safety và chọn gói',
-    summary: 'KOL/MCN tự bật hoặc tắt KOL Safety và chọn gói Miễn phí hay Bảo vệ.',
+    title: 'Hoàn thiện và gửi hồ sơ',
+    summary: 'KOL/MCN điền đủ hồ sơ rồi gửi để KOLHUB duyệt.',
     steps: [
-      { screen: 'Menu → "Ứng dụng" → khối "KOL Safety"', checks: ['Gạt công tắc để bật/tắt', 'Tắt: ẩn phần quét và điểm, không chia sẻ điểm cho Nhãn hàng; khiên đã có vẫn hiện'] },
-      { screen: '"Gói KOL Safety"', checks: ['Miễn phí: xin khiên, 3 lượt quét lại mỗi kênh mỗi tháng, khiếu nại', 'Bảo vệ: quét lại không giới hạn, quét trước khi đăng, giám sát tự động', 'Bấm "Dùng gói …" để đổi (demo, chưa thanh toán)'] },
+      { screen: 'Tổng quan hồ sơ → khối "Hồ sơ hoàn thiện x%"', checks: ['Các bước: Liên hệ · eKYC (MCN: GCN ĐKDN) · Kênh & ảnh · KOL Safety', 'Bước đã xong có dấu tích xanh; bấm bước chưa xong để đi tới chỗ cần làm'] },
+      { screen: 'Thông tin hồ sơ → tab "Định danh" / "Liên hệ"', checks: ['Mỗi tab chỉ hiện phần của nó', 'Số điện thoại, email, giấy tờ không công khai'] },
+      { screen: 'Bấm "Gửi xét duyệt"', checks: ['KOL cần có ít nhất 1 kênh đạt KOL Safety mới gửi được', 'Đủ điều kiện, tick 3 cam đoan → hồ sơ "Đang xét duyệt"', 'Duyệt hồ sơ không tự cấp dấu cho kênh'] },
     ],
   },
   'R7-2': {
-    title: 'Xin Khiên An toàn cho kênh',
-    summary: 'Hệ thống xét 10 bài gần nhất của kênh; đạt thì kênh có Khiên An toàn.',
+    title: 'Khai báo kênh',
+    summary: 'Thêm kênh bằng link và ảnh chụp màn hình quản lý kênh.',
     steps: [
-      { screen: 'Ứng dụng → KOL Safety → chọn kênh', checks: ['Xem khối "Khiên An toàn nội dung"', 'Kênh phải có dấu xác thực trước'] },
-      { screen: 'Bấm "Xin Khiên An toàn"', checks: ['Đạt khi 10 bài gần nhất không có bài Vi phạm và tối đa 2 bài Cần xem lại', 'Chưa đạt: hiện lý do; gỡ bài hoặc quét lại khi có bài mới thì khiên tự cấp', 'Xin khiên miễn phí'] },
+      { screen: 'Quản lý kênh → "Thêm kênh"', checks: ['Dán link TikTok, Facebook, Instagram hoặc YouTube', 'Tải ảnh quản lý kênh (JPG/PNG, tối đa 10 MB)', 'Link đã có người đăng ký → báo trùng'] },
+      { screen: 'Sau khi thêm', checks: ['Kênh hiện nhãn "Chưa xác thực KOL Safety" và nút "Xác thực"', 'Không xoá được kênh; tắt "Hoạt động" thì kênh ẩn khỏi tìm kiếm'] },
+      { screen: 'Sửa kênh', checks: ['Đổi link → phải xác thực KOL Safety lại từ đầu', 'Chỉ đổi ảnh → gửi Admin duyệt lại, không phải quét lại'] },
     ],
   },
   'R7-3': {
-    title: 'Khiên bị tạm treo',
-    summary: 'Có bài mới không đạt thì khiên bị tạm treo 7 ngày để chủ kênh xử lý.',
+    title: 'Admin duyệt quyền quản lý kênh',
+    summary: 'Admin xem link và ảnh để xác nhận đúng là chủ / người quản lý kênh.',
     steps: [
-      { screen: 'Khối khiên báo "Tạm treo"', checks: ['Hiện số ngày còn lại để xử lý', 'Danh sách bài chưa đạt, mỗi bài có nút "Đã gỡ bài"'] },
-      { screen: 'Xử lý', checks: ['Gỡ bài hoặc quét lại có bài mới đạt → khiên trở lại', 'Hoặc khiếu nại nếu máy nhận nhầm', 'Quá 7 ngày không xử lý → khiên bị thu hồi, phải xin lại'] },
+      { screen: 'Bảng demo → Admin → hàng chờ duyệt', checks: ['Mỗi kênh có link, ảnh quản lý và kết quả KOL Safety', 'Admin không chấm lại nội dung'] },
+      { screen: 'Chọn "Đạt" hoặc "Cần bổ sung"', checks: ['"Cần bổ sung" phải ghi lý do', 'Hiện tại kênh vào hàng chờ sau khi đã đạt KOL Safety (thứ tự này chưa chốt)'] },
     ],
   },
   'R7-4': {
-    title: 'Khiếu nại khi máy nhận nhầm',
-    summary: 'KOL/MCN khiếu nại, đội vận hành KOLHUB xem lại và quyết định.',
+    title: 'Bắt đầu xác thực kênh',
+    summary: 'Chủ kênh bấm Xác thực, đọc quy tắc, cam đoan rồi mở KOL Safety để quét.',
     steps: [
-      { screen: 'Khối khiên → "Khiếu nại"', checks: ['Ghi lý do (tối đa 1.000 ký tự) → "Gửi khiếu nại"', 'Trong lúc xét, hạn 7 ngày tạm dừng', 'Khiếu nại miễn phí'] },
-      { screen: 'Đội vận hành (Bảng demo → Admin → "Khiếu nại Khiên An toàn")', checks: ['"Chấp nhận" → kênh có lại khiên', '"Từ chối" → giữ nguyên, chủ kênh thấy lý do từ chối'] },
+      { screen: 'Quản lý kênh → nút "Xác thực" trên kênh', checks: ['Hộp hiện quy tắc của nền tảng: TikTok/Facebook/Instagram xét 20 nội dung gần nhất, YouTube 5 video', 'Video chỉ được kiểm tra 3 phút đầu'] },
+      { screen: 'Tick cam đoan → "Mở KOL Safety để quét"', checks: ['Chốt danh sách nội dung gần nhất', 'Mở KOL Safety ở tab mới', 'Kênh chưa đủ số nội dung → báo cần đăng thêm, không tính là không đạt'] },
     ],
   },
   'R7-5': {
-    title: 'Xem mình còn thiếu gì để có Badge',
-    summary: 'Trang Tổng quan cho biết đã đạt Badge Xác thực Kol.gov.vn chưa và còn thiếu gì.',
+    title: 'Xem tiến độ quét',
+    summary: 'Việc quét làm trên KOL Safety; KOLHUB chỉ hiện tiến độ và kết quả.',
     steps: [
-      { screen: 'Tổng quan hồ sơ → khối "Badge Xác thực Kol.gov.vn"', checks: ['Tiêu chí 1: hồ sơ đã khai báo đủ và được duyệt', 'Tiêu chí 2: mọi kênh đã xác thực có Khiên An toàn (x/y kênh)', 'Bấm một kênh để mở báo cáo KOL Safety của kênh đó'] },
+      { screen: 'Quản lý kênh → nhãn "KOL Safety x/N đạt" → nút "Tiến độ"', checks: ['Thanh tiến độ, số nội dung đạt, không đạt, chưa quét', 'Từng nội dung có ảnh, ngày đăng và kết quả: Đạt / Không đạt (kèm lý do) / Chưa quét'] },
+      { screen: 'Nút trong hộp', checks: ['"Quét … trên KOL Safety" mở KOL Safety để quét', '"Làm mới" lấy kết quả mới nhất', 'KOLHUB không có nút quét'] },
+      { screen: 'Nội dung "Chưa kiểm tra được"', checks: ['KOL Safety không đọc được nội dung đó', 'Không tính là Đạt, cũng không phải vi phạm; cần quét lại'] },
     ],
   },
   'R7-6': {
-    title: 'Nhãn hàng thấy khiên trên kênh',
-    summary: 'Nhãn hàng thấy kênh nào có Khiên An toàn khi tìm KOL.',
+    title: 'Gỡ hoặc sửa bài không đạt',
+    summary: 'Gỡ/sửa bài không đạt thì danh sách cập nhật; bài đã đạt và không đổi được dùng lại kết quả.',
     steps: [
-      { screen: 'Hồ sơ KOL và Danh sách kênh', checks: ['Nhãn xanh "Khiên An toàn": kênh đạt', 'Nhãn vàng "Khiên tạm treo": kênh đang xử lý vi phạm', 'Điểm từng bài chỉ hiện khi chủ kênh bật chia sẻ'] },
+      { screen: 'Bài "Không đạt" trong hộp xác thực', checks: ['Gỡ hoặc sửa bài trên nền tảng, rồi quét lại trên KOL Safety'] },
+      { screen: 'Quy tắc dùng lại kết quả (đã chốt)', checks: ['Quét lại bài không đạt mà chưa gỡ / sửa thì vẫn không đạt', 'Gỡ bài → danh sách lấy lại N nội dung mới nhất; bài đã gỡ vào mục "Đã gỡ khỏi danh sách"', 'Bài cũ còn trong danh sách, không đổi thì giữ kết quả', 'Bài sửa ghi "đã sửa, cần quét lại"; bài mới lọt vào danh sách phải quét', 'Kênh không còn đủ N nội dung → báo "Hiện tìm thấy M/N", chưa cấp dấu'] },
+      { screen: 'Bảng demo → "Xác thực kênh (KOL Safety)"', checks: ['"Gỡ bài không đạt" / "Sửa bài không đạt" để thử'] },
     ],
+  },
+  'R7-7': {
+    title: 'Kênh nhận dấu xác thực',
+    summary: 'Đạt đủ N nội dung và được Admin duyệt quyền quản lý thì kênh có dấu xác thực.',
+    steps: [
+      { screen: 'Quản lý kênh', checks: ['Kênh hiện "Đã xác thực" và "Đã xác thực KOL Safety"', 'Dấu có hạn (prototype: 90 ngày)'] },
+      { screen: 'Nhãn hàng thấy biểu tượng khiên cạnh tên kênh', checks: ['Rê chuột thấy hạn và phạm vi: chỉ kiểm tra 3 phút đầu mỗi video', 'Dấu không có nghĩa là toàn bộ kênh không có vi phạm'] },
+    ],
+  },
+  'R7-8': {
+    title: 'Gia hạn dấu',
+    summary: 'Gần hết hạn thì quét lại N nội dung mới nhất để gia hạn.',
+    steps: [
+      { screen: 'Quản lý kênh → nhãn "KOL Safety còn N ngày" → "Gia hạn"', checks: ['Mở khi còn 14 ngày trở xuống', 'Trong lúc gia hạn, dấu cũ vẫn giữ tới hạn cũ'] },
+      { screen: 'Kết quả', checks: ['Đạt đủ → dấu được gia hạn (prototype: thêm 90 ngày, không cần Admin duyệt lại)', 'Quá hạn chưa đạt → "KOL Safety hết hạn", kênh không nhận booking mới', 'Kênh hết hạn vẫn bấm "Gia hạn" để làm lại'] },
+    ],
+  },
+  'R7-9': {
+    title: 'Vi phạm và tạm ngừng dấu',
+    summary: 'Vi phạm đã được xác nhận thì dấu bị tạm ngừng; khôi phục phải đúng quy trình.',
+    steps: [
+      { screen: 'Khi Admin xác nhận vi phạm mức cao', checks: ['Kênh hiện nhãn đỏ "Tạm ngừng", không nhận booking mới, không hiện khi Nhãn hàng tìm KOL', 'Quét đạt lại không tự gỡ tạm ngừng'] },
+      { screen: 'Khôi phục (Admin)', checks: ['Còn hạn → về "Đã xác thực"', 'Đã qua hạn → về "Hết hạn", phải gia hạn', 'Thử ở Bảng demo: "Tạm ngừng (vi phạm)" / "Khôi phục"'] },
+      { screen: 'Khiếu nại (đề xuất)', checks: ['Không đồng ý kết quả nội dung → khiếu nại với KOL Safety', 'Tranh chấp quyền quản lý → khiếu nại với Admin KOLHUB'] },
+    ],
+  },
+  'R7-10': {
+    title: 'Đồng bộ sang KOLGOV',
+    summary: 'Kết quả xác thực kênh được gửi sang KOLGOV (chưa có trong prototype).',
+    steps: [
+      { screen: 'Khi cấp, gia hạn, tạm ngừng hoặc hết hạn dấu', checks: ['Gửi kết quả sang KOLGOV, chỉ các trường đã thống nhất', 'Gửi lỗi → báo "Chưa đồng bộ được kết quả sang KOLGOV."', 'Chưa có xác nhận thì không báo đã xác thực trên KOLGOV'] },
+    ],
+  },
+  'R7-11': {
+    title: 'Kênh nào được dùng trong chiến dịch',
+    summary: 'Chỉ kênh đã xác thực, còn hạn, đang hoạt động mới được tìm thấy và chọn khi hợp tác.',
+    steps: [
+      { screen: 'Tìm KOL, Danh sách kênh', checks: ['Chỉ hiện KOL có ít nhất 1 kênh đủ điều kiện', 'Danh sách đã lưu vẫn giữ KOL, chỉ cập nhật trạng thái'] },
+      { screen: 'Ứng tuyển, nhận lời mời, chốt', checks: ['Kênh hết hạn / tắt / khác nền tảng chiến dịch → không chọn được', 'Hệ thống kiểm tra lại khi bấm, không chỉ ẩn nút'] },
+    ],
+  },
+  'R7-12': {
+    title: 'Thông báo và lịch sử',
+    summary: 'KOL/MCN được báo khi có việc cần xử lý với hồ sơ và kênh.',
+    steps: [
+      { screen: 'Thông báo trong app và email', checks: ['Báo khi: cần bổ sung, được duyệt, đủ điều kiện cấp dấu, gia hạn thành công', 'Đề xuất nhắc trước hạn 14, 7, 1 ngày (chưa có trong prototype)'] },
+      { screen: 'Bảng demo → "Xác thực kênh (KOL Safety)"', checks: ['Giả lập KOL Safety quét: "KOL Safety quét một lượt", "Quét đủ ngay"', 'Đẩy kênh tới "Còn 7 ngày", "Hết hạn" hoặc về "Chưa xác thực"'] },
+    ],
+  },
+
+  // R8 — EP-02 Tạo, đăng và quản lý chiến dịch (v1.1)
+  'R8-1': {
+    title: 'Tạo chiến dịch',
+    summary: 'Nhãn hàng/Agency bấm "Tạo chiến dịch", chọn loại rồi vào form.',
+    steps: [
+      { screen: 'Quản lý chiến dịch → "Tạo chiến dịch"', checks: ['Popup chọn loại: Booking riêng hoặc Tuyển nhiều KOL', 'Chọn xong mở form đúng loại'] },
+      { screen: 'Theo EP-02 (chưa có trong prototype)', checks: ['Agency phải khai nhãn hàng được quảng bá và căn cứ đại diện', 'Tổ chức phải được Admin xác minh mới gửi đăng được'] },
+    ],
+  },
+  'R8-2': {
+    title: 'Lưu nháp',
+    summary: 'Lưu lại để làm tiếp sau, chưa cần đủ thông tin.',
+    steps: [
+      { screen: 'Form → "Lưu nháp"', checks: ['Chỉ cần tên là lưu được', 'Lưu xong hiện "Đã lưu bản nháp"'] },
+      { screen: 'Chi tiết bản nháp → "Xoá nháp"', checks: ['Chỉ xoá được bản nháp chưa từng gửi, chưa có booking', 'Hỏi xác nhận trước khi xoá'] },
+      { screen: 'Theo EP-02 (chưa có trong prototype)', checks: ['Rời trang khi chưa lưu → hỏi lại'] },
+    ],
+  },
+  'R8-3': {
+    title: 'Yêu cầu KOL và đầu việc',
+    summary: 'Ghi rõ KOL cần làm gì, trên nền tảng nào, bao nhiêu suất.',
+    steps: [
+      { screen: 'Form → "Nội dung cần làm"', checks: ['Mỗi dòng: loại nội dung, nền tảng, số lượng', 'Có sẵn 1 dòng Video · TikTok · 1'] },
+      { screen: 'Form → "Quyền lợi theo nhóm đầu việc"', checks: ['Mỗi nền tảng là một nhóm: số suất, thù lao mỗi booking, sản phẩm (nếu có)', '1 suất = 1 booking của 1 kênh trong nhóm'] },
+      { screen: 'Theo EP-02 (chưa có trong prototype)', checks: ['Mốc bàn giao và mô tả riêng cho từng nhóm', 'Ngưỡng follower chỉ để Nhãn hàng tự xét'] },
+    ],
+  },
+  'R8-4': {
+    title: 'Quyền lợi và ngân sách',
+    summary: 'Khai KOL nhận gì: tiền cố định, sản phẩm, hoặc cả hai.',
+    steps: [
+      { screen: 'Form → "Quyền lợi theo nhóm đầu việc"', checks: ['Thù lao cố định mỗi booking (VND), có thể kèm hoặc chỉ tặng sản phẩm', 'Ngân sách dự kiến tự tính = số suất × quyền lợi', 'Không báo giá, không trả giá'] },
+      { screen: 'Mời KOL / ứng tuyển / chốt', checks: ['Lời mời và đơn ứng tuyển lấy giá theo nhóm của kênh', 'KOL/MCN chỉ nhận hoặc từ chối; Nhãn hàng chỉ duyệt hoặc từ chối', 'Chốt quá số suất của nhóm → báo lỗi'] },
+      { screen: 'Prototype hiện tại (chưa theo EP-02)', checks: ['Sàn vẫn hiện "Ngân sách chiến dịch"'] },
+    ],
+  },
+  'R8-5': {
+    title: 'Các mốc thời gian',
+    summary: 'Đặt hạn ứng tuyển và lịch triển khai.',
+    steps: [
+      { screen: 'Theo EP-02', checks: ['Hạn ứng tuyển bắt buộc, có giờ, giờ Việt Nam', 'Đến hạn là ngừng nhận đơn', 'Được chọn KOL trước hạn nếu lịch bàn giao còn kịp'] },
+      { screen: 'Prototype hiện tại', checks: ['Hạn ứng tuyển chỉ có ngày, Booking riêng không bắt buộc'] },
+    ],
+  },
+  'R8-6': {
+    title: 'Xem trước',
+    summary: 'Xem chiến dịch sẽ hiện trên Sàn thế nào trước khi gửi (chưa có trong prototype).',
+    steps: [{ screen: 'Bước 4 "Xem trước và gửi đăng"', checks: ['Thấy thẻ trên Sàn và trang chi tiết', 'Phần còn thiếu được đánh dấu', 'Không hiện ngân sách và tài liệu nội bộ'] }],
+  },
+  'R8-7': {
+    title: 'Gửi đăng và chờ duyệt',
+    summary: 'Gửi đăng thì Admin duyệt trước khi chiến dịch lên Sàn.',
+    steps: [
+      { screen: 'Chi tiết chiến dịch → "Gửi đăng"', checks: ['Thiếu thông tin → báo đúng mục', 'Đủ → "Chờ duyệt", chưa lên Sàn', 'Đang chờ duyệt có thể "Rút về nháp"'] },
+      { screen: 'Bảng demo → Admin → "Duyệt chiến dịch"', checks: ['Duyệt → "Đang tuyển", lên Sàn', 'Cần bổ sung / Không được duyệt phải có lý do', 'Hạn ứng tuyển đã qua khi duyệt → chuyển "Cần bổ sung"'] },
+    ],
+  },
+  'R8-8': {
+    title: 'Sửa và gửi lại',
+    summary: 'Admin yêu cầu bổ sung thì sửa rồi gửi lại.',
+    steps: [{ screen: 'Chi tiết chiến dịch → phản hồi Admin', checks: ['Thấy rõ lý do của Admin', 'Sửa → "Gửi lại" → "Chờ duyệt"', 'Lưu lịch sử các lần gửi và quyết định'] }],
+  },
+  'R8-9': {
+    title: 'Danh sách chiến dịch',
+    summary: 'Xem, tìm và lọc mọi chiến dịch của mình.',
+    steps: [{ screen: 'Quản lý chiến dịch', checks: ['Tìm theo tên, lọc theo loại / hiển thị', 'Tab: Nháp, Chờ duyệt, Cần bổ sung, Không được duyệt, Đang tuyển, Đã đóng tuyển, Hoàn tất, Đã huỷ', 'Xem dạng bảng hoặc thẻ', 'Chọn nhiều để đóng tuyển / huỷ (có lý do)'] }],
+  },
+  'R8-10': {
+    title: 'Sửa sau khi đăng',
+    summary: 'Sửa chiến dịch đã đăng mà không đổi lời hứa với KOL.',
+    steps: [
+      { screen: 'Chiến dịch Đang tuyển → "Sửa" → "Gửi bản sửa"', checks: ['Chưa có đơn: bản sửa chờ Admin duyệt, tạm ngừng nhận đơn', 'Đã có đơn: chỉ sửa ảnh, tên, mô tả giới thiệu; điều kiện hợp tác bị khoá', 'Bản công khai giữ nguyên tới khi Admin duyệt; từ chối thì giữ bản cũ'] },
+    ],
+  },
+  'R8-11': {
+    title: 'Đóng tuyển',
+    summary: 'Ngừng nhận ứng viên mới nhưng vẫn giữ đơn và hợp tác đã có.',
+    steps: [
+      { screen: 'Chi tiết / danh sách → "Đóng tuyển"', checks: ['Hỏi xác nhận trước khi đóng', 'Đơn đã gửi vẫn được xét, booking giữ nguyên', 'Hết hạn ứng tuyển tự đóng', 'Trang vẫn xem được, nhãn "Đã đóng tuyển", không ứng tuyển được'] },
+    ],
+  },
+  'R8-12': {
+    title: 'Huỷ hoặc hoàn tất',
+    summary: 'Kết thúc chiến dịch đúng tình trạng thực tế.',
+    steps: [
+      { screen: 'Huỷ', checks: ['Còn hợp tác đang làm → chưa huỷ được', 'Phải ghi lý do; đơn / lời mời chưa chốt bị huỷ kèm lý do'] },
+      { screen: 'Hoàn tất', checks: ['Không tự hoàn tất theo ngày', 'Chỉ hoàn tất khi đã đóng tuyển, hết đơn chờ, hết hợp tác đang làm', 'Không tuyển được ai → ghi "Không phát sinh hợp tác"'] },
+    ],
+  },
+  'R8-13': {
+    title: 'Tổng quan tiến độ',
+    summary: 'Biết ngay có bao nhiêu đơn, bao nhiêu hợp tác, việc gì cần làm.',
+    steps: [{ screen: 'Trang chi tiết chiến dịch', checks: ['Số đơn, số đã chọn, số booking, số suất ghi đúng tên', 'Bấm để sang Ứng viên / Booking'] }],
+  },
+  'R8-14': {
+    title: 'Thông báo',
+    summary: 'Được báo kết quả duyệt và trước hạn tuyển (chưa có trong prototype).',
+    steps: [{ screen: 'Theo EP-02', checks: ['Báo trong app: duyệt, bổ sung, từ chối, đóng tuyển, ẩn/gỡ', 'Email thêm cho kết quả duyệt và ẩn/gỡ', 'Nhắc trước hạn tuyển 24 giờ, một lần'] }],
+  },
+  'R8-15': {
+    title: 'Nhân bản chiến dịch (P1)',
+    summary: 'Tạo nhanh chiến dịch mới từ chiến dịch cũ (chưa có trong prototype).',
+    steps: [{ screen: 'Menu chiến dịch → "Nhân bản"', checks: ['Ra bản nháp mới', 'Không chép đơn, booking, kết quả duyệt', 'Phải kiểm tra lại ngày và quyền lợi'] }],
   },
 
   // R6 — Tuyển nhiều KOL

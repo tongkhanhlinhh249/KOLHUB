@@ -12,7 +12,6 @@ import { formatFollowers } from '../biz-search/format';
 import { FieldBadges } from '../biz-search/KolMedia';
 import { PlatformIcon, platformLabel } from '../biz-search/PlatformIcon';
 import { ChannelLink, channelName } from './ChannelParts';
-import { PublicShieldBadge } from '../safety/ShieldParts';
 
 /** Clicks on these never open the detail (links, buttons, switches, the menu and its portal). */
 const INTERACTIVE = 'a, button, input, label, [role="menu"], [role="menuitem"], [role="switch"], [data-row-ignore]';
@@ -25,19 +24,37 @@ export function verifiedText(until: string | number): string {
   return `Kênh đã xác thực, hiệu lực đến ${format(new Date(until), 'dd/MM/yyyy')}`;
 }
 
-/** Phạm vi kiểm tra cạnh dấu xác thực (BR-35): chỉ 3 phút đầu mỗi video. */
-export const SAFETY_SCOPE_NOTE = 'Đã kiểm tra bởi KOL Safety: 3 phút đầu của mỗi video trong các nội dung gần nhất. Phần sau phút thứ 3 không được kiểm tra.';
+/**
+ * Chú thích dấu (EP-01 §9): phạm vi chứng minh gắn với nội dung và thời lượng thực sự được kiểm tra. N và ngày
+ * danh sách hiện khi biết (Quản lý kênh); danh sách công khai chỉ có hạn dấu.
+ */
+export function safetyScopeNote(required?: number, listDate?: number): string {
+  const list = required ? `${required} nội dung thuộc danh sách${listDate ? ` ngày ${format(listDate, 'dd/MM/yyyy')}` : ''}` : 'các nội dung gần nhất';
+  return `Đã xác minh quyền quản lý và đạt kiểm tra KOL Safety trên ${list}. Video được kiểm tra tối đa 3 phút đầu.`;
+}
 
 /** Shield icon with the badge's valid-until date in a tooltip (no "Đã xác thực" pill). */
-export function VerifiedMark({ until, className }: { until: string | number; className?: string }) {
+export function VerifiedMark({
+  until,
+  required,
+  listDate,
+  className,
+}: {
+  until: string | number;
+  /** N nội dung đã kiểm tra và ngày chốt danh sách, khi biết. */
+  required?: number;
+  listDate?: number;
+  className?: string;
+}) {
   const text = verifiedText(until);
+  const note = safetyScopeNote(required, listDate);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
           role="img"
           tabIndex={0}
-          aria-label={`${text}. ${SAFETY_SCOPE_NOTE}`}
+          aria-label={`${text}. ${note}`}
           data-row-ignore
           className={cn(
             'inline-flex shrink-0 rounded-sm text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
@@ -49,7 +66,7 @@ export function VerifiedMark({ until, className }: { until: string | number; cla
       </TooltipTrigger>
       <TooltipContent className="max-w-72">
         <p className="font-medium">{text}</p>
-        <p className="mt-1 opacity-90">{SAFETY_SCOPE_NOTE}</p>
+        <p className="mt-1 opacity-90">{note}</p>
       </TooltipContent>
     </Tooltip>
   );
@@ -63,8 +80,8 @@ export interface ChannelRowProps {
   url: string;
   /** Badge valid-until (ISO or ms) when the channel currently has a valid badge. */
   verifiedUntil?: string | number;
-  /** "Khiên An toàn nội dung" shown to brands. */
-  shield?: 'ACTIVE' | 'SUSPENDED';
+  /** KOL Safety run behind the badge (owner views): N items and the list date, for the badge tooltip. */
+  verifiedScope?: { required: number; listDate: number };
   /** Line under the link — owner KOL (Brand) or review status (KOL/MCN). */
   subline?: ReactNode;
   fields: ActivityField[];
@@ -92,7 +109,7 @@ export function ChannelRow({
   handle,
   url,
   verifiedUntil,
-  shield,
+  verifiedScope,
   subline,
   fields,
   region,
@@ -127,8 +144,7 @@ export function ChannelRow({
                   {name}
                   <span className="sr-only"> — kênh {platformLabel(platform)}, xem chi tiết kênh</span>
                 </button>
-                {verifiedUntil !== undefined && <VerifiedMark until={verifiedUntil} />}
-                <PublicShieldBadge shield={shield} />
+                {verifiedUntil !== undefined && <VerifiedMark until={verifiedUntil} required={verifiedScope?.required} listDate={verifiedScope?.listDate} />}
               </div>
               <ChannelLink url={url} />
               {subline && <div className="min-w-0 pt-0.5">{subline}</div>}

@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
-import { ArrowLeft, CalendarDays, Flag, Gift, Megaphone, Pencil, Send, Users, Wallet, XCircle } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { ArrowLeft, CalendarDays, CheckCircle2, Flag, Gift, Megaphone, Pencil, Send, Trash2, Undo2, Users, Wallet, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
+import { cn } from '../../components/ui/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { bookingService, campaignService, KolhubError, phaseOfTimeline, type CampaignView } from '../../services';
+import { bookingService, campaignService, KolhubError, phaseOfTimeline, UNPUBLISHED_STATUSES, type CampaignView } from '../../services';
 import { CampaignTypeBadge, PhaseBadge } from '../shared/RecruitParts';
 import { rewardShort } from '../shared/recruitView';
 import { brandLockedView } from '../shared/BrandLocked';
@@ -30,6 +31,7 @@ import {
   withParam,
 } from './campaignView';
 import { InviteKolsDialog } from './InviteKolsDialog';
+import { ReasonDialog } from '../violations/ReasonDialog';
 
 const TAB_TRIGGER =
   'relative h-11 flex-none gap-1.5 rounded-none border-0 bg-transparent px-1 pb-3 pt-2 text-sm font-medium text-muted-foreground shadow-none hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none data-[state=active]:after:absolute data-[state=active]:after:inset-x-0 data-[state=active]:after:bottom-0 data-[state=active]:after:h-0.5 data-[state=active]:after:bg-primary';
@@ -48,10 +50,12 @@ function Count({ n, highlight }: { n: number; highlight?: boolean }) {
   );
 }
 
-type Confirm = 'publish' | 'close' | 'cancel';
+type Confirm = 'publish' | 'withdraw' | 'closeRecruitment' | 'close' | 'delete';
 
-function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm): void }) {
+function HeaderCard({ c, onConfirm, onCancel }: { c: CampaignView; onConfirm(kind: Confirm): void; onCancel(): void }) {
   const acts = campaignActions(c.status, c.type);
+  // Delete only a draft that was never sent for review and has no booking (EP-02 §6.5).
+  const deletable = c.status === 'DRAFT' && !(c.log ?? []).some((e) => e.action === 'SUBMITTED') && c.stats.total === 0;
   const r = c.type === 'OPEN_RECRUITMENT' ? c.recruitment : undefined;
   return (
     <Card className="gap-4 p-4 md:p-5">
@@ -96,12 +100,18 @@ function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm
             </div>
           </div>
         </div>
-        {(acts.edit || acts.publish || acts.close || acts.cancel) && (
+        {(acts.edit || acts.publish || acts.withdraw || acts.closeRecruitment || acts.close || acts.cancel || deletable) && (
           <div className="flex flex-wrap gap-2 @3xl:shrink-0 @3xl:justify-end">
             {acts.publish && (
               <Button type="button" className="h-11 md:h-9" onClick={() => onConfirm('publish')}>
                 <Send aria-hidden />
-                Đăng
+                {c.status === 'DRAFT' ? 'Gửi đăng' : 'Gửi lại'}
+              </Button>
+            )}
+            {acts.withdraw && (
+              <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => onConfirm('withdraw')}>
+                <Undo2 aria-hidden />
+                Rút về nháp
               </Button>
             )}
             {acts.edit && (
@@ -110,23 +120,86 @@ function HeaderCard({ c, onConfirm }: { c: CampaignView; onConfirm(kind: Confirm
                 Sửa
               </Link>
             )}
+            {acts.closeRecruitment && (
+              <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => onConfirm('closeRecruitment')}>
+                <Flag aria-hidden />
+                Đóng tuyển
+              </Button>
+            )}
             {acts.close && (
               <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => onConfirm('close')}>
-                <Flag aria-hidden />
-                Đóng chiến dịch
+                <CheckCircle2 aria-hidden />
+                Hoàn tất
               </Button>
             )}
             {acts.cancel && (
-              <Button type="button" variant="ghost" className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive md:h-9" onClick={() => onConfirm('cancel')}>
+              <Button type="button" variant="ghost" className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive md:h-9" onClick={onCancel}>
                 <XCircle aria-hidden />
-                Huỷ
+                Huỷ chiến dịch
+              </Button>
+            )}
+            {deletable && (
+              <Button type="button" variant="ghost" className="h-11 text-destructive hover:bg-destructive/10 hover:text-destructive md:h-9" onClick={() => onConfirm('delete')}>
+                <Trash2 aria-hidden />
+                Xoá nháp
               </Button>
             )}
           </div>
         )}
       </div>
+      <ReviewNotice c={c} />
     </Card>
   );
+}
+
+/** Admin feedback and lifecycle notes under the header (EP-02 §10 "Kết quả duyệt": status, concrete reason, CTA). */
+function ReviewNotice({ c }: { c: CampaignView }) {
+  let tone: 'info' | 'warning' | 'error' | 'neutral' = 'info';
+  let text: ReactNode = null;
+  if (c.status === 'PENDING_REVIEW') text = 'Chiến dịch đã được gửi duyệt. Admin KOL Hub kiểm tra trước khi công bố lên Sàn; bạn có thể rút về nháp để sửa.';
+  else if (c.status === 'NEEDS_FIX') {
+    tone = 'warning';
+    text = (
+      <>
+        <span className="font-medium">Admin yêu cầu bổ sung:</span> {c.reviewNote}. Bấm "Sửa", hoàn thiện rồi "Gửi lại".
+      </>
+    );
+  } else if (c.status === 'REJECTED') {
+    tone = 'error';
+    text = (
+      <>
+        <span className="font-medium">Không được duyệt:</span> {c.reviewNote}. Bạn có thể sửa và gửi lại.
+      </>
+    );
+  } else if (c.status === 'OPEN' && c.pendingRevision) {
+    text = c.pendingRevision.pausesApplications
+      ? 'Bản sửa đang chờ Admin duyệt. Trong lúc này chiến dịch tạm ngừng nhận đơn mới; nội dung công khai vẫn là bản cũ.'
+      : 'Bản sửa (ảnh, tên, mô tả) đang chờ Admin duyệt; chiến dịch vẫn nhận đơn với điều kiện hiện tại.';
+  } else if (c.status === 'OPEN' && c.reviewNote && c.log?.at(-1)?.action === 'REVISION_REJECTED') {
+    tone = 'warning';
+    text = (
+      <>
+        <span className="font-medium">Bản sửa không được duyệt:</span> {c.reviewNote}. Chiến dịch giữ nguyên nội dung cũ.
+      </>
+    );
+  } else if (c.status === 'CLOSED') {
+    tone = 'neutral';
+    text = 'Đã đóng tuyển: không nhận đơn mới. Các đơn đã gửi và hợp tác đã xác nhận vẫn được xử lý; xử lý xong thì bấm "Hoàn tất".';
+  } else if (c.status === 'COMPLETED' && c.noCollaboration) {
+    tone = 'neutral';
+    text = 'Hoàn tất: Không phát sinh hợp tác.';
+  } else if (c.status === 'CANCELLED' && c.cancelReason) {
+    tone = 'neutral';
+    text = `Đã huỷ: ${c.cancelReason}`;
+  }
+  if (!text) return null;
+  const cls = {
+    info: 'border-primary/30 bg-primary/5',
+    warning: 'border-chart-5/50 bg-chart-5/10',
+    error: 'border-destructive/40 bg-destructive/5',
+    neutral: 'border-border bg-muted/60',
+  }[tone];
+  return <p className={cn('rounded-[8px] border p-3 text-sm text-foreground', cls)} role="status">{text}</p>;
 }
 
 function DetailSkeleton() {
@@ -156,6 +229,8 @@ export function CampaignDetailPage() {
   const kol = useBrandKolSheet({ invite: false });
   const [inviteOpen, setInviteOpen] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const navigate = useNavigate();
 
   const marketplace = campaign?.visibility === 'MARKETPLACE';
   const tab = parseDetailTab(searchParams.get('tab'), marketplace);
@@ -188,51 +263,69 @@ export function CampaignDetailPage() {
   const acts = campaignActions(campaign.status, campaign.type);
   const recruit = campaign.type === 'OPEN_RECRUITMENT' && !!campaign.recruitment;
   const applications = openApplications(bookings);
-  const qa = campaign.visibility === 'MARKETPLACE' && campaign.status !== 'DRAFT';
+  const qa = campaign.visibility === 'MARKETPLACE' && !UNPUBLISHED_STATUSES.includes(campaign.status);
   const pendingDrafts = collectDrafts(bookings, true);
 
   const runConfirm = async () => {
     try {
       if (confirm === 'publish') {
-        const c = await campaignService.publish(campaign.id);
-        toast.success('Đã đăng chiến dịch', {
-          description: c.visibility === 'MARKETPLACE' ? 'Chiến dịch đang hiển thị trên Sàn chiến dịch.' : 'Hãy mời KOL để bắt đầu.',
-        });
+        await campaignService.publish(campaign.id);
+        toast.success('Chiến dịch đã được gửi duyệt.', { description: 'Admin KOL Hub kiểm tra trước khi công bố lên Sàn.' });
+      } else if (confirm === 'withdraw') {
+        await campaignService.withdraw(campaign.id);
+        toast.success('Đã rút về nháp');
+      } else if (confirm === 'closeRecruitment') {
+        await campaignService.closeRecruitment(campaign.id);
+        toast.success('Đã đóng tuyển');
       } else if (confirm === 'close') {
-        await campaignService.close(campaign.id);
-        toast.success('Đã đóng chiến dịch');
-      } else if (confirm === 'cancel') {
-        await campaignService.cancel(campaign.id);
-        toast.success('Đã huỷ chiến dịch');
+        const c = await campaignService.close(campaign.id);
+        toast.success(c.noCollaboration ? 'Đã hoàn tất: Không phát sinh hợp tác' : 'Đã hoàn tất chiến dịch');
+      } else if (confirm === 'delete') {
+        await campaignService.deleteDraft(campaign.id);
+        toast.success('Đã xoá bản nháp');
+        navigate(CAMPAIGNS_PATH, { replace: true });
       }
     } catch (e) {
-      if (confirm === 'publish' && e instanceof KolhubError && e.code === 'KOLHUB-4803') {
+      if (confirm === 'publish' && e instanceof KolhubError && (e.code === 'KOLHUB-4803' || e.code === 'KOLHUB-4823')) {
         setConfirm(null);
-        toast.error('Chưa đủ thông tin để đăng', { description: `${e.message} Bấm Sửa để bổ sung.` });
+        toast.error('Vui lòng hoàn thiện các thông tin được đánh dấu trước khi gửi đăng.', { description: `${e.message} Bấm Sửa để bổ sung.` });
         return;
       }
       throw e;
     }
   };
 
+  // Errors (e.g. 4817 bookings in progress) stay in the reason dialog.
+  const cancelCampaign = async (reason: string) => {
+    await campaignService.cancel(campaign.id, reason);
+    toast.success('Đã huỷ chiến dịch');
+  };
+
   const confirmCopy: Record<Confirm, { title: string; text: string; label: string }> = {
     publish: {
-      title: 'Đăng chiến dịch?',
-      text:
-        campaign.visibility === 'MARKETPLACE'
-          ? 'Chiến dịch chuyển sang Đang mở và hiển thị trên Sàn chiến dịch để KOL/MCN gửi đề xuất.'
-          : 'Chiến dịch chuyển sang Đang mở. Chiến dịch riêng tư: chỉ KOL/MCN được mời mới thấy.',
-      label: 'Đăng chiến dịch',
+      title: campaign.status === 'DRAFT' ? 'Gửi đăng chiến dịch?' : 'Gửi lại chiến dịch?',
+      text: 'Chiến dịch chuyển sang Chờ duyệt. Admin KOL Hub kiểm tra tổ chức, nội dung và điều kiện hợp tác trước khi công bố lên Sàn.',
+      label: 'Gửi đăng',
+    },
+    withdraw: {
+      title: 'Rút về nháp?',
+      text: 'Chiến dịch rời hàng chờ duyệt và về Bản nháp để bạn sửa. Sửa xong hãy gửi đăng lại.',
+      label: 'Rút về nháp',
+    },
+    closeRecruitment: {
+      title: 'Đóng tuyển?',
+      text: 'Đóng tuyển sẽ ngừng nhận đơn mới. Các đơn đã gửi và hợp tác đã xác nhận vẫn được giữ. Không mở lại tuyển được; cần tuyển đợt khác hãy tạo chiến dịch mới.',
+      label: 'Đóng tuyển',
     },
     close: {
-      title: 'Đóng chiến dịch?',
-      text: 'Chiến dịch chuyển sang Hoàn tất. Lời mời và đề xuất chưa chốt sẽ bị huỷ. Chỉ đóng được khi không còn booking đang thực hiện.',
-      label: 'Đóng chiến dịch',
+      title: 'Hoàn tất chiến dịch?',
+      text: 'Chỉ hoàn tất được khi không còn đơn chờ xử lý và mọi hợp tác đã kết thúc. Không có hợp tác nào thì kết quả ghi "Không phát sinh hợp tác".',
+      label: 'Hoàn tất',
     },
-    cancel: {
-      title: 'Huỷ chiến dịch?',
-      text: 'Chiến dịch chuyển sang Đã huỷ và không thể mở lại. Lời mời và đề xuất chưa chốt sẽ bị huỷ. Chỉ huỷ được khi không còn booking đang thực hiện.',
-      label: 'Huỷ chiến dịch',
+    delete: {
+      title: 'Xoá bản nháp?',
+      text: 'Bản nháp bị xoá hẳn và không khôi phục được.',
+      label: 'Xoá nháp',
     },
   };
 
@@ -243,7 +336,7 @@ export function CampaignDetailPage() {
         Danh sách chiến dịch
       </Link>
 
-      <HeaderCard c={campaign} onConfirm={setConfirm} />
+      <HeaderCard c={campaign} onConfirm={setConfirm} onCancel={() => setCancelOpen(true)} />
 
       <Tabs value={tab} onValueChange={(v) => setParam('tab', v === 'tong-quan' ? null : v)} className="gap-4">
         <div className="-mx-4 overflow-x-auto border-b border-border px-4 md:mx-0 md:px-0">
@@ -310,10 +403,22 @@ export function CampaignDetailPage() {
           title={confirmCopy[confirm].title}
           description={confirmCopy[confirm].text}
           confirmLabel={confirmCopy[confirm].label}
-          destructive={confirm === 'cancel'}
+          destructive={confirm === 'delete'}
           onConfirm={runConfirm}
         />
       )}
+      <ReasonDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Huỷ chiến dịch?"
+        description="Chiến dịch chuyển sang Đã huỷ và không mở lại được. Lời mời, đơn chưa chốt bị huỷ kèm lý do để ứng viên được báo. Còn hợp tác đang thực hiện thì chưa huỷ được: hãy xử lý từng hợp tác trước."
+        label="Lý do huỷ"
+        placeholder="VD: Nhãn hàng dừng chương trình khuyến mãi"
+        confirmLabel="Huỷ chiến dịch"
+        maxLength={1000}
+        destructive
+        onConfirm={cancelCampaign}
+      />
       {actions.elements}
       {kol.elements}
     </div>

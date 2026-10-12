@@ -107,7 +107,7 @@ export function seedHistory(
     categories: ['Công nghệ', 'Lifestyle'],
     deliverables: [{ type: 'VIDEO', platform: 'youtube', quantity: 1 }],
     visibility: 'PRIVATE',
-    status: 'RUNNING',
+    status: 'OPEN',
     publishedAt: ago(30),
     createdAt: ago(32),
     updatedAt: ago(4),

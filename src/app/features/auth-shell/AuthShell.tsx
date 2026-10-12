@@ -14,7 +14,7 @@ const HEADLINE = 'Minh bạch từng kênh. Tin cậy từng hợp tác.';
 const FEATURES: { icon: LucideIcon; text: string }[] = [
   { icon: ShieldCheck, text: 'Xác thực danh tính bằng CCCD và cấp dấu Kênh xác thực cho từng kênh.' },
   { icon: Search, text: 'Nhãn hàng/Agency tìm KOL đã xác thực theo lĩnh vực, khu vực và nền tảng.' },
-  { icon: RefreshCw, text: 'Hồ sơ và trạng thái xác thực đồng bộ với kol.gov.vn.' },
+  { icon: RefreshCw, text: 'Dấu xác thực có hạn, kiểm tra lại định kỳ qua KOL Safety.' },
 ];
 
 function Eyebrow({ type }: { type: AccountType }) {

@@ -3,9 +3,6 @@ import { ChevronRight, ExternalLink, ShieldCheck, type LucideIcon } from 'lucide
 import { cn } from '../../components/ui/utils';
 import { useAuth } from '../../auth/AuthContext';
 import { KOL_SAFETY_PATH } from '../../auth/roles';
-import { kolSafetyReportService } from '../../services';
-import { useLiveQuery } from '../shared/useLiveQuery';
-import { KolSafetySettingsCard } from './KolSafetySettings';
 import { SAFETY_TOOL_URL } from './safetyTool';
 
 interface AppTile {
@@ -38,15 +35,11 @@ const tileClass =
 /**
  * "Ứng dụng": the content-review app (KOL Safety) as a tile, like an app launcher. For KOL/MCN it opens the
  * in-app "Tổng hợp kênh" demo page, with a secondary "Mở công cụ đầy đủ" link to the external AI Video Analysis
- * tool; for other accounts the tile opens that tool in a new tab. On/Off is shown with the badge.
+ * tool; for other accounts the tile opens that tool in a new tab.
  */
 export function AppsPage() {
   const { account } = useAuth();
   const isCreator = account?.type === 'KOL' || account?.type === 'MCN';
-  const accountId = account?.id ?? '';
-  // KOL/MCN: KOL Safety can be switched off ("Đang tắt" badge; scanning hidden).
-  const settingsQ = useLiveQuery(() => (isCreator ? kolSafetyReportService.getSettings(accountId) : Promise.resolve(null)), [isCreator, accountId]);
-  const safetyOff = isCreator && settingsQ.data?.enabled === false;
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 p-4 md:p-6">
       <section aria-labelledby="apps-review" className="space-y-3">
@@ -64,14 +57,10 @@ export function AppsPage() {
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                     <span className="font-semibold text-foreground">{a.name}</span>
-                    {a.key === 'kol-safety' && safetyOff ? (
-                      <span className="shrink-0 rounded-[4px] bg-muted px-1.5 py-px text-[10px] font-semibold text-muted-foreground uppercase">Đang tắt</span>
-                    ) : (
-                      a.badge && (
-                        <span className="shrink-0 rounded-[4px] bg-chart-4/15 px-1.5 py-px text-[10px] font-semibold text-chart-4 uppercase">
-                          {a.badge}
-                        </span>
-                      )
+                    {a.badge && (
+                      <span className="shrink-0 rounded-[4px] bg-chart-4/15 px-1.5 py-px text-[10px] font-semibold text-chart-4 uppercase">
+                        {a.badge}
+                      </span>
                     )}
                   </span>
                   <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
@@ -112,7 +101,6 @@ export function AppsPage() {
           })}
         </ul>
       </section>
-      {isCreator && settingsQ.data && <KolSafetySettingsCard accountId={accountId} settings={settingsQ.data} />}
     </div>
   );
 }

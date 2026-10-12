@@ -1,8 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { AlertCircle, Loader2, Megaphone, Plus, Send } from 'lucide-react';
+import { Loader2, Megaphone, Plus, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Label } from '../../components/ui/label';
@@ -10,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Skeleton } from '../../components/ui/skeleton';
 import { campaignService, CAMPAIGN_STATUS_LABEL, type CampaignView, type InviteResult } from '../../services';
 import { errText } from './CampaignParts';
-import { campaignPath, CAMPAIGN_CREATE_PATH, INVITABLE_STATUSES, inviteSummary, parseVndInput } from './campaignView';
+import { campaignPath, CAMPAIGN_CREATE_PATH, INVITABLE_STATUSES, inviteSummary } from './campaignView';
 import { deliverableOption, InviteOptionsFields, InviteResultView } from './InviteKolsDialog';
 
 export interface InviteTarget {
@@ -20,7 +19,7 @@ export interface InviteTarget {
 
 /**
  * "Mời vào chiến dịch" from a KOL (profile sheet, search row/card, saved list row or bulk selection):
- * choose a DRAFT / OPEN / RUNNING campaign, deliverable, optional price per KOL and note → inviteKols.
+ * choose an OPEN ("Đang tuyển") campaign, deliverable (fixed group reward) and note → inviteKols.
  */
 export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: InviteTarget[] | null; onOpenChange(open: boolean): void }) {
   const id = useId();
@@ -30,7 +29,6 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
   const [loadError, setLoadError] = useState<string | null>(null);
   const [campaignId, setCampaignId] = useState<string>('');
   const [deliverable, setDeliverable] = useState('0');
-  const [price, setPrice] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +41,6 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
     setLoadError(null);
     setError(null);
     setResult(null);
-    setPrice('');
     setNote('');
     setDeliverable('0');
     campaignService
@@ -53,7 +50,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
         // "Tuyển nhiều KOL" campaigns take applications on the Sàn only (no private invites).
         const list = all.filter((c) => c.type !== 'OPEN_RECRUITMENT');
         setCampaigns(list);
-        setCampaignId((cur) => (list.some((c) => c.id === cur) ? cur : (list.find((c) => c.status !== 'DRAFT') ?? list[0])?.id ?? ''));
+        setCampaignId((cur) => (list.some((c) => c.id === cur) ? cur : list[0]?.id ?? ''));
       })
       .catch((e) => alive && setLoadError(errText(e)));
     return () => {
@@ -73,7 +70,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
       const r = await campaignService.inviteKols(
         campaign.id,
         targets.map((t) => t.kolId),
-        { price: parseVndInput(price), note, deliverable: deliverableOption(campaign.deliverables, deliverable) },
+        { note, deliverable: deliverableOption(campaign.deliverables, deliverable) },
       );
       setResult(r);
       if (r.skipped.length === 0) toast.success(inviteSummary(r), { description: campaign.name });
@@ -109,7 +106,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
                 <Megaphone className="size-6" aria-hidden />
               </div>
               <p className="font-semibold text-foreground">Chưa có chiến dịch để mời</p>
-              <p className="max-w-xs text-sm text-muted-foreground">Tạo chiến dịch (bản nháp, đang mở hoặc đang chạy) rồi quay lại mời KOL.</p>
+              <p className="max-w-xs text-sm text-muted-foreground">Chỉ mời được vào chiến dịch đang tuyển (đã được Admin duyệt). Tạo và gửi đăng chiến dịch rồi quay lại mời KOL.</p>
               <Link to={CAMPAIGN_CREATE_PATH} className={buttonVariants({ className: 'h-11' })} onClick={() => onOpenChange(false)}>
                 <Plus aria-hidden />
                 Tạo chiến dịch
@@ -140,22 +137,14 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
                   </SelectContent>
                 </Select>
               </div>
-              {campaign?.status === 'DRAFT' && (
-                <Alert>
-                  <AlertCircle className="size-4" aria-hidden />
-                  <AlertDescription>Chiến dịch nháp sẽ được đăng (Đang mở) khi gửi lời mời, nếu thông tin đã đủ.</AlertDescription>
-                </Alert>
-              )}
               {campaign && (
                 <InviteOptionsFields
                   deliverables={campaign.deliverables}
+                  groups={campaign.groups ?? []}
                   deliverable={deliverable}
                   onDeliverable={setDeliverable}
-                  price={price}
-                  onPrice={setPrice}
                   note={note}
                   onNote={setNote}
-                  priceRequired={campaign.negotiation === false}
                 />
               )}
               {error && (
@@ -191,7 +180,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
                 Huỷ
               </Button>
               {campaigns && campaigns.length > 0 && (
-                <Button type="button" className="h-11 md:h-9" disabled={busy || !campaign || (campaign.negotiation === false && !parseVndInput(price))} onClick={() => void submit()}>
+                <Button type="button" className="h-11 md:h-9" disabled={busy || !campaign} onClick={() => void submit()}>
                   {busy ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
                   Gửi lời mời
                 </Button>

@@ -64,16 +64,14 @@ describe('chế độ demo: quản lý chiến dịch', () => {
     expect(h.db.read().sessionAccountId).toBe(BRAND);
   });
 
-  test('ứng tuyển: trả giá qua lại rồi chốt; yêu cầu sửa nội dung rồi nộp lại', async () => {
+  test('ứng tuyển: Nhãn hàng duyệt theo thù lao cố định (không trả giá); yêu cầu sửa nội dung rồi nộp lại', async () => {
     const id = SEED_BOOKING.application;
     expect(stepsOf(id)).toMatchObject({ next: 'BRAND', primary: { key: 'BRAND_ACCEPT' } });
-    await demo.run(id, 'BRAND_COUNTER');
-    expect(stored(id)).toMatchObject({ status: 'NEGOTIATING', awaiting: 'SUPPLIER', price: 54_000_000 });
-    await demo.run(id, 'SUPPLIER_COUNTER');
-    expect(stored(id)).toMatchObject({ awaiting: 'BRAND', price: 59_500_000 });
+    expect(stepsOf(id).secondary.map((s) => s.key)).toEqual(['DECLINE', 'EXPIRE']);
     await demo.run(id, 'BRAND_ACCEPT');
     expect(statusOf(id)).toBe('ACCEPTED');
-    expect(h.db.read().campaigns.find((c) => c.id === SEED_CAMPAIGN.marketplace)?.status).toBe('RUNNING');
+    expect(stored(id).price).toBe(40_000_000);
+    expect(h.db.read().campaigns.find((c) => c.id === SEED_CAMPAIGN.marketplace)?.status).toBe('OPEN');
     await demo.run(id, 'SUBMIT_DRAFT');
     await demo.run(id, 'REQUEST_CHANGES');
     expect(statusOf(id)).toBe('IN_PRODUCTION');

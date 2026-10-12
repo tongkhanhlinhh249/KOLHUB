@@ -94,7 +94,7 @@ describe('trạng thái', () => {
   });
 
   test('đếm theo trạng thái', () =>
-    expect(countByStatus(channels, NOW)).toEqual({ safety: 0, verified: 1, expiring: 0, pending: 1, needs_fix: 1, expired: 2 }));
+    expect(countByStatus(channels, NOW)).toEqual({ safety: 0, verified: 1, expiring: 0, pending: 1, needs_fix: 1, expired: 2, suspended: 0 }));
 
   test('SAFETY_PENDING → Chờ KOL Safety; còn ≤ 14 ngày → Sắp hết hạn', () => {
     expect(channelStatusOf(ch({ id: 's', status: 'SAFETY_PENDING', badgeExpiresAt: undefined }), NOW)).toBe('safety');
@@ -149,7 +149,7 @@ describe('status mode (MCN)', () => {
     ch({ id: 'd', badgeExpiresAt: NOW - 1 }),
   ];
 
-  test('channelStatusTabs: Tất cả + 6 trạng thái, luôn đủ 7 tab kể cả khi 0', () => {
+  test('channelStatusTabs: Tất cả + 7 trạng thái, luôn đủ 8 tab kể cả khi 0', () => {
     expect(channelStatusTabs(list, NOW)).toEqual([
       { key: 'all', label: 'Tất cả', count: 5 },
       { key: 'safety', label: 'Chờ KOL Safety', count: 0 },
@@ -158,8 +158,9 @@ describe('status mode (MCN)', () => {
       { key: 'verified', label: 'Đã xác thực', count: 1 },
       { key: 'expiring', label: 'Sắp hết hạn', count: 0 },
       { key: 'expired', label: 'Hết hạn dấu', count: 2 },
+      { key: 'suspended', label: 'Tạm ngừng', count: 0 },
     ]);
-    expect(channelStatusTabs([], NOW).map((t) => t.count)).toEqual([0, 0, 0, 0, 0, 0, 0]);
+    expect(channelStatusTabs([], NOW).map((t) => t.count)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 
   test('statusOnlyQuery bỏ qua từ khoá, nền tảng, hoạt động, sắp xếp', () => {

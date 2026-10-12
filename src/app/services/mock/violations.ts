@@ -20,6 +20,7 @@ import {
 import type { DemoState, Db } from './db';
 import { delay as fakeDelay } from './delay';
 import { currentBizAccount } from './bizSession';
+import { suspendChannel } from './safetyVerification';
 import { channelHandle as handleOfUrl, detectPlatform, normalizeChannelUrl } from './channelRules';
 
 export interface ViolationServiceDeps {
@@ -316,11 +317,20 @@ export function createViolationService(deps: ViolationServiceDeps) {
   async function confirm(id: string, note?: string): Promise<Violation> {
     await wait();
     const n = (note ?? '').trim();
-    return transition(
+    const v = transition(
       id,
-      (v) => requireStatus(v, 'PENDING_REVIEW'),
+      (x) => requireStatus(x, 'PENDING_REVIEW'),
       () => ({ actor: 'admin', action: 'CONFIRMED', note: n || undefined, status: 'CONFIRMED' }),
     );
+    // EP-01 §6.5: a confirmed violation in the suspension class (prototype: severity "high") suspends the badge.
+    if (v.severity === 'high') {
+      db.update((s) => {
+        const key = normalizeChannelUrl(v.channelUrl);
+        const ch = s.channels.find((c) => c.id === v.channelId) ?? s.channels.find((c) => c.ownerId === v.ownerId && normalizeChannelUrl(c.url) === key);
+        if (ch) suspendChannel(s, ch.id, `Vi phạm đã xác nhận: ${v.contentTitle}`, now());
+      });
+    }
+    return v;
   }
 
   async function dismiss(id: string, reason: string): Promise<Violation> {

@@ -62,7 +62,7 @@ export function parseVndInput(text: string): number {
 
 /** Booking price as the supplier reads it: 0 = the brand has not proposed a price yet. */
 export function priceText(price: number): string {
-  return price > 0 ? formatVnd(price) : 'Chờ báo giá';
+  return price > 0 ? formatVnd(price) : 'Chỉ sản phẩm';
 }
 
 // ---------------------------------------------------------------------------
@@ -212,7 +212,7 @@ export const isRecruitBooking = (b: { origin?: BookingOrigin; campaign?: { type?
   b.origin === 'APPLICATION' && b.campaign?.type === 'OPEN_RECRUITMENT';
 
 /**
- * The supplier has something to do now: answer an invite / counter-offer, deliver a draft or post,
+ * The supplier has something to do now: answer an invite, deliver a draft or post,
  * or confirm a payment the brand marked. (Rating is optional and not counted.)
  */
 export function needsSupplier(b: NeedsInput): boolean {
@@ -242,7 +242,7 @@ export function supplierStatusLabel(b: NeedsInput): string {
   if (b.status === 'VERIFIED' && b.price === 0) return b.payment.brandMarkedAt ? 'Hoàn tất' : 'Chờ Nhãn hàng xác nhận hoàn tất';
   if (b.status === 'SENT') return 'Lời mời mới';
   if (b.status === 'APPLIED') return 'Chờ Nhãn hàng phản hồi';
-  if (b.status === 'NEGOTIATING') return b.awaiting === 'SUPPLIER' ? 'Nhãn hàng trả giá' : 'Chờ Nhãn hàng phản hồi giá';
+  if (b.status === 'NEGOTIATING') return b.awaiting === 'SUPPLIER' ? 'Chờ bạn phản hồi' : 'Chờ Nhãn hàng phản hồi';
   if (b.status === 'VERIFIED') return b.payment.brandMarkedAt ? 'Nhãn hàng đã thanh toán' : 'Chờ Nhãn hàng thanh toán';
   return BOOKING_STATUS_LABEL[b.status];
 }
@@ -293,15 +293,8 @@ export function nextStepText(
     case 'APPLIED':
       if (b.awaiting !== 'SUPPLIER') return 'Đang chờ Nhãn hàng phản hồi đề xuất của bạn.';
       if (missingChannel) return 'Một số hạng mục chưa có kênh đăng. Hãy giao KOL/kênh trước khi chấp nhận.';
-      if (b.price <= 0) return 'Nhãn hàng chưa đưa giá. Hãy báo giá (Trả giá) để Nhãn hàng xác nhận.';
-      // "Đàm phán" off: fixed price, no counter-offer.
-      if (!can('COUNTER'))
-        return b.status === 'SENT'
-          ? 'Nhãn hàng mời bạn tham gia chiến dịch với giá cố định. Chấp nhận hoặc từ chối lời mời.'
-          : 'Giá cố định: chấp nhận hoặc từ chối.';
-      return b.status === 'SENT'
-        ? 'Nhãn hàng mời bạn tham gia chiến dịch. Chấp nhận, trả giá hoặc từ chối lời mời.'
-        : 'Nhãn hàng đề xuất giá mới. Chấp nhận, trả giá tiếp hoặc từ chối.';
+      // Fixed reward per deliverable group (EP-02): no counter-offer.
+      return 'Nhãn hàng mời bạn tham gia chiến dịch với thù lao cố định. Chấp nhận hoặc từ chối lời mời.';
     case 'ACCEPTED':
       return can('SUBMIT_POST')
         ? 'Booking đã chốt. Đăng bài theo yêu cầu (chiến dịch không cần duyệt nháp) rồi gửi link bài đăng.'

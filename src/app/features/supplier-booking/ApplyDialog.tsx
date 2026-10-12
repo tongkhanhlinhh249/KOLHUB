@@ -23,14 +23,15 @@ import {
   type SupplierType,
 } from '../../services';
 import { rewardText } from '../shared/recruitView';
+import { PLATFORM_LABEL } from '../shared/StatusBadges';
 import { ItemsEditor, useProposalSources } from './ItemsEditor';
 import { errText } from './parts';
 import { initialRows, rowsFromItems, rowsValid, toProposalItems, validateRows, type ItemDraft, type ItemErrors } from './proposalItems';
-import { deliverablesSummary, formatVnd, formatVndInput, parseVndInput } from './supplierBooking';
+import { deliverablesSummary } from './supplierBooking';
 
 /**
  * "Ứng tuyển" a marketplace campaign: proposal lines (MCN: managed KOL + channel assigned to that KOL;
- * KOL: own verified channels), total price and a note → campaignService.apply.
+ * KOL: own verified channels) and a note → campaignService.apply. No price: the campaign's fixed group rewards apply.
  * "Tuyển nhiều KOL": no price (fixed reward). Survey answers, every term ticked and — when the campaign gives a
  * product — the shipping address + phone are required.
  * With `editing` (an APPLIED application): prefilled "Sửa đề xuất" → bookingService.updateApplication.
@@ -55,7 +56,6 @@ export function ApplyDialog({
   const id = useId();
   const sources = useProposalSources(accountId, supplierType, campaign.platforms, open);
   const [rows, setRows] = useState<ItemDraft[]>([]);
-  const [price, setPrice] = useState('');
   const [note, setNote] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [terms, setTerms] = useState<string[]>([]);
@@ -72,7 +72,6 @@ export function ApplyDialog({
       seeded.current = false;
       return;
     }
-    setPrice(editing && editing.price > 0 ? formatVndInput(String(editing.price)) : '');
     setNote(editing?.note ?? '');
     const app = editing?.application;
     setAnswers(Object.fromEntries((app?.answers ?? []).map((a) => [a.questionId, a.answer])));
@@ -92,12 +91,10 @@ export function ApplyDialog({
   }, [open, sources, supplierType, campaign.deliverables, editing]);
 
   const errors: ItemErrors[] | undefined = tried ? validateRows(rows, supplierType) : undefined;
-  const priceValue = parseVndInput(price);
   const hasOptions =
     supplierType === 'MCN' ? sources.kols.some((k) => sources.channelsFor(k.kolAccountId).length > 0) : sources.channelsFor().length > 0;
   const recruit = campaign.type === 'OPEN_RECRUITMENT' && !!campaign.recruitment;
   const needsShipping = recruit && !!campaign.recruitment?.reward.product;
-  const priceError = !recruit && tried && priceValue <= 0 ? 'Nhập tổng giá đề xuất (VND), lớn hơn 0' : null;
   const answerError = (qid: string, required: boolean) => (tried && required && !(answers[qid] ?? '').trim() ? 'Vui lòng trả lời câu hỏi này' : null);
   const termsError = tried && campaign.terms.some((t) => !terms.includes(t.id)) ? 'Cần đồng ý tất cả điều khoản để ứng tuyển' : null;
   const shipErrors = {
@@ -106,7 +103,6 @@ export function ApplyDialog({
     phone: tried && needsShipping && !isValidPhone(phone) ? 'Số điện thoại di động không hợp lệ (VD: 0912 345 678)' : null,
   };
   const formOk =
-    (recruit || priceValue > 0) &&
     campaign.survey.every((q) => !q.required || (answers[q.id] ?? '').trim()) &&
     campaign.terms.every((t) => terms.includes(t.id)) &&
     (!needsShipping || (!!province && address.trim().length >= 5 && isValidPhone(phone)));
@@ -121,7 +117,6 @@ export function ApplyDialog({
     try {
       const proposal: ApplyInput = {
         items: toProposalItems(rows, supplierType),
-        ...(recruit ? {} : { price: priceValue }),
         ...(note.trim() ? { note: note.trim() } : {}),
         answers,
         acceptedTerms: terms,
@@ -167,10 +162,22 @@ export function ApplyDialog({
             />
           </section>
 
-          {recruit && (
+          {recruit ? (
             <p className="rounded-[8px] bg-primary/5 p-3 text-sm text-foreground">
               Phần thưởng cố định mỗi KOL: <span className="font-semibold">{rewardText(campaign.recruitment!.reward)}</span>. Bạn không cần báo giá.
             </p>
+          ) : (
+            <div className="space-y-1 rounded-[8px] bg-primary/5 p-3 text-sm text-foreground">
+              <p className="font-medium">Thù lao cố định theo nhóm đầu việc</p>
+              <ul className="space-y-0.5">
+                {campaign.groups.map((g) => (
+                  <li key={g.platform} className="tabular-nums">
+                    {PLATFORM_LABEL[g.platform]}: <span className="font-semibold">{rewardText(g.reward)}</span> mỗi kênh
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-muted-foreground">Mỗi kênh trong một nhóm là một booking. Bạn không cần báo giá; Nhãn hàng duyệt hoặc từ chối đơn.</p>
+            </div>
           )}
 
           {campaign.survey.length > 0 && (
@@ -259,30 +266,7 @@ export function ApplyDialog({
           )}
 
           <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-foreground">{recruit ? `${step()}. Lời nhắn` : `${step()}. Giá và lời nhắn`}</h3>
-            {!recruit && (
-            <div className="space-y-1.5">
-              <Label htmlFor={`${id}-price`}>Tổng giá đề xuất (VND)</Label>
-              <div className="relative">
-                <Input
-                  id={`${id}-price`}
-                  inputMode="numeric"
-                  autoComplete="off"
-                  placeholder="Ví dụ: 25.000.000"
-                  value={price}
-                  onChange={(e) => setPrice(formatVndInput(e.target.value))}
-                  className="h-11 bg-card pr-8 md:h-9"
-                  aria-invalid={!!priceError}
-                  aria-describedby={`${id}-price-hint`}
-                />
-                <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm text-muted-foreground">₫</span>
-              </div>
-              <p id={`${id}-price-hint`} className={priceError ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
-                {priceError ??
-                  `Giá cho toàn bộ hạng mục. Ngân sách chiến dịch: ${formatVnd(campaign.budget)}.${campaign.negotiation === false ? ' Nhãn hàng không trả giá: giá này được chấp nhận hoặc từ chối.' : ''}`}
-              </p>
-            </div>
-            )}
+            <h3 className="text-sm font-semibold text-foreground">{`${step()}. Lời nhắn`}</h3>
             <div className="space-y-1.5">
               <Label htmlFor={`${id}-note`}>Lời nhắn cho Nhãn hàng (không bắt buộc)</Label>
               <Textarea

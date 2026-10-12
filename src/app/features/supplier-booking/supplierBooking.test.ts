@@ -59,7 +59,7 @@ describe('tiền', () => {
     expect(formatVnd(120_000_000)).toBe('120.000.000 ₫');
     expect(formatVnd(999)).toBe('999 ₫');
     expect(formatVnd(-5)).toBe('0 ₫');
-    expect(priceText(0)).toBe('Chờ báo giá');
+    expect(priceText(0)).toBe('Chỉ sản phẩm');
     expect(priceText(15_000_000)).toBe('15.000.000 ₫');
   });
   test('formatVndShort: triệu / tỷ gọn cho thẻ Sàn 3 cột', () => {
@@ -170,7 +170,7 @@ describe('nhóm tab và trạng thái', () => {
   });
   test('nhãn và tông trạng thái theo góc nhìn nhà cung cấp', () => {
     expect(supplierStatusLabel(b('SENT', { awaiting: 'SUPPLIER' }))).toBe('Lời mời mới');
-    expect(supplierStatusLabel(b('NEGOTIATING', { awaiting: 'SUPPLIER' }))).toBe('Nhãn hàng trả giá');
+    expect(supplierStatusLabel(b('NEGOTIATING', { awaiting: 'SUPPLIER' }))).toBe('Chờ bạn phản hồi');
     expect(supplierStatusLabel(b('VERIFIED', { payment: { brandMarkedAt: 1 } }))).toBe('Nhãn hàng đã thanh toán');
     expect(supplierStatusLabel(b('CONTENT_REVIEW'))).toBe('Chờ duyệt nội dung');
     expect(statusTone(b('SENT', { awaiting: 'SUPPLIER' }))).toBe('warning');
@@ -182,7 +182,8 @@ describe('nhóm tab và trạng thái', () => {
   test('bước tiếp theo', () => {
     const base = { payment: {}, price: 10, items: [{ channelId: 'c' }], allowedActions: [] } as unknown as BookingView;
     expect(nextStepText({ ...base, status: 'SENT', awaiting: 'SUPPLIER' })).toMatch(/^Nhãn hàng mời bạn/);
-    expect(nextStepText({ ...base, status: 'SENT', awaiting: 'SUPPLIER', price: 0 })).toMatch(/chưa đưa giá/);
+    // Thù lao cố định (kể cả chỉ tặng sản phẩm): không báo giá.
+    expect(nextStepText({ ...base, status: 'SENT', awaiting: 'SUPPLIER', price: 0 })).toMatch(/thù lao cố định/);
     expect(nextStepText({ ...base, status: 'SENT', awaiting: 'SUPPLIER', items: [{}] } as BookingView)).toMatch(/giao KOL\/kênh/);
     expect(nextStepText({ ...base, status: 'APPLIED', awaiting: 'BRAND' })).toMatch(/chờ Nhãn hàng/);
     expect(nextStepText({ ...base, status: 'COMPLETED' })).toBeNull();

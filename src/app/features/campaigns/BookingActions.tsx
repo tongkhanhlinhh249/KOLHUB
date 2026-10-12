@@ -56,87 +56,6 @@ export function PriceInput({
   );
 }
 
-/** "Báo giá mới": new total price + optional note. */
-function CounterDialog({ booking, onOpenChange }: { booking: BookingView | null; onOpenChange(open: boolean): void }) {
-  const id = useId();
-  const [price, setPrice] = useState('');
-  const [note, setNote] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (booking) {
-      setPrice(booking.price > 0 ? formatVndInput(String(booking.price)) : '');
-      setNote('');
-      setError(null);
-    }
-  }, [booking]);
-
-  const submit = async () => {
-    if (!booking) return;
-    const n = parseVndInput(price);
-    if (!n) return setError('Nhập giá lớn hơn 0.');
-    setBusy(true);
-    try {
-      await bookingService.counter(booking.id, n, note);
-      toast.success('Đã gửi báo giá mới', { description: `${formatVnd(n)} · chờ ${booking.supplier.name} trả lời.` });
-      onOpenChange(false);
-    } catch (e) {
-      setError(errText(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Dialog open={!!booking} onOpenChange={(o) => !busy && onOpenChange(o)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Báo giá mới</DialogTitle>
-          <DialogDescription>
-            Giá hiện tại: {booking ? formatPrice(booking.price) : ''}. Đây là tổng giá cho cả booking ({booking?.items.length ?? 0} KOL).
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor={`${id}-price`}>Tổng giá đề nghị (VND)</Label>
-            <PriceInput
-              id={`${id}-price`}
-              value={price}
-              onChange={(v) => {
-                setPrice(v);
-                setError(null);
-              }}
-              invalid={!!error}
-              describedBy={error ? `${id}-err` : undefined}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${id}-note`}>
-              Ghi chú <span className="font-normal text-muted-foreground">(không bắt buộc)</span>
-            </Label>
-            <Textarea id={`${id}-note`} value={note} rows={3} maxLength={BOOKING_NOTE_MAX} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          {error && (
-            <p id={`${id}-err`} className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
-        <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" className="h-11 md:h-9" disabled={busy} onClick={() => onOpenChange(false)}>
-            Huỷ
-          </Button>
-          <Button type="button" className="h-11 md:h-9" disabled={busy} onClick={() => void submit()}>
-            {busy && <Loader2 className="animate-spin" aria-hidden />}
-            Gửi báo giá
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function ConfirmAction({
   open,
   onOpenChange,
@@ -198,12 +117,11 @@ type Pending =
   | { kind: 'paid'; booking: BookingView };
 
 /**
- * Brand-side booking actions with their dialogs (accept / counter / decline / cancel, content review,
+ * Brand-side booking actions with their dialogs (accept / decline / cancel, content review,
  * mark paid). Callers only show a trigger when the action is in `booking.allowedActions`.
  * Render `elements` once; data refreshes by itself (live queries).
  */
 export function useBookingActions() {
-  const [counterFor, setCounterFor] = useState<BookingView | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [approving, setApproving] = useState<string | null>(null);
   const close = () => setPending(null);
@@ -224,11 +142,10 @@ export function useBookingActions() {
 
   const p = pending;
   const started = p?.kind === 'cancel' && !PRE_ACCEPT_STATUSES.includes(p.booking.status);
-  const withdrawLabel = p?.kind === 'cancel' && p.booking.origin === 'APPLICATION' ? 'Huỷ thương lượng' : 'Rút lời mời';
+  const withdrawLabel = p?.kind === 'cancel' && p.booking.origin === 'APPLICATION' ? 'Huỷ đơn' : 'Rút lời mời';
 
   const elements = (
     <>
-      <CounterDialog booking={counterFor} onOpenChange={(o) => !o && setCounterFor(null)} />
       <ConfirmAction
         open={p?.kind === 'accept'}
         onOpenChange={(o) => !o && close()}
@@ -236,7 +153,7 @@ export function useBookingActions() {
         description={
           p?.kind === 'accept' ? (
             <>
-              Chốt với <strong className="text-foreground">{p.booking.supplier.name}</strong> giá{' '}
+              Chốt với <strong className="text-foreground">{p.booking.supplier.name}</strong> theo thù lao cố định của chiến dịch{' '}
               <strong className="text-foreground">{formatPrice(p.booking.price)}</strong> cho {p.booking.items.length} KOL. Sau khi chốt, nhà
               cung cấp bắt đầu sản xuất nội dung.
             </>
@@ -308,7 +225,7 @@ export function useBookingActions() {
         onConfirm={async (text) => {
           if (p?.kind !== 'cancel') return;
           await bookingService.cancel(p.booking.id, text);
-          toast.success(started ? 'Đã huỷ booking' : withdrawLabel === 'Rút lời mời' ? 'Đã rút lời mời' : 'Đã huỷ thương lượng');
+          toast.success(started ? 'Đã huỷ booking' : withdrawLabel === 'Rút lời mời' ? 'Đã rút lời mời' : 'Đã huỷ đơn');
         }}
       />
       <ReasonDialog
@@ -331,7 +248,6 @@ export function useBookingActions() {
 
   return {
     accept: (booking: BookingView) => setPending({ kind: 'accept', booking }),
-    counter: (booking: BookingView) => setCounterFor(booking),
     decline: (booking: BookingView) => setPending({ kind: 'decline', booking }),
     cancel: (booking: BookingView) => setPending({ kind: 'cancel', booking }),
     markPaid: (booking: BookingView) => setPending({ kind: 'paid', booking }),
@@ -344,20 +260,15 @@ export function useBookingActions() {
 
 export type BookingActionsApi = ReturnType<typeof useBookingActions>;
 
-/** Accept / Counter / Decline buttons (only those allowed), for the negotiation block and proposal cards. */
+/** Accept / Decline buttons (only those allowed) for proposal cards: the reward is fixed, no counter-offer. */
 export function NegotiationButtons({ booking, actions, className }: { booking: BookingView; actions: BookingActionsApi; className?: string }) {
   const can = (a: BookingView['allowedActions'][number]) => booking.allowedActions.includes(a);
-  if (!can('ACCEPT') && !can('COUNTER') && !can('DECLINE')) return null;
+  if (!can('ACCEPT') && !can('DECLINE')) return null;
   return (
     <div className={className ?? 'flex flex-wrap gap-2'}>
       {can('ACCEPT') && (
-        <Button type="button" className="h-11 md:h-9" disabled={booking.price <= 0} onClick={() => actions.accept(booking)}>
-          {booking.status === 'APPLIED' ? 'Chấp nhận đề xuất' : 'Chấp nhận giá'}
-        </Button>
-      )}
-      {can('COUNTER') && (
-        <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => actions.counter(booking)}>
-          Báo giá khác
+        <Button type="button" className="h-11 md:h-9" onClick={() => actions.accept(booking)}>
+          {booking.status === 'APPLIED' ? 'Chấp nhận đề xuất' : 'Chốt booking'}
         </Button>
       )}
       {can('DECLINE') && (

@@ -23,6 +23,11 @@ const as = (id: string | null) =>
   h.db.update((s) => {
     s.sessionAccountId = id;
   });
+/** "Gửi đăng" then Admin "Duyệt" (EP-02: kiểm duyệt trước đăng). */
+const publishApproved = async (id: string) => {
+  await campaigns.publish(id);
+  return campaigns.approveReview(id);
+};
 const day = (n: number) => isoDay(h.now() + n * DAY);
 const tl = (d: number[]): RecruitmentTimeline => ({
   applyStart: day(d[0]),
@@ -90,7 +95,7 @@ describe('giai đoạn (4 mốc)', () => {
     expect(shiftIso('2026-10-30', 3)).toBe('2026-11-02');
   });
 
-  test('seed: 3 chiến dịch đang Ứng tuyển, 1 Chọn lọc, 1 Đăng bài; thẻ có phase, số đã chọn, phần thưởng', async () => {
+  test('seed: 3 chiến dịch đang Ứng tuyển trên Sàn; 1 Chọn lọc, 1 Đăng bài đã đóng tuyển (rời Sàn, trang vẫn mở); thẻ có phase, số đã chọn, phần thưởng', async () => {
     as(null);
     const list = await campaigns.listMarketplace({ type: 'OPEN_RECRUITMENT' });
     const phase = Object.fromEntries(list.map((c) => [c.id, c.phase]));
@@ -98,11 +103,10 @@ describe('giai đoạn (4 mốc)', () => {
       [SEED_CAMPAIGN.livestream]: 'APPLY',
       [SEED_CAMPAIGN.agencyHeadphones]: 'APPLY',
       [SEED_CAMPAIGN.agencyChallenge]: 'APPLY',
-      [SEED_CAMPAIGN.recruitSelecting]: 'SELECT',
-      [SEED_CAMPAIGN.recruitPosting]: 'POST',
     });
-    const sel = list.find((c) => c.id === SEED_CAMPAIGN.recruitSelecting)!;
-    expect(sel).toMatchObject({ accepting: false, selectedCount: 1, applicationCount: 5, draftReview: true });
+    const sel = await campaigns.getMarketplaceItem(SEED_CAMPAIGN.recruitSelecting);
+    expect(sel).toMatchObject({ phase: 'SELECT', recruitmentClosed: true, accepting: false, selectedCount: 1, applicationCount: 5, draftReview: true });
+    expect((await campaigns.getMarketplaceItem(SEED_CAMPAIGN.recruitPosting)).phase).toBe('POST');
     expect(sel.recruitment!.slots).toBe(3);
     expect(list.find((c) => c.id === SEED_CAMPAIGN.agencyChallenge)!.draftReview).toBe(false);
   });
@@ -115,7 +119,8 @@ describe('tạo và đăng chiến dịch Tuyển nhiều KOL', () => {
     expect(c).toMatchObject({ type: 'OPEN_RECRUITMENT', visibility: 'MARKETPLACE', budget: 6_000_000, startDate: day(0), endDate: day(12), applyDeadline: day(3) });
     expect(c.survey!.map((q) => q.id)).toEqual(['q-1', 'q-2']);
     expect(c.terms).toEqual([{ id: 't-1', text: 'Giữ bài công khai ≥ 6 tháng' }]);
-    const opened = await campaigns.publish(c.id);
+    expect((await campaigns.publish(c.id)).status).toBe('PENDING_REVIEW');
+    const opened = await campaigns.approveReview(c.id);
     expect(opened.status).toBe('OPEN');
     // Tuyển nhiều KOL không mời riêng.
     await expect(campaigns.inviteKols(c.id, ['KOL-2026-0002'])).rejects.toMatchObject({ code: 'KOLHUB-4802' });
@@ -160,7 +165,7 @@ describe('ứng tuyển (không báo giá): khảo sát, điều khoản, địa
   test('KOL ứng tuyển không cần giá; Nhãn hàng thấy câu trả lời và địa chỉ; sửa được khi còn Ứng tuyển', async () => {
     const ch = vyChannel();
     as(BRAND);
-    const c = await campaigns.publish((await campaigns.create(recruitInput(ch.platform))).id);
+    const c = await publishApproved((await campaigns.create(recruitInput(ch.platform))).id);
     as(KHANHVY);
     const items = [{ channelId: ch.id, deliverableType: 'VIDEO' as const, quantity: 1 }];
     await expect(campaigns.apply(c.id, { items, acceptedTerms: ['t-1'], shipping: { province: 'Huế', address: 'Số 2 đường Mẫu', phone: '0900000998' } })).rejects.toMatchObject({
@@ -283,7 +288,7 @@ describe('Workflow tắt (đăng trực tiếp), sản phẩm, thanh toán', () 
   test('phần thưởng chỉ có sản phẩm (0 ₫): toàn bộ luồng chọn → đăng → Nhãn hàng xác nhận là Hoàn tất', async () => {
     const ch = vyChannel();
     as(BRAND);
-    const c = await campaigns.publish((await campaigns.create(recruitInput(ch.platform))).id);
+    const c = await publishApproved((await campaigns.create(recruitInput(ch.platform))).id);
     as(KHANHVY);
     const b = await campaigns.apply(c.id, {
       items: [{ channelId: ch.id, deliverableType: 'VIDEO', quantity: 1 }],
@@ -293,9 +298,9 @@ describe('Workflow tắt (đăng trực tiếp), sản phẩm, thanh toán', () 
     });
     h.clock.t += 4 * DAY; // Chọn lọc
     as(BRAND);
-    expect((await campaigns.get(c.id)).status).toBe('OPEN');
+    expect((await campaigns.get(c.id)).status).toBe('CLOSED'); // hết Ứng tuyển → tự Đã đóng tuyển, giữ đơn
     await campaigns.selectApplicants(c.id, [b.id]);
-    expect((await campaigns.get(c.id)).status).toBe('RUNNING');
+    expect((await campaigns.get(c.id)).status).toBe('CLOSED');
     await bookings.markProductSent(b.id);
     as(KHANHVY);
     const url = ch.platform === 'youtube' ? 'https://youtu.be/xyz123' : ch.platform === 'facebook' ? 'https://fb.watch/xyz123' : 'https://vt.tiktok.com/xyz123';

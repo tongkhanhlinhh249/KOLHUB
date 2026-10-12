@@ -26,6 +26,7 @@ import {
 import { DraftCard, href } from './ContentParts';
 import {
   bookingPriceText,
+  groupRewardText,
   brandTodoLabel,
   campaignFeatures,
   collectDrafts,
@@ -188,6 +189,25 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               </ul>
             )}
           </Panel>
+          {c.type !== 'OPEN_RECRUITMENT' && (
+            <Panel title="Quyền lợi theo nhóm đầu việc">
+              {(c.groups ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground">Chưa thiết lập số suất và thù lao.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {c.groups!.map((g) => (
+                    <li key={g.platform} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-sm text-foreground">
+                      <span className="flex items-center gap-2">
+                        <PlatformIcon platform={g.platform} />
+                        {g.slots} suất
+                      </span>
+                      <span className="font-semibold tabular-nums">{groupRewardText(g)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          )}
           <Panel title="Booking theo trạng thái">
             {groups.length === 0 ? (
               <p className="text-sm text-muted-foreground">Chưa có booking.</p>
@@ -363,7 +383,7 @@ export function ApplicationsTab({
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-semibold text-foreground tabular-nums">{formatPrice(b.price)}</p>
+                <p className="text-lg font-semibold text-foreground tabular-nums">{bookingPriceText(b)}</p>
                 <BookingStatusBadge status={b.status} />
               </div>
             </div>

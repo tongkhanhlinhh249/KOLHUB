@@ -63,7 +63,7 @@ describe('xác thực lần đầu (mục 3)', () => {
     const err = await safety.start(h.kolId, c.id, true).catch((e) => e);
     expect(err).toBeInstanceOf(KolhubError);
     expect(err).toMatchObject({ code: 'KOLHUB-4210', meta: { required: 20, have: 8 } });
-    expect(err.message).toBe('Kênh cần ít nhất 20 nội dung. Đăng thêm rồi xác thực lại.');
+    expect(err.message).toBe('Kênh cần ít nhất 20 nội dung đủ điều kiện. Hiện tìm thấy 8/20.');
   });
 
   test('quét có nội dung không đạt → giữ SAFETY_PENDING kèm lý do; quét lại đạt đủ → PENDING_REVIEW + thông báo', async () => {
@@ -174,5 +174,109 @@ describe('Làm mới (EC-08)', () => {
     const r = await safety.refresh(h.kolId, c.id);
     expect(r.safety!.items.every((i) => i.verdict === undefined)).toBe(true);
     await expect(safety.refresh(h.mcnId, c.id)).rejects.toThrow('NOT_OWNER');
+  });
+});
+
+describe('bài gỡ / sửa và dùng lại kết quả (EP-01 §6.3)', () => {
+  async function scannedWithFails(failIdx: number[]) {
+    const c = await channels.add(h.kolId, { url: 'tiktok.com/@vy', proofImage: png });
+    await safety.start(h.kolId, c.id, true);
+    await safety.demoSetNextVerdict('PASS');
+    await safety.scan(h.kolId, c.id);
+    h.db.update((s) => {
+      const items = s.channels.find((x) => x.id === c.id)!.safety!.items;
+      for (const i of failIdx) Object.assign(items[i], { verdict: 'FAIL', reason: 'x' });
+      s.channels.find((x) => x.id === c.id)!.safety!.passedAt = undefined;
+      s.channels.find((x) => x.id === c.id)!.status = 'SAFETY_PENDING';
+      s.channels.find((x) => x.id === c.id)!.safetyPassedAt = undefined;
+    });
+    return c.id;
+  }
+
+  test('quét lại bài không đạt mà chưa gỡ / sửa → vẫn không đạt', async () => {
+    const id = await scannedWithFails([0]);
+    await safety.demoSetNextVerdict('AUTO');
+    await safety.scan(h.kolId, id);
+    expect(read(id).safety!.items[0]).toMatchObject({ verdict: 'FAIL', scans: 2 });
+    expect(read(id).status).toBe('SAFETY_PENDING');
+  });
+
+  test('sửa bài không đạt → bỏ kết quả cũ, quét lại thì đạt, đủ N/N → Chờ duyệt', async () => {
+    const id = await scannedWithFails([0]);
+    await safety.demoSetNextVerdict('AUTO');
+    await safety.demoEditFailed(id);
+    expect(read(id).safety!.items[0]).toMatchObject({ edited: true, verdict: undefined });
+    await safety.scan(h.kolId, id);
+    expect(read(id).safety!.items[0]).toMatchObject({ verdict: 'PASS' });
+    expect(read(id).safety!.items[0].edited).toBeUndefined();
+    expect(read(id).status).toBe('PENDING_REVIEW');
+  });
+
+  test('gỡ 2 bài không đạt → lưu lịch sử, 18 bài cũ giữ kết quả, 2 bài thay thế phải quét', async () => {
+    const id = await scannedWithFails([3, 7]);
+    const kept = read(id).safety!.items.filter((i) => i.verdict === 'PASS').map((i) => i.id);
+    expect(await safety.demoRemoveFailed(id)).toBe(2);
+    const s = read(id).safety!;
+    expect(s.history!.map((x) => x.verdict)).toEqual(['FAIL', 'FAIL']);
+    expect(s.items).toHaveLength(20);
+    expect(s.items.filter((i) => i.verdict === 'PASS').map((i) => i.id)).toEqual(kept);
+    expect(s.items.filter((i) => !i.verdict)).toHaveLength(2);
+    expect(read(id).status).toBe('SAFETY_PENDING');
+  });
+
+  test('gỡ bài khi kênh không còn đủ N nội dung → danh sách thiếu, chưa cấp dấu', async () => {
+    const id = await scannedWithFails([0, 1]);
+    await safety.demoSetContentCount(id, 20);
+    await safety.demoRemoveFailed(id);
+    expect(read(id).safety!.items).toHaveLength(18);
+    expect(safetyProgress(read(id), h.clock.t)).toMatchObject({ missing: 2, passed: 18 });
+    await safety.scan(h.kolId, id).catch(() => undefined);
+    expect(read(id).status).toBe('SAFETY_PENDING');
+  });
+
+  test('chưa kiểm tra được: không tính Đạt, không phải vi phạm', async () => {
+    const c = await channels.add(h.kolId, { url: 'tiktok.com/@vy', proofImage: png });
+    await safety.start(h.kolId, c.id, true);
+    await safety.demoSetNextVerdict('ERROR');
+    await safety.scan(h.kolId, c.id);
+    expect(safetyProgress(read(c.id), h.clock.t)).toMatchObject({ passed: 0, failed: 0, errored: 20 });
+    expect(read(c.id).status).toBe('SAFETY_PENDING');
+  });
+});
+
+describe('tạm ngừng và khôi phục (EP-01 §6.5)', () => {
+  async function verifiedChannel(daysLeft: number) {
+    const c = await channels.add(h.kolId, { url: 'tiktok.com/@vy', proofImage: png });
+    h.db.update((s) => {
+      Object.assign(s.channels.find((x) => x.id === c.id)!, { status: 'VERIFIED', verifiedAt: h.clock.t, badgeExpiresAt: h.clock.t + daysLeft * DAY });
+    });
+    return c.id;
+  }
+
+  test('tạm ngừng → không còn dấu, không gia hạn được; khôi phục khi còn hạn → Đã xác thực', async () => {
+    const id = await verifiedChannel(10);
+    await safety.suspend(id, 'Vi phạm');
+    expect(read(id)).toMatchObject({ status: 'SUSPENDED', suspendReason: 'Vi phạm' });
+    expect(canRenew(read(id), h.clock.t)).toBe(false);
+    await expect(safety.start(h.kolId, id, true)).rejects.toThrow('NOT_VERIFIABLE');
+    await safety.restore(id);
+    expect(read(id).status).toBe('VERIFIED');
+  });
+
+  test('khôi phục khi đã qua hạn → Hết hạn, không tự thành Đã xác thực', async () => {
+    const id = await verifiedChannel(5);
+    await safety.suspend(id, 'Vi phạm');
+    h.clock.t += 6 * DAY;
+    await safety.restore(id);
+    expect(read(id).status).toBe('EXPIRED');
+  });
+
+  test('quét đạt không ghi đè tạm ngừng', async () => {
+    const id = await verifiedChannel(10);
+    await safety.start(h.kolId, id, true);
+    await safety.suspend(id, 'Vi phạm');
+    await safety.demoSetNextVerdict('PASS');
+    await safety.scan(h.kolId, id);
+    expect(read(id).status).toBe('SUSPENDED');
   });
 });

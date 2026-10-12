@@ -33,6 +33,7 @@ import { fieldIcon } from '../shared/fieldIcons';
 import { CampaignStatusBadge, errText, LoadError } from './CampaignParts';
 import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
 import { CampaignFeatures } from './FeatureCards';
+import { GroupRewardsEditor } from './GroupRewardsEditor';
 import { RecruitSection, TypeSection } from './RecruitFormSections';
 import {
   ADVANCED_FIELDS,
@@ -63,7 +64,6 @@ const lastPlatforms = (rows: DeliverableRow[]): Platform[] => (rows.length ? [ro
 /** One line of the current advanced settings, shown while "Tính năng nâng cao" is collapsed. */
 function advancedSummary(v: CampaignFormValues): string {
   return [
-    `Đàm phán: ${v.negotiation ? 'bật' : 'tắt'}`,
     `Duyệt nháp: ${v.draftReview ? 'bật' : 'tắt'}`,
     `Hợp đồng: ${v.contract ? 'bật' : 'tắt'}`,
     ...(v.useContentRules ? ['Có quy định nội dung'] : []),
@@ -93,7 +93,7 @@ function AdvancedBlock({ open, onOpenChange, summary, children }: { open: boolea
             Tính năng nâng cao
           </span>
           <span className="block text-sm text-muted-foreground">
-            {open ? 'Đàm phán, duyệt nháp, hợp đồng, quy định nội dung.' : summary}
+            {open ? 'Duyệt nháp, hợp đồng, quy định nội dung.' : summary}
           </span>
         </span>
         <ChevronDown className={cn('mt-2 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden />
@@ -323,7 +323,8 @@ function FormSkeleton() {
 
 /**
  * /chien-dich/tao and /chien-dich/:id/sua — campaign form. Only the name is needed for a draft;
- * "Đăng chiến dịch" saves then publishes, and the service's KOLHUB-4803 `field` is shown under that field.
+ * "Gửi đăng" saves then sends to Admin review (EP-02); the service's KOLHUB-4803 `field` is shown under that field.
+ * Editing an OPEN campaign sends the changes as a revision for Admin review (EP-02 §7).
  */
 /** New campaign of the chosen type: empty form with one default deliverable row (Video · TikTok · 1) ready to edit. */
 const newForm = (type: CampaignType = 'BOOKING'): CampaignFormValues => ({ ...EMPTY_FORM, type, deliverables: [newDeliverable([])] });
@@ -388,7 +389,7 @@ export function CampaignFormPage() {
   if (id && !loaded) return <FormSkeleton />;
 
   const status = loaded?.status ?? 'DRAFT';
-  const editable = status === 'DRAFT' || status === 'OPEN';
+  const editable = status === 'DRAFT' || status === 'NEEDS_FIX' || status === 'REJECTED' || status === 'OPEN';
   const isOpen = status === 'OPEN';
   const recruit = values.type === 'OPEN_RECRUITMENT';
   const typeLocked = (loaded?.stats.total ?? 0) > 0;
@@ -425,12 +426,13 @@ export function CampaignFormPage() {
       savedId.current = view.id;
       if (publish) {
         view = await campaignService.publish(view.id);
-        toast.success('Đã đăng chiến dịch', {
-          description:
-            view.visibility === 'MARKETPLACE' ? 'Chiến dịch đang mở và hiển thị trên Sàn chiến dịch.' : 'Chiến dịch đang mở. Hãy mời KOL để bắt đầu.',
+        toast.success('Chiến dịch đã được gửi duyệt.', { description: 'Admin KOL Hub kiểm tra trước khi công bố lên Sàn.' });
+      } else if (isOpen) {
+        toast.success(view.pendingRevision ? 'Đã gửi bản sửa cho Admin duyệt' : 'Không có thay đổi', {
+          description: view.pendingRevision ? 'Chiến dịch giữ nội dung hiện tại cho tới khi bản sửa được duyệt.' : undefined,
         });
       } else {
-        toast.success(isOpen ? 'Đã lưu thay đổi' : 'Đã lưu bản nháp');
+        toast.success('Đã lưu bản nháp.');
       }
       navigate(campaignPath(view.id), { replace: !id });
     } catch (e) {
@@ -479,10 +481,12 @@ export function CampaignFormPage() {
           ) : (
             <p id={`${fieldId('name')}-hint`} className="text-sm text-muted-foreground">
               {!id
-                ? 'Không có gì được lưu lại cho đến khi bạn lưu nháp hoặc đăng chiến dịch.'
+                ? 'Không có gì được lưu lại cho đến khi bạn lưu nháp hoặc gửi đăng.'
                 : isOpen
-                  ? 'Chiến dịch đang mở: thông tin phải luôn đủ điều kiện đăng.'
-                  : 'Bản nháp: lưu bất cứ lúc nào, đăng khi đã đủ thông tin.'}
+                  ? (loaded?.stats.total ?? 0) > 0
+                    ? 'Đang tuyển và đã có đơn: chỉ sửa được ảnh, tên và mô tả giới thiệu; bản sửa được Admin duyệt trước khi công khai.'
+                    : 'Đang tuyển: bản sửa được Admin duyệt lại; trong lúc chờ, chiến dịch tạm ngừng nhận đơn mới.'
+                  : 'Bản nháp: lưu bất cứ lúc nào, gửi đăng khi đã đủ thông tin.'}
             </p>
           )}
         </div>
@@ -496,7 +500,7 @@ export function CampaignFormPage() {
       </div>
 
       {!editable && (
-        <LoadError message="Chiến dịch không còn ở trạng thái cho phép sửa (chỉ sửa khi Bản nháp hoặc Đang mở)." />
+        <LoadError message="Chiến dịch không ở trạng thái cho phép sửa (sửa được khi Bản nháp, Cần bổ sung, Không được duyệt hoặc Đang tuyển; Chờ duyệt thì rút về nháp trước)." />
       )}
 
       <fieldset
@@ -653,26 +657,19 @@ export function CampaignFormPage() {
 
             </Section>
 
-            <Section title="Ngân sách và thời gian">
-              <FormRow id={fieldId('budget')} label="Ngân sách (VND)" error={errors.budget} hint="Tổng ngân sách dự kiến cho chiến dịch.">
-                {(d) => (
-                  <div className="relative">
-                    <Input
-                      id={fieldId('budget')}
-                      inputMode="numeric"
-                      value={values.budget}
-                      onChange={(e) => set('budget', formatVndInput(e.target.value))}
-                      placeholder="VD: 100.000.000"
-                      aria-invalid={!!errors.budget || undefined}
-                      aria-describedby={d}
-                      className="h-11 pr-10 tabular-nums md:h-10"
-                    />
-                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground" aria-hidden>
-                      ₫
-                    </span>
-                  </div>
-                )}
-              </FormRow>
+            <Section
+              title="Quyền lợi theo nhóm đầu việc"
+              description="Mỗi nền tảng là một nhóm: số suất cần tuyển và thù lao cố định cho mỗi booking. Không nhận báo giá hay thương lượng."
+            >
+              <GroupRewardsEditor values={values} set={set} errors={errors} />
+              {errors.budget && (
+                <p className="text-xs text-destructive" role="alert">
+                  {errors.budget}
+                </p>
+              )}
+            </Section>
+
+            <Section title="Thời gian">
               <FormRow id={fieldId('dates')} label="Thời gian chạy" error={errors.dates}>
                 {(d) => (
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -791,8 +788,8 @@ export function CampaignFormPage() {
               {!values.name.trim()
                 ? 'Hãy đặt tên cho chiến dịch của bạn để bắt đầu tạo.'
                 : isOpen
-                  ? 'Lưu thay đổi khi xong.'
-                  : 'Lưu nháp để làm tiếp sau, hoặc đăng khi đã đủ thông tin.'}
+                  ? 'Gửi bản sửa để Admin duyệt.'
+                  : 'Lưu nháp để làm tiếp sau, hoặc gửi đăng khi đã đủ thông tin.'}
             </p>
             <div className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
               <Link to={cancelHref} className={buttonVariants({ variant: 'outline', className: 'h-11 md:h-10' })}>
@@ -800,13 +797,13 @@ export function CampaignFormPage() {
               </Link>
               <Button type="submit" variant={isOpen ? 'default' : 'outline'} className="h-11 md:h-10" disabled={busy !== null || !values.name.trim()}>
                 {busy === 'draft' && <Loader2 className="animate-spin" aria-hidden />}
-                {isOpen ? 'Lưu thay đổi' : 'Lưu nháp'}
+                {isOpen ? 'Gửi bản sửa' : 'Lưu nháp'}
               </Button>
               {!isOpen && (
                 <Button type="button" className="h-11 md:h-10" disabled={busy !== null || !values.name.trim()} onClick={() => void save(true)}>
                   {busy === 'publish' ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-                  <span className="sm:hidden">Đăng</span>
-                  <span className="hidden sm:inline">Đăng chiến dịch</span>
+                  <span className="sm:hidden">Gửi</span>
+                  <span className="hidden sm:inline">{status === 'DRAFT' ? 'Gửi đăng' : 'Gửi lại'}</span>
                 </Button>
               )}
             </div>
