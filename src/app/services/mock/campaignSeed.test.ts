@@ -10,23 +10,25 @@ describe('seed v9 — chiến dịch & booking', () => {
   const campaign = (id: string) => s.campaigns.find((c) => c.id === id)!;
   const booking = (id: string) => s.bookings.find((b) => b.id === id)!;
 
-  test('Nhãn hàng demo: 1 RUNNING riêng tư, 3 OPEN trên Sàn, 1 DRAFT, 1 tuyển nhiều KOL đang chọn lọc, 2 đã hoàn tất + 1 đang chạy (lịch sử); agency: 5 OPEN + 1 đang đăng bài', () => {
+  test('Nhãn hàng demo: 1 Đang tuyển riêng tư, 4 Đang tuyển trên Sàn, 1 nháp, 1 chờ duyệt, 1 tuyển nhiều KOL đã đóng tuyển, 2 hoàn tất + 1 đang chạy (lịch sử); agency: 5 Đang tuyển + 1 đã đóng tuyển', () => {
     const mine = s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID);
     expect(mine.map((c) => [c.status, c.visibility])).toEqual([
-      ['RUNNING', 'PRIVATE'],
+      ['OPEN', 'PRIVATE'],
       ['OPEN', 'MARKETPLACE'],
       ['DRAFT', 'PRIVATE'],
+      ['PENDING_REVIEW', 'MARKETPLACE'],
       ['OPEN', 'MARKETPLACE'],
       ['OPEN', 'MARKETPLACE'],
-      ['RUNNING', 'MARKETPLACE'],
+      ['CLOSED', 'MARKETPLACE'],
       ['COMPLETED', 'PRIVATE'],
       ['COMPLETED', 'PRIVATE'],
-      ['RUNNING', 'PRIVATE'],
+      ['OPEN', 'PRIVATE'],
     ]);
     const agency = s.campaigns.filter((c) => c.brandAccountId === SEED_AGENCY_ID);
     expect(agency).toHaveLength(6);
     const agencyOpen = agency.filter((c) => c.id !== SEED_CAMPAIGN.recruitPosting);
     expect(agencyOpen.every((c) => c.status === 'OPEN' && c.visibility === 'MARKETPLACE' && isAcceptingApplications(c, now))).toBe(true);
+    expect(s.campaigns.find((c) => c.id === SEED_CAMPAIGN.recruitPosting)!.status).toBe('CLOSED');
     expect(new Set(agency.map((c) => c.categories[0])).size).toBeGreaterThanOrEqual(4);
     expect(new Set(agency.map((c) => c.budget)).size).toBe(6);
     expect(s.brandPlans).toEqual({});
@@ -46,7 +48,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   });
 
   test('v11 — mọi chiến dịch mẫu có ảnh chiến dịch (ảnh JPG từ kho ảnh mẫu), các chiến dịch trên Sàn không trùng ảnh', () => {
-    expect(s.campaigns).toHaveLength(15);
+    expect(s.campaigns).toHaveLength(16);
     for (const c of s.campaigns) {
       expect(c.cover).toMatchObject({ type: 'image/jpeg' });
       expect(c.cover!.thumbnail).toMatch(/^https:\/\//);

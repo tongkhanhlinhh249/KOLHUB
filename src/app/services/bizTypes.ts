@@ -40,8 +40,11 @@ export const KOL_SCALES: { key: KolScale; label: string; min: number; max: numbe
   { key: 'mega', label: 'Mega (≥ 1M)', min: 1_000_000, max: Infinity },
 ];
 
-/** SAFETY_PENDING: chưa đủ N nội dung gần nhất đạt KOL Safety (xác thực kênh qua KOL Safety). */
-export type ChannelStatus = 'SAFETY_PENDING' | 'PENDING_REVIEW' | 'VERIFIED' | 'NEEDS_FIX' | 'EXPIRED';
+/**
+ * SAFETY_PENDING: chưa đủ N nội dung gần nhất đạt KOL Safety (xác thực kênh qua KOL Safety).
+ * SUSPENDED: dấu tạm ngừng do vi phạm đã xác nhận thuộc diện đình chỉ (EP-01 §6.5); chặn booking mới.
+ */
+export type ChannelStatus = 'SAFETY_PENDING' | 'PENDING_REVIEW' | 'VERIFIED' | 'NEEDS_FIX' | 'EXPIRED' | 'SUSPENDED';
 
 export type FieldMedal = 'gold' | 'silver' | 'none';
 

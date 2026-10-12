@@ -36,10 +36,21 @@ function complete(extra: Partial<CampaignInput> = {}): CampaignInput {
     platforms: ['tiktok', 'youtube'],
     categories: ['Ẩm thực'],
     deliverables: [{ type: 'VIDEO', platform: 'youtube', quantity: 1 }],
+    // Thù lao cố định theo nhóm đầu việc; ngân sách tự tính = 10 suất × 10.000.000 ₫.
+    groups: [
+      { platform: 'youtube', slots: 10, reward: { cash: 10_000_000 } },
+      { platform: 'tiktok', slots: 10, reward: { cash: 10_000_000 } },
+    ],
     contentRules: 'Gắn nhãn #QuangCao',
     ...extra,
   };
 }
+
+/** "Gửi đăng" then Admin "Duyệt" (EP-02: kiểm duyệt trước đăng). */
+const publishApproved = async (id: string) => {
+  await svc.publish(id);
+  return svc.approveReview(id);
+};
 
 beforeEach(() => {
   h = makeHarness();
@@ -61,13 +72,13 @@ describe('quyền truy cập', () => {
   test('ứng tuyển cần MCN/KOL đã duyệt (4806); xem Sàn: mọi người, kể cả khách', async () => {
     as(null);
     expect((await svc.listMarketplace()).length).toBeGreaterThan(0);
-    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [] })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     as(h.mcnId); // MCN hồ sơ DRAFT: xem Sàn (chỉ đọc) được, ứng tuyển thì không
     expect((await svc.listMarketplace()).length).toBeGreaterThan(0);
     expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.agencyTravel)).myBooking).toBeUndefined();
-    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [] })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     as(h.kolId); // KOL hồ sơ DRAFT
-    await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: [] })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
   });
 
   test('Nhãn hàng chỉ thấy và sửa chiến dịch của mình (4801)', async () => {
@@ -100,17 +111,27 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     await expect(svc.create({ name: 'A', platforms: ['twitter' as never] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
   });
 
-  test('đăng: thiếu thông tin → 4803 theo trường; đủ → OPEN, có publishedAt', async () => {
+  test('gửi đăng: thiếu thông tin → 4803 theo trường; đủ → Chờ duyệt; Admin duyệt → OPEN, có publishedAt', async () => {
     const c = await svc.create({ name: 'Nháp' });
-    await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'budget' } });
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'brief' } });
     await svc.update(c.id, complete({ endDate: day(-1), startDate: day(-5) }));
     await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'dates' } });
     await svc.update(c.id, { endDate: day(30), deliverables: [{ type: 'POST', platform: 'facebook', quantity: 1 }] });
     await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'deliverables' } });
-    await svc.update(c.id, { deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 2 }], applyDeadline: day(40) });
+    // Nhóm TikTok chưa có số suất / thù lao (nhóm cũ chỉ còn theo nền tảng của hạng mục).
+    await svc.update(c.id, { deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 2 }], groups: [{ platform: 'tiktok', slots: 0, reward: { cash: 0 } }] });
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'groups' } });
+    await svc.update(c.id, { groups: [{ platform: 'tiktok', slots: 4, reward: { cash: 0 } }] });
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'groups' } });
+    // Chỉ sản phẩm (0 ₫ tiền mặt) vẫn hợp lệ; ngân sách = 4 × 2.500.000 ₫.
+    const product = await svc.update(c.id, { groups: [{ platform: 'tiktok', slots: 4, reward: { cash: 0, product: { name: 'Bộ quà', value: 2_500_000 } } }], applyDeadline: day(40) });
+    expect(product.budget).toBe(10_000_000);
     await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'applyDeadline' } });
     await svc.update(c.id, { applyDeadline: null });
-    const open = await svc.publish(c.id);
+    const sent = await svc.publish(c.id);
+    expect(sent.status).toBe('PENDING_REVIEW');
+    expect(sent.log?.at(-1)).toMatchObject({ by: 'BRAND', action: 'SUBMITTED' });
+    const open = await svc.approveReview(c.id);
     expect(open.status).toBe('OPEN');
     expect(open.publishedAt).toBe(h.now());
     expect(open.applyDeadline).toBeUndefined();
@@ -121,16 +142,37 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     const c = await svc.create({ ...complete(), name: 'Book 1 KOL', brief: '   ' });
     await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'brief' } });
     await svc.update(c.id, { brief: 'Giới thiệu vị mới, nhấn mạnh ít đường' });
-    const open = await svc.publish(c.id);
+    const open = await publishApproved(c.id);
     expect(open.status).toBe('OPEN');
     await expect(svc.update(c.id, { brief: '' })).rejects.toMatchObject({ meta: { field: 'brief' } });
   });
 
-  test('sửa: OPEN phải còn đủ thông tin; RUNNING/COMPLETED không sửa được (4802)', async () => {
-    await expect(svc.update(SEED_CAMPAIGN.marketplace, { platforms: [] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
-    const up = await svc.update(SEED_CAMPAIGN.marketplace, { budget: 180_000_000 });
-    expect(up.budget).toBe(180_000_000);
-    await expect(svc.update(SEED_CAMPAIGN.running, { name: 'Đổi tên' })).rejects.toMatchObject({ code: 'KOLHUB-4802' });
+  test('sửa OPEN đã có đơn: khoá điều kiện (4820); sửa tên → bản sửa chờ Admin, bản công khai giữ nguyên; COMPLETED không sửa được (4802)', async () => {
+    await expect(svc.update(SEED_CAMPAIGN.marketplace, { platforms: [] })).rejects.toMatchObject({ code: 'KOLHUB-4824' });
+    await expect(
+      svc.update(SEED_CAMPAIGN.marketplace, { groups: [{ platform: 'tiktok', slots: 5, reward: { cash: 20_000_000 } }, { platform: 'youtube', slots: 3, reward: { cash: 25_000_000 } }] }),
+    ).rejects.toMatchObject({ code: 'KOLHUB-4824' });
+    const before = await svc.get(SEED_CAMPAIGN.marketplace);
+    const up = await svc.update(SEED_CAMPAIGN.marketplace, { name: 'Ẩm thực mùa thu' });
+    expect(up.name).toBe(before.name);
+    expect(up.pendingRevision).toMatchObject({ patch: { name: 'Ẩm thực mùa thu' }, pausesApplications: false });
+    expect((await svc.listReviewQueue()).map((c) => c.id)).toContain(SEED_CAMPAIGN.marketplace);
+    expect((await svc.approveReview(SEED_CAMPAIGN.marketplace)).name).toBe('Ẩm thực mùa thu');
+    await expect(svc.update(SEED_HISTORY.summerCampaign, { name: 'Đổi tên' })).rejects.toMatchObject({ code: 'KOLHUB-4802' });
+  });
+
+  test('sửa OPEN chưa có đơn: điều kiện mới phải duyệt lại, tạm ngừng nhận đơn; từ chối bản sửa → giữ bản cũ', async () => {
+    const c = await svc.create(complete({ visibility: 'MARKETPLACE' }));
+    await publishApproved(c.id);
+    const up = await svc.update(c.id, { groups: [{ platform: 'youtube', slots: 15, reward: { cash: 10_000_000 } }] });
+    expect(up).toMatchObject({ budget: 100_000_000, pendingRevision: { pausesApplications: true } });
+    as(null);
+    const item = await svc.getMarketplaceItem(c.id);
+    expect(item).toMatchObject({ accepting: false, paused: true });
+    as(BRAND);
+    const back = await svc.decideReview(c.id, 'NEEDS_FIX', 'Ngân sách mới chưa có căn cứ');
+    expect(back).toMatchObject({ status: 'OPEN', budget: 100_000_000, reviewNote: 'Ngân sách mới chưa có căn cứ' });
+    expect(back.pendingRevision).toBeUndefined();
   });
 
   test('ảnh chiến dịch: JPG/PNG/WebP ≤ 10 MB; sai định dạng / quá lớn → 4803 cover; null xoá ảnh', async () => {
@@ -156,6 +198,7 @@ describe('tạo, sửa, đăng chiến dịch', () => {
   test('ảnh chiến dịch hiện trên Sàn (danh sách + chi tiết)', async () => {
     const cover = { name: 'moi.jpg', type: 'image/jpeg', size: 500_000, thumbnail: 'data:image/jpeg;base64,BBB' };
     await svc.update(SEED_CAMPAIGN.marketplace, { cover });
+    await svc.approveReview(SEED_CAMPAIGN.marketplace);
     as(null);
     expect((await svc.listMarketplace()).find((m) => m.id === SEED_CAMPAIGN.marketplace)!.cover).toEqual(cover);
     expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace)).cover).toEqual(cover);
@@ -166,6 +209,7 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     expect(all.map((c) => c.id).sort()).toEqual(
       [
         SEED_CAMPAIGN.draft,
+        SEED_CAMPAIGN.pendingReview,
         SEED_CAMPAIGN.marketplace,
         SEED_CAMPAIGN.running,
         SEED_CAMPAIGN.yogurt,
@@ -176,12 +220,12 @@ describe('tạo, sửa, đăng chiến dịch', () => {
         SEED_HISTORY.homeOfficeCampaign,
       ].sort(),
     );
-    expect((await svc.listMine({ status: ['OPEN', 'RUNNING'] })).map((c) => c.status).sort()).toEqual(['OPEN', 'OPEN', 'OPEN', 'RUNNING', 'RUNNING', 'RUNNING']);
+    expect((await svc.listMine({ status: ['OPEN', 'CLOSED'] })).map((c) => c.status).sort()).toEqual(['CLOSED', 'OPEN', 'OPEN', 'OPEN', 'OPEN', 'OPEN']);
     expect((await svc.listMine({ keyword: 'sua hat' })).map((c) => c.id).sort()).toEqual(
       [SEED_CAMPAIGN.running, SEED_CAMPAIGN.recruitSelecting, SEED_HISTORY.summerCampaign].sort(),
     );
     const running = all.find((c) => c.id === SEED_CAMPAIGN.running)!;
-    expect(running.stats).toMatchObject({ total: 4, invited: 1, inProgress: 2, pendingReview: 1, completed: 1, committed: 105_000_000 });
+    expect(running.stats).toMatchObject({ total: 4, invited: 1, inProgress: 2, pendingReview: 1, completed: 1, committed: 110_000_000 });
     expect(running.brand).toMatchObject({ company: 'Công ty Demo Sữa' });
   });
 });
@@ -191,13 +235,15 @@ describe('mời KOL — quy tắc định tuyến', () => {
   beforeEach(async () => {
     as(BRAND);
     cid = (await svc.create(complete())).id;
+    await publishApproved(cid);
   });
 
-  test('KOL do MCN quản lý → gom vào 1 booking của MCN; KOL độc lập → booking riêng; bản nháp mở ra OPEN', async () => {
-    const r = await svc.inviteKols(cid, [kolId(12), kolId(13), kolId(2)], { price: 10_000_000, note: 'Mời hợp tác' });
+  test('KOL do MCN quản lý → gom vào 1 booking của MCN; KOL độc lập → booking riêng', async () => {
+    const r = await svc.inviteKols(cid, [kolId(12), kolId(13), kolId(2)], { note: 'Mời hợp tác' });
     expect(r).toMatchObject({ created: 2, updated: 0, skipped: [] });
     const mcn = r.bookings.find((b) => b.supplierType === 'MCN')!;
-    expect(mcn).toMatchObject({ supplierAccountId: SAOVIET, origin: 'INVITE', status: 'SENT', awaiting: 'SUPPLIER', price: 20_000_000 });
+    // Giá = thù lao nhóm YouTube cho kênh của KOL 12; KOL 13 chỉ có TikTok (không có nhóm TikTok) nên không cộng thêm.
+    expect(mcn).toMatchObject({ supplierAccountId: SAOVIET, origin: 'INVITE', status: 'SENT', awaiting: 'SUPPLIER', price: 10_000_000 });
     expect(mcn.items.map((i) => i.kolId)).toEqual([kolId(12), kolId(13)]);
     // Kênh MCN gán cho KOL 12 là YouTube (khớp hạng mục mặc định), KOL 13 chỉ có TikTok.
     expect(mcn.items.map((i) => [i.channelId, i.platform])).toEqual([
@@ -211,7 +257,7 @@ describe('mời KOL — quy tắc định tuyến', () => {
   });
 
   test('mời thêm KOL cùng MCN → nối vào booking SENT; KOL đã mời / không tồn tại → bỏ qua', async () => {
-    await svc.inviteKols(cid, [kolId(12)], { price: 10_000_000 });
+    await svc.inviteKols(cid, [kolId(12)]);
     const r = await svc.inviteKols(cid, [kolId(14), kolId(12), 'KOL-9999-0000']);
     expect(r).toMatchObject({ created: 0, updated: 1 });
     expect(r.skipped).toEqual([
@@ -219,15 +265,15 @@ describe('mời KOL — quy tắc định tuyến', () => {
       { kolId: 'KOL-9999-0000', reason: 'NOT_FOUND' },
     ]);
     expect(r.bookings[0].items.map((i) => i.kolId)).toEqual([kolId(12), kolId(14)]);
-    // Một lời mời không có giá → cả booking chờ MCN báo giá.
-    expect(r.bookings[0].price).toBe(0);
+    // Thù lao cố định theo kênh × nhóm: 2 kênh YouTube × 10.000.000 ₫.
+    expect(r.bookings[0].price).toBe(20_000_000);
     expect(r.bookings[0].history.map((e) => e.action)).toEqual(['INVITED', 'ITEMS_ADDED']);
   });
 
-  test('booking MCN đã sang thương lượng → lời mời mới tạo booking khác', async () => {
-    const first = (await svc.inviteKols(cid, [kolId(12)], { price: 10_000_000 })).bookings[0];
+  test('booking MCN đã chốt → lời mời mới tạo booking khác', async () => {
+    const first = (await svc.inviteKols(cid, [kolId(12)])).bookings[0];
     as(SAOVIET);
-    await bookings.counter(first.id, 12_000_000);
+    await bookings.accept(first.id);
     as(BRAND);
     const r = await svc.inviteKols(cid, [kolId(13)]);
     expect(r.created).toBe(1);
@@ -247,23 +293,24 @@ describe('mời KOL — quy tắc định tuyến', () => {
     expect(r.bookings[0]).toMatchObject({ supplierType: 'KOL', supplierAccountId: KHANHVY });
   });
 
-  test('đầu vào sai: rỗng 4812, giá 4810, chiến dịch đã kết thúc 4802', async () => {
+  test('đầu vào sai: rỗng 4812, chiến dịch đã kết thúc 4802', async () => {
     await expect(svc.inviteKols(cid, [])).rejects.toMatchObject({ code: 'KOLHUB-4812' });
-    await expect(svc.inviteKols(cid, [kolId(2)], { price: -5 })).rejects.toMatchObject({ code: 'KOLHUB-4810' });
-    await svc.cancel(cid);
+    await svc.cancel(cid, 'Lý do thử');
     await expect(svc.inviteKols(cid, [kolId(2)])).rejects.toMatchObject({ code: 'KOLHUB-4802' });
   });
 
-  test('bản nháp chưa đủ thông tin thì không mời được (4803)', async () => {
-    const d = await svc.create({ name: 'Thiếu' });
-    await expect(svc.inviteKols(d.id, [kolId(2)])).rejects.toMatchObject({ code: 'KOLHUB-4803' });
+  test('chỉ mời được khi chiến dịch Đang tuyển: bản nháp / chờ duyệt → 4802', async () => {
+    const d = await svc.create(complete());
+    await expect(svc.inviteKols(d.id, [kolId(2)])).rejects.toMatchObject({ code: 'KOLHUB-4802' });
+    await svc.publish(d.id);
+    await expect(svc.inviteKols(d.id, [kolId(2)])).rejects.toMatchObject({ code: 'KOLHUB-4802' });
   });
 });
 
 describe('Sàn chiến dịch', () => {
   beforeEach(() => as(SAOVIET));
 
-  test('chỉ hiện chiến dịch MARKETPLACE đang nhận đề xuất (+ Tuyển nhiều KOL đang chọn lọc / đăng bài, xếp sau); sort newest = mới nhất trước', async () => {
+  test('chỉ hiện chiến dịch MARKETPLACE đang tuyển; Tuyển nhiều KOL đã qua Ứng tuyển là Đã đóng tuyển: rời danh sách, trang vẫn công khai', async () => {
     const list = await svc.listMarketplace({ sort: 'newest' });
     expect(list.map((c) => c.id)).toEqual([
       SEED_CAMPAIGN.agencyHeadphones,
@@ -274,10 +321,9 @@ describe('Sàn chiến dịch', () => {
       SEED_CAMPAIGN.agencyEnglish,
       SEED_CAMPAIGN.yogurt,
       SEED_CAMPAIGN.agencyTravel,
-      SEED_CAMPAIGN.recruitSelecting,
-      SEED_CAMPAIGN.recruitPosting,
     ]);
-    expect(list.filter((c) => c.accepting === false).map((c) => c.phase)).toEqual(['SELECT', 'POST']);
+    expect(list.every((c) => c.accepting)).toBe(true);
+    expect(await svc.getMarketplaceItem(SEED_CAMPAIGN.recruitPosting)).toMatchObject({ accepting: false, recruitmentClosed: true, phase: 'POST' });
     const mine = list.find((c) => c.id === SEED_CAMPAIGN.marketplace)!;
     expect(mine.myBooking).toEqual({ id: SEED_BOOKING.application, status: 'APPLIED', origin: 'APPLICATION' });
     expect(mine.applicationCount).toBe(1);
@@ -296,39 +342,36 @@ describe('Sàn chiến dịch', () => {
         SEED_CAMPAIGN.agencyTravel,
         SEED_CAMPAIGN.livestream,
         SEED_CAMPAIGN.agencyChallenge,
-        SEED_CAMPAIGN.recruitSelecting,
-        SEED_CAMPAIGN.recruitPosting,
       ].sort(),
     );
     expect((await svc.listMarketplace({ budgetMin: 100_000_000, budgetMax: 160_000_000 })).map((c) => c.budget).sort()).toEqual([
       120_000_000, 150_000_000,
     ]);
     expect((await svc.listMarketplace({ keyword: 'mien trung' })).map((c) => c.id)).toEqual([SEED_CAMPAIGN.agencyTravel]);
-    expect((await svc.listMarketplace({ keyword: 'newbrand' })).length).toBe(6);
-    // Open recruitment budget = slots × (cash + product value): 5 × 14M, 6 × 15M, 10 × 25M; 3 × 5.5M and 4 × 2.45M (past "Ứng tuyển", last).
+    expect((await svc.listMarketplace({ keyword: 'newbrand' })).length).toBe(5);
+    // Open recruitment budget = slots × (cash + product value): 5 × 14M, 6 × 15M, 10 × 25M.
     expect((await svc.listMarketplace({ sort: 'budget' })).map((c) => c.budget)).toEqual([
-      250_000_000, 200_000_000, 150_000_000, 120_000_000, 90_000_000, 80_000_000, 70_000_000, 45_000_000, 16_500_000, 9_800_000,
+      250_000_000, 200_000_000, 150_000_000, 120_000_000, 90_000_000, 80_000_000, 70_000_000, 45_000_000,
     ]);
     const byDeadline = (await svc.listMarketplace({ sort: 'deadline' })).map((c) => c.id);
     expect(byDeadline[0]).toBe(SEED_CAMPAIGN.yogurt);
     expect(byDeadline[1]).toBe(SEED_CAMPAIGN.agencyFashion);
-    expect(byDeadline.slice(-3)).toEqual([SEED_CAMPAIGN.agencyTravel, SEED_CAMPAIGN.recruitSelecting, SEED_CAMPAIGN.recruitPosting]);
+    expect(byDeadline.at(-1)).toBe(SEED_CAMPAIGN.agencyTravel);
     expect((await svc.listMarketplace({ type: 'OPEN_RECRUITMENT' })).map((c) => c.id).sort()).toEqual(
       [
         SEED_CAMPAIGN.livestream,
         SEED_CAMPAIGN.agencyHeadphones,
         SEED_CAMPAIGN.agencyChallenge,
-        SEED_CAMPAIGN.recruitSelecting,
-        SEED_CAMPAIGN.recruitPosting,
       ].sort(),
     );
     expect((await svc.listMarketplace({ type: 'BOOKING' })).every((c) => c.type === 'BOOKING')).toBe(true);
   });
 
-  test('hết hạn nhận đề xuất / riêng tư / bản nháp → không hiện, chi tiết 4801', async () => {
+  test('hết hạn → tự Đã đóng tuyển: rời danh sách, trang vẫn xem được, không ứng tuyển; riêng tư / bản nháp → 4801', async () => {
     h.clock.t += 6 * DAY; // qua hạn chiến dịch thời trang (5 ngày)
     expect((await svc.listMarketplace()).map((c) => c.id)).not.toContain(SEED_CAMPAIGN.agencyFashion);
-    await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.agencyFashion)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
+    expect(await svc.getMarketplaceItem(SEED_CAMPAIGN.agencyFashion)).toMatchObject({ accepting: false, recruitmentClosed: true });
+    await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.pendingReview)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
     await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
     await expect(svc.getMarketplaceItem(SEED_CAMPAIGN.draft)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
     expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.agencyTravel)).name).toBe('Khám phá du lịch miền Trung');
@@ -337,49 +380,48 @@ describe('Sàn chiến dịch', () => {
   test('MCN ứng tuyển: chọn KOL mình quản lý + kênh MCN gán cho KOL đó', async () => {
     const b = await svc.apply(SEED_CAMPAIGN.agencyFashion, {
       items: [{ kolAccountId: 'acc-kol-2026-0013', channelId: 'MCN-2026-0001-ch-04', deliverableType: 'VIDEO', quantity: 3 }],
-      price: 90_000_000,
       note: 'Đề xuất 3 video phối đồ',
     });
     expect(b).toMatchObject({ status: 'APPLIED', awaiting: 'BRAND', origin: 'APPLICATION', supplierType: 'MCN', viewer: 'SUPPLIER' });
     expect(b.items[0]).toMatchObject({ kolId: kolId(13), platform: 'tiktok', quantity: 3 });
     expect(b.items[0].kol?.kolId).toBe(kolId(13));
     expect(b.allowedActions).toContain('CANCEL');
-    await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: b.items.map((i) => ({ ...i, kolAccountId: i.kolAccountId, channelId: i.channelId! })), price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4807' });
+    await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: b.items.map((i) => ({ ...i, kolAccountId: i.kolAccountId, channelId: i.channelId! })) })).rejects.toMatchObject({ code: 'KOLHUB-4807' });
   });
 
   test('một đề xuất đang hoạt động / chiến dịch; rút lại thì ứng tuyển lại được', async () => {
-    const input = { items: [{ kolAccountId: 'acc-kol-2026-0014', channelId: 'MCN-2026-0001-ch-05', deliverableType: 'VIDEO' as const, quantity: 1 }], price: 5_000_000 };
+    const input = { items: [{ kolAccountId: 'acc-kol-2026-0014', channelId: 'MCN-2026-0001-ch-05', deliverableType: 'VIDEO' as const, quantity: 1 }] };
     await expect(svc.apply(SEED_CAMPAIGN.marketplace, input)).rejects.toMatchObject({ code: 'KOLHUB-4807' });
     await bookings.cancel(SEED_BOOKING.application);
     const again = await svc.apply(SEED_CAMPAIGN.marketplace, input);
     expect(again.status).toBe('APPLIED');
   });
 
-  test('đề xuất sai: KOL không thuộc MCN / kênh sai nền tảng / kênh chưa xác thực (4809), giá (4810), trống (4812)', async () => {
+  test('đề xuất sai: KOL không thuộc MCN / kênh sai nền tảng / kênh chưa xác thực (4809), trống (4812); giá theo thù lao của nhóm', async () => {
     const c = SEED_CAMPAIGN.agencyEnglish; // chỉ YouTube
     const item = (kolAccountId: string, channelId: string) => ({ kolAccountId, channelId, deliverableType: 'VIDEO' as const, quantity: 1 });
-    await expect(svc.apply(c, { items: [item('acc-kol-2026-0002', 'MCN-2026-0001-ch-02')], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4809' });
-    await expect(svc.apply(c, { items: [item('acc-kol-2026-0013', 'MCN-2026-0001-ch-04')], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4809' });
-    await expect(svc.apply(c, { items: [item('acc-kol-2026-0015', 'MCN-2026-0001-ch-09')], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4809' });
-    await expect(svc.apply(c, { items: [item('acc-kol-2026-0012', 'MCN-2026-0001-ch-02')], price: 0 })).rejects.toMatchObject({ code: 'KOLHUB-4810' });
-    await expect(svc.apply(c, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4812' });
-    expect((await svc.apply(c, { items: [item('acc-kol-2026-0012', 'MCN-2026-0001-ch-02')], price: 1 })).status).toBe('APPLIED');
+    await expect(svc.apply(c, { items: [item('acc-kol-2026-0002', 'MCN-2026-0001-ch-02')] })).rejects.toMatchObject({ code: 'KOLHUB-4809' });
+    await expect(svc.apply(c, { items: [item('acc-kol-2026-0013', 'MCN-2026-0001-ch-04')] })).rejects.toMatchObject({ code: 'KOLHUB-4809' });
+    await expect(svc.apply(c, { items: [item('acc-kol-2026-0015', 'MCN-2026-0001-ch-09')] })).rejects.toMatchObject({ code: 'KOLHUB-4809' });
+    await expect(svc.apply(c, { items: [] })).rejects.toMatchObject({ code: 'KOLHUB-4812' });
+    // Không báo giá: giá = thù lao cố định của nhóm YouTube (40.000.000 ₫ / kênh).
+    expect(await svc.apply(c, { items: [item('acc-kol-2026-0012', 'MCN-2026-0001-ch-02')] })).toMatchObject({ status: 'APPLIED', price: 40_000_000 });
   });
 
   test('KOL độc lập ứng tuyển bằng kênh của mình; không dùng được kênh người khác; quá hạn → 4808', async () => {
     as(KHANHVY);
     const own = { channelId: 'KOL-2026-0001-youtube', deliverableType: 'VIDEO' as const, quantity: 1 };
-    await expect(svc.apply(SEED_CAMPAIGN.agencyEnglish, { items: [{ ...own, channelId: 'KOL-2026-0002-youtube' }], price: 1 })).rejects.toMatchObject({
+    await expect(svc.apply(SEED_CAMPAIGN.agencyEnglish, { items: [{ ...own, channelId: 'KOL-2026-0002-youtube' }] })).rejects.toMatchObject({
       code: 'KOLHUB-4809',
     });
-    const b = await svc.apply(SEED_CAMPAIGN.agencyEnglish, { items: [own], price: 15_000_000 });
+    const b = await svc.apply(SEED_CAMPAIGN.agencyEnglish, { items: [own] });
     expect(b).toMatchObject({ supplierType: 'KOL', supplierAccountId: KHANHVY });
     expect(b.items[0].kolAccountId).toBe(KHANHVY);
     h.clock.t += 6 * DAY;
-    await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: [{ ...own, channelId: 'KOL-2026-0001-tiktok' }], price: 1 })).rejects.toMatchObject({
+    await expect(svc.apply(SEED_CAMPAIGN.agencyFashion, { items: [{ ...own, channelId: 'KOL-2026-0001-tiktok' }] })).rejects.toMatchObject({
       code: 'KOLHUB-4808',
     });
-    await expect(svc.apply(SEED_CAMPAIGN.running, { items: [own], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4801' });
+    await expect(svc.apply(SEED_CAMPAIGN.running, { items: [own] })).rejects.toMatchObject({ code: 'KOLHUB-4801' });
   });
 });
 
@@ -387,7 +429,7 @@ describe('Sàn v2 — phù hợp với bạn', () => {
   test('mặc định sắp xếp theo điểm phù hợp; mỗi chiến dịch có match (điểm, lý do, còn thiếu)', async () => {
     as(SAOVIET);
     const list = await svc.listMarketplace();
-    expect(list).toHaveLength(10);
+    expect(list).toHaveLength(8);
     const accepting = list.filter((c) => c.accepting);
     expect(accepting).toHaveLength(8);
     const scores = accepting.map((c) => c.match!.score);
@@ -501,9 +543,7 @@ describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
       SEED_CAMPAIGN.agencyEnglish,
       SEED_CAMPAIGN.yogurt,
       SEED_CAMPAIGN.agencyTravel,
-      SEED_CAMPAIGN.recruitSelecting,
-      SEED_CAMPAIGN.recruitPosting,
-    ]); // sort mặc định 'match' → mới nhất (chiến dịch đã qua giai đoạn ứng tuyển xếp sau)
+    ]); // sort mặc định 'match' → mới nhất
     for (const c of list) {
       expect(c.match).toBeUndefined();
       expect(c.saved).toBe(false);
@@ -511,7 +551,7 @@ describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
       expect(c).not.toHaveProperty('brandAccountId');
     }
     expect(list.filter((c) => c.mine).map((c) => c.id).sort()).toEqual(
-      [SEED_CAMPAIGN.livestream, SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.yogurt, SEED_CAMPAIGN.recruitSelecting].sort(),
+      [SEED_CAMPAIGN.livestream, SEED_CAMPAIGN.marketplace, SEED_CAMPAIGN.yogurt].sort(),
     );
     expect(list.find((c) => c.id === SEED_CAMPAIGN.marketplace)!.applicationCount).toBe(1);
     expect((await svc.listMarketplace({ sort: 'budget' })).map((c) => c.budget)).toEqual(
@@ -537,7 +577,7 @@ describe('Sàn — góc nhìn Nhãn hàng (chỉ đọc)', () => {
     await expect(svc.unsaveCampaign(SEED_CAMPAIGN.agencyTravel)).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     await expect(svc.listSaved()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
     await expect(svc.listApplied()).rejects.toMatchObject({ code: 'KOLHUB-4806' });
-    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [], price: 1 })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
+    await expect(svc.apply(SEED_CAMPAIGN.agencyTravel, { items: [] })).rejects.toMatchObject({ code: 'KOLHUB-4806' });
   });
 
   test('khách (chưa đăng nhập): xem danh sách + chi tiết công khai, không match / saved / myBooking / mine', async () => {
@@ -586,7 +626,7 @@ describe('Sàn v2 — đã ứng tuyển', () => {
     // + 2 open-recruitment applications (one waiting in "Chọn lọc", one picked and verified).
     expect(all).toHaveLength(3);
     const list = all.filter((x) => x.campaign.type === 'BOOKING');
-    expect(list[0].booking).toMatchObject({ id: SEED_BOOKING.application, status: 'APPLIED', origin: 'APPLICATION', price: 60_000_000 });
+    expect(list[0].booking).toMatchObject({ id: SEED_BOOKING.application, status: 'APPLIED', origin: 'APPLICATION', price: 40_000_000 });
     expect(list[0].booking.allowedActions).toContain('EDIT_APPLICATION');
     expect(list[0].campaign).toMatchObject({ id: SEED_CAMPAIGN.marketplace, accepting: true });
     expect(list[0].campaign.match).toBeDefined();
@@ -597,7 +637,6 @@ describe('Sàn v2 — đã ứng tuyển', () => {
     await bookings.cancel(SEED_BOOKING.application);
     const b = await svc.apply(SEED_CAMPAIGN.agencyEnglish, {
       items: [{ kolAccountId: 'acc-kol-2026-0012', channelId: 'MCN-2026-0001-ch-02', deliverableType: 'VIDEO', quantity: 1 }],
-      price: 20_000_000,
     });
     let list = await svc.listApplied({ sort: 'newest' });
     expect(list.map((x) => [x.booking.id, x.booking.status])).toEqual(
@@ -623,13 +662,30 @@ describe('Sàn v2 — đã ứng tuyển', () => {
 describe('kết thúc / huỷ chiến dịch', () => {
   beforeEach(() => as(BRAND));
 
-  test('còn booking đang thực hiện → 4817', async () => {
-    await expect(svc.close(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4817' });
-    await expect(svc.cancel(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4817' });
+  test('còn booking đang thực hiện: huỷ → 4817; Hoàn tất (sau Đóng tuyển) → 4822; Hoàn tất khi còn Đang tuyển → 4802', async () => {
+    await expect(svc.cancel(SEED_CAMPAIGN.running, 'Lý do thử')).rejects.toMatchObject({ code: 'KOLHUB-4817' });
+    await expect(svc.close(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4802' });
+    expect((await svc.closeRecruitment(SEED_CAMPAIGN.running)).status).toBe('CLOSED');
+    await expect(svc.close(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4826' });
+  });
+
+  test('huỷ cần lý do (≤ 1.000 ký tự) → 4821', async () => {
+    await expect(svc.cancel(SEED_CAMPAIGN.marketplace, '  ')).rejects.toMatchObject({ code: 'KOLHUB-4825' });
+    await expect(svc.cancel(SEED_CAMPAIGN.marketplace, 'x'.repeat(1001))).rejects.toMatchObject({ code: 'KOLHUB-4825' });
+  });
+
+  test('Đóng tuyển giữ đơn đang chờ; rời Sàn nhưng trang công khai còn xem được', async () => {
+    const c = await svc.closeRecruitment(SEED_CAMPAIGN.marketplace);
+    expect(c.status).toBe('CLOSED');
+    const b = h.db.read().bookings.find((x) => x.id === SEED_BOOKING.application)!;
+    expect(b.status).not.toBe('CANCELLED');
+    as(SAOVIET);
+    expect((await svc.listMarketplace()).map((x) => x.id)).not.toContain(SEED_CAMPAIGN.marketplace);
+    expect(await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace)).toMatchObject({ accepting: false, recruitmentClosed: true });
   });
 
   test('huỷ chiến dịch OPEN → đề xuất đang chờ bị hệ thống huỷ, biến khỏi Sàn', async () => {
-    const c = await svc.cancel(SEED_CAMPAIGN.marketplace);
+    const c = await svc.cancel(SEED_CAMPAIGN.marketplace, 'Lý do thử');
     expect(c).toMatchObject({ status: 'CANCELLED', closedAt: h.now() });
     const b = h.db.read().bookings.find((x) => x.id === SEED_BOOKING.application)!;
     expect(b.status).toBe('CANCELLED');
@@ -638,49 +694,61 @@ describe('kết thúc / huỷ chiến dịch', () => {
     expect((await svc.listMarketplace()).map((x) => x.id)).not.toContain(SEED_CAMPAIGN.marketplace);
   });
 
-  test('kết thúc chiến dịch RUNNING khi mọi booking đã xong → COMPLETED; huỷ lại → 4802', async () => {
+  test('Hoàn tất khi mọi booking đã xong → COMPLETED; huỷ lại → 4802', async () => {
     h.db.update((s) => {
       s.bookings = s.bookings.filter((b) => b.id === SEED_BOOKING.completed || b.campaignId !== SEED_CAMPAIGN.running);
     });
+    await svc.closeRecruitment(SEED_CAMPAIGN.running);
     expect((await svc.close(SEED_CAMPAIGN.running)).status).toBe('COMPLETED');
-    await expect(svc.cancel(SEED_CAMPAIGN.running)).rejects.toMatchObject({ code: 'KOLHUB-4802' });
+    await expect(svc.cancel(SEED_CAMPAIGN.running, 'Lý do thử')).rejects.toMatchObject({ code: 'KOLHUB-4802' });
   });
 });
 
-describe('tính năng chiến dịch — Đàm phán, Hợp đồng', () => {
-  test('mặc định bật cả hai; giá trị không phải boolean → 4803 kèm tên trường', async () => {
+describe('thù lao cố định theo nhóm đầu việc (EP-02, không đàm phán) và Hợp đồng', () => {
+  test('nhóm sai kiểu → 4803 groups; thiếu nhóm cho nền tảng của hạng mục → không đăng được; Hợp đồng không phải boolean → 4803', async () => {
     as(BRAND);
-    const c = await svc.create(complete());
-    expect(c.negotiation).toBeUndefined();
+    await expect(svc.create(complete({ groups: [{ platform: 'youtube', slots: -1, reward: { cash: 1 } }] }))).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'groups' } });
+    await expect(svc.create(complete({ groups: 'x' as never }))).rejects.toMatchObject({ meta: { field: 'groups' } });
+    const c = await svc.create(complete({ groups: [] }));
     expect(c.contract).toBeUndefined();
-    await expect(svc.create(complete({ negotiation: 'có' as unknown as boolean }))).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'negotiation' } });
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'groups' } });
     await expect(svc.update(c.id, { contract: 1 as unknown as boolean })).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'contract' } });
   });
 
-  test('tắt Đàm phán: lời mời phải có giá; NCC chỉ chấp nhận hoặc từ chối, không trả giá', async () => {
+  test('lời mời theo thù lao của nhóm; NCC chỉ chấp nhận hoặc từ chối; chốt ghi nhận quyền lợi (tiền + sản phẩm)', async () => {
     as(BRAND);
-    const cid = (await svc.create(complete({ negotiation: false }))).id;
-    await expect(svc.inviteKols(cid, [kolId(2)])).rejects.toMatchObject({ code: 'KOLHUB-4810' });
-    const r = await svc.inviteKols(cid, [kolId(2)], { price: 10_000_000 });
+    const cid = (await svc.create(complete({ groups: [{ platform: 'youtube', slots: 3, reward: { cash: 12_000_000, product: { name: 'Bộ quà', value: 500_000 } } }] }))).id;
+    expect((await svc.get(cid)).budget).toBe(37_500_000);
+    await publishApproved(cid);
+    const r = await svc.inviteKols(cid, [kolId(2)]);
+    expect(r.bookings[0].price).toBe(12_000_000);
     as(KOL2);
     const b = await bookings.get(r.bookings[0].id);
     expect(b.allowedActions).toEqual(expect.arrayContaining(['ACCEPT', 'DECLINE']));
-    expect(b.allowedActions).not.toContain('COUNTER');
-    await expect(bookings.counter(b.id, 12_000_000)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
+    expect(b.allowedActions).not.toContain('COUNTER' as never);
+    const ok = await bookings.accept(b.id);
+    expect(ok).toMatchObject({ status: 'ACCEPTED', price: 12_000_000, reward: { cash: 12_000_000, product: { name: 'Bộ quà' } } });
+    as(BRAND);
+    expect((await bookings.get(b.id)).allowedActions).toContain('MARK_PRODUCT_SENT');
   });
 
-  test('bật Đàm phán (mặc định): NCC trả giá được', async () => {
+  test('chốt vượt số suất của nhóm → 4818', async () => {
     as(BRAND);
-    const cid = (await svc.create(complete())).id;
-    const r = await svc.inviteKols(cid, [kolId(2)], { price: 10_000_000 });
+    const cid = (await svc.create(complete({ groups: [{ platform: 'youtube', slots: 1, reward: { cash: 5_000_000 } }] }))).id;
+    await publishApproved(cid);
+    const [toKol] = (await svc.inviteKols(cid, [kolId(2)])).bookings;
+    const [toMcn] = (await svc.inviteKols(cid, [kolId(12)])).bookings;
     as(KOL2);
-    expect((await bookings.get(r.bookings[0].id)).allowedActions).toContain('COUNTER');
+    await bookings.accept(toKol.id);
+    as(SAOVIET);
+    await expect(bookings.accept(toMcn.id)).rejects.toMatchObject({ code: 'KOLHUB-4818', meta: { slots: 1, remaining: 0 } });
   });
 
   test('tắt Hợp đồng: không bên nào đính kèm tệp hợp đồng', async () => {
     as(BRAND);
     const cid = (await svc.create(complete({ contract: false }))).id;
-    const r = await svc.inviteKols(cid, [kolId(2)], { price: 10_000_000 });
+    await publishApproved(cid);
+    const r = await svc.inviteKols(cid, [kolId(2)]);
     const id = r.bookings[0].id;
     expect((await bookings.get(id)).allowedActions).not.toContain('ATTACH_CONTRACT');
     await expect(bookings.setContractFile(id, { name: 'hd.pdf', type: 'application/pdf', size: 1000 })).rejects.toMatchObject({ code: 'KOLHUB-4805' });
@@ -688,13 +756,13 @@ describe('tính năng chiến dịch — Đàm phán, Hợp đồng', () => {
     expect((await bookings.get(id)).allowedActions).not.toContain('ATTACH_CONTRACT');
   });
 
-  test('Sàn và chi tiết booking trả cờ Đàm phán / Hợp đồng; Tuyển nhiều KOL luôn không đàm phán', async () => {
+  test('Sàn và chi tiết booking trả nhóm quyền lợi (chỉ nền tảng của hạng mục) và cờ Hợp đồng', async () => {
     as(BRAND);
-    const cid = (await svc.create(complete({ visibility: 'MARKETPLACE', negotiation: false }))).id;
-    await svc.publish(cid);
+    const cid = (await svc.create(complete({ visibility: 'MARKETPLACE' }))).id;
+    await publishApproved(cid);
     as(SAOVIET);
-    expect(await svc.getMarketplaceItem(cid)).toMatchObject({ negotiation: false, contract: true });
-    const recruit = (await svc.listMarketplace()).find((m) => m.type === 'OPEN_RECRUITMENT');
-    if (recruit) expect(recruit.negotiation).toBe(false);
+    const item = await svc.getMarketplaceItem(cid);
+    expect(item).toMatchObject({ contract: true, groups: [{ platform: 'youtube', slots: 10, reward: { cash: 10_000_000 } }] });
+    expect(item).not.toHaveProperty('negotiation');
   });
 });

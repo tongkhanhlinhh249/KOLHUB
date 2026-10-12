@@ -43,6 +43,7 @@ import { profileDisplayName } from './identity';
 import { safetyHash } from './safety';
 import {
   campaignType,
+  checkGroups,
   checkRecruitment,
   checkRegions,
   checkSurvey,
@@ -50,11 +51,13 @@ import {
   checkTerms,
   contractOn,
   draftReviewOn,
-  negotiationOn,
   endOfLocalDay,
+  groupOf,
   isRecruit,
   phaseOfTimeline,
   recruitPhase,
+  slotKeys,
+  validateGroupsForOpen,
   validateRecruitmentForOpen,
 } from './recruitment';
 
@@ -225,7 +228,8 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
     out.type = input.type;
   }
   if ('recruitment' in input) out.recruitment = input.recruitment == null ? undefined : checkRecruitment(input.recruitment);
-  for (const k of ['draftReview', 'negotiation', 'contract'] as const) {
+  if ('groups' in input) out.groups = input.groups == null ? undefined : checkGroups(input.groups);
+  for (const k of ['draftReview', 'contract'] as const) {
     if (k in input && input[k] !== undefined) {
       if (typeof input[k] !== 'boolean') throw bad(k);
       out[k] = input[k];
@@ -250,12 +254,14 @@ export function validateForOpen(c: Campaign, now: number, publishing = false): v
     if (c.deliverables.length === 0 || c.deliverables.some((d) => !c.platforms.includes(d.platform))) throw bad('deliverables');
     return;
   }
-  if (!isPrice(c.budget)) throw bad('budget');
   // Booking riêng: the brief is what the invited KOL works from, so it is required to open the campaign.
   if (!c.brief.trim()) throw bad('brief');
   if (!c.startDate || !c.endDate || c.startDate > c.endDate || endOfDay(c.endDate) < now) throw bad('dates');
   if (c.platforms.length === 0) throw bad('platforms');
   if (c.deliverables.length === 0 || c.deliverables.some((d) => !c.platforms.includes(d.platform))) throw bad('deliverables');
+  // Fixed reward per deliverable group (EP-02 §4.3); the budget is derived from it.
+  validateGroupsForOpen(c);
+  if (!isPrice(c.budget)) throw bad('budget');
   if (c.applyDeadline && (c.applyDeadline > c.endDate || endOfDay(c.applyDeadline) < now)) throw bad('applyDeadline');
 }
 
@@ -279,14 +285,14 @@ export const isTerminal = (s: BookingStatus) => CLOSED_STATUSES.includes(s) || s
 export const isRecruitApplication = (b: Pick<Booking, 'origin'>, c: Campaign | undefined) => b.origin === 'APPLICATION' && isRecruit(c);
 
 /**
- * SENT / APPLIED expire 7 days after creation or at the end of the campaign's applyDeadline, whichever is first.
- * Open recruitment: an application waits until the end of "Chọn lọc" (selectEnd).
+ * SENT / APPLIED expire 7 days after creation. Closing recruitment (or reaching the apply deadline) does not expire
+ * them: applications already sent are kept and handled (EP-02 §6.4, §8). Open recruitment: an application waits until
+ * the end of "Chọn lọc" (selectEnd).
  */
 export function expiresAtOf(b: Booking, c: Campaign | undefined): number | undefined {
   if (b.status !== 'SENT' && b.status !== 'APPLIED') return undefined;
   if (isRecruitApplication(b, c) && c!.recruitment!.timeline.selectEnd) return endOfLocalDay(c!.recruitment!.timeline.selectEnd);
-  const byAge = b.createdAt + BOOKING_EXPIRY_DAYS * DAY;
-  return c?.applyDeadline ? Math.min(byAge, endOfDay(c.applyDeadline)) : byAge;
+  return b.createdAt + BOOKING_EXPIRY_DAYS * DAY;
 }
 
 /** Past expiry: EXPIRED, or DECLINED ("Không được chọn") for an open-recruitment application not picked in time. */
@@ -320,7 +326,7 @@ export interface ActionContext {
  * Open-recruitment applications: no negotiation — the brand picks (SELECT) or declines during "Chọn lọc"
  * (declining also during "Ứng tuyển"); the supplier may edit while "Ứng tuyển" lasts and withdraw until picked.
  * "Duyệt nháp" off: the supplier posts directly (SUBMIT_POST from ACCEPTED / IN_PRODUCTION, no drafts).
- * "Đàm phán" off: no COUNTER (unless the price is still 0). "Hợp đồng" off: no ATTACH_CONTRACT.
+ * Booking riêng: fixed reward per group (EP-02), so no counter-offers. "Hợp đồng" off: no ATTACH_CONTRACT.
  * Product reward: brand MARK_PRODUCT_SENT, then supplier CONFIRM_PRODUCT_RECEIVED (record only).
  */
 export function allowedActions(b: Booking, status: BookingStatus, party: BookingParty, ctx: ActionContext = {}): BookingActionKey[] {
@@ -340,9 +346,7 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
     }
   } else if (isPreAccept(status)) {
     if (b.awaiting === party) {
-      // "Đàm phán" off: fixed price — no counter-offer, except to quote an invite sent without a price.
       out.push('ACCEPT');
-      if (c?.negotiation !== false || b.price === 0) out.push('COUNTER');
       out.push('DECLINE');
       if (party === 'SUPPLIER') out.push('ASSIGN_ITEMS');
     } else {
@@ -535,29 +539,66 @@ export function toCampaignView(state: DemoState, c: Campaign, now: number): Camp
 }
 
 /**
- * OPEN / RUNNING marketplace campaign whose applyDeadline and endDate have not passed.
- * Open recruitment: only while its "Ứng tuyển" phase lasts.
+ * The apply window is over (EP-02 §4.4: now ≥ deadline means closed): open recruitment past its "Ứng tuyển" phase;
+ * Booking riêng past its applyDeadline, or its end date when it has none.
+ */
+export function applyWindowEnded(c: Campaign, now: number): boolean {
+  if (c.type === 'OPEN_RECRUITMENT') {
+    if (!isRecruit(c) || !c.recruitment.timeline.applyEnd) return false;
+    return endOfLocalDay(c.recruitment.timeline.applyEnd) < now;
+  }
+  if (c.applyDeadline) return endOfDay(c.applyDeadline) < now;
+  return !!c.endDate && endOfDay(c.endDate) < now;
+}
+
+/**
+ * EP-02 §8: "hết hạn luôn tự đóng". OPEN campaigns whose apply window ended become CLOSED (in place); applications
+ * already sent are kept. Returns true when something changed.
+ */
+export function sweepCampaignStatuses(state: DemoState, now: number): boolean {
+  let changed = false;
+  for (const c of state.campaigns) {
+    if (c.status !== 'OPEN' || !applyWindowEnded(c, now)) continue;
+    c.status = 'CLOSED';
+    c.recruitmentClosedAt = now;
+    c.log = [...(c.log ?? []), { at: now, by: 'SYSTEM', action: 'CLOSED', note: 'Hết hạn ứng tuyển.' }];
+    changed = true;
+  }
+  return changed;
+}
+
+/** An OPEN campaign has an edit under review that pauses new applications (C2, EP-02 §7). */
+export const isPausedForRevision = (c: Campaign) => !!c.pendingRevision?.pausesApplications;
+
+/**
+ * OPEN ("Đang tuyển") marketplace campaign whose apply window is still running and that is not paused by an edit under
+ * review. Open recruitment: only while its "Ứng tuyển" phase lasts.
  */
 export function isAcceptingApplications(c: Campaign, now: number): boolean {
-  if (c.visibility !== 'MARKETPLACE' || (c.status !== 'OPEN' && c.status !== 'RUNNING')) return false;
+  if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN' || isPausedForRevision(c)) return false;
   if (c.type === 'OPEN_RECRUITMENT') return isRecruit(c) && phaseOfTimeline(c.recruitment.timeline, now) === 'APPLY';
   if (!c.endDate || endOfDay(c.endDate) < now) return false;
   return !c.applyDeadline || endOfDay(c.applyDeadline) >= now;
 }
 
 /**
- * Shown on the Sàn: accepting applications, or an OPEN / RUNNING open-recruitment campaign that is not over yet
- * (upcoming, in "Chọn lọc", "Đăng bài" or "Đánh giá" — read-only, with its phase on the card).
+ * In the Sàn list of opportunities: OPEN marketplace campaigns (accepting, upcoming open recruitment, or paused while an
+ * edit is reviewed). CLOSED campaigns leave the list but their page stays public (EP-02 §8).
  */
 export function isListedOnMarketplace(c: Campaign, now: number): boolean {
-  if (isAcceptingApplications(c, now)) return true;
-  if (!isRecruit(c) || c.visibility !== 'MARKETPLACE' || (c.status !== 'OPEN' && c.status !== 'RUNNING')) return false;
-  return phaseOfTimeline(c.recruitment.timeline, now) !== 'ENDED';
+  if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN') return false;
+  if (isAcceptingApplications(c, now) || isPausedForRevision(c)) return true;
+  return isRecruit(c) && phaseOfTimeline(c.recruitment.timeline, now) === 'UPCOMING';
+}
+
+/** Public page of a published marketplace campaign: Đang tuyển, Đã đóng tuyển or Hoàn tất (not drafts / cancelled). */
+export function hasPublicPage(c: Campaign): boolean {
+  return c.visibility === 'MARKETPLACE' && (c.status === 'OPEN' || c.status === 'CLOSED' || c.status === 'COMPLETED');
 }
 
 /**
  * Marks `ids` as picked on `state` (in place): ACCEPTED at the campaign's fixed reward (price = cash, reward snapshot),
- * history SELECTED; the campaign becomes RUNNING. Callers check the phase, statuses and free slots first.
+ * history SELECTED. Callers check the phase, statuses and free slots first.
  */
 export function applySelection(state: DemoState, campaignId: string, ids: string[], t: number): void {
   const c = state.campaigns.find((x) => x.id === campaignId)!;
@@ -572,7 +613,6 @@ export function applySelection(state: DemoState, campaignId: string, ids: string
     b.updatedAt = t;
     b.history.push({ at: t, by: 'BRAND', action: 'SELECTED', ...(reward.cash ? { price: reward.cash } : {}) });
   }
-  if (c.status === 'OPEN') c.status = 'RUNNING';
   c.updatedAt = t;
 }
 
@@ -581,6 +621,30 @@ export function checkSlots(state: DemoState, c: Campaign, wanted: number, now: n
   const slots = c.recruitment?.slots ?? 0;
   const remaining = slots - selectedCount(state, c, now);
   if (wanted > remaining) throw new KolhubError('KOLHUB-4818', { slots, remaining: Math.max(0, remaining) });
+}
+
+/**
+ * Booking riêng: confirming `b` must fit the free slots of every group it covers — one slot per channel × group
+ * among bookings accepted or later (4818 with that group's slots / remaining). Groups without terms are not limited.
+ */
+export function checkGroupSlots(state: DemoState, c: Campaign, b: Booking, now: number): void {
+  if (!c.groups?.length) return;
+  const taken = new Map<string, Set<string>>();
+  const takenOf = (platform: string) => taken.get(platform) ?? taken.set(platform, new Set()).get(platform)!;
+  for (const x of state.bookings) {
+    if (x.campaignId !== c.id || x.id === b.id) continue;
+    const st = effectiveStatus(x, c, now);
+    if (!isInProgress(st) && st !== 'COMPLETED') continue;
+    for (const k of slotKeys(x.items)) takenOf(k.split('|')[1]).add(k);
+  }
+  for (const k of slotKeys(b.items)) {
+    const platform = k.split('|')[1];
+    const g = groupOf(c, platform);
+    const used = takenOf(platform);
+    if (!g || used.has(k)) continue;
+    if (used.size >= g.slots) throw new KolhubError('KOLHUB-4818', { slots: g.slots, remaining: Math.max(0, g.slots - used.size) });
+    used.add(k);
+  }
 }
 
 /** Picked applicants of an open-recruitment campaign (ACCEPTED or later, not cancelled). */
@@ -612,7 +676,7 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     applicationCount: own.filter((b) => b.origin === 'APPLICATION' && isOccupying(effectiveStatus(b, c, now))).length,
     type: campaignType(c),
     draftReview: draftReviewOn(c),
-    negotiation: negotiationOn(c),
+    groups: structuredClone(c.groups ?? []),
     contract: contractOn(c),
     regions: [...(c.regions ?? [])],
     survey: (c.survey ?? []).map((q) => ({ ...q })),
@@ -666,7 +730,7 @@ function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCam
   const out: BookingCampaignSummary = {
     type: campaignType(c),
     draftReview: draftReviewOn(c),
-    negotiation: negotiationOn(c),
+    groups: structuredClone(c.groups ?? []),
     contract: contractOn(c),
     regions: [...(c.regions ?? [])],
     categories: [...c.categories],

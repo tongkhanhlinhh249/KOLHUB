@@ -2,6 +2,7 @@
 // URL params, booking grouping, content / post collections and labels. No React here (unit-tested).
 import {
   BOOKING_STATUS_LABEL,
+  fixedRewardOf,
   normalizeText,
   PRE_ACCEPT_STATUSES,
   type BookingAction,
@@ -11,11 +12,13 @@ import {
   type BookingStatus,
   type BookingView,
   type Campaign,
+  type CampaignReward,
   type CampaignStatus,
   type CampaignType,
   type CampaignView,
   type CampaignVisibility,
   type ContentSubmission,
+  type DeliverableGroup,
   type InviteResult,
   type InviteSkipReason,
 } from '../../services';
@@ -42,20 +45,33 @@ export function formatVnd(n: number): string {
   return `${groupDigits(n)} ₫`;
 }
 
-/** Booking total: "Chờ báo giá" when 0 (invite without price). */
+/** Cash of a booking; 0 = product / experience only (fixed reward per group, no quote). */
 export function formatPrice(n: number): string {
-  return n > 0 ? formatVnd(n) : 'Chờ báo giá';
+  return n > 0 ? formatVnd(n) : 'Chỉ sản phẩm';
 }
 
-/** Price of a booking in lists: the fixed reward for "Tuyển nhiều KOL" (cash + product), else the negotiated total. */
-export function bookingPriceText(b: Pick<BookingView, 'price' | 'reward' | 'campaign'>): string {
-  if (b.campaign.type !== 'OPEN_RECRUITMENT') return formatPrice(b.price);
-  const r = b.reward ?? b.campaign.recruitment?.reward;
-  if (!r) return 'Phần thưởng cố định';
+/** "5.000.000 ₫ + Bình giữ nhiệt" / "Bình giữ nhiệt" / "5.000.000 ₫". */
+export function rewardText(r: CampaignReward): string {
   const parts: string[] = [];
   if (r.cash > 0) parts.push(formatVnd(r.cash));
   if (r.product) parts.push(r.product.name);
-  return parts.join(' + ');
+  return parts.join(' + ') || formatVnd(0);
+}
+
+/** Price of a booking in lists: the fixed reward for "Tuyển nhiều KOL" (cash + product), else the negotiated total. */
+export function bookingPriceText(b: Pick<BookingView, 'price' | 'reward' | 'campaign' | 'items'>): string {
+  if (b.campaign.type !== 'OPEN_RECRUITMENT') {
+    // Booking riêng: the fixed rewards of the groups the booking covers (snapshot once accepted).
+    if (b.reward) return rewardText(b.reward);
+    return b.campaign.groups?.length ? rewardText(fixedRewardOf(b.campaign, b.items)) : formatPrice(b.price);
+  }
+  const r = b.reward ?? b.campaign.recruitment?.reward;
+  return r ? rewardText(r) : 'Phần thưởng cố định';
+}
+
+/** Fixed reward of one group, per booking: "5.000.000 ₫/booking + Bình giữ nhiệt". */
+export function groupRewardText(g: DeliverableGroup): string {
+  return g.reward.cash > 0 ? `${formatVnd(g.reward.cash)}/booking${g.reward.product ? ` + ${g.reward.product.name}` : ''}` : rewardText(g.reward);
 }
 
 /** Text typed in a VND field → integer, or undefined when empty. Non-digits are ignored. */
@@ -125,8 +141,11 @@ export type CampaignTab = 'all' | CampaignStatus;
 export const CAMPAIGN_TABS: { key: CampaignTab; label: string }[] = [
   { key: 'all', label: 'Tất cả' },
   { key: 'DRAFT', label: 'Nháp' },
-  { key: 'OPEN', label: 'Đang mở' },
-  { key: 'RUNNING', label: 'Đang chạy' },
+  { key: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+  { key: 'NEEDS_FIX', label: 'Cần bổ sung' },
+  { key: 'REJECTED', label: 'Không được duyệt' },
+  { key: 'OPEN', label: 'Đang tuyển' },
+  { key: 'CLOSED', label: 'Đã đóng tuyển' },
   { key: 'COMPLETED', label: 'Hoàn tất' },
   { key: 'CANCELLED', label: 'Đã huỷ' },
 ];
@@ -162,8 +181,11 @@ export interface CampaignListQuery {
 const TAB_PARAM: Record<CampaignTab, string> = {
   all: '',
   DRAFT: 'nhap',
-  OPEN: 'dang-mo',
-  RUNNING: 'dang-chay',
+  PENDING_REVIEW: 'cho-duyet',
+  NEEDS_FIX: 'can-bo-sung',
+  REJECTED: 'khong-duoc-duyet',
+  OPEN: 'dang-tuyen',
+  CLOSED: 'da-dong-tuyen',
   COMPLETED: 'hoan-tat',
   CANCELLED: 'da-huy',
 };
@@ -210,7 +232,7 @@ export function countCampaignTabs<T extends FilterRow & Pick<CampaignView, 'stat
   list: T[],
   q: CampaignListQuery,
 ): Record<CampaignTab, number> {
-  const out: Record<CampaignTab, number> = { all: 0, DRAFT: 0, OPEN: 0, RUNNING: 0, COMPLETED: 0, CANCELLED: 0 };
+  const out: Record<CampaignTab, number> = { all: 0, DRAFT: 0, PENDING_REVIEW: 0, NEEDS_FIX: 0, REJECTED: 0, OPEN: 0, CLOSED: 0, COMPLETED: 0, CANCELLED: 0 };
   for (const c of list) {
     if (!matchesCampaign(c, q)) continue;
     out.all++;
@@ -269,37 +291,48 @@ export const CAMPAIGN_COLUMN_SORT: Record<CampaignColumn, { sort: CampaignSort; 
 
 export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, Tone> = {
   DRAFT: 'neutral',
-  OPEN: 'info',
-  RUNNING: 'warning',
+  PENDING_REVIEW: 'info',
+  NEEDS_FIX: 'warning',
+  REJECTED: 'error',
+  OPEN: 'success',
+  CLOSED: 'neutral',
   COMPLETED: 'success',
   CANCELLED: 'error',
 };
 
 export interface CampaignActions {
   edit: boolean;
+  /** "Gửi đăng" / "Gửi lại" (to Admin review). */
   publish: boolean;
+  /** "Rút về nháp" while waiting for review. */
+  withdraw: boolean;
+  /** "Đóng tuyển" (OPEN → CLOSED). */
+  closeRecruitment: boolean;
+  /** "Hoàn tất" (CLOSED → COMPLETED). */
   close: boolean;
   cancel: boolean;
   invite: boolean;
 }
 
 /**
- * Header actions per status (spec §3): edit DRAFT/OPEN, publish DRAFT, close OPEN/RUNNING, cancel until ended.
- * "Tuyển nhiều KOL" has no private invites (KOL/MCN apply on the Sàn).
+ * Header actions per status (EP-02 §5): edit Bản nháp / Cần bổ sung / Không được duyệt / Đang tuyển (as a revision),
+ * gửi đăng from the first three, rút về nháp while Chờ duyệt, đóng tuyển while Đang tuyển, hoàn tất once Đã đóng tuyển,
+ * huỷ until ended (a never-submitted draft is deleted instead). "Tuyển nhiều KOL" has no private invites.
  */
 export function campaignActions(status: CampaignStatus, type: CampaignType = 'BOOKING'): CampaignActions {
-  const live = status === 'DRAFT' || status === 'OPEN' || status === 'RUNNING';
   return {
-    edit: status === 'DRAFT' || status === 'OPEN',
-    publish: status === 'DRAFT',
-    close: status === 'OPEN' || status === 'RUNNING',
-    cancel: live,
-    invite: live && type !== 'OPEN_RECRUITMENT',
+    edit: status === 'DRAFT' || status === 'NEEDS_FIX' || status === 'REJECTED' || status === 'OPEN',
+    publish: status === 'DRAFT' || status === 'NEEDS_FIX' || status === 'REJECTED',
+    withdraw: status === 'PENDING_REVIEW',
+    closeRecruitment: status === 'OPEN',
+    close: status === 'CLOSED',
+    cancel: status !== 'DRAFT' && status !== 'COMPLETED' && status !== 'CANCELLED',
+    invite: status === 'OPEN' && type !== 'OPEN_RECRUITMENT',
   };
 }
 
-/** Campaigns a KOL can be invited to (DRAFT is opened on the first invite). */
-export const INVITABLE_STATUSES: CampaignStatus[] = ['DRAFT', 'OPEN', 'RUNNING'];
+/** Campaigns a KOL can be invited to: published and recruiting. */
+export const INVITABLE_STATUSES: CampaignStatus[] = ['OPEN'];
 
 // ---------------------------------------------------------------------------
 // Bookings
@@ -334,7 +367,7 @@ export function brandTodoLabel(b: Pick<BookingView, 'allowedActions' | 'origin' 
   if (b.allowedActions.includes('REVIEW_CONTENT')) return 'Duyệt nội dung';
   if (b.allowedActions.includes('MARK_PRODUCT_SENT')) return 'Gửi sản phẩm';
   if (b.allowedActions.includes('MARK_PAID')) return 'Xác nhận thanh toán';
-  if (b.allowedActions.includes('ACCEPT')) return b.status === 'APPLIED' ? 'Xem đề xuất' : 'Trả lời báo giá';
+  if (b.allowedActions.includes('ACCEPT')) return b.status === 'APPLIED' ? 'Xem đề xuất' : 'Trả lời lời mời';
   return null;
 }
 
@@ -359,7 +392,7 @@ export function sortBookings<T extends Pick<BookingView, 'allowedActions' | 'upd
   return [...list].sort((a, b) => Number(needsBrandAction(b)) - Number(needsBrandAction(a)) || b.updatedAt - a.updatedAt);
 }
 
-/** Marketplace proposals still to decide (APPLIED, or an application in negotiation). */
+/** Marketplace proposals still to decide (APPLIED; NEGOTIATING only in older data). */
 export function openApplications<T extends Pick<BookingView, 'origin' | 'status'>>(list: T[]): T[] {
   return list.filter((b) => b.origin === 'APPLICATION' && PRE_ACCEPT_STATUSES.includes(b.status));
 }
@@ -436,7 +469,7 @@ const ACTION_LABEL: Record<BookingAction, string> = {
   INVITED: 'Gửi lời mời',
   ITEMS_ADDED: 'Thêm KOL vào lời mời',
   APPLIED: 'Gửi đề xuất ứng tuyển',
-  COUNTERED: 'Báo giá mới',
+  COUNTERED: 'Đề xuất giá',
   ITEMS_ASSIGNED: 'Cập nhật KOL và kênh',
   APPLICATION_UPDATED: 'Sửa đề xuất ứng tuyển',
   ACCEPTED: 'Chốt booking',
@@ -535,10 +568,10 @@ export function inviteSummary(result: InviteResult): string {
 /** "Tính năng của chiến dịch" on/off, in the order of the form's feature cards (Tổng quan › "Tính năng"). */
 export function campaignFeatures(c: Campaign): { label: string; on: boolean }[] {
   const recruit = c.type === 'OPEN_RECRUITMENT';
+  const rewards = recruit ? (c.recruitment ? [c.recruitment.reward] : []) : (c.groups ?? []).map((g) => g.reward);
   return [
-    { label: 'Đề nghị trả phí', on: !recruit || (c.recruitment?.reward.cash ?? 0) > 0 },
-    { label: 'Tặng quà', on: !!c.recruitment?.reward.product },
-    { label: 'Đàm phán', on: !recruit && c.negotiation !== false },
+    { label: 'Đề nghị trả phí', on: rewards.some((r) => r.cash > 0) },
+    { label: 'Tặng quà', on: rewards.some((r) => !!r.product) },
     { label: 'Duyệt nháp', on: c.draftReview !== false },
     { label: 'Sự tuân thủ', on: !!c.contentRules.trim() },
     { label: 'Hợp đồng', on: c.contract !== false },

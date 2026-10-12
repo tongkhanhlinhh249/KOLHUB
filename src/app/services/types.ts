@@ -118,7 +118,12 @@ export type ErrorCode =
   | 'KOLHUB-4817'
   | 'KOLHUB-4818'
   | 'KOLHUB-4819'
-  | 'KOLHUB-4820';
+  | 'KOLHUB-4820'
+  // --- EP-02: vòng đời chiến dịch ---
+  | 'KOLHUB-4823'
+  | 'KOLHUB-4824'
+  | 'KOLHUB-4825'
+  | 'KOLHUB-4826';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;

@@ -26,7 +26,7 @@ export function BusinessDocsPanel() {
       <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-x-hidden overflow-y-auto p-0 sm:max-w-2xl">
         <SheetHeader className="border-b border-border px-4 py-3 pr-12 text-left">
           <SheetTitle>Tài liệu nghiệp vụ</SheetTitle>
-          <SheetDescription>User story Chiến dịch & Sàn chiến dịch theo đợt, đối soát với prototype. Mã lỗi là KOLHUB-xxxx.</SheetDescription>
+          <SheetDescription>User story Chiến dịch, Sàn chiến dịch, EP-01 Hồ sơ & xác thực kênh và EP-02 Tạo, đăng & quản lý chiến dịch theo đợt, đối soát với prototype. Mã lỗi là KOLHUB-xxxx.</SheetDescription>
         </SheetHeader>
         <Suspense
           fallback={

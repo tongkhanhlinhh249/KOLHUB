@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { format } from 'date-fns';
 import {
@@ -11,7 +11,6 @@ import {
   Eye,
   Info,
   Lightbulb,
-  Loader2,
   MonitorPlay,
   RotateCcw,
   ScanSearch,
@@ -24,7 +23,6 @@ import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
-import { Progress } from '../../components/ui/progress';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '../../components/ui/sheet';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -57,7 +55,6 @@ import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatCompactVi, formatFollowers } from '../biz-search/format';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { VERDICT_UI } from './SafetyParts';
-import { ShieldPanel } from './ShieldParts';
 
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Đã có lỗi xảy ra. Vui lòng thử lại.');
 const day = (t: number) => format(t, 'dd/MM/yyyy');
@@ -92,7 +89,6 @@ export function KolSafetyReportPage() {
   const isMcn = account?.type === 'MCN';
   const [params, setParams] = useSearchParams();
   const channelsQ = useLiveQuery(() => kolSafetyReportService.listChannels(accountId), [accountId]);
-  const settingsQ = useLiveQuery(() => kolSafetyReportService.getSettings(accountId), [accountId]);
   const channels = channelsQ.data;
   const selectedId = params.get('kenh');
   const channel = channels?.find((c) => c.id === selectedId) ?? channels?.[0];
@@ -108,19 +104,7 @@ export function KolSafetyReportPage() {
     );
 
   let body: ReactNode;
-  if (settingsQ.data && !settingsQ.data.enabled) {
-    body = (
-      <Alert>
-        <AlertCircle className="size-4" aria-hidden />
-        <AlertDescription className="space-y-2">
-          <p>KOL Safety đang tắt nên tính năng quét nội dung và Khiên An toàn bị ẩn. Bật lại trong mục Ứng dụng để dùng.</p>
-          <Link to={APPS_PATH} className="text-sm font-medium text-primary hover:underline">
-            Mở Ứng dụng
-          </Link>
-        </AlertDescription>
-      </Alert>
-    );
-  } else if (channelsQ.loading && !channels) {
+  if (channelsQ.loading && !channels) {
     body = <PageSkeleton />;
   } else if (channelsQ.error && !channels) {
     body = (
@@ -289,40 +273,9 @@ function ChannelReportView({
   const q = useLiveQuery(() => kolSafetyReportService.getReport(accountId, channel.id), [accountId, channel.id]);
   const report = q.data;
   const summary = useMemo(() => (report ? summarizeReport(report.items) : undefined), [report]);
-  const [scanning, setScanning] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [sharing, setSharing] = useState(false);
   const [category, setCategory] = useState<ContentCategory | 'ALL'>('ALL');
   const listRef = useRef<HTMLElement>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => () => {
-    if (timer.current) clearInterval(timer.current);
-  }, []);
-
-  const rescan = async () => {
-    if (scanning) return;
-    setScanning(true);
-    setProgress(5);
-    timer.current = setInterval(() => setProgress((p) => Math.min(90, p + 7)), 120);
-    try {
-      const r = await kolSafetyReportService.rescan(accountId, channel.id);
-      setProgress(100);
-      const s = summarizeReport(r.items);
-      const newest = r.items[0];
-      toast.success('Đã quét xong', {
-        description: `Thêm "${newest.title}" (${REPORT_VERDICT_LABEL[newest.verdict]}) · điểm kênh ${s.score}/100`,
-      });
-    } catch (e) {
-      toast.error(errText(e));
-    } finally {
-      if (timer.current) clearInterval(timer.current);
-      timer.current = null;
-      setScanning(false);
-      setProgress(0);
-    }
-  };
-
   const toggleShare = async (shared: boolean) => {
     setSharing(true);
     try {
@@ -344,15 +297,13 @@ function ChannelReportView({
     <div className="flex flex-col gap-3 @3xl:flex-row @3xl:items-end @3xl:justify-between">
       <ChannelPicker channels={channels} value={channel.id} onChange={onSelect} />
       <div className="grid grid-cols-2 gap-2 @3xl:flex">
-        <Button
-          type="button"
-          className="h-11 rounded-[8px] md:h-9"
-          onClick={() => void rescan()}
-          disabled={scanning || !report || report.rescansLeft === 0}
-          title={report?.rescansLeft === 0 ? 'Đã hết lượt quét lại miễn phí tháng này — nâng cấp gói Bảo vệ trong mục Ứng dụng' : undefined}
-        >
-          {scanning ? <Loader2 className="animate-spin motion-reduce:animate-none" aria-hidden /> : <ScanSearch aria-hidden />}
-          {scanning ? 'Đang quét…' : report?.rescansLeft !== undefined ? `Quét lại (còn ${report.rescansLeft})` : 'Quét lại'}
+        {/* Scanning happens on KOL Safety itself (EP-01); this page only shows the results. */}
+        <Button type="button" className="h-11 rounded-[8px] md:h-9" asChild>
+          <a href={SAFETY_TOOL_URL} target="_blank" rel="noopener noreferrer">
+            <ScanSearch aria-hidden />
+            Quét trên KOL Safety
+            <span className="sr-only"> (mở tab mới)</span>
+          </a>
         </Button>
         <Button
           type="button"
@@ -397,14 +348,7 @@ function ChannelReportView({
   return (
     <>
       {toolbar}
-      {scanning && (
-        <div className="space-y-1.5 rounded-[8px] border border-primary/30 bg-primary/5 p-3" role="status" aria-live="polite">
-          <p className="text-sm font-medium text-foreground">Đang quét nội dung mới của kênh… {progress}%</p>
-          <Progress value={progress} aria-label="Tiến độ quét" />
-        </div>
-      )}
-      <div className={cn('space-y-4 transition-opacity', scanning && 'opacity-60')} aria-busy={scanning || undefined}>
-        <ShieldPanel accountId={accountId} report={report} />
+      <div className="space-y-4">
         <SummaryRow channel={channel} report={report} summary={summary} sharing={sharing} onShare={(v) => void toggleShare(v)} />
         <div className="grid gap-4 @4xl:grid-cols-2">
           <CategoryCard totals={summary.categoryTotals} onPick={pickCategory} />

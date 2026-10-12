@@ -18,15 +18,15 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import { CampaignCover } from '../shared/CampaignCover';
 import { MessageButton } from '../inbox/MessageButton';
-import { BOOKING_NOTE_MAX, bookingService, CAMPAIGN_STATUS_LABEL, KolhubError, type BookingView } from '../../services';
+import { BOOKING_NOTE_MAX, bookingService, CAMPAIGN_STATUS_LABEL, fixedRewardOf, KolhubError, type BookingView } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { formatFollowers } from '../biz-search/format';
 import { channelName, ChannelLink } from '../channels/ChannelParts';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ApplicationDetailsBlock, CampaignTypeBadge, ConditionsList, RecruitStageStepper, RecruitTimeline, WorkflowNote } from '../shared/RecruitParts';
-import { contractLabel, priceRuleLabel, recruitStage, rewardText } from '../shared/recruitView';
+import { contractLabel, recruitStage, rewardText } from '../shared/recruitView';
 import { ReasonDialog } from '../violations/ReasonDialog';
-import { AssignItemsDialog, CounterDialog, DraftDialog, PostDialog, RateDialog } from './BookingDialogs';
+import { AssignItemsDialog, DraftDialog, PostDialog, RateDialog } from './BookingDialogs';
 import { DraftCard, PostCard } from './ContentParts';
 import {
   BookingStatusBadge,
@@ -56,7 +56,7 @@ import {
   supplierTimeline,
 } from './supplierBooking';
 
-type DialogKey = 'accept' | 'counter' | 'decline' | 'cancel' | 'assign' | 'draft' | 'post' | 'paid' | 'rate' | 'received' | null;
+type DialogKey = 'accept' | 'decline' | 'cancel' | 'assign' | 'draft' | 'post' | 'paid' | 'rate' | 'received' | null;
 
 /**
  * Supplier booking detail (?booking=): campaign summary (no budget), items with KOL/channel, contents with
@@ -118,6 +118,8 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
   const needs = needsSupplier(b);
   const recruit = isRecruitBooking(b);
   const reward = b.reward ?? b.campaign.recruitment?.reward;
+  // Booking riêng: the campaign's fixed group rewards for this booking's channels (snapshot once accepted).
+  const fixed = b.reward ?? (b.campaign.groups.length ? fixedRewardOf(b.campaign, b.items) : undefined);
   const drafts = b.contents.filter((c) => c.kind === 'DRAFT').sort((x, y) => y.submittedAt - x.submittedAt);
   const posts = b.contents.filter((c) => c.kind === 'POST').sort((x, y) => y.submittedAt - x.submittedAt);
   const itemOf = (id?: string) => (id ? b.items.find((i) => i.id === id) : undefined);
@@ -156,16 +158,9 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
       </Button>,
     );
   }
-  if (can('COUNTER')) {
-    secondary.push(
-      <Button key="counter" type="button" variant={b.price <= 0 ? 'default' : 'outline'} className={btn} onClick={() => setDialog('counter')}>
-        {b.price <= 0 ? 'Báo giá' : 'Trả giá'}
-      </Button>,
-    );
-  }
   if (can('ACCEPT')) {
     primary.push(
-      <Button key="accept" type="button" className={btn} disabled={b.price <= 0 || missingChannel} onClick={() => setDialog('accept')}>
+      <Button key="accept" type="button" className={btn} disabled={missingChannel} onClick={() => setDialog('accept')}>
         Chấp nhận
       </Button>,
     );
@@ -210,7 +205,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
   if (can('CANCEL')) {
     danger.push(
       <Button key="cancel" type="button" variant="ghost" className={cn(btn, 'text-destructive hover:text-destructive')} onClick={() => setDialog('cancel')}>
-        {preAccept ? (recruit ? 'Rút ứng tuyển' : b.origin === 'APPLICATION' ? 'Rút đề xuất' : 'Huỷ thương lượng') : 'Huỷ booking'}
+        {preAccept ? (recruit ? 'Rút ứng tuyển' : b.origin === 'APPLICATION' ? 'Rút đề xuất' : 'Rút lời mời') : 'Huỷ booking'}
       </Button>,
     );
   }
@@ -234,7 +229,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
             <BookingStatusBadge booking={b} />
             <OriginBadge origin={b.origin} />
             <CampaignTypeBadge type={b.campaign.type} />
-            {b.campaign.status !== 'OPEN' && b.campaign.status !== 'RUNNING' && (
+            {b.campaign.status !== 'OPEN' && (
               <span className="text-xs text-muted-foreground">Chiến dịch: {CAMPAIGN_STATUS_LABEL[b.campaign.status]}</span>
             )}
             {needs && <NeedsYouMarker />}
@@ -247,8 +242,8 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
                 <span className="text-sm font-semibold text-primary">{rewardText(reward)}</span>
               </Fact>
             ) : (
-              <Fact label="Giá booking">
-                <span className={cn('text-base font-semibold tabular-nums', b.price > 0 ? 'text-primary' : 'text-muted-foreground')}>{priceText(b.price)}</span>
+              <Fact label="Thù lao cố định">
+                <span className="text-base font-semibold text-primary tabular-nums">{fixed ? rewardText(fixed) : priceText(b.price)}</span>
               </Fact>
             )}
             <Fact label="Thời gian chạy">{formatDayRange(b.campaign.startDate, b.campaign.endDate) || '—'}</Fact>
@@ -427,7 +422,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
                 {b.campaign.visibility === 'MARKETPLACE' && (
                   <Fact label="Hạn ứng tuyển">{b.campaign.applyDeadline ? formatDay(b.campaign.applyDeadline) : 'Không giới hạn'}</Fact>
                 )}
-                {!recruit && <Fact label="Thương lượng giá">{priceRuleLabel(b.campaign.negotiation)}</Fact>}
+                {!recruit && <Fact label="Thù lao">Cố định theo nhóm đầu việc</Fact>}
                 <Fact label="Hợp đồng">{contractLabel(b.campaign.contract)}</Fact>
                 <Fact label="Hạng mục nội dung" className="col-span-2">
                   {deliverablesSummary(b.campaign.deliverables) || '—'}
@@ -592,7 +587,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
       <ReasonDialog
         open={dialog === 'cancel'}
         onOpenChange={close}
-        title={preAccept ? (recruit ? 'Rút ứng tuyển' : b.origin === 'APPLICATION' ? 'Rút đề xuất ứng tuyển' : 'Huỷ thương lượng') : 'Huỷ booking'}
+        title={preAccept ? (recruit ? 'Rút ứng tuyển' : b.origin === 'APPLICATION' ? 'Rút đề xuất ứng tuyển' : 'Rút lời mời') : 'Huỷ booking'}
         description={
           preAccept
             ? 'Booking sẽ đóng lại và Nhãn hàng không thể chấp nhận nữa.'
@@ -610,7 +605,6 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
         }}
       />
 
-      <CounterDialog open={dialog === 'counter'} onOpenChange={close} booking={b} />
       <AssignItemsDialog open={dialog === 'assign'} onOpenChange={close} booking={b} accountId={accountId} />
       <DraftDialog open={dialog === 'draft'} onOpenChange={close} booking={b} />
       <PostDialog open={dialog === 'post'} onOpenChange={close} booking={b} />

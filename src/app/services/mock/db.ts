@@ -69,11 +69,14 @@ export interface PendingRegistration {
  * v15: Khánh Vy's rating of the brand on one past booking (seed only) for "Đánh giá › Bạn đánh giá".
  * v16: xác thực kênh qua KOL Safety — `Channel.safety`, status SAFETY_PENDING, dấu 90 ngày (seed gia hạn mỗi
  * 90 ngày), Instagram, vài kênh mẫu chờ KOL Safety / sắp hết hạn.
+ * v17: EP-02 vòng đời chiến dịch — Chờ duyệt / Cần bổ sung / Không được duyệt / Đã đóng tuyển, bỏ "Đang chạy",
+ * nhật ký duyệt, bản sửa chờ duyệt; 1 chiến dịch mẫu Chờ duyệt.
+ * v18: EP-02 thù lao cố định — `Campaign.groups` (số suất + quyền lợi theo nhóm đầu việc), bỏ đàm phán giá.
  */
-export const DB_VERSION = 16;
+export const DB_VERSION = 18;
 
 export interface DemoState {
-  version: 16;
+  version: 18;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];
@@ -119,7 +122,7 @@ export interface DemoState {
   /** KOL Safety app switch and plan per KOL/MCN account (optional, no seed change). */
   kolSafetySettings?: KolSafetySettings[];
   /** Demo Panel: kết quả của lần quét KOL Safety tiếp theo (mặc định AUTO). */
-  safetyDemo?: { nextVerdict: 'AUTO' | 'PASS' | 'FAIL' };
+  safetyDemo?: { nextVerdict: 'AUTO' | 'PASS' | 'FAIL' | 'ERROR' };
 }
 
 export type DemoStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;

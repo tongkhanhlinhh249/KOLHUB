@@ -2,6 +2,7 @@
 // survey / terms / target / regions validation and the apply form checks. No state access here.
 import {
   ANSWER_MAX,
+  GROUP_SLOTS_MAX,
   PRODUCT_NAME_MAX,
   PRODUCT_NOTE_MAX,
   RECRUIT_MILESTONES,
@@ -20,6 +21,7 @@ import {
   type CampaignTarget,
   type CampaignTerm,
   type CampaignType,
+  type DeliverableGroup,
   type Recruitment,
   type RecruitmentTimeline,
   type RecruitMilestone,
@@ -51,9 +53,6 @@ export function isRecruit(c: Pick<Campaign, 'type' | 'recruitment'> | undefined 
 
 /** "Duyệt nháp" is on unless explicitly turned off. */
 export const draftReviewOn = (c: Pick<Campaign, 'draftReview'> | undefined | null) => c?.draftReview !== false;
-
-/** "Đàm phán": price counter-offers between the two sides. Booking riêng only (absent = on); never for Tuyển nhiều KOL. */
-export const negotiationOn = (c: Pick<Campaign, 'negotiation' | 'type'> | undefined | null) => !!c && c.type !== 'OPEN_RECRUITMENT' && c.negotiation !== false;
 
 /** "Hợp đồng": contract file on bookings and the apply terms. Absent = on. */
 export const contractOn = (c: Pick<Campaign, 'contract'> | undefined | null) => c?.contract !== false;
@@ -119,7 +118,23 @@ export function checkRecruitment(r: unknown): Recruitment {
   if (!x || typeof x !== 'object') throw bad('recruitment');
   const slots = x.slots ?? 0;
   if (!intIn(slots, 0, RECRUIT_SLOTS_MAX)) throw bad('slots');
-  const rw = (x.reward ?? { cash: 0 }) as Partial<CampaignReward>;
+  const reward = checkReward(x.reward);
+  const t = (x.timeline ?? {}) as Partial<RecruitmentTimeline>;
+  const timeline = {} as RecruitmentTimeline;
+  for (const m of RECRUIT_MILESTONES) {
+    for (const k of [m.start, m.end]) {
+      const v = t[k] ?? '';
+      if (typeof v !== 'string' || (v !== '' && !isRealDate(v))) throw bad('timeline');
+      timeline[k] = v;
+    }
+  }
+  return { slots, reward, timeline };
+}
+
+/** Cash ≥ 0 (4803 `reward`) and an optional product with a name and a value > 0 (4803 `product`). */
+function checkReward(r: unknown): CampaignReward {
+  const rw = (r ?? { cash: 0 }) as Partial<CampaignReward>;
+  if (typeof rw !== 'object') throw bad('reward');
   const cash = rw.cash ?? 0;
   if (!Number.isSafeInteger(cash) || cash < 0) throw bad('reward');
   const reward: CampaignReward = { cash };
@@ -131,16 +146,21 @@ export function checkRecruitment(r: unknown): Recruitment {
     }
     reward.product = { name, value: rw.product.value, ...(note ? { note } : {}) };
   }
-  const t = (x.timeline ?? {}) as Partial<RecruitmentTimeline>;
-  const timeline = {} as RecruitmentTimeline;
-  for (const m of RECRUIT_MILESTONES) {
-    for (const k of [m.start, m.end]) {
-      const v = t[k] ?? '';
-      if (typeof v !== 'string' || (v !== '' && !isRealDate(v))) throw bad('timeline');
-      timeline[k] = v;
-    }
-  }
-  return { slots, reward, timeline };
+  return reward;
+}
+
+/** "Quyền lợi theo nhóm đầu việc": one entry per platform, slots 0–1000 (0 = not set yet), a reward (4803 `groups`). */
+export function checkGroups(list: unknown): DeliverableGroup[] {
+  if (!Array.isArray(list)) throw bad('groups');
+  const seen = new Set<string>();
+  return list.map((g) => {
+    const x = g as Partial<DeliverableGroup> | null;
+    if (!x || typeof x !== 'object' || typeof x.platform !== 'string' || seen.has(x.platform)) throw bad('groups');
+    seen.add(x.platform);
+    const slots = x.slots ?? 0;
+    if (!intIn(slots, 0, GROUP_SLOTS_MAX)) throw bad('groups');
+    return { platform: x.platform, slots, reward: checkReward(x.reward) };
+  });
 }
 
 function isRealDate(v: string): boolean {
@@ -214,6 +234,65 @@ export function checkTarget(t: unknown): CampaignTarget | undefined {
 // ---------------------------------------------------------------------------
 // Open-recruitment campaign: derived fields and completeness
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Booking riêng: deliverable groups with a fixed reward (EP-02 §4.3, no price negotiation)
+// ---------------------------------------------------------------------------
+
+/** Platforms of the deliverables, in order of first appearance: one group each. */
+export const groupPlatforms = (c: Pick<Campaign, 'deliverables'>) => [...new Set(c.deliverables.map((d) => d.platform))];
+
+export const groupOf = (c: Pick<Campaign, 'groups'> | undefined | null, platform: string) => c?.groups?.find((g) => g.platform === platform);
+
+/** A booking item as far as slots and rewards go. */
+export type SlotItem = { channelId?: string; kolAccountId?: string; platform: string };
+
+/** One slot = one channel in one group: the distinct (channel, or KOL while no channel is assigned) × platform pairs. */
+export function slotKeys(items: SlotItem[]): string[] {
+  return [...new Set(items.map((i) => `${i.channelId ?? i.kolAccountId ?? ''}|${i.platform}`))];
+}
+
+/** Fixed cash of a booking: the group's cash for every channel × group it covers (not × deliverable quantity). */
+export function fixedPriceOf(c: Pick<Campaign, 'groups'>, items: SlotItem[]): number {
+  return slotKeys(items).reduce((sum, k) => sum + (groupOf(c, k.split('|')[1])?.reward.cash ?? 0), 0);
+}
+
+/** The reward of a booking: cash as fixedPriceOf, products of the groups it covers (one per channel × group). */
+export function fixedRewardOf(c: Pick<Campaign, 'groups'>, items: SlotItem[]): CampaignReward {
+  const products = slotKeys(items)
+    .map((k) => groupOf(c, k.split('|')[1])?.reward.product)
+    .filter((p): p is NonNullable<CampaignReward['product']> => !!p);
+  const out: CampaignReward = { cash: fixedPriceOf(c, items) };
+  if (products.length === 1) out.product = products[0];
+  else if (products.length > 1) out.product = { name: products.map((p) => p.name).join(' + '), value: products.reduce((n, p) => n + p.value, 0) };
+  return out;
+}
+
+/** Budget of one group: slots × (cash + product value). */
+export const groupBudget = (g: DeliverableGroup) => g.slots * rewardValue(g.reward);
+
+/**
+ * What an OPEN Booking riêng campaign needs: a group for every deliverable platform with slots ≥ 1 and a reward
+ * (cash > 0 or a product) — 4803 `groups`.
+ */
+export function validateGroupsForOpen(c: Campaign): void {
+  for (const p of groupPlatforms(c)) {
+    const g = groupOf(c, p);
+    if (!g || g.slots < 1 || rewardValue(g.reward) <= 0) throw bad('groups');
+  }
+}
+
+/**
+ * Derived fields (in place). Booking riêng: groups follow the deliverable platforms (others dropped) and
+ * budget = Σ slots × (cash + product value). Open recruitment: see deriveRecruitmentFields.
+ */
+export function deriveCampaignFields(c: Campaign): void {
+  if (isRecruit(c)) return deriveRecruitmentFields(c);
+  if (campaignType(c) !== 'BOOKING' || !c.groups) return;
+  const platforms = groupPlatforms(c);
+  c.groups = platforms.map((p) => groupOf(c, p)).filter((g): g is DeliverableGroup => !!g);
+  c.budget = c.groups.reduce((n, g) => n + groupBudget(g), 0);
+}
 
 /**
  * Fields derived from the recruitment block (in place): MARKETPLACE, start = applyStart, end = reviewEnd,

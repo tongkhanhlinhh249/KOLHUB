@@ -22,7 +22,7 @@ const CAMPAIGN_KEYS: (keyof Campaign)[] = [
   'type',
   'recruitment',
   'draftReview',
-  'negotiation',
+  'groups',
   'contract',
   'regions',
   'target',

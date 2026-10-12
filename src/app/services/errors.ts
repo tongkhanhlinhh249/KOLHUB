@@ -116,7 +116,7 @@ function phase2Message(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4203':
       return 'Ảnh phải là JPG hoặc PNG, tối đa 10 MB.';
     case 'KOLHUB-4210':
-      return `Kênh cần ít nhất ${meta?.required ?? 'N'} nội dung. Đăng thêm rồi xác thực lại.`;
+      return `Kênh cần ít nhất ${meta?.required ?? 'N'} nội dung đủ điều kiện. Hiện tìm thấy ${meta?.have ?? 0}/${meta?.required ?? 'N'}.`;
     case 'KOLHUB-4211':
       return 'Danh sách nội dung đã quá 7 ngày. Bấm xác thực lại để lấy danh sách mới.';
     case 'KOLHUB-4301':
@@ -266,8 +266,8 @@ function campaignFieldLabel(field?: string): string {
       return 'Lịch trình 4 giai đoạn';
     case 'draftReview':
       return 'Duyệt nháp';
-    case 'negotiation':
-      return 'Đàm phán';
+    case 'groups':
+      return 'Quyền lợi theo nhóm đầu việc (số suất, thù lao hoặc sản phẩm)';
     case 'contract':
       return 'Hợp đồng';
     case 'regions':
@@ -325,7 +325,7 @@ function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4809':
       return 'KOL hoặc kênh không hợp lệ: kênh phải đã xác thực, đang hoạt động, thuộc nền tảng của chiến dịch và thuộc quyền quản lý của bạn.';
     case 'KOLHUB-4810':
-      return 'Giá phải là số tiền lớn hơn 0 (VND).';
+      return 'Chưa có quyền lợi cho đầu việc này: nhóm đầu việc cần thù lao lớn hơn 0 hoặc sản phẩm.';
     case 'KOLHUB-4811':
       return 'Link bài đăng không hợp lệ hoặc không thuộc nền tảng đã chốt.';
     case 'KOLHUB-4812':
@@ -340,6 +340,14 @@ function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Vui lòng nhập lý do huỷ.';
     case 'KOLHUB-4817':
       return 'Chiến dịch còn booking đang thực hiện. Hãy hoàn tất hoặc huỷ các booking đó trước.';
+    case 'KOLHUB-4823':
+      return 'Hạn ứng tuyển đã qua. Vui lòng cập nhật trước khi gửi đăng.';
+    case 'KOLHUB-4824':
+      return 'Chiến dịch đã có đơn ứng tuyển: chỉ sửa được ảnh, tên và mô tả giới thiệu. Các điều kiện hợp tác đã bị khoá.';
+    case 'KOLHUB-4825':
+      return 'Vui lòng nhập lý do (tối đa 1.000 ký tự).';
+    case 'KOLHUB-4826':
+      return 'Chiến dịch còn đơn ứng tuyển hoặc hợp tác cần xử lý. Vui lòng xử lý xong trước khi hoàn tất.';
     case 'KOLHUB-4818':
       return meta?.slots !== undefined
         ? `Vượt số suất của chiến dịch: chỉ còn ${String(meta.remaining ?? 0)} trên ${String(meta.slots)} suất.`

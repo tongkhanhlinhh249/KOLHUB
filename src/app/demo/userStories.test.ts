@@ -2,8 +2,8 @@ import { expect, test } from 'vitest';
 import { RELEASE_PLAIN, STORY_STEPS } from './storySteps';
 import { ALL_STORIES, EPICS, RELEASES, STORY_ROLES, storiesFor } from './userStories';
 
-test('các đợt đi đúng thứ tự R0 → R7, mỗi đợt có ít nhất một US', () => {
-  expect(RELEASES.map((r) => r.key)).toEqual(['R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7']);
+test('các đợt đi đúng thứ tự R0 → R8, mỗi đợt có ít nhất một US', () => {
+  expect(RELEASES.map((r) => r.key)).toEqual(['R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8']);
   for (const r of RELEASES) expect(r.stories.length).toBeGreaterThan(0);
 });
 

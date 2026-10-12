@@ -14,6 +14,7 @@ import {
   toggle,
   deliverablePlatforms,
   ADVANCED_FIELDS,
+  bookingBudget,
 } from './campaignForm';
 
 const campaign: Campaign = {
@@ -28,6 +29,7 @@ const campaign: Campaign = {
   platforms: ['tiktok', 'youtube'],
   categories: ['Ẩm thực'],
   deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 3 }],
+  groups: [{ platform: 'tiktok', slots: 10, reward: { cash: 30_000_000 } }],
   contentRules: 'Không so sánh',
   visibility: 'MARKETPLACE',
   applyDeadline: '2026-10-10',
@@ -41,10 +43,13 @@ describe('campaign form', () => {
     const v = formFromCampaign(campaign);
     expect(v.budget).toBe('300.000.000');
     expect(v.deliverables).toEqual([{ type: 'VIDEO', platform: 'tiktok', quantity: '3' }]);
+    expect(v.groups).toEqual([{ platform: 'tiktok', slots: '10', cash: '30.000.000', hasProduct: false, productName: '', productValue: '' }]);
     const input = formToInput(v);
     expect(input).toMatchObject({
       name: 'Ra mắt sữa hạt',
+      // Ngân sách tự tính: 10 suất × 30.000.000 ₫.
       budget: 300_000_000,
+      groups: [{ platform: 'tiktok', slots: 10, reward: { cash: 30_000_000 } }],
       startDate: '2026-10-01',
       deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 3 }],
       visibility: 'MARKETPLACE',
@@ -138,8 +143,8 @@ test('Tuyển nhiều KOL: form ↔ dữ liệu (suất, phần thưởng, lịc
 });
 
 test('Tính năng của chiến dịch: bật/tắt từng thẻ; tắt thì xoá dữ liệu của thẻ đó khi lưu', () => {
-  // Mặc định: Đàm phán, Hợp đồng, Duyệt nháp bật; Sự tuân thủ, Điều kiện, Khảo sát tắt.
-  expect(EMPTY_FORM).toMatchObject({ negotiation: true, contract: true, draftReview: true, payCash: true, useContentRules: false, useConditions: false, useSurvey: false });
+  // Mặc định: Hợp đồng, Duyệt nháp bật; Sự tuân thủ, Điều kiện, Khảo sát tắt.
+  expect(EMPTY_FORM).toMatchObject({ contract: true, draftReview: true, payCash: true, useContentRules: false, useConditions: false, useSurvey: false });
   const on = {
     ...EMPTY_FORM,
     name: 'X',
@@ -151,10 +156,10 @@ test('Tính năng của chiến dịch: bật/tắt từng thẻ; tắt thì xo�
     survey: [{ text: 'Câu 1', required: true }],
     useSurvey: true,
   };
-  expect(formToInput(on)).toMatchObject({ contentRules: 'Gắn #QuangCao', regions: ['Hà Nội'], survey: [{ text: 'Câu 1' }], negotiation: true, contract: true });
+  expect(formToInput(on)).toMatchObject({ contentRules: 'Gắn #QuangCao', regions: ['Hà Nội'], survey: [{ text: 'Câu 1' }], contract: true });
   expect(formToInput(on).terms).toHaveLength(2);
-  const off = formToInput({ ...on, useContentRules: false, useConditions: false, useSurvey: false, contract: false, negotiation: false });
-  expect(off).toMatchObject({ contentRules: '', regions: [], target: null, survey: [], terms: [], contract: false, negotiation: false });
+  const off = formToInput({ ...on, useContentRules: false, useConditions: false, useSurvey: false, contract: false });
+  expect(off).toMatchObject({ contentRules: '', regions: [], target: null, survey: [], terms: [], contract: false });
   // Booking riêng Riêng tư (chỉ mời): điều kiện tham gia và khảo sát không áp dụng → bỏ khi lưu.
   expect(formToInput({ ...on, visibility: 'PRIVATE' })).toMatchObject({ regions: [], target: null, survey: [], contentRules: 'Gắn #QuangCao' });
   // Tuyển nhiều KOL: tắt "Đề nghị trả phí" → tiền mặt 0.
@@ -164,10 +169,10 @@ test('Tính năng của chiến dịch: bật/tắt từng thẻ; tắt thì xo�
 });
 
 test('Tính năng của chiến dịch: đọc trạng thái bật/tắt từ chiến dịch đã lưu', () => {
-  const base = formFromCampaign({ ...campaign, contentRules: '', regions: [], target: undefined, survey: [], negotiation: false, contract: false });
-  expect(base).toMatchObject({ useContentRules: false, useConditions: false, useSurvey: false, negotiation: false, contract: false });
+  const base = formFromCampaign({ ...campaign, contentRules: '', regions: [], target: undefined, survey: [], contract: false });
+  expect(base).toMatchObject({ useContentRules: false, useConditions: false, useSurvey: false, contract: false });
   const full = formFromCampaign({ ...campaign, contentRules: 'Quy định', regions: ['Huế'], survey: [{ id: 'q-1', text: 'Câu', required: false }] });
-  expect(full).toMatchObject({ useContentRules: true, useConditions: true, useSurvey: true, negotiation: true, contract: true });
+  expect(full).toMatchObject({ useContentRules: true, useConditions: true, useSurvey: true, contract: true });
 });
 
 test('Booking riêng: nền tảng lấy theo hạng mục, không có ô chọn nền tảng riêng', () => {
@@ -188,4 +193,18 @@ test('Booking riêng: nền tảng lấy theo hạng mục, không có ô chọn
   expect(formToInput({ ...v, type: 'OPEN_RECRUITMENT' }).platforms).toEqual(['youtube']);
   expect(ADVANCED_FIELDS).toContain('visibility');
   expect(ADVANCED_FIELDS).not.toContain('brief');
+  // Quyền lợi theo nhóm đầu việc: một nhóm mỗi nền tảng của hạng mục; nhóm chưa nhập → 0 suất, 0 ₫ (dịch vụ báo lỗi khi đăng).
+  const groups = [
+    { platform: 'tiktok' as const, slots: '3', cash: '10.000.000', hasProduct: true, productName: 'Quà', productValue: '500.000' },
+    { platform: 'youtube' as const, slots: '9', cash: '99.000.000', hasProduct: false, productName: '', productValue: '' },
+  ];
+  const withGroups = formToInput({ ...v, groups });
+  expect(withGroups.groups).toEqual([
+    { platform: 'tiktok', slots: 3, reward: { cash: 10_000_000, product: { name: 'Quà', value: 500_000 } } },
+    { platform: 'instagram', slots: 0, reward: { cash: 0 } },
+  ]);
+  // Ngân sách = 3 × (10.000.000 + 500.000); nhóm YouTube không còn hạng mục nên không tính.
+  expect(bookingBudget({ ...v, groups })).toBe(31_500_000);
+  expect(withGroups.budget).toBe(31_500_000);
+  expect(formToInput({ ...v, groups, type: 'OPEN_RECRUITMENT' }).groups).toBeNull();
 });

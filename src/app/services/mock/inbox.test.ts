@@ -79,7 +79,7 @@ describe('Tin nhắn: quyền truy cập luồng', () => {
     as(KHANHVY);
     const t = await inbox.getThread(SEED_THREADS.khanhVyInvite);
     expect(t.messages[0]).toMatchObject({ kind: 'SYSTEM', from: 'BRAND', mine: false });
-    expect(t.messages[0].text).toMatch(/^Công ty Demo Sữa gửi lời mời hợp tác với giá 40\.000\.000 ₫/);
+    expect(t.messages[0].text).toMatch(/^Công ty Demo Sữa gửi lời mời hợp tác với giá 50\.000\.000 ₫/);
     expect(t.messages.filter((m) => m.kind === 'USER')).toHaveLength(2);
     // Accepting adds a system message, written as "Bạn" for the actor.
     await bookings.accept(SEED_THREADS.khanhVyInvite);
@@ -187,11 +187,11 @@ describe('Thông báo', () => {
 
   test('thao tác thật của booking service tạo thông báo cho bên kia', async () => {
     as(KHANHVY);
-    await bookings.counter(SEED_THREADS.khanhVyInvite, 45_000_000);
+    await bookings.accept(SEED_THREADS.khanhVyInvite);
     as(BRAND);
     const top = (await inbox.listNotifications())[0];
-    expect(top).toMatchObject({ kind: 'OFFER', read: false });
-    expect(top.body).toContain('45.000.000 ₫');
+    expect(top).toMatchObject({ kind: 'ACCEPTED', read: false });
+    expect(top.body).toContain('chấp nhận');
   });
 
   test('lời mời sắp hết hạn: chỉ trong 48 giờ cuối, khi lời mời còn mở', () => {
@@ -274,7 +274,7 @@ describe('Câu hỏi của tôi', () => {
 });
 
 describe('Chiến dịch đã lưu (tất cả, kể cả đã đóng)', () => {
-  test('listSavedAll trả cả chiến dịch đã hết nhận đề xuất; trang chiến dịch vẫn mở được khi đã lưu', async () => {
+  test('listSavedAll trả cả chiến dịch đã hết nhận đề xuất; trang chiến dịch đã đóng tuyển vẫn mở được', async () => {
     as(SAOVIET);
     const before = await campaigns.listSavedAll();
     expect(before.map((c) => c.id).sort()).toEqual([SEED_CAMPAIGN.agencyTravel, SEED_CAMPAIGN.yogurt].sort());
@@ -287,6 +287,7 @@ describe('Chiến dịch đã lưu (tất cả, kể cả đã đóng)', () => {
     await expect(campaigns.getMarketplaceItem(SEED_CAMPAIGN.yogurt)).resolves.toMatchObject({ id: SEED_CAMPAIGN.yogurt, saved: true });
     await campaigns.unsaveCampaign(SEED_CAMPAIGN.yogurt);
     expect((await campaigns.listSavedAll()).map((c) => c.id)).not.toContain(SEED_CAMPAIGN.yogurt);
-    await expect(campaigns.getMarketplaceItem(SEED_CAMPAIGN.yogurt)).rejects.toMatchObject({ code: 'KOLHUB-4801' });
+    // Đã đóng tuyển: trang công khai vẫn xem được (EP-02 §8), chỉ không ứng tuyển.
+    await expect(campaigns.getMarketplaceItem(SEED_CAMPAIGN.yogurt)).resolves.toMatchObject({ saved: false, recruitmentClosed: true });
   });
 });

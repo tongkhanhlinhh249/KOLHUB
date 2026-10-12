@@ -113,7 +113,9 @@ export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now:
         {c.match && <MatchPill match={c.match} />}
         <PlatformIcons platforms={c.platforms} />
       </div>
-      {c.accepting === false && !recruit && <p className="text-xs text-muted-foreground">Chiến dịch đã ngừng nhận đề xuất</p>}
+      {c.accepting === false && (!recruit || c.recruitmentClosed) && (
+        <p className="text-xs text-muted-foreground">{c.recruitmentClosed ? 'Đã đóng tuyển' : c.paused ? 'Đang cập nhật, tạm ngừng nhận đơn' : 'Chiến dịch đã ngừng nhận đề xuất'}</p>
+      )}
 
       <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
         {recruit ? (

@@ -15,6 +15,7 @@ import { listViewValue, parseListView, TABLE_DEFAULT_QUERY, VIEW_PARAM, type Lis
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ConfirmAction } from './BookingActions';
 import { CampaignTypeDialog } from './CampaignTypeDialog';
+import { ReasonDialog } from '../violations/ReasonDialog';
 import { EmptyBlock, errText, LoadError } from './CampaignParts';
 import { CampaignCardGrid, CampaignTable, groupBookings, type CampaignBulkKind } from './CampaignListViews';
 import {
@@ -64,15 +65,15 @@ function RowsSkeleton() {
 
 const BULK_COPY: Record<CampaignBulkKind, { title: (n: number) => string; text: string; label: string; done: string; verb: string }> = {
   close: {
-    title: (n) => (n > 1 ? `Đóng ${n} chiến dịch?` : 'Đóng chiến dịch?'),
-    text: 'Chiến dịch chuyển sang Hoàn tất. Lời mời và đề xuất chưa chốt sẽ bị huỷ. Chỉ đóng được khi không còn booking đang thực hiện.',
-    label: 'Đóng chiến dịch',
-    done: 'Đã đóng',
-    verb: 'đóng',
+    title: (n) => (n > 1 ? `Đóng tuyển ${n} chiến dịch?` : 'Đóng tuyển?'),
+    text: 'Đóng tuyển sẽ ngừng nhận đơn mới. Các đơn đã gửi và hợp tác đã xác nhận vẫn được giữ.',
+    label: 'Đóng tuyển',
+    done: 'Đã đóng tuyển',
+    verb: 'đóng tuyển',
   },
   cancel: {
     title: (n) => (n > 1 ? `Huỷ ${n} chiến dịch?` : 'Huỷ chiến dịch?'),
-    text: 'Chiến dịch chuyển sang Đã huỷ và không thể mở lại. Lời mời và đề xuất chưa chốt sẽ bị huỷ. Chỉ huỷ được khi không còn booking đang thực hiện.',
+    text: 'Chiến dịch chuyển sang Đã huỷ và không mở lại được. Lời mời, đơn chưa chốt bị huỷ kèm lý do. Còn hợp tác đang thực hiện thì chưa huỷ được.',
     label: 'Huỷ chiến dịch',
     done: 'Đã huỷ',
     verb: 'huỷ',
@@ -82,7 +83,7 @@ const BULK_COPY: Record<CampaignBulkKind, { title: (n: number) => string; text: 
 /**
  * /chien-dich — the brand's campaigns in two views (?xem=bang | the; default: table from `lg`, cards below):
  * "Bảng" (sortable columns, row selection with Đóng / Huỷ, expandable rows) and "Thẻ" (a 3-column card grid).
- * Both share the status step bar (Tất cả · Nháp > Đang mở > Đang chạy > Hoàn tất · Đã huỷ), search, type (with counts),
+ * Both share the status step bar (Tất cả · Nháp > Chờ duyệt > … > Đang tuyển > Đã đóng tuyển > Hoàn tất · Đã huỷ), search, type (with counts),
  * visibility and sort.
  */
 export function CampaignsPage() {
@@ -119,7 +120,7 @@ export function CampaignsPage() {
   const byCampaign = useMemo(() => groupBookings(bookings ?? []), [bookings]);
 
   const selectedRows = table ? rows.filter((r) => selected.has(r.id)) : [];
-  const closable = selectedRows.filter((c) => campaignActions(c.status, c.type).close).map((c) => c.id);
+  const closable = selectedRows.filter((c) => campaignActions(c.status, c.type).closeRecruitment).map((c) => c.id);
   const cancellable = selectedRows.filter((c) => campaignActions(c.status, c.type).cancel).map((c) => c.id);
 
   if (q.error && !q.data) {
@@ -127,10 +128,10 @@ export function CampaignsPage() {
     if (locked) return locked;
   }
 
-  const runBulk = async () => {
+  const runBulk = async (reason?: string) => {
     if (!bulk) return;
     const copy = BULK_COPY[bulk.kind];
-    const results = await Promise.allSettled(bulk.ids.map((id) => (bulk.kind === 'close' ? campaignService.close(id) : campaignService.cancel(id))));
+    const results = await Promise.allSettled(bulk.ids.map((id) => (bulk.kind === 'close' ? campaignService.closeRecruitment(id) : campaignService.cancel(id, reason))));
     const done = bulk.ids.filter((_, i) => results[i].status === 'fulfilled');
     const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
     if (done.length) toast.success(`${copy.done} ${done.length} chiến dịch`);
@@ -226,7 +227,7 @@ export function CampaignsPage() {
           {closable.length > 0 && (
             <Button type="button" variant="outline" size="sm" className="h-11 bg-card md:h-8" onClick={() => setBulk({ kind: 'close', ids: closable })}>
               <Lock aria-hidden />
-              Đóng chiến dịch ({closable.length})
+              Đóng tuyển ({closable.length})
             </Button>
           )}
           {cancellable.length > 0 && (
@@ -279,17 +280,32 @@ export function CampaignsPage() {
         <CampaignCardGrid rows={rows} pending={pending} onAction={(kind, ids) => setBulk({ kind, ids })} />
       )}
 
-      {bulk && (
+      {bulk?.kind === 'close' && (
         <ConfirmAction
           open
           onOpenChange={(o) => !o && setBulk(null)}
-          title={BULK_COPY[bulk.kind].title(bulk.ids.length)}
-          description={BULK_COPY[bulk.kind].text}
-          confirmLabel={BULK_COPY[bulk.kind].label}
-          destructive={bulk.kind === 'cancel'}
-          onConfirm={runBulk}
+          title={BULK_COPY.close.title(bulk.ids.length)}
+          description={BULK_COPY.close.text}
+          confirmLabel={BULK_COPY.close.label}
+          onConfirm={() => runBulk()}
         />
       )}
+      {/* EP-02 §6.5: huỷ phải có lý do (one reason for the whole selection). */}
+      <ReasonDialog
+        open={bulk?.kind === 'cancel'}
+        onOpenChange={(o) => !o && setBulk(null)}
+        title={BULK_COPY.cancel.title(bulk?.ids.length ?? 1)}
+        description={BULK_COPY.cancel.text}
+        label="Lý do huỷ"
+        placeholder="VD: Nhãn hàng dừng chương trình khuyến mãi"
+        confirmLabel={BULK_COPY.cancel.label}
+        maxLength={1000}
+        destructive
+        onConfirm={async (reason) => {
+          await runBulk(reason);
+          setBulk(null);
+        }}
+      />
       <CampaignTypeDialog open={typeDialog} onOpenChange={setTypeDialog} />
     </div>
   );

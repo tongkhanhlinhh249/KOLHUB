@@ -74,7 +74,7 @@ export const CAMPAIGN_DATA: DataGroup[] = [
       {
         key: 'status',
         label: 'Trạng thái',
-        type: "'DRAFT' | 'OPEN' | 'RUNNING' | 'COMPLETED' | 'CANCELLED'",
+        type: "'DRAFT' | 'PENDING_REVIEW' | 'NEEDS_FIX' | 'REJECTED' | 'OPEN' | 'CLOSED' | 'COMPLETED' | 'CANCELLED'",
         required: 'Hệ thống đặt',
         rules: 'Bản nháp → Đang mở (đăng) → Đang chạy (booking đầu tiên được chốt) → Hoàn tất (Nhãn hàng đóng); Đã huỷ từ Nháp/Đang mở/Đang chạy.',
         shown: { form: 'Nhãn trạng thái (khi sửa)', san: null, supplier: '"Chiến dịch: <trạng thái>" khi đã Hoàn tất / Đã huỷ', brand: 'Nhãn trạng thái' },
@@ -113,9 +113,9 @@ export const CAMPAIGN_DATA: DataGroup[] = [
         label: 'Ngân sách / Tổng ngân sách dự kiến',
         type: 'number (VND, nguyên)',
         required: 'Khi đăng: > 0',
-        rules: 'Booking riêng: nhập tay. Tuyển nhiều KOL: = số suất × (tiền mặt + giá trị quà).',
-        shown: { form: 'Ngân sách (VND) / Tổng ngân sách dự kiến', san: 'Ngân sách / Tổng ngân sách dự kiến', supplier: null, brand: 'Ngân sách / Tổng ngân sách dự kiến (N suất)' },
-        note: 'KOL/MCN thấy giá của booking mình ("Giá booking") thay cho ngân sách chiến dịch.',
+        rules: 'Tự tính. Booking riêng: Σ nhóm (số suất × (thù lao + giá trị sản phẩm)). Tuyển nhiều KOL: số suất × (tiền mặt + giá trị quà).',
+        shown: { form: 'Ngân sách dự kiến (tự tính)', san: 'Ngân sách / Tổng ngân sách dự kiến', supplier: null, brand: 'Ngân sách / Tổng ngân sách dự kiến (N suất)' },
+        note: 'KOL/MCN thấy thù lao cố định của booking mình ("Thù lao cố định") thay cho ngân sách chiến dịch.',
       },
       {
         key: 'startDate · endDate',
@@ -162,6 +162,14 @@ export const CAMPAIGN_DATA: DataGroup[] = [
         rules: 'Video / Bài đăng / Livestream; số lượng 1–100; nền tảng của hạng mục phải thuộc nền tảng chiến dịch.',
         shown: { form: 'Hạng mục nội dung', san: 'Yêu cầu nội dung › Hạng mục nội dung', supplier: 'Hạng mục nội dung', brand: 'Hạng mục nội dung' },
       },
+      {
+        key: 'groups',
+        label: 'Quyền lợi theo nhóm đầu việc',
+        type: '{ platform, slots, reward: { cash, product? } }[]',
+        required: 'Booking riêng, khi đăng: mỗi nền tảng của hạng mục có 1 nhóm',
+        rules: 'Số suất 1–1.000 (1 suất = 1 booking của 1 kênh trong nhóm); thù lao VND/booking > 0 hoặc có sản phẩm (tên + giá trị > 0). Không khoảng giá, không báo giá (4803 groups). Giá booking = Σ thù lao theo kênh × nhóm; chốt vượt số suất → 4818.',
+        shown: { form: 'Quyền lợi theo nhóm đầu việc', san: 'Phần thưởng (nền tảng · số suất · thù lao / kênh)', supplier: 'Thù lao cố định', brand: 'Thù lao cố định' },
+      },
     ],
   },
   {
@@ -206,14 +214,6 @@ export const CAMPAIGN_DATA: DataGroup[] = [
     group: 'Tính năng (bật/tắt)',
     description: 'Thẻ trong "Tính năng của chiến dịch"; tắt thẻ thì phần đó không áp dụng.',
     fields: [
-      {
-        key: 'negotiation',
-        label: 'Đàm phán',
-        type: 'boolean (thiếu = bật)',
-        required: 'Chỉ Booking riêng',
-        rules: 'Tắt = giá cố định: không trả giá (trừ lời mời còn giá 0), lời mời bắt buộc có giá (4810).',
-        shown: { form: 'Đàm phán', san: 'Thương lượng giá: Có thương lượng / Giá cố định', supplier: 'Thương lượng giá', brand: 'Tính năng › Đàm phán' },
-      },
       {
         key: 'draftReview',
         label: 'Duyệt nháp',

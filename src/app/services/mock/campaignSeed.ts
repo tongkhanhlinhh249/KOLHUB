@@ -5,14 +5,15 @@
 // in "Chọn lọc" and one in "Đăng bài" (see recruitSeed.ts), and public Q&A.
 // Seed v13: past collaborations of Khánh Vy and Sao Việt Media (see historySeed.ts).
 import type { Platform } from '../bizTypes';
-import type { Booking, BookingEvent, Campaign, CampaignQA, ContentSubmission, SavedCampaign } from '../campaign-types';
+import type { Booking, BookingEvent, Campaign, CampaignQA, ContentSubmission, DeliverableGroup, SavedCampaign } from '../campaign-types';
 import type { Channel, StoredFile } from '../profile-types';
 import { isoDay, postMetrics } from './campaignRules';
 import { VERIFIED_MCN_ACCOUNT_ID, VERIFIED_MCN_ID } from './mcnSeed';
 import { scanVideoFile } from './safety';
 import { IMAGE_POOL } from './socialListening';
 import { SEED_RECRUIT, seedRecruitment } from './recruitSeed';
-import { seedHistory } from './historySeed';
+import { SEED_HISTORY, seedHistory } from './historySeed';
+import { deriveCampaignFields, groupPlatforms } from './recruitment';
 
 export { SEED_RECRUIT, SEED_RECRUIT_BOOKING } from './recruitSeed';
 export { SEED_HISTORY } from './historySeed';
@@ -33,6 +34,8 @@ export const SEED_CAMPAIGN = {
   running: 'cmp-seed-sua-hat',
   marketplace: 'cmp-seed-am-thuc-thu',
   draft: 'cmp-seed-tri-an',
+  /** v17: demo brand, waiting for Admin review. */
+  pendingReview: 'cmp-seed-cho-duyet',
   agencyFashion: 'cmp-seed-thoi-trang',
   agencyEnglish: 'cmp-seed-tieng-anh',
   agencyTravel: 'cmp-seed-du-lich',
@@ -73,6 +76,22 @@ function campaign(base: Omit<Campaign, 'createdAt' | 'updatedAt'> & { createdAt:
   return { ...base, updatedAt: base.updatedAt ?? base.createdAt };
 }
 
+/**
+ * EP-02 v1.1: a Booking riêng campaign has a fixed reward per deliverable group (platform), no price negotiation.
+ * `groups` given → used as is; otherwise 2 slots per platform sharing the budget evenly. The budget is then derived
+ * (Σ slots × reward), like the service does.
+ */
+function withGroups(c: Campaign, groups?: DeliverableGroup[]): Campaign {
+  if (c.type === 'OPEN_RECRUITMENT' || c.deliverables.length === 0) return c;
+  const platforms = groupPlatforms(c);
+  const out: Campaign = {
+    ...c,
+    groups: groups ?? platforms.map((platform) => ({ platform, slots: 2, reward: { cash: Math.round(c.budget / (2 * platforms.length)) } })),
+  };
+  deriveCampaignFields(out);
+  return out;
+}
+
 export function seedCampaigns(
   channels: Channel[],
   now: number,
@@ -103,7 +122,7 @@ export function seedCampaigns(
     contentRules:
       'Gắn nhãn #QuangCao ở đầu video. Không so sánh với sản phẩm của thương hiệu khác. Không khẳng định công dụng chữa bệnh. Hiển thị sản phẩm rõ trong 5 giây đầu.',
     visibility: 'PRIVATE',
-    status: 'RUNNING',
+    status: 'OPEN',
     publishedAt: ago(22),
     createdAt: ago(28),
     updatedAt: ago(0, 20),
@@ -150,6 +169,29 @@ export function seedCampaigns(
     visibility: 'PRIVATE',
     status: 'DRAFT',
     createdAt: ago(1, 3),
+  });
+
+  // v17 (EP-02): a campaign of the demo brand waiting for Admin review ("Duyệt chiến dịch" in the demo panel).
+  const pendingReview = campaign({
+    id: SEED_CAMPAIGN.pendingReview,
+    cover: coverOf('1558722199', 'pendingReview'),
+    brandAccountId: SEED_BRAND_ID,
+    name: 'Ra mắt sữa chua uống vị trái cây',
+    objective: 'Giới thiệu dòng sữa chua uống mới cho học sinh, sinh viên.',
+    brief: 'Quay video uống thử trong giờ ra chơi hoặc sau giờ học, nêu 2 vị yêu thích. Không so sánh với sản phẩm khác.',
+    budget: 40_000_000,
+    startDate: day(10),
+    endDate: day(40),
+    platforms: ['tiktok'],
+    categories: ['Ẩm thực'],
+    deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 1 }],
+    contentRules: 'Gắn nhãn #QuangCao.',
+    visibility: 'MARKETPLACE',
+    applyDeadline: day(8),
+    status: 'PENDING_REVIEW',
+    log: [{ at: ago(0, 2), by: 'BRAND', action: 'SUBMITTED' }],
+    createdAt: ago(1),
+    updatedAt: ago(0, 2),
   });
 
   // --- agency (marketplace only) ---
@@ -364,9 +406,8 @@ export function seedCampaigns(
     note: 'Video YouTube 8–10 phút, lồng ghép 2 công thức bữa sáng.',
     status: 'CONTENT_REVIEW',
     history: [
-      ev(ago(21), 'BRAND', 'INVITED', { price: 45_000_000, note: 'Mời kênh Tuấn Kiệt Vlog làm 1 video YouTube.' }),
-      ev(ago(20), 'SUPPLIER', 'COUNTERED', { price: 50_000_000, note: 'Video dài 8–10 phút, quay 2 buổi nên xin điều chỉnh giá.' }),
-      ev(ago(19), 'BRAND', 'ACCEPTED', { price: 50_000_000 }),
+      ev(ago(21), 'BRAND', 'INVITED', { price: 50_000_000, note: 'Mời kênh Tuấn Kiệt Vlog làm 1 video YouTube.' }),
+      ev(ago(19), 'SUPPLIER', 'ACCEPTED', { price: 50_000_000 }),
       ev(ago(6), 'SUPPLIER', 'DRAFT_SUBMITTED', { note: 'Bữa sáng 10 phút với sữa hạt' }),
       ev(ago(5), 'BRAND', 'CHANGES_REQUESTED', { note: 'Cần gắn nhãn #QuangCao ở đầu video và bỏ câu "tốt hơn mọi loại sữa".' }),
       ev(ago(0, 20), 'SUPPLIER', 'DRAFT_SUBMITTED', { note: 'Bữa sáng 10 phút với sữa hạt (bản sửa)' }),
@@ -432,18 +473,18 @@ export function seedCampaigns(
     supplierAccountId: SAOVIET,
     origin: 'INVITE',
     items: [item('bk-seed-completed-i1', 11, mcnCh(1), 'tiktok')],
-    price: 25_000_000,
+    price: 30_000_000,
     note: '1 video TikTok công thức sinh tố sữa hạt.',
     status: 'COMPLETED',
     history: [
-      ev(ago(22), 'BRAND', 'INVITED', { price: 25_000_000 }),
-      ev(ago(21), 'SUPPLIER', 'ACCEPTED', { price: 25_000_000 }),
+      ev(ago(22), 'BRAND', 'INVITED', { price: 30_000_000 }),
+      ev(ago(21), 'SUPPLIER', 'ACCEPTED', { price: 30_000_000 }),
       ev(ago(17), 'SUPPLIER', 'DRAFT_SUBMITTED', { note: 'Sinh tố chuối sữa hạt 3 phút' }),
       ev(ago(16), 'BRAND', 'CONTENT_APPROVED'),
       ev(ago(14), 'SUPPLIER', 'POST_SUBMITTED', { note: completedUrl }),
       ev(ago(14), 'SYSTEM', 'POST_VERIFIED', { note: completedUrl }),
-      ev(ago(10), 'BRAND', 'PAYMENT_MARKED', { price: 25_000_000 }),
-      ev(ago(9), 'SUPPLIER', 'PAYMENT_CONFIRMED', { price: 25_000_000 }),
+      ev(ago(10), 'BRAND', 'PAYMENT_MARKED', { price: 30_000_000 }),
+      ev(ago(9), 'SUPPLIER', 'PAYMENT_CONFIRMED', { price: 30_000_000 }),
       ev(ago(8), 'BRAND', 'RATED'),
       ev(ago(8), 'SUPPLIER', 'RATED'),
     ],
@@ -489,11 +530,11 @@ export function seedCampaigns(
         quantity: 1,
       },
     ],
-    price: 40_000_000,
+    price: 50_000_000,
     note: 'Mong bạn chia sẻ một buổi sáng cùng gia đình với sữa hạt vị mới.',
     status: 'SENT',
     awaiting: 'SUPPLIER',
-    history: [ev(ago(0, 20), 'BRAND', 'INVITED', { price: 40_000_000, note: 'Mong bạn chia sẻ một buổi sáng cùng gia đình với sữa hạt vị mới.' })],
+    history: [ev(ago(0, 20), 'BRAND', 'INVITED', { price: 50_000_000, note: 'Mong bạn chia sẻ một buổi sáng cùng gia đình với sữa hạt vị mới.' })],
     contents: [],
     payment: {},
     createdAt: ago(0, 20),
@@ -508,18 +549,18 @@ export function seedCampaigns(
     supplierAccountId: SAOVIET,
     origin: 'APPLICATION',
     items: [item('bk-seed-application-i1', 14, mcnCh(5), 'youtube'), item('bk-seed-application-i2', 11, mcnCh(6), 'tiktok', 2)],
-    price: 60_000_000,
+    price: 40_000_000,
     note: 'Đề xuất 1 video YouTube công thức bánh bí đỏ và 2 video TikTok đồ uống nóng mùa thu.',
     status: 'APPLIED',
     awaiting: 'BRAND',
-    history: [ev(ago(2), 'SUPPLIER', 'APPLIED', { price: 60_000_000 })],
+    history: [ev(ago(2), 'SUPPLIER', 'APPLIED', { price: 40_000_000 })],
     contents: [],
     payment: {},
     createdAt: ago(2),
     updatedAt: ago(2),
   };
 
-  const campaigns = [running, marketplace, draft, fashion, english, travel, yogurt, livestream, headphones, challenge];
+  const campaigns = [running, marketplace, draft, pendingReview, fashion, english, travel, yogurt, livestream, headphones, challenge];
   const recruit = seedRecruitment(
     campaigns,
     channels,
@@ -531,8 +572,24 @@ export function seedCampaigns(
   // v13: past collaborations (verified posts, ratings, payments) for "Bài đã đăng" / "Thu nhập".
   const history = seedHistory(channels, now, { brand: SEED_BRAND_ID, khanhVy: SEED_KHANHVY_ID }, coverOf);
 
+  // Fixed rewards matching the seeded bookings (one channel × group each): running = TikTok 30M, YouTube 50M
+  // (Khánh Vy's invite is on her YouTube channel);
+  // marketplace application = YouTube 25M + TikTok 15M; Khánh Vy's home-office post = YouTube 18M.
+  const GROUPS: Record<string, DeliverableGroup[]> = {
+    [running.id]: [
+      { platform: 'tiktok', slots: 4, reward: { cash: 30_000_000 } },
+      { platform: 'youtube', slots: 2, reward: { cash: 50_000_000 } },
+      { platform: 'facebook', slots: 4, reward: { cash: 20_000_000 } },
+    ],
+    [marketplace.id]: [
+      { platform: 'tiktok', slots: 5, reward: { cash: 15_000_000 } },
+      { platform: 'youtube', slots: 3, reward: { cash: 25_000_000 } },
+    ],
+    [SEED_HISTORY.homeOfficeCampaign]: [{ platform: 'youtube', slots: 3, reward: { cash: 18_000_000 } }],
+  };
+
   return {
-    campaigns: [...campaigns, ...recruit.campaigns, ...history.campaigns],
+    campaigns: [...campaigns, ...recruit.campaigns, ...history.campaigns].map((c) => withGroups(c, GROUPS[c.id])),
     bookings: [review, verified, completed, khanhVy, application, ...recruit.bookings, ...history.bookings],
     campaignQuestions: recruit.questions,
     savedCampaigns: [

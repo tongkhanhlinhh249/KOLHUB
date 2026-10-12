@@ -28,6 +28,7 @@ import { currentBizAccount } from './bizSession';
 import {
   applySelection,
   checkNote,
+  checkGroupSlots,
   checkSlots,
   currentSupplier,
   draftsCoverItems,
@@ -46,7 +47,7 @@ import {
   toBookingView,
 } from './campaignRules';
 import { scanVideoFile } from './safety';
-import { checkApplication, isRecruit } from './recruitment';
+import { checkApplication, fixedPriceOf, fixedRewardOf, isRecruit, rewardValue } from './recruitment';
 
 export interface BookingServiceDeps {
   db: Db;
@@ -100,7 +101,6 @@ export function createBookingService(deps: BookingServiceDeps) {
     return toBookingView(after, after.bookings.find((x) => x.id === ctx.booking.id)!, ctx.party, ctx.t);
   }
 
-  const other = (p: BookingParty): BookingParty => (p === 'BRAND' ? 'SUPPLIER' : 'BRAND');
 
   // --- lists ---
 
@@ -136,42 +136,32 @@ export function createBookingService(deps: BookingServiceDeps) {
     return toBookingView(ctx.state, ctx.booking, ctx.party, ctx.t);
   }
 
-  // --- negotiation ---
-
-  /** The awaited party proposes a new total price; status NEGOTIATING, the other party must answer. */
-  async function counter(id: string, price: number, note?: string): Promise<BookingView> {
-    await wait();
-    const ctx = guard(id, 'COUNTER');
-    if (!isPrice(price)) throw new KolhubError('KOLHUB-4810');
-    const n = checkNote(note);
-    return commit(ctx, (b) => {
-      b.price = price;
-      if (n) b.note = n;
-      b.status = 'NEGOTIATING';
-      b.awaiting = other(ctx.party);
-      b.history.push({ at: ctx.t, by: ctx.party, action: 'COUNTERED', price, ...(n ? { note: n } : {}) });
-    });
-  }
+  // --- confirmation (fixed reward per group, EP-02: no counter-offers) ---
 
   /**
-   * The awaited party accepts the current price → ACCEPTED (production can start). Needs a price (4810) and a
-   * channel on every item (4809). The campaign becomes RUNNING.
+   * The awaited party accepts → ACCEPTED (production can start) at the campaign's fixed group rewards (cash and
+   * product, snapshotted on the booking). Needs a channel on every item (4809), a reward (4810) and a free slot in
+   * every group it covers (4818).
    */
   async function accept(id: string): Promise<BookingView> {
     await wait();
     const ctx = guard(id, 'ACCEPT');
-    if (!isPrice(ctx.booking.price)) throw new KolhubError('KOLHUB-4810');
     if (ctx.booking.items.some((i) => !i.channelId)) throw new KolhubError('KOLHUB-4809');
+    const c = ctx.campaign;
+    // Older data without groups keeps its agreed price.
+    const reward = c?.groups?.length ? fixedRewardOf(c, ctx.booking.items) : undefined;
+    if (reward ? rewardValue(reward) <= 0 : !isPrice(ctx.booking.price)) throw new KolhubError('KOLHUB-4810');
+    if (c) checkGroupSlots(ctx.state, c, ctx.booking, ctx.t);
     return commit(ctx, (b, s) => {
+      if (reward) {
+        b.price = reward.cash;
+        if (reward.product) b.reward = reward;
+      }
       b.status = 'ACCEPTED';
       delete b.awaiting;
       b.acceptedAt = ctx.t;
       b.history.push({ at: ctx.t, by: ctx.party, action: 'ACCEPTED', price: b.price });
-      const c = s.campaigns.find((x) => x.id === b.campaignId)!;
-      if (c.status === 'OPEN') {
-        c.status = 'RUNNING';
-        c.updatedAt = ctx.t;
-      }
+      s.campaigns.find((x) => x.id === b.campaignId)!.updatedAt = ctx.t;
     });
   }
 
@@ -225,12 +215,13 @@ export function createBookingService(deps: BookingServiceDeps) {
     const next = resolveItems(ctx.state, me, c, items, ctx.t, newId);
     return commit(ctx, (b) => {
       b.items = next;
+      if (c.groups?.length) b.price = fixedPriceOf(c, next);
       b.history.push({ at: ctx.t, by: 'SUPPLIER', action: 'ITEMS_ASSIGNED' });
     });
   }
 
   /**
-   * Sàn v2: the supplier edits its application (items, total price, note) while it is still APPLIED — the brand
+   * Sàn v2: the supplier edits its application (items, note; the price follows the fixed group rewards) while it is still APPLIED — the brand
    * has not answered yet (EDIT_APPLICATION, 4805 otherwise). Replaces the whole proposal; the reply deadline
    * (createdAt + 7 days / applyDeadline) does not move.
    */
@@ -240,9 +231,7 @@ export function createBookingService(deps: BookingServiceDeps) {
     const me = currentSupplier(ctx.state);
     const c = ctx.state.campaigns.find((x) => x.id === ctx.booking.campaignId)!;
     const items = resolveItems(ctx.state, me, c, proposal?.items ?? [], ctx.t, newId);
-    const recruit = isRecruit(c);
-    if (!recruit && !isPrice(proposal?.price)) throw new KolhubError('KOLHUB-4810');
-    const price = recruit ? 0 : proposal.price!;
+    const price = isRecruit(c) ? 0 : fixedPriceOf(c, items);
     const note = checkNote(proposal.note);
     const application = checkApplication(c, proposal, ctx.t);
     return commit(ctx, (b) => {
@@ -461,7 +450,6 @@ export function createBookingService(deps: BookingServiceDeps) {
     listForBrand,
     listForSupplier,
     get,
-    counter,
     accept,
     decline,
     select,

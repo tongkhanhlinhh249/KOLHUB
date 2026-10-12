@@ -104,8 +104,6 @@ export function regionText(regions: string[] | undefined, max = 2): string {
 }
 
 /** "Workflow" value on cards and details. */
-/** "Thương lượng giá" (Booking riêng): "Có thương lượng" / "Giá cố định" ("Đàm phán" on / off). */
-export const priceRuleLabel = (negotiation: boolean) => (negotiation ? 'Có thương lượng' : 'Giá cố định');
 /** "Hợp đồng": apply terms + contract file on bookings ("Hợp đồng" feature on / off). */
 export const contractLabel = (contract: boolean) => (contract ? 'Có (điều khoản + tệp hợp đồng)' : 'Không dùng hợp đồng');
 export const workflowLabel = (draftReview: boolean) => (draftReview ? 'Duyệt nháp' : 'Đăng trực tiếp');

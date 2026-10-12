@@ -15,7 +15,8 @@ import {
 } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { CampaignTypeBadge, ConditionsList, PhaseBadge, RecruitTimeline, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
-import { contractLabel, priceRuleLabel, RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, workflowLabel } from '../shared/recruitView';
+import { contractLabel, RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, rewardText, workflowLabel } from '../shared/recruitView';
+import { PLATFORM_LABEL } from '../shared/StatusBadges';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
 import { CampaignQASection } from './CampaignQA';
@@ -132,7 +133,7 @@ export function CampaignDetailSections({
         )}
         <Fact label="Khu vực">{regionText(c.regions)}</Fact>
         <Fact label="Workflow">{workflowLabel(c.draftReview)}</Fact>
-        {!recruit && <Fact label="Thương lượng giá">{priceRuleLabel(c.negotiation)}</Fact>}
+        {!recruit && <Fact label="Thù lao">Cố định theo nhóm đầu việc</Fact>}
         <Fact label="Hợp đồng">{contractLabel(c.contract)}</Fact>
       </dl>
 
@@ -148,11 +149,21 @@ export function CampaignDetailSections({
         {recruit ? (
           <RewardBlock reward={c.recruitment!.reward} slots={c.recruitment!.slots} />
         ) : (
-          <p className="text-sm text-foreground">
-            Ngân sách chiến dịch <span className="font-semibold text-primary tabular-nums">{formatVnd(c.budget)}</span>. {c.negotiation
-              ? 'Bạn đề xuất giá cho phần việc của mình khi ứng tuyển, Nhãn hàng có thể thương lượng.'
-              : 'Bạn đề xuất giá cho phần việc của mình khi ứng tuyển. Giá cố định: Nhãn hàng chấp nhận hoặc từ chối, không trả giá.'}
-          </p>
+          <div className="space-y-2">
+            <ul className="divide-y divide-border rounded-[8px] border border-border">
+              {c.groups.map((g) => (
+                <li key={g.platform} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2.5">
+                  <span className="text-sm text-foreground">
+                    {PLATFORM_LABEL[g.platform]} <span className="text-muted-foreground">· {g.slots} suất</span>
+                  </span>
+                  <span className="text-sm font-semibold text-primary tabular-nums">{rewardText(g.reward)} / kênh</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Thù lao cố định cho mỗi kênh trong nhóm, gồm toàn bộ đầu việc của nhóm. Bạn không cần báo giá; Nhãn hàng duyệt hoặc từ chối đơn.
+            </p>
+          </div>
         )}
       </SheetSection>
 
@@ -277,7 +288,13 @@ export function useCampaignActions(
   const recruit = isRecruit(c);
   // Open recruitment takes applications only during "Ứng tuyển".
   const closed = !!countdown?.passed || c.accepting === false;
-  const closedText = recruit ? 'Chiến dịch không còn nhận ứng tuyển (đã qua giai đoạn Ứng tuyển).' : 'Chiến dịch đã hết hạn nhận đề xuất.';
+  const closedText = c.recruitmentClosed
+    ? 'Đã đóng tuyển: chiến dịch không nhận đơn mới.'
+    : c.paused
+      ? 'Chiến dịch đang cập nhật nội dung nên tạm ngừng nhận đơn mới. Vui lòng quay lại sau.'
+      : recruit
+        ? 'Chiến dịch không còn nhận ứng tuyển (đã qua giai đoạn Ứng tuyển).'
+        : 'Chiến dịch đã hết hạn nhận đề xuất.';
   const myBookingId = c.myBooking?.id ?? (applied && applied.campaignId === c.id ? applied.id : undefined);
   // Sàn v2: an application the brand has not answered yet can be edited or withdrawn here.
   const editable = supplier && access.approved && c.myBooking?.origin === 'APPLICATION' && c.myBooking.status === 'APPLIED';

@@ -1,7 +1,7 @@
 // URL-synced state of the "Quản lý kênh" page (KOL/MCN) + pure filter/sort over the owner's channels.
 import { canRenew, channelBadge, normalizeText, normalizeUrl, PLATFORMS, type Channel, type Platform } from '../../services';
 
-export type ChannelStatusFilter = 'safety' | 'pending' | 'needs_fix' | 'verified' | 'expiring' | 'expired';
+export type ChannelStatusFilter = 'safety' | 'pending' | 'needs_fix' | 'verified' | 'expiring' | 'expired' | 'suspended';
 export type ChannelActiveFilter = 'on' | 'off';
 export type ChannelSort = 'updated' | 'followers' | 'expiry';
 export const CHANNEL_STATUS_OPTIONS: { key: ChannelStatusFilter; label: string }[] = [
@@ -11,6 +11,7 @@ export const CHANNEL_STATUS_OPTIONS: { key: ChannelStatusFilter; label: string }
   { key: 'verified', label: 'Đã xác thực' },
   { key: 'expiring', label: 'Sắp hết hạn' },
   { key: 'expired', label: 'Hết hạn dấu' },
+  { key: 'suspended', label: 'Tạm ngừng' },
 ];
 
 export const CHANNEL_ACTIVE_OPTIONS: { key: ChannelActiveFilter; label: string }[] = [
@@ -120,6 +121,8 @@ export function channelStatusOf(ch: Channel, now: number): ChannelStatusFilter {
       return 'pending';
     case 'NEEDS_FIX':
       return 'needs_fix';
+    case 'SUSPENDED':
+      return 'suspended';
     default:
       if (channelBadge(ch, now) !== 'VERIFIED') return 'expired';
       return canRenew(ch, now) ? 'expiring' : 'verified';
@@ -128,7 +131,7 @@ export function channelStatusOf(ch: Channel, now: number): ChannelStatusFilter {
 
 /** Channel counts per status option (the "Tất cả" count is `channels.length`). */
 export function countByStatus(channels: Channel[], now: number): Record<ChannelStatusFilter, number> {
-  const counts: Record<ChannelStatusFilter, number> = { safety: 0, pending: 0, needs_fix: 0, verified: 0, expiring: 0, expired: 0 };
+  const counts: Record<ChannelStatusFilter, number> = { safety: 0, pending: 0, needs_fix: 0, verified: 0, expiring: 0, expired: 0, suspended: 0 };
   for (const c of channels) counts[channelStatusOf(c, now)] += 1;
   return counts;
 }

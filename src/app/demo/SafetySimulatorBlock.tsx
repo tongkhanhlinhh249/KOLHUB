@@ -17,11 +17,12 @@ import { PLATFORM_LABEL } from '../features/shared/StatusBadges';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
 import { DemoPanelSection } from './DemoPanelSection';
 
-type Verdict = 'AUTO' | 'PASS' | 'FAIL';
+type Verdict = 'AUTO' | 'PASS' | 'FAIL' | 'ERROR';
 const VERDICTS: { key: Verdict; label: string }[] = [
   { key: 'AUTO', label: 'Tự động (vài nội dung không đạt lần đầu)' },
   { key: 'PASS', label: 'Đạt' },
   { key: 'FAIL', label: 'Không đạt' },
+  { key: 'ERROR', label: 'Chưa kiểm tra được (lỗi / không truy cập được)' },
 ];
 
 function stateText(c: Channel, now: number): string {
@@ -31,6 +32,7 @@ function stateText(c: Channel, now: number): string {
   }
   if (c.status === 'PENDING_REVIEW') return 'Chờ Admin duyệt';
   if (c.status === 'NEEDS_FIX') return 'Cần bổ sung';
+  if (c.status === 'SUSPENDED') return 'Tạm ngừng';
   const left = daysLeft(c, now);
   return left === undefined ? 'Hết hạn dấu' : `Đã xác thực · còn ${left} ngày`;
 }
@@ -56,13 +58,22 @@ export function SafetySimulatorBlock() {
     channels.find((c) => c.status === 'SAFETY_PENDING' || canRenew(c, now)) ??
     channels[0];
 
+  const hasFailed = !!selected?.safety && !selected.safety.passedAt && selected.safety.items.some((i) => i.verdict === 'FAIL');
+
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
       await fn();
       toast.success(ok);
     } catch (e) {
-      toast.error(e instanceof Error && e.message === 'NOT_VERIFIABLE' ? 'Kênh này chưa cần xác thực / gia hạn.' : 'Không thực hiện được.');
+      const msg: Record<string, string> = {
+        NOT_VERIFIABLE: 'Kênh này chưa cần xác thực / gia hạn.',
+        NOT_STARTED: 'Kênh chưa chốt danh sách: bấm "Xác thực" trên kênh trước.',
+        NOTHING_TO_REMOVE: 'Không có nội dung "Không đạt" để gỡ.',
+        NOTHING_TO_EDIT: 'Không có nội dung "Không đạt" để sửa.',
+        NOT_VERIFIED: 'Chỉ tạm ngừng được kênh đang có dấu còn hạn.',
+      };
+      toast.error((e instanceof Error && msg[e.message]) || 'Không thực hiện được.');
     } finally {
       setBusy(false);
     }
@@ -134,6 +145,54 @@ export function SafetySimulatorBlock() {
               >
                 Quét đủ ngay
               </Button>
+              {hasFailed && (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 md:h-8"
+                    disabled={busy}
+                    onClick={() => run(() => safetyVerificationService.demoRemoveFailed(selected.id), 'Chủ kênh đã gỡ bài không đạt — danh sách cập nhật')}
+                  >
+                    Gỡ bài không đạt
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-11 md:h-8"
+                    disabled={busy}
+                    onClick={() => run(() => safetyVerificationService.demoEditFailed(selected.id), 'Chủ kênh đã sửa bài — cần quét lại')}
+                  >
+                    Sửa bài không đạt
+                  </Button>
+                </>
+              )}
+              {selected.status === 'VERIFIED' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 md:h-8"
+                  disabled={busy}
+                  onClick={() => run(() => safetyVerificationService.suspend(selected.id, 'Vi phạm đã xác nhận (demo)'), 'Dấu đã tạm ngừng')}
+                >
+                  Tạm ngừng (vi phạm)
+                </Button>
+              )}
+              {selected.status === 'SUSPENDED' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-11 md:h-8"
+                  disabled={busy}
+                  onClick={() => run(() => safetyVerificationService.restore(selected.id), 'Đã khôi phục theo quyết định xử lý')}
+                >
+                  Khôi phục
+                </Button>
+              )}
               {selected.status !== 'SAFETY_PENDING' && (
                 <Button
                   type="button"

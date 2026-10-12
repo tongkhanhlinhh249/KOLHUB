@@ -6,6 +6,7 @@ import {
   type CampaignInput,
   type CampaignType,
   type CampaignVisibility,
+  type DeliverableGroup,
   type DeliverableType,
   type KolCategory,
   type Platform,
@@ -22,6 +23,18 @@ export interface DeliverableRow {
   quantity: string;
 }
 
+/** "Quyền lợi theo nhóm đầu việc" of one platform (Booking riêng): raw input texts. */
+export interface GroupRow {
+  platform: Platform;
+  slots: string;
+  /** Formatted VND text per booking, '' = 0. */
+  cash: string;
+  hasProduct: boolean;
+  productName: string;
+  /** Formatted VND text. */
+  productValue: string;
+}
+
 export interface CampaignFormValues {
   name: string;
   objective: string;
@@ -33,6 +46,8 @@ export interface CampaignFormValues {
   platforms: Platform[];
   categories: KolCategory[];
   deliverables: DeliverableRow[];
+  /** Booking riêng: slots + fixed reward per platform of the deliverables (kept for every platform ever entered). */
+  groups: GroupRow[];
   contentRules: string;
   visibility: CampaignVisibility;
   applyDeadline: string;
@@ -62,8 +77,6 @@ export interface CampaignFormValues {
   survey: SurveyRow[];
   terms: TermRow[];
   // --- "Tính năng của chiến dịch" (bật/tắt) ---
-  /** "Đàm phán" (Booking riêng). */
-  negotiation: boolean;
   /** "Hợp đồng": contract file on bookings + apply terms. */
   contract: boolean;
   /** "Đề nghị trả phí" (Tuyển nhiều KOL): cash reward per KOL. */
@@ -123,6 +136,7 @@ export const EMPTY_FORM: CampaignFormValues = {
   platforms: [],
   categories: [],
   deliverables: [],
+  groups: [],
   contentRules: '',
   visibility: 'PRIVATE',
   applyDeadline: '',
@@ -143,7 +157,6 @@ export const EMPTY_FORM: CampaignFormValues = {
   minFollowers: '',
   survey: [],
   terms: DEFAULT_TERMS.map((text) => ({ text })),
-  negotiation: true,
   contract: true,
   payCash: true,
   useContentRules: false,
@@ -165,6 +178,14 @@ export function formFromCampaign(c: Campaign): CampaignFormValues {
     platforms: [...c.platforms],
     categories: [...c.categories],
     deliverables: c.deliverables.map((d) => ({ type: d.type, platform: d.platform, quantity: String(d.quantity) })),
+    groups: (c.groups ?? []).map((g) => ({
+      platform: g.platform,
+      slots: g.slots > 0 ? String(g.slots) : '',
+      cash: numText(g.reward.cash),
+      hasProduct: !!g.reward.product,
+      productName: g.reward.product?.name ?? '',
+      productValue: numText(g.reward.product?.value),
+    })),
     contentRules: c.contentRules,
     visibility: c.visibility,
     applyDeadline: c.applyDeadline ?? '',
@@ -185,7 +206,6 @@ export function formFromCampaign(c: Campaign): CampaignFormValues {
     minFollowers: numText(c.target?.minFollowers),
     survey: (c.survey ?? []).map((q) => ({ ...q })),
     terms: (c.terms ?? []).map((t) => ({ ...t })),
-    negotiation: c.negotiation !== false,
     contract: c.contract !== false,
     payCash: r ? r.reward.cash > 0 : true,
     useContentRules: !!c.contentRules.trim(),
@@ -240,8 +260,9 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
           timeline: { ...v.timeline },
         }
       : null,
+    // Booking riêng: one group per deliverable platform; the service derives the budget from it.
+    groups: recruit ? null : deliverablePlatforms(v.deliverables).map((p) => groupInput(groupRow(v.groups, p))),
     draftReview: v.draftReview,
-    negotiation: v.negotiation,
     contract: v.contract,
     regions: applyForm && v.useConditions ? v.regions : [],
     target: applyForm && v.useConditions && Object.keys(target).length ? target : null,
@@ -253,7 +274,7 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     name: v.name,
     objective: v.objective,
     brief: v.brief,
-    budget: parseVndInput(v.budget) ?? 0,
+    budget: recruit ? recruitBudget(v) : bookingBudget(v),
     startDate: v.startDate,
     endDate: v.endDate,
     // Booking riêng has no separate platform picker: the platforms are those of its deliverables.
@@ -265,6 +286,36 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     applyDeadline: !recruit && v.visibility === 'MARKETPLACE' && v.applyDeadline ? v.applyDeadline : null,
     cover: v.cover,
   } as CampaignInput;
+}
+
+/** The group row of `platform` (an empty one when not entered yet). */
+export function groupRow(groups: GroupRow[], platform: Platform): GroupRow {
+  return groups.find((g) => g.platform === platform) ?? { platform, slots: '', cash: '', hasProduct: false, productName: '', productValue: '' };
+}
+
+function groupInput(g: GroupRow): DeliverableGroup {
+  return {
+    platform: g.platform,
+    slots: intOrUndefined(g.slots) ?? 0,
+    reward: {
+      cash: parseVndInput(g.cash) ?? 0,
+      ...(g.hasProduct ? { product: { name: g.productName, value: parseVndInput(g.productValue) ?? 0 } } : {}),
+    },
+  };
+}
+
+/** Value of one booking of a group row: cash + product value. */
+export function groupRowValue(g: GroupRow): number {
+  return (parseVndInput(g.cash) ?? 0) + (g.hasProduct ? (parseVndInput(g.productValue) ?? 0) : 0);
+}
+
+/** Budget preview of a Booking riêng form: Σ over the deliverable platforms of slots × (cash + product value). */
+export function bookingBudget(v: CampaignFormValues): number {
+  return deliverablePlatforms(v.deliverables).reduce((sum, p) => {
+    const g = groupRow(v.groups, p);
+    const slots = intOrUndefined(g.slots) ?? 0;
+    return sum + (Number.isFinite(slots) ? slots * groupRowValue(g) : 0);
+  }, 0);
 }
 
 /** Budget preview of an open-recruitment form: slots × (cash + product value). */
@@ -285,7 +336,6 @@ export const ADVANCED_FIELDS: readonly string[] = [
   'visibility',
   'applyDeadline',
   'categories',
-  'negotiation',
   'draftReview',
   'contentRules',
   'contract',
@@ -325,7 +375,7 @@ export const FORM_FIELDS = [
   'product',
   'timeline',
   'draftReview',
-  'negotiation',
+  'groups',
   'contract',
   'regions',
   'target',
@@ -336,7 +386,8 @@ export type FormField = (typeof FORM_FIELDS)[number];
 
 const HINT: Partial<Record<FormField, string>> = {
   name: 'Tên chiến dịch từ 1 đến 150 ký tự.',
-  budget: 'Nhập ngân sách lớn hơn 0 để đăng chiến dịch.',
+  budget: 'Ngân sách tự tính từ số suất và quyền lợi của từng nhóm đầu việc.',
+  groups: 'Mỗi nền tảng trong hạng mục cần số suất (1–1.000) và thù lao/booking lớn hơn 0 hoặc tặng sản phẩm (tên và giá trị).',
   dates: 'Cần ngày bắt đầu và ngày kết thúc; ngày kết thúc không trước ngày bắt đầu và chưa qua.',
   platforms: 'Cần ít nhất một hạng mục nội dung (nền tảng lấy theo hạng mục).',
   deliverables: 'Cần ít nhất một hạng mục, số lượng 1–100. Với Tuyển nhiều KOL, nền tảng của hạng mục phải nằm trong các nền tảng đã chọn.',

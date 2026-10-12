@@ -21,7 +21,7 @@ const ICON: Record<CampaignType, ReactNode> = {
 
 /** Two or three points that tell the types apart at a glance. */
 const POINTS: Record<CampaignType, string[]> = {
-  BOOKING: ['Mời KOL hoặc nhận đề xuất trên Sàn', 'Thương lượng giá từng booking', 'Phù hợp chiến dịch ít KOL, brief riêng'],
+  BOOKING: ['Mời KOL hoặc nhận đề xuất trên Sàn', 'Thù lao cố định theo nhóm đầu việc', 'Phù hợp chiến dịch ít KOL, brief riêng'],
   OPEN_RECRUITMENT: ['Phần thưởng cố định cho mỗi KOL', 'Tuyển N suất, lịch 4 giai đoạn', 'KOL/MCN ứng tuyển không cần báo giá'],
 };
 

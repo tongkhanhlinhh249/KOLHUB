@@ -80,6 +80,13 @@ export function ChannelStatusBadge({ channel, now = Date.now() }: { channel: Cha
     case 'NEEDS_FIX':
       main = <ToneBadge tone="warning">Cần bổ sung</ToneBadge>;
       break;
+    case 'SUSPENDED':
+      main = (
+        <span title={channel.suspendReason}>
+          <ToneBadge tone="error">Tạm ngừng</ToneBadge>
+        </span>
+      );
+      break;
     default:
       if (channelBadge(channel, now) === 'VERIFIED') {
         // Validity date lives in the shield tooltip / detail header — only the renewal window shows days left.

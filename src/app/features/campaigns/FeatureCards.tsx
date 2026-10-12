@@ -1,5 +1,5 @@
 import { useId, useState, type ComponentType, type ReactNode } from 'react';
-import { Banknote, ChevronDown, FileCheck2, FileSignature, Gift, Handshake, ListChecks, PenLine, ShieldCheck, UserCheck } from 'lucide-react';
+import { Banknote, ChevronDown, FileCheck2, FileSignature, Gift, ListChecks, PenLine, ShieldCheck, UserCheck } from 'lucide-react';
 import { Switch } from '../../components/ui/switch';
 import { Textarea } from '../../components/ui/textarea';
 import { cn } from '../../components/ui/utils';
@@ -94,7 +94,7 @@ const blank = (s: string) => !s.trim();
 
 /**
  * "Tính năng của chiến dịch": the toggleable parts of a campaign. Turning a card off clears its data on save
- * (see formToInput); "Đàm phán" and "Hợp đồng" are stored flags that the booking rules follow.
+ * (see formToInput); "Hợp đồng" is a stored flag that the booking rules follow.
  */
 export function CampaignFeatures({
   values: v,
@@ -177,7 +177,14 @@ export function CampaignFeatures({
           <RewardCashField values={v} set={set} errors={errors} />
         </FeatureCard>
       ) : (
-        <FeatureCard icon={Banknote} title="Đề nghị trả phí" description="Giá thoả thuận cho từng booking, trong ngân sách ở trên." on lockedText="Luôn bật với Booking riêng." onToggle={() => {}} />
+        <FeatureCard
+          icon={Banknote}
+          title="Đề nghị trả phí"
+          description="Thù lao cố định cho mỗi booking, khai theo từng nhóm đầu việc ở trên."
+          on
+          lockedText="Thiết lập trong “Quyền lợi theo nhóm đầu việc”."
+          onToggle={() => {}}
+        />
       )}
 
       <FeatureCard
@@ -186,7 +193,7 @@ export function CampaignFeatures({
         description="Tặng sản phẩm cho KOL được chọn. KOL nhập địa chỉ nhận hàng khi ứng tuyển."
         on={recruit && v.hasProduct}
         onToggle={(x) => set('hasProduct', x, 'product')}
-        lockedText={recruit ? undefined : 'Chỉ dùng cho chiến dịch Tuyển nhiều KOL.'}
+        lockedText={recruit ? undefined : 'Booking riêng: tặng sản phẩm theo từng nhóm đầu việc ở trên.'}
         needsSetup={blank(v.productName) || blank(v.productValue)}
         error={!!errors.product}
       >
@@ -200,20 +207,6 @@ export function CampaignFeatures({
 
         </>
       )}
-
-      <FeatureCard
-        icon={Handshake}
-        title="Đàm phán"
-        description={
-          recruit || v.negotiation
-            ? 'KOL/MCN và bạn trả giá qua lại cho tới khi chốt.'
-            : 'Giá cố định: KOL/MCN chỉ chấp nhận hoặc từ chối; lời mời phải kèm giá.'
-        }
-        on={!recruit && v.negotiation}
-        onToggle={(x) => set('negotiation', x)}
-        lockedText={recruit ? 'Tuyển nhiều KOL dùng phần thưởng cố định, không trả giá.' : undefined}
-        error={!!errors.negotiation}
-      />
 
       <FeatureCard
         icon={FileCheck2}

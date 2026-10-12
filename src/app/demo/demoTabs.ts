@@ -80,12 +80,8 @@ export function stepLabel(step: DemoStep, ctx: { status: BookingStatus; price: n
   switch (step.key) {
     case 'SUPPLIER_ACCEPT':
       return 'Chấp nhận';
-    case 'SUPPLIER_COUNTER':
-      return ctx.price > 0 ? 'Trả giá' : 'Báo giá';
     case 'BRAND_ACCEPT':
-      return ctx.status === 'APPLIED' ? 'Nhận ứng viên' : 'Chốt giá';
-    case 'BRAND_COUNTER':
-      return 'Trả giá';
+      return 'Nhận ứng viên';
     case 'DECLINE':
       return ctx.recruit && step.actor === 'BRAND' && ctx.status === 'APPLIED' ? 'Loại' : 'Từ chối';
     case 'EXPIRE':
