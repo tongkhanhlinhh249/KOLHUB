@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { deliverableLabel, GROUP_SLOTS_MAX, PRODUCT_NAME_MAX, type Platform } from '../../services';
+import { deliverableLabel, PRODUCT_NAME_MAX, type Platform } from '../../services';
 import { PLATFORM_LABEL, PlatformIcon } from '../shared/StatusBadges';
 import { bookingBudget, deliverablePlatforms, groupRow, groupRowValue, type CampaignFormValues, type GroupRow } from './campaignForm';
 import { formatVnd } from './campaignView';
@@ -12,7 +12,8 @@ import { MoneyInput, fieldId, type Errors, type Setter } from './RecruitFormSect
 /**
  * "Quyền lợi theo nhóm đầu việc" (EP-02 §4.3) of a Booking riêng form: one group per platform of the deliverables,
  * each with its slots and a fixed reward per booking (cash and/or a product). No quotes or price ranges: KOL/MCN
- * accept or decline that reward. The budget is derived (slots × reward value, summed over the groups).
+ * accept or decline that reward. Booking 1 KOL: one KOL/MCN is chosen, so there is no slot count; the budget is the
+ * sum of the group rewards.
  */
 export function GroupRewardsEditor({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
   const platforms = deliverablePlatforms(v.deliverables);
@@ -45,12 +46,12 @@ export function GroupRewardsEditor({ values: v, set, errors }: { values: Campaig
         </p>
       )}
       <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-[8px] bg-muted/60 px-3 py-2.5">
-        <span className="text-sm text-muted-foreground">Ngân sách dự kiến (tự tính)</span>
+        <span className="text-sm text-muted-foreground">Tổng quyền lợi cho KOL được chọn (tự tính)</span>
         <span className="text-base font-semibold text-foreground tabular-nums">{formatVnd(budget)}</span>
       </div>
       <p className="text-xs text-muted-foreground">
-        Một suất là một booking của một kênh trong nhóm. Thù lao tính theo booking, gồm toàn bộ đầu việc của nhóm, không nhân theo số lượng nội dung.
-        KOL/MCN chỉ nhận hoặc từ chối mức này, không trả giá.
+        Bạn chọn 1 KOL/MCN cho chiến dịch. Thù lao gồm toàn bộ đầu việc của nhóm, không nhân theo số lượng nội dung. KOL/MCN chỉ nhận hoặc từ chối
+        mức này, không trả giá.
       </p>
     </div>
   );
@@ -66,22 +67,7 @@ function GroupCard({ row, items, invalid, onChange }: { row: GroupRow; items: st
         <span className="text-sm font-semibold text-foreground">{PLATFORM_LABEL[row.platform]}</span>
         <span className="text-xs text-muted-foreground">· {items.join(', ')}</span>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-slots`} className="text-xs text-muted-foreground">
-            Số suất
-          </Label>
-          <Input
-            id={`${id}-slots`}
-            inputMode="numeric"
-            value={row.slots}
-            maxLength={String(GROUP_SLOTS_MAX).length}
-            onChange={(e) => onChange({ slots: e.target.value.replace(/\D/g, '') })}
-            placeholder="VD: 3"
-            aria-invalid={(invalid && !row.slots) || undefined}
-            className="h-11 tabular-nums md:h-10"
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-3">
         <div className="space-y-1">
           <Label htmlFor={`${id}-cash`} className="text-xs text-muted-foreground">
             Thù lao mỗi booking (VND)

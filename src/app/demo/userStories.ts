@@ -1533,7 +1533,7 @@ export const RELEASES: Release[] = [
         ],
         errors: [{ code: '4016', when: 'Tài khoản Nhãn hàng chưa xác thực email công ty', message: 'Tính năng này chỉ dành cho tài khoản Nhãn hàng/Agency đã xác thực email công ty.' }],
         source: 'EP-02 §3, §13, US-01 · features/campaigns/CampaignTypeDialog.tsx · CampaignFormPage.tsx · services/mock/campaign.ts',
-        confirm: 'Prototype chưa có: xác minh tổ chức bởi Admin (đang dùng xác thực email), phân quyền quản lý / biên soạn, trường "Nhãn hàng được quảng bá" và căn cứ đại diện của Agency. Hai loại chiến dịch của prototype (Booking 1 KOL, Booking nhiều KOL) không có trong EP-02; cả hai dùng thù lao / phần thưởng cố định, không đàm phán giá (R8-4).',
+        confirm: 'Đã có: "Nhãn hàng được quảng bá" (nhãn hàng của tổ chức hoặc Agency quảng bá cho nhãn hàng khác: tên + căn cứ đại diện là tệp PDF/ảnh hoặc ghi chú, chỉ Admin xem; thiếu → 4803 promotedBrand). Sàn hiện tên nhãn hàng và "vận hành bởi <Agency>". Chưa có: xác minh tổ chức bởi Admin (đang dùng xác thực email), phân quyền quản lý / biên soạn.',
       },
       {
         id: 'R8-2',
@@ -1567,7 +1567,7 @@ export const RELEASES: Release[] = [
           'Prototype: ngưỡng follower không chặn ứng tuyển (khớp).',
         ],
         source: 'EP-02 §4.2, §13, US-03 · features/campaigns/FeatureCards.tsx · services/mock/campaignRules.ts',
-        confirm: 'Booking 1 KOL: mỗi nền tảng của hạng mục là một nhóm đầu việc (`Campaign.groups`) có số suất và quyền lợi riêng; 1 suất = 1 booking của 1 kênh trong nhóm. Chưa có mốc bàn giao / mô tả riêng theo nhóm, "Đối tượng tham gia" và "Quyền sử dụng nội dung". Booking nhiều KOL vẫn dùng số suất + phần thưởng ở cấp chiến dịch.',
+        confirm: 'Booking 1 KOL: mỗi nền tảng của hạng mục là một nhóm đầu việc (`Campaign.groups`) có quyền lợi riêng. "Quyền sử dụng nội dung" (thời hạn 1–24 tháng, kênh sử dụng, độc quyền, ghi chú; không mặc định vô hạn) hiện trên Sàn trước khi ứng tuyển. Chưa có mốc bàn giao / mô tả riêng theo nhóm và "Đối tượng tham gia".',
       },
       {
         id: 'R8-4',
@@ -1584,7 +1584,7 @@ export const RELEASES: Release[] = [
           '[EP-02] Không thu địa chỉ cá nhân công khai trong form chiến dịch; giao nhận sản phẩm thuộc luồng triển khai.',
         ],
         source: 'EP-02 §4.3, §13, US-04 · features/supplier-booking/CampaignDetailBody.tsx · ApplyDialog.tsx',
-        confirm: 'Đã theo EP-02: bỏ đàm phán giá. Booking 1 KOL khai thù lao cố định VND/booking (và/hoặc sản phẩm) theo nhóm đầu việc; ngân sách tự tính; lời mời / đơn ứng tuyển lấy giá theo nhóm của kênh (Σ kênh × nhóm), không báo giá, không trả giá; chốt ghi nhận quyền lợi và chặn vượt số suất của nhóm (4818). Còn lệch: Sàn vẫn hiện "Ngân sách chiến dịch" (EP-02: ngân sách là nội bộ — chưa chọn sửa).',
+        confirm: 'Đã theo EP-02: bỏ đàm phán giá; thù lao / sản phẩm cố định theo nhóm đầu việc, ngân sách tự tính, không báo giá. Booking 1 KOL: chỉ chọn 1 KOL/MCN — mỗi nhóm 1 suất, form không có ô số suất; chốt 1 booking (Nhãn hàng duyệt đơn hoặc KOL nhận lời mời) thì các đơn / lời mời khác chuyển "Không được chọn" (Hệ thống) và chiến dịch tự đóng tuyển; chốt người thứ 2 → 4818. Booking nhiều KOL giữ số suất. Còn lệch: Sàn vẫn hiện "Ngân sách chiến dịch".',
       },
       {
         id: 'R8-5',
@@ -1601,7 +1601,7 @@ export const RELEASES: Release[] = [
         ],
         errors: [{ code: '4808', when: 'Ứng tuyển sau hạn', message: 'Chiến dịch đã hết hạn nhận đề xuất.' }],
         source: 'EP-02 §4.4, §13, US-05 · campaignRules.ts (validateForOpen, isAcceptingProposals)',
-        confirm: 'Prototype: hạn ứng tuyển chỉ có ngày (không giờ, không ghi múi giờ) và không bắt buộc với Booking 1 KOL; chưa có hạn nộp nháp theo đầu việc.',
+        confirm: 'Đã có: hạn ứng tuyển gồm ngày và giờ (giờ Việt Nam UTC+7, mặc định 23:59), bắt buộc với chiến dịch trên Sàn; hiện tại ≥ hạn là hết tuyển và tự đóng tuyển. Chưa có hạn nộp nháp theo đầu việc.',
       },
       {
         id: 'R8-6',
@@ -1616,7 +1616,7 @@ export const RELEASES: Release[] = [
           '[EP-02] Form 4 bước: Thông tin chung → Yêu cầu và quyền lợi → Thời gian và hướng dẫn → Xem trước và gửi đăng; lưu nháp ở mọi bước, chỉ kiểm tra đủ khi gửi đăng.',
         ],
         source: 'EP-02 §4, §6.2, §10, US-06',
-        confirm: 'Prototype chưa có xem trước; form là một trang (popup chọn loại + các mục, ảnh chiến dịch bên phải), không chia 4 bước.',
+        confirm: 'Đã có: form 4 bước (Thông tin chung → Yêu cầu và quyền lợi → Thời gian và hướng dẫn → Xem trước và gửi đăng), lưu nháp ở mọi bước, lỗi từ máy chủ mở đúng bước. Bước 4 hiện thẻ Sàn và trang chi tiết như KOL/MCN thấy, danh sách mục còn thiếu kèm nút "Sửa ở bước N"; căn cứ đại diện không hiện.',
       },
       {
         id: 'R8-7',
@@ -1746,7 +1746,7 @@ export const RELEASES: Release[] = [
           '[MVP §13] Nhắc trước hạn ứng tuyển 24 giờ một lần khi đang tuyển; không nhắc bù nếu công bố đã vượt mốc nhắc; không gửi lặp.',
         ],
         source: 'EP-02 §13, US-14',
-        confirm: 'Kết quả duyệt hiện ở trang chiến dịch; chưa có thông báo trong app / email và nhắc trước hạn tuyển.',
+        confirm: 'Đã có: thông báo trong app cho Admin duyệt / yêu cầu bổ sung / không duyệt / quyết định bản sửa (kèm email tới địa chỉ của Nhãn hàng — mô phỏng, ghi "Đã gửi kèm email"), tự đóng tuyển khi hết hạn, nhắc 24 giờ trước hạn một lần (không nhắc bù nếu công bố sau mốc nhắc). Chưa có: ẩn/gỡ bởi Admin.',
       },
       {
         id: 'R8-15',

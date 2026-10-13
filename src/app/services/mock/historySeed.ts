@@ -21,6 +21,11 @@ export const SEED_HISTORY = {
   vyHomeOffice: 'bk-seed-ls-vy-goc',
   saoVietSummer: 'bk-seed-ls-sv-he',
   saoVietShoes: 'bk-seed-ls-sv-giay',
+  // v19 — Booking 1 KOL: Sao Việt's past collaborations have their own campaigns.
+  /** Demo brand, ended: Sao Việt's YouTube vlogs. */
+  summerVlogCampaign: 'cmp-seed-vlog-he',
+  /** Demo brand, ended: Sao Việt's TikTok outfit video. */
+  shoesOutfitCampaign: 'cmp-seed-phoi-do-chay',
 } as const;
 
 export function seedHistory(
@@ -92,6 +97,24 @@ export function seedHistory(
     createdAt: ago(128),
     updatedAt: ago(78),
   };
+  const summerVlog: Campaign = {
+    ...summer,
+    id: SEED_HISTORY.summerVlogCampaign,
+    cover: coverOf('1641851962761', 'summerVlog'),
+    name: 'Vlog mùa hè với sữa hạt ướp lạnh',
+    brief: 'Hai vlog YouTube về một ngày hè cùng sữa hạt ướp lạnh.',
+    platforms: ['youtube'],
+    deliverables: [{ type: 'VIDEO', platform: 'youtube', quantity: 2 }],
+  };
+  const shoesOutfit: Campaign = {
+    ...shoes,
+    id: SEED_HISTORY.shoesOutfitCampaign,
+    cover: coverOf('1698521688714', 'shoesOutfit'),
+    name: 'Phối đồ chạy bộ cùng giày mới',
+    brief: 'Một video TikTok phối đồ chạy bộ năng động với mẫu giày mới.',
+    platforms: ['tiktok'],
+    deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 1 }],
+  };
   const homeOffice: Campaign = {
     ...base,
     id: SEED_HISTORY.homeOfficeCampaign,
@@ -107,7 +130,10 @@ export function seedHistory(
     categories: ['Công nghệ', 'Lifestyle'],
     deliverables: [{ type: 'VIDEO', platform: 'youtube', quantity: 1 }],
     visibility: 'PRIVATE',
-    status: 'OPEN',
+    status: 'CLOSED',
+    // Booking 1 KOL: Khánh Vy was chosen, recruitment closed.
+    recruitmentClosedAt: ago(29),
+    log: [{ at: ago(29), by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }],
     publishedAt: ago(30),
     createdAt: ago(32),
     updatedAt: ago(4),
@@ -218,7 +244,7 @@ export function seedHistory(
     ),
     done(
       SEED_HISTORY.saoVietSummer,
-      summer,
+      summerVlog,
       sv,
       [
         svItem(12, 2, 'youtube', 'https://www.youtube.com/watch?v=seedHeSuaHat1', 'Vlog một ngày hè cùng sữa hạt'),
@@ -231,7 +257,7 @@ export function seedHistory(
     ),
     done(
       SEED_HISTORY.saoVietShoes,
-      shoes,
+      shoesOutfit,
       sv,
       [svItem(13, 4, 'tiktok', 'https://www.tiktok.com/@baochau.phoido/video/7385000000000000031', 'Phối đồ chạy bộ năng động', true)],
       22_000_000,
@@ -269,5 +295,5 @@ export function seedHistory(
   };
   bookings.push(home);
 
-  return { campaigns: [summer, shoes, homeOffice], bookings };
+  return { campaigns: [summer, shoes, summerVlog, shoesOutfit, homeOffice], bookings };
 }

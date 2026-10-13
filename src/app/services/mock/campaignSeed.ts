@@ -31,8 +31,17 @@ const mcnCh = (n: number) => `${VERIFIED_MCN_ID}-ch-${String(n).padStart(2, '0')
 
 /** Fixed ids so the UI and tests can refer to them. */
 export const SEED_CAMPAIGN = {
+  /** Booking 1 KOL, private: Sao Việt chosen (draft under review), recruitment closed. */
   running: 'cmp-seed-sua-hat',
+  /** Booking 1 KOL on the Sàn: several applications, the brand picks one. */
   marketplace: 'cmp-seed-am-thuc-thu',
+  // v19 (Booking 1 KOL: one KOL per campaign)
+  /** Private, OPEN: invites waiting (Khánh Vy). */
+  breakfast: 'cmp-seed-bua-sang',
+  /** Private, closed: Sao Việt's post verified, waiting for payment. */
+  officeMilk: 'cmp-seed-van-phong',
+  /** Private, closed: collaboration completed (brand can mark "Hoàn tất"). */
+  smoothie: 'cmp-seed-sinh-to',
   draft: 'cmp-seed-tri-an',
   /** v17: demo brand, waiting for Admin review. */
   pendingReview: 'cmp-seed-cho-duyet',
@@ -78,7 +87,7 @@ function campaign(base: Omit<Campaign, 'createdAt' | 'updatedAt'> & { createdAt:
 
 /**
  * EP-02 v1.1: a Booking riêng campaign has a fixed reward per deliverable group (platform), no price negotiation.
- * `groups` given → used as is; otherwise 2 slots per platform sharing the budget evenly. The budget is then derived
+ * `groups` given → used as is; otherwise the budget shared evenly across the platform groups. The budget is then derived
  * (Σ slots × reward), like the service does.
  */
 function withGroups(c: Campaign, groups?: DeliverableGroup[]): Campaign {
@@ -86,7 +95,8 @@ function withGroups(c: Campaign, groups?: DeliverableGroup[]): Campaign {
   const platforms = groupPlatforms(c);
   const out: Campaign = {
     ...c,
-    groups: groups ?? platforms.map((platform) => ({ platform, slots: 2, reward: { cash: Math.round(c.budget / (2 * platforms.length)) } })),
+    // Booking 1 KOL: the chosen KOL gets the whole budget, shared evenly across the platform groups.
+    groups: groups ?? platforms.map((platform) => ({ platform, slots: 1, reward: { cash: Math.round(c.budget / platforms.length) } })),
   };
   deriveCampaignFields(out);
   return out;
@@ -122,10 +132,81 @@ export function seedCampaigns(
     contentRules:
       'Gắn nhãn #QuangCao ở đầu video. Không so sánh với sản phẩm của thương hiệu khác. Không khẳng định công dụng chữa bệnh. Hiển thị sản phẩm rõ trong 5 giây đầu.',
     visibility: 'PRIVATE',
-    status: 'OPEN',
+    // Booking 1 KOL: Sao Việt was chosen, so recruitment closed and the campaign is in production.
+    status: 'CLOSED',
+    recruitmentClosedAt: ago(19),
+    log: [{ at: ago(19), by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }],
     publishedAt: ago(22),
     createdAt: ago(28),
     updatedAt: ago(0, 20),
+  });
+
+  // v19 — Booking 1 KOL: one chosen KOL per campaign.
+  const breakfast = campaign({
+    id: SEED_CAMPAIGN.breakfast,
+    cover: coverOf('1641851962761', 'breakfast'),
+    brandAccountId: SEED_BRAND_ID,
+    name: 'Bữa sáng cùng sữa hạt',
+    objective: 'Gợi ý bữa sáng nhanh cho gia đình bận rộn với sữa hạt.',
+    brief: 'Một video YouTube 5–8 phút: chuẩn bị bữa sáng cho cả nhà trong 10 phút, có sữa hạt vị mới. Giọng kể gần gũi, không so sánh với thương hiệu khác.',
+    budget: 0,
+    startDate: day(-2),
+    endDate: day(30),
+    platforms: ['youtube'],
+    categories: ['Ẩm thực', 'Gia đình'],
+    deliverables: [{ type: 'VIDEO', platform: 'youtube', quantity: 1 }],
+    contentRules: 'Gắn nhãn #QuangCao ở đầu video. Hiển thị sản phẩm rõ trong 5 giây đầu.',
+    visibility: 'PRIVATE',
+    status: 'OPEN',
+    publishedAt: ago(1),
+    createdAt: ago(3),
+    updatedAt: ago(0, 20),
+  });
+
+  const officeMilk = campaign({
+    id: SEED_CAMPAIGN.officeMilk,
+    cover: coverOf('1684247969270', 'officeMilk'),
+    brandAccountId: SEED_BRAND_ID,
+    name: 'Sữa hạt cho dân văn phòng',
+    objective: 'Đưa sữa hạt vào thói quen buổi sáng của người đi làm.',
+    brief: '1 video TikTok 45–60 giây: phối đồ đi làm và mang theo hộp sữa hạt.',
+    budget: 0,
+    startDate: day(-24),
+    endDate: day(10),
+    platforms: ['tiktok'],
+    categories: ['Lifestyle'],
+    deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 1 }],
+    contentRules: 'Gắn nhãn #QuangCao. Không khẳng định công dụng chữa bệnh.',
+    visibility: 'PRIVATE',
+    status: 'CLOSED',
+    recruitmentClosedAt: ago(19, 4),
+    log: [{ at: ago(19, 4), by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }],
+    publishedAt: ago(21),
+    createdAt: ago(23),
+    updatedAt: ago(4),
+  });
+
+  const smoothie = campaign({
+    id: SEED_CAMPAIGN.smoothie,
+    cover: coverOf('1618480066690', 'smoothie'),
+    brandAccountId: SEED_BRAND_ID,
+    name: 'Công thức sinh tố sữa hạt',
+    objective: 'Giới thiệu cách dùng sữa hạt trong đồ uống tại nhà.',
+    brief: '1 video TikTok công thức sinh tố 3 phút với sữa hạt vị mới.',
+    budget: 0,
+    startDate: day(-26),
+    endDate: day(-5),
+    platforms: ['tiktok'],
+    categories: ['Ẩm thực'],
+    deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 1 }],
+    contentRules: 'Gắn nhãn #QuangCao ở đầu video.',
+    visibility: 'PRIVATE',
+    status: 'CLOSED',
+    recruitmentClosedAt: ago(21),
+    log: [{ at: ago(21), by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }],
+    publishedAt: ago(23),
+    createdAt: ago(25),
+    updatedAt: ago(9),
   });
 
   const marketplace = campaign({
@@ -433,7 +514,7 @@ export function seedCampaigns(
   const verifiedUrl = 'https://www.tiktok.com/@baochau.phoido/video/7431200000000000001';
   const verified: Booking = {
     id: SEED_BOOKING.verified,
-    campaignId: running.id,
+    campaignId: officeMilk.id,
     brandAccountId: SEED_BRAND_ID,
     supplierType: 'MCN',
     supplierAccountId: SAOVIET,
@@ -467,7 +548,7 @@ export function seedCampaigns(
   const completedUrl = 'https://www.tiktok.com/@minhthu.bepnha/video/7429800000000000002';
   const completed: Booking = {
     id: SEED_BOOKING.completed,
-    campaignId: running.id,
+    campaignId: smoothie.id,
     brandAccountId: SEED_BRAND_ID,
     supplierType: 'MCN',
     supplierAccountId: SAOVIET,
@@ -510,11 +591,11 @@ export function seedCampaigns(
 
   // Khánh Vy has no MCN channel → invited directly (supplierType KOL).
   const vyChannel = channels.find(
-    (c) => c.ownerType === 'KOL' && c.ownerId === SEED_KHANHVY_ID && c.status === 'VERIFIED' && c.active && running.platforms.includes(c.platform),
+    (c) => c.ownerType === 'KOL' && c.ownerId === SEED_KHANHVY_ID && c.status === 'VERIFIED' && c.active && breakfast.platforms.includes(c.platform),
   );
   const khanhVy: Booking = {
     id: SEED_BOOKING.khanhVyInvite,
-    campaignId: running.id,
+    campaignId: breakfast.id,
     brandAccountId: SEED_BRAND_ID,
     supplierType: 'KOL',
     supplierAccountId: SEED_KHANHVY_ID,
@@ -560,7 +641,39 @@ export function seedCampaigns(
     updatedAt: ago(2),
   };
 
-  const campaigns = [running, marketplace, draft, pendingReview, fashion, english, travel, yogurt, livestream, headphones, challenge];
+  // Booking 1 KOL on the Sàn: more applicants for the marketplace campaign, the brand picks one.
+  const ownChannel = (n: number, platforms: Platform[]) =>
+    channels.find((c) => c.ownerType === 'KOL' && c.ownerId === kolAcc(n) && c.status === 'VERIFIED' && c.active && platforms.includes(c.platform));
+  const extraApplications: Booking[] = [
+    { n: 20, at: ago(1, 6), note: 'Mình làm 1 video công thức chè bí đỏ sữa tươi, quay tại bếp nhà.' },
+    { n: 24, at: ago(0, 9), note: 'Đề xuất video đồ uống nóng mùa thu, đăng khung giờ tối.' },
+  ].flatMap(({ n, at, note }, i) => {
+    const ch = ownChannel(n, marketplace.platforms);
+    if (!ch) return [];
+    const id = `bk-seed-application-${i + 2}`;
+    return [
+      {
+        id,
+        campaignId: marketplace.id,
+        brandAccountId: SEED_BRAND_ID,
+        supplierType: 'KOL' as const,
+        supplierAccountId: kolAcc(n),
+        origin: 'APPLICATION' as const,
+        items: [{ id: `${id}-i1`, kolAccountId: kolAcc(n), kolId: kolId(n), channelId: ch.id, platform: ch.platform, deliverableType: 'VIDEO' as const, quantity: 1 }],
+        price: ch.platform === 'youtube' ? 25_000_000 : 15_000_000,
+        note,
+        status: 'APPLIED' as const,
+        awaiting: 'BRAND' as const,
+        history: [ev(at, 'SUPPLIER', 'APPLIED', { price: ch.platform === 'youtube' ? 25_000_000 : 15_000_000, note })],
+        contents: [],
+        payment: {},
+        createdAt: at,
+        updatedAt: at,
+      },
+    ];
+  });
+
+  const campaigns = [running, marketplace, breakfast, officeMilk, smoothie, draft, pendingReview, fashion, english, travel, yogurt, livestream, headphones, challenge];
   const recruit = seedRecruitment(
     campaigns,
     channels,
@@ -577,20 +690,23 @@ export function seedCampaigns(
   // marketplace application = YouTube 25M + TikTok 15M; Khánh Vy's home-office post = YouTube 18M.
   const GROUPS: Record<string, DeliverableGroup[]> = {
     [running.id]: [
-      { platform: 'tiktok', slots: 4, reward: { cash: 30_000_000 } },
-      { platform: 'youtube', slots: 2, reward: { cash: 50_000_000 } },
-      { platform: 'facebook', slots: 4, reward: { cash: 20_000_000 } },
+      { platform: 'tiktok', slots: 1, reward: { cash: 30_000_000 } },
+      { platform: 'youtube', slots: 1, reward: { cash: 50_000_000 } },
+      { platform: 'facebook', slots: 1, reward: { cash: 20_000_000 } },
     ],
     [marketplace.id]: [
-      { platform: 'tiktok', slots: 5, reward: { cash: 15_000_000 } },
-      { platform: 'youtube', slots: 3, reward: { cash: 25_000_000 } },
+      { platform: 'tiktok', slots: 1, reward: { cash: 15_000_000 } },
+      { platform: 'youtube', slots: 1, reward: { cash: 25_000_000 } },
     ],
-    [SEED_HISTORY.homeOfficeCampaign]: [{ platform: 'youtube', slots: 3, reward: { cash: 18_000_000 } }],
+    [breakfast.id]: [{ platform: 'youtube', slots: 1, reward: { cash: 50_000_000 } }],
+    [officeMilk.id]: [{ platform: 'tiktok', slots: 1, reward: { cash: 30_000_000 } }],
+    [smoothie.id]: [{ platform: 'tiktok', slots: 1, reward: { cash: 30_000_000 } }],
+    [SEED_HISTORY.homeOfficeCampaign]: [{ platform: 'youtube', slots: 1, reward: { cash: 18_000_000 } }],
   };
 
   return {
     campaigns: [...campaigns, ...recruit.campaigns, ...history.campaigns].map((c) => withGroups(c, GROUPS[c.id])),
-    bookings: [review, verified, completed, khanhVy, application, ...recruit.bookings, ...history.bookings],
+    bookings: [review, verified, completed, khanhVy, application, ...extraApplications, ...recruit.bookings, ...history.bookings],
     campaignQuestions: recruit.questions,
     savedCampaigns: [
       { accountId: SAOVIET, campaignId: travel.id, savedAt: ago(1) },

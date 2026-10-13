@@ -189,9 +189,12 @@ describe('Thông báo', () => {
     as(KHANHVY);
     await bookings.accept(SEED_THREADS.khanhVyInvite);
     as(BRAND);
-    const top = (await inbox.listNotifications())[0];
-    expect(top).toMatchObject({ kind: 'ACCEPTED', read: false });
-    expect(top.body).toContain('chấp nhận');
+    const list = await inbox.listNotifications();
+    const accepted = list.find((n) => n.kind === 'ACCEPTED')!;
+    expect(accepted).toMatchObject({ read: false });
+    expect(accepted.body).toContain('chấp nhận');
+    // Booking 1 KOL: chọn xong thì chiến dịch tự đóng tuyển.
+    expect(list.find((n) => n.kind === 'CAMPAIGN_CLOSED')?.body).toContain('đã chọn được KOL');
   });
 
   test('lời mời sắp hết hạn: chỉ trong 48 giờ cuối, khi lời mời còn mở', () => {
@@ -289,5 +292,45 @@ describe('Chiến dịch đã lưu (tất cả, kể cả đã đóng)', () => {
     expect((await campaigns.listSavedAll()).map((c) => c.id)).not.toContain(SEED_CAMPAIGN.yogurt);
     // Đã đóng tuyển: trang công khai vẫn xem được (EP-02 §8), chỉ không ứng tuyển.
     await expect(campaigns.getMarketplaceItem(SEED_CAMPAIGN.yogurt)).resolves.toMatchObject({ saved: false, recruitmentClosed: true });
+  });
+});
+
+describe('Thông báo chiến dịch (EP-02 US-14)', () => {
+  test('Admin duyệt / yêu cầu bổ sung → thông báo cho Nhãn hàng, kèm email; người khác không nhận', async () => {
+    as(BRAND);
+    const s = h.db.read();
+    const email = s.accounts.find((a) => a.id === BRAND)!.email;
+    await campaigns.decideReview(SEED_CAMPAIGN.pendingReview, 'NEEDS_FIX', 'Thiếu căn cứ đại diện');
+    let top = (await inbox.listNotifications())[0];
+    expect(top).toMatchObject({ kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch cần bổ sung', email, read: false });
+    expect(top.body).toContain('Thiếu căn cứ đại diện');
+    expect(top.href).toBe(`/chien-dich/${SEED_CAMPAIGN.pendingReview}`);
+    h.clock.t += 60_000;
+    await campaigns.publish(SEED_CAMPAIGN.pendingReview);
+    h.clock.t += 60_000;
+    await campaigns.approveReview(SEED_CAMPAIGN.pendingReview);
+    top = (await inbox.listNotifications())[0];
+    expect(top).toMatchObject({ kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch đã được duyệt', email });
+    as(AGENCY);
+    expect((await inbox.listNotifications()).some((n) => n.kind === 'CAMPAIGN_REVIEW')).toBe(false);
+  });
+
+  test('nhắc 24 giờ trước hạn ứng tuyển một lần; tự đóng tuyển khi hết hạn có thông báo (không kèm email)', async () => {
+    as(BRAND);
+    const c = h.db.read().campaigns.find((x) => x.id === SEED_CAMPAIGN.marketplace)!;
+    const deadline = Date.parse(`${c.applyDeadline}T23:59:00+07:00`);
+    h.clock.t = deadline - 25 * HOUR;
+    expect((await inbox.listNotifications()).some((n) => n.kind === 'DEADLINE_SOON')).toBe(false);
+    h.clock.t = deadline - 2 * HOUR;
+    const soon = (await inbox.listNotifications()).filter((n) => n.kind === 'DEADLINE_SOON');
+    expect(soon).toHaveLength(1);
+    expect(soon[0].at).toBe(deadline - 24 * HOUR);
+    h.clock.t = deadline + HOUR;
+    await campaigns.get(SEED_CAMPAIGN.marketplace); // đọc → hệ thống tự đóng tuyển
+    const list = await inbox.listNotifications();
+    expect(list.some((n) => n.kind === 'DEADLINE_SOON')).toBe(false);
+    const closed = list.find((n) => n.kind === 'CAMPAIGN_CLOSED')!;
+    expect(closed).toMatchObject({ title: 'Chiến dịch đã đóng tuyển' });
+    expect(closed.email).toBeUndefined();
   });
 });

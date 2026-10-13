@@ -290,7 +290,8 @@ export function deriveCampaignFields(c: Campaign): void {
   if (isRecruit(c)) return deriveRecruitmentFields(c);
   if (campaignType(c) !== 'BOOKING' || !c.groups) return;
   const platforms = groupPlatforms(c);
-  c.groups = platforms.map((p) => groupOf(c, p)).filter((g): g is DeliverableGroup => !!g);
+  // Booking 1 KOL: one KOL/MCN is chosen, so each group is one slot.
+  c.groups = platforms.map((p) => groupOf(c, p)).filter((g): g is DeliverableGroup => !!g).map((g) => ({ ...g, slots: 1 }));
   c.budget = c.groups.reduce((n, g) => n + groupBudget(g), 0);
 }
 
@@ -308,6 +309,7 @@ export function deriveRecruitmentFields(c: Campaign): void {
   else delete c.endDate;
   if (t.applyEnd) c.applyDeadline = t.applyEnd;
   else delete c.applyDeadline;
+  delete c.applyDeadlineTime;
   c.budget = slots * rewardValue(reward);
 }
 

@@ -10,6 +10,7 @@ import {
   Clock,
   FileCheck2,
   FilePen,
+  Flag,
   Gift,
   Handshake,
   Mail,
@@ -18,6 +19,7 @@ import {
   PackageCheck,
   RotateCcw,
   Send,
+  ShieldCheck,
   Tag,
   Wallet,
   type LucideIcon,
@@ -55,6 +57,9 @@ const ICON: Record<NotificationKind, { icon: LucideIcon; tone: string }> = {
   QA_ASKED: { icon: MessageCircleQuestion, tone: 'bg-chart-5/20 text-foreground' },
   CANCELLED: { icon: CircleX, tone: 'bg-destructive/10 text-destructive' },
   MESSAGE: { icon: MessageSquare, tone: 'bg-primary/10 text-primary' },
+  CAMPAIGN_REVIEW: { icon: ShieldCheck, tone: 'bg-chart-4/15 text-foreground' },
+  CAMPAIGN_CLOSED: { icon: Flag, tone: 'bg-muted text-muted-foreground' },
+  DEADLINE_SOON: { icon: Clock, tone: 'bg-chart-5/20 text-foreground' },
 };
 
 const chip = (active: boolean) =>
@@ -83,6 +88,12 @@ function NotificationRow({ n, now, onOpen }: { n: AppNotification; now: number; 
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{shortTime(n.at, now)}</span>
         </span>
         <span className="mt-0.5 line-clamp-2 block text-sm break-words text-muted-foreground">{n.body}</span>
+        {n.email && (
+          <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <Mail className="size-3.5 shrink-0" aria-hidden />
+            Đã gửi kèm email tới {n.email}
+          </span>
+        )}
       </span>
       {!n.read && (
         <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-label="Chưa đọc" role="img" />

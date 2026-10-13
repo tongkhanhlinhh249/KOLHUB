@@ -156,6 +156,11 @@ export function useBookingActions() {
               Chốt với <strong className="text-foreground">{p.booking.supplier.name}</strong> theo thù lao cố định của chiến dịch{' '}
               <strong className="text-foreground">{formatPrice(p.booking.price)}</strong> cho {p.booking.items.length} KOL. Sau khi chốt, nhà
               cung cấp bắt đầu sản xuất nội dung.
+              {p.booking.campaign.type !== 'OPEN_RECRUITMENT' && (
+                <span className="mt-2 block">
+                  Booking 1 KOL chỉ chọn một KOL/MCN: các đơn ứng tuyển và lời mời khác sẽ chuyển “Không được chọn” và chiến dịch tự đóng tuyển.
+                </span>
+              )}
             </>
           ) : null
         }

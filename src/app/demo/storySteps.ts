@@ -618,7 +618,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Khai KOL nhận gì: tiền cố định, sản phẩm, hoặc cả hai.',
     steps: [
       { screen: 'Form → "Quyền lợi theo nhóm đầu việc"', checks: ['Thù lao cố định mỗi booking (VND), có thể kèm hoặc chỉ tặng sản phẩm', 'Ngân sách dự kiến tự tính = số suất × quyền lợi', 'Không báo giá, không trả giá'] },
-      { screen: 'Mời KOL / ứng tuyển / chốt', checks: ['Lời mời và đơn ứng tuyển lấy giá theo nhóm của kênh', 'KOL/MCN chỉ nhận hoặc từ chối; Nhãn hàng chỉ duyệt hoặc từ chối', 'Chốt quá số suất của nhóm → báo lỗi'] },
+      { screen: 'Mời KOL / ứng tuyển / chốt', checks: ['Lời mời và đơn ứng tuyển lấy giá theo nhóm của kênh', 'KOL/MCN chỉ nhận hoặc từ chối; Nhãn hàng chỉ duyệt hoặc từ chối', 'Booking 1 KOL: chọn 1 người thì các đơn khác "Không được chọn", chiến dịch tự đóng tuyển'] },
       { screen: 'Prototype hiện tại (chưa theo EP-02)', checks: ['Sàn vẫn hiện "Ngân sách chiến dịch"'] },
     ],
   },

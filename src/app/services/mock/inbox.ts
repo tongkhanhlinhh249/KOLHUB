@@ -24,7 +24,7 @@ import {
 import { KolhubError } from '../types';
 import type { Db, DemoState, StoredAccount } from './db';
 import { delay as fakeDelay } from './delay';
-import { brandRef, effectiveStatus, expiresAtOf, supplierRef } from './campaignRules';
+import { applyDeadlineAt, brandRef, effectiveStatus, expiresAtOf, supplierRef } from './campaignRules';
 
 const HOUR = 3_600_000;
 /** An open invite shows "sắp hết hạn" in its last 48 hours. */
@@ -276,6 +276,74 @@ function eventNotification(
   }
 }
 
+/** Deadline reminder (EP-02 §13): once, 24 hours before the apply deadline of an OPEN campaign. */
+export const DEADLINE_REMINDER = 24 * HOUR;
+
+/**
+ * EP-02 US-14: the campaign owner hears about Admin decisions (also by email: approved / needs fix / rejected,
+ * and decisions on an edit), the automatic close at the deadline, and gets one reminder 24 hours before the
+ * deadline — not when the campaign went public after that moment (no catch-up).
+ */
+function campaignNotifications(state: DemoState, accountId: string, now: number): Draft[] {
+  const acc = state.accounts.find((a) => a.id === accountId);
+  const email = acc?.type === 'BIZ' ? acc.email : undefined;
+  const out: Draft[] = [];
+  for (const c of state.campaigns) {
+    if (c.brandAccountId !== accountId) continue;
+    const href = INBOX_PATHS.brandCampaign(c.id);
+    (c.log ?? []).forEach((e, i) => {
+      const id = `cmp:${c.id}:${i}`;
+      const base = { id, at: e.at, href, campaignName: c.name };
+      const reason = e.note ? ` Lý do: ${e.note}` : '';
+      const mail = email ? { email } : {};
+      switch (e.action) {
+        case 'APPROVED':
+          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch đã được duyệt', body: `"${c.name}" đã lên Sàn và bắt đầu nhận ứng tuyển.` });
+          break;
+        case 'NEEDS_FIX':
+          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch cần bổ sung', body: `"${c.name}" cần chỉnh sửa trước khi đăng.${reason}` });
+          break;
+        case 'REJECTED':
+          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch không được duyệt', body: `"${c.name}" không được đăng.${reason}` });
+          break;
+        case 'REVISION_APPROVED':
+          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Bản sửa đã được duyệt', body: `Nội dung mới của "${c.name}" đã công khai.` });
+          break;
+        case 'REVISION_REJECTED':
+          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Bản sửa không được duyệt', body: `"${c.name}" giữ nội dung cũ.${reason}` });
+          break;
+        case 'CLOSED':
+          if (e.by === 'SYSTEM') {
+            const chosen = e.note === 'Đã chọn KOL cho chiến dịch.';
+            out.push({
+              ...base,
+              kind: 'CAMPAIGN_CLOSED',
+              title: 'Chiến dịch đã đóng tuyển',
+              body: chosen
+                ? `"${c.name}" đã chọn được KOL; các đơn còn lại được báo "Không được chọn".`
+                : `"${c.name}" hết hạn ứng tuyển. Đơn đã nhận vẫn được giữ để bạn xử lý.`,
+            });
+          }
+          break;
+      }
+    });
+    const deadline = applyDeadlineAt(c);
+    const remindAt = deadline !== undefined ? deadline - DEADLINE_REMINDER : undefined;
+    if (c.status === 'OPEN' && c.visibility === 'MARKETPLACE' && remindAt !== undefined && now >= remindAt && now < deadline! && (c.publishedAt ?? Infinity) <= remindAt) {
+      out.push({
+        id: `cmp-deadline:${c.id}:${c.applyDeadline}`,
+        kind: 'DEADLINE_SOON',
+        title: 'Sắp hết hạn ứng tuyển',
+        body: `"${c.name}" còn 24 giờ nhận ứng tuyển. Xem đơn và chọn KOL trước khi chiến dịch tự đóng tuyển.`,
+        at: remindAt,
+        href,
+        campaignName: c.name,
+      });
+    }
+  }
+  return out;
+}
+
 /** Every notification of `accountId` (unread state applied), newest first, at most 100. */
 export function buildNotifications(state: DemoState, accountId: string, now: number): AppNotification[] {
   const drafts: Draft[] = [];
@@ -352,6 +420,8 @@ export function buildNotifications(state: DemoState, accountId: string, now: num
       });
     }
   }
+
+  drafts.push(...campaignNotifications(state, accountId, now));
 
   const rs = state.notificationReads?.find((r) => r.accountId === accountId);
   const readIds = new Set(rs?.readIds ?? []);

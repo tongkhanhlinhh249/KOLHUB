@@ -11,7 +11,15 @@ import {
   DELIVERABLE_TYPES,
   IN_PROGRESS_STATUSES,
   PRE_ACCEPT_STATUSES,
+  DEADLINE_TIME_DEFAULT,
+  PROMOTED_BRAND_MAX,
+  PROOF_NOTE_MAX,
+  USAGE_CHANNELS,
+  USAGE_MONTHS_MAX,
+  USAGE_NOTE_MAX,
   isDeliverableForPlatform,
+  type PromotedBrand,
+  type UsageRights,
   type Booking,
   type BookingActionKey,
   type BookingCampaignSummary,
@@ -53,11 +61,9 @@ import {
   contractOn,
   draftReviewOn,
   endOfLocalDay,
-  groupOf,
   isRecruit,
   phaseOfTimeline,
   recruitPhase,
-  slotKeys,
   validateGroupsForOpen,
   validateRecruitmentForOpen,
 } from './recruitment';
@@ -145,6 +151,60 @@ export function isDeliverableType(v: unknown): v is DeliverableType {
 const isQty = (n: unknown) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= DELIVERABLE_QTY_MAX;
 export const isPrice = (n: unknown) => Number.isSafeInteger(n) && (n as number) > 0;
 
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const VN_OFFSET = 7 * 3_600_000;
+
+/** Exact end of applications (ms): `applyDeadline` at `applyDeadlineTime` (default 23:59), Vietnam time (UTC+7). */
+export function applyDeadlineAt(c: Pick<Campaign, 'applyDeadline' | 'applyDeadlineTime'>): number | undefined {
+  if (!c.applyDeadline) return undefined;
+  const [y, m, d] = c.applyDeadline.split('-').map(Number);
+  const [hh, mm] = (c.applyDeadlineTime ?? DEADLINE_TIME_DEFAULT).split(':').map(Number);
+  return Date.UTC(y, m - 1, d, hh, mm) - VN_OFFSET;
+}
+
+/** Proof of representation (EP-02 §4.1): PDF / JPG / PNG / WebP ≤ MAX_FILE_BYTES. */
+const PROOF_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+function checkPromotedBrand(v: unknown): PromotedBrand | undefined {
+  if (v == null) return undefined;
+  const x = v as Partial<PromotedBrand>;
+  if (typeof x !== 'object' || typeof x.own !== 'boolean') throw bad('promotedBrand');
+  const name = cleanText(x.name).replace(/\s+/g, ' ');
+  const proofNote = cleanText(x.proofNote);
+  if ([...name].length > PROMOTED_BRAND_MAX || [...proofNote].length > PROOF_NOTE_MAX) throw bad('promotedBrand');
+  const out: PromotedBrand = { name, own: x.own };
+  if (x.proof) {
+    const f = x.proof;
+    if (typeof f.name !== 'string' || !PROOF_TYPES.includes(f.type) || typeof f.size !== 'number' || f.size < 0 || f.size > MAX_FILE_BYTES) throw bad('promotedBrand');
+    out.proof = { name: f.name, type: f.type, size: f.size, ...(f.thumbnail ? { thumbnail: f.thumbnail } : {}) };
+  }
+  if (proofNote) out.proofNote = proofNote;
+  return out;
+}
+
+const USAGE_KEYS = new Set<string>(USAGE_CHANNELS.map((u) => u.key));
+
+function checkUsageRights(v: unknown): UsageRights | undefined {
+  if (v == null) return undefined;
+  const x = v as Partial<UsageRights>;
+  const channels = Array.isArray(x.channels) ? [...new Set(x.channels)] : null;
+  const note = cleanText(x.note);
+  if (
+    typeof x !== 'object' ||
+    !Number.isInteger(x.months) ||
+    (x.months as number) < 1 ||
+    (x.months as number) > USAGE_MONTHS_MAX ||
+    !channels ||
+    channels.length === 0 ||
+    !channels.every((c) => USAGE_KEYS.has(c)) ||
+    typeof x.exclusive !== 'boolean' ||
+    [...note].length > USAGE_NOTE_MAX
+  ) {
+    throw bad('usageRights');
+  }
+  return { months: x.months as number, channels, exclusive: x.exclusive, ...(note ? { note } : {}) };
+}
+
 /** "Ảnh chiến dịch" types (JPG / PNG / WebP), each ≤ MAX_FILE_BYTES. */
 export const CAMPAIGN_COVER_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -221,6 +281,13 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
     if (v !== undefined && v !== null && v !== '' && !isIsoDate(v)) throw bad('applyDeadline');
     out.applyDeadline = v || undefined;
   }
+  if ('applyDeadlineTime' in input) {
+    const v = input.applyDeadlineTime;
+    if (v !== undefined && v !== null && v !== '' && !TIME_RE.test(v)) throw bad('applyDeadline');
+    out.applyDeadlineTime = v || undefined;
+  }
+  if ('promotedBrand' in input) out.promotedBrand = checkPromotedBrand(input.promotedBrand);
+  if ('usageRights' in input) out.usageRights = checkUsageRights(input.usageRights);
   if ('cover' in input) {
     out.cover = input.cover == null ? undefined : checkCampaignCover(input.cover);
   }
@@ -250,6 +317,9 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
  */
 export function validateForOpen(c: Campaign, now: number, publishing = false): void {
   if (!c.name) throw bad('name');
+  // EP-02 §4.1: an Agency names the promoted brand and gives proof of representation for Admin review.
+  const pb = c.promotedBrand;
+  if (pb && !pb.own && (!pb.name || (!pb.proof && !pb.proofNote))) throw bad('promotedBrand');
   if (c.type === 'OPEN_RECRUITMENT') {
     validateRecruitmentForOpen(c, now, publishing);
     if (c.platforms.length === 0) throw bad('platforms');
@@ -264,7 +334,9 @@ export function validateForOpen(c: Campaign, now: number, publishing = false): v
   // Fixed reward per deliverable group (EP-02 §4.3); the budget is derived from it.
   validateGroupsForOpen(c);
   if (!isPrice(c.budget)) throw bad('budget');
-  if (c.applyDeadline && (c.applyDeadline > c.endDate || endOfDay(c.applyDeadline) < now)) throw bad('applyDeadline');
+  // EP-02 §4.4: a marketplace campaign needs an apply deadline (date + time, Vietnam time) in the future.
+  if (c.visibility === 'MARKETPLACE' && !c.applyDeadline) throw bad('applyDeadline');
+  if (c.applyDeadline && (c.applyDeadline > c.endDate || applyDeadlineAt(c)! <= now)) throw bad('applyDeadline');
 }
 
 export function checkNote(note: string | undefined, field = 'note'): string {
@@ -551,7 +623,7 @@ export function applyWindowEnded(c: Campaign, now: number): boolean {
     if (!isRecruit(c) || !c.recruitment.timeline.applyEnd) return false;
     return endOfLocalDay(c.recruitment.timeline.applyEnd) < now;
   }
-  if (c.applyDeadline) return endOfDay(c.applyDeadline) < now;
+  if (c.applyDeadline) return applyDeadlineAt(c)! <= now;
   return !!c.endDate && endOfDay(c.endDate) < now;
 }
 
@@ -582,7 +654,7 @@ export function isAcceptingApplications(c: Campaign, now: number): boolean {
   if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN' || isPausedForRevision(c)) return false;
   if (c.type === 'OPEN_RECRUITMENT') return isRecruit(c) && phaseOfTimeline(c.recruitment.timeline, now) === 'APPLY';
   if (!c.endDate || endOfDay(c.endDate) < now) return false;
-  return !c.applyDeadline || endOfDay(c.applyDeadline) >= now;
+  return !c.applyDeadline || applyDeadlineAt(c)! > now;
 }
 
 /**
@@ -628,27 +700,39 @@ export function checkSlots(state: DemoState, c: Campaign, wanted: number, now: n
 }
 
 /**
- * Booking riêng: confirming `b` must fit the free slots of every group it covers — one slot per channel × group
- * among bookings accepted or later (4818 with that group's slots / remaining). Groups without terms are not limited.
+ * Booking 1 KOL: the campaign confirms one booking only (4818 { slots: 1, remaining: 0 } once another booking is
+ * accepted or later, not cancelled).
  */
-export function checkGroupSlots(state: DemoState, c: Campaign, b: Booking, now: number): void {
-  if (!c.groups?.length) return;
-  const taken = new Map<string, Set<string>>();
-  const takenOf = (platform: string) => taken.get(platform) ?? taken.set(platform, new Set()).get(platform)!;
-  for (const x of state.bookings) {
-    if (x.campaignId !== c.id || x.id === b.id) continue;
+export function checkSingleBooking(state: DemoState, c: Campaign, b: Booking, now: number): void {
+  if (campaignType(c) !== 'BOOKING') return;
+  const taken = state.bookings.some((x) => {
+    if (x.campaignId !== c.id || x.id === b.id) return false;
     const st = effectiveStatus(x, c, now);
-    if (!isInProgress(st) && st !== 'COMPLETED') continue;
-    for (const k of slotKeys(x.items)) takenOf(k.split('|')[1]).add(k);
+    return isInProgress(st) || st === 'COMPLETED';
+  });
+  if (taken) throw new KolhubError('KOLHUB-4818', { slots: 1, remaining: 0 });
+}
+
+/**
+ * Booking 1 KOL, once a KOL/MCN is chosen (in place): the other open invites / applications are "Không được chọn"
+ * and recruitment closes (SYSTEM). Applications are not deleted.
+ */
+export function settleSingleBooking(s: DemoState, campaignId: string, chosenId: string, now: number): void {
+  const c = s.campaigns.find((x) => x.id === campaignId);
+  if (!c || campaignType(c) !== 'BOOKING') return;
+  for (const x of s.bookings) {
+    if (x.campaignId !== c.id || x.id === chosenId || !isPreAccept(effectiveStatus(x, c, now))) continue;
+    x.status = 'DECLINED';
+    delete x.awaiting;
+    x.updatedAt = now;
+    x.history.push({ at: now, by: 'SYSTEM', action: 'NOT_SELECTED', note: 'Nhãn hàng đã chọn KOL/MCN khác cho chiến dịch.' });
   }
-  for (const k of slotKeys(b.items)) {
-    const platform = k.split('|')[1];
-    const g = groupOf(c, platform);
-    const used = takenOf(platform);
-    if (!g || used.has(k)) continue;
-    if (used.size >= g.slots) throw new KolhubError('KOLHUB-4818', { slots: g.slots, remaining: Math.max(0, g.slots - used.size) });
-    used.add(k);
+  if (c.status === 'OPEN') {
+    c.status = 'CLOSED';
+    c.recruitmentClosedAt = now;
+    c.log = [...(c.log ?? []), { at: now, by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }];
   }
+  c.updatedAt = now;
 }
 
 /** Picked applicants of an open-recruitment campaign (ACCEPTED or later, not cancelled). */
@@ -686,7 +770,13 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     survey: (c.survey ?? []).map((q) => ({ ...q })),
     terms: (c.terms ?? []).map((t) => ({ ...t })),
   };
-  if (c.applyDeadline) item.applyDeadline = c.applyDeadline;
+  if (c.applyDeadline) {
+    item.applyDeadline = c.applyDeadline;
+    item.applyDeadlineTime = c.applyDeadlineTime ?? DEADLINE_TIME_DEFAULT;
+    item.applyDeadlineAt = applyDeadlineAt(c);
+  }
+  if (c.promotedBrand?.name) item.promotedBrand = { name: c.promotedBrand.name, viaAgency: !c.promotedBrand.own };
+  if (c.usageRights) item.usageRights = structuredClone(c.usageRights);
   if (c.cover) item.cover = { ...c.cover };
   if (c.target) item.target = { ...c.target };
   if (isRecruit(c)) {
@@ -755,7 +845,12 @@ function campaignSummary(state: DemoState, c: Campaign, now: number): BookingCam
   };
   if (c.startDate) out.startDate = c.startDate;
   if (c.endDate) out.endDate = c.endDate;
-  if (c.applyDeadline) out.applyDeadline = c.applyDeadline;
+  if (c.applyDeadline) {
+    out.applyDeadline = c.applyDeadline;
+    out.applyDeadlineTime = c.applyDeadlineTime ?? DEADLINE_TIME_DEFAULT;
+  }
+  if (c.promotedBrand?.name) out.promotedBrand = { name: c.promotedBrand.name, viaAgency: !c.promotedBrand.own };
+  if (c.usageRights) out.usageRights = structuredClone(c.usageRights);
   if (c.cover) out.cover = { ...c.cover };
   if (isRecruit(c)) {
     out.recruitment = structuredClone(c.recruitment);

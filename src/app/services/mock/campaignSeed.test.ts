@@ -10,11 +10,14 @@ describe('seed v9 — chiến dịch & booking', () => {
   const campaign = (id: string) => s.campaigns.find((c) => c.id === id)!;
   const booking = (id: string) => s.bookings.find((b) => b.id === id)!;
 
-  test('Nhãn hàng demo: 1 Đang tuyển riêng tư, 4 Đang tuyển trên Sàn, 1 nháp, 1 chờ duyệt, 1 booking nhiều KOL đã đóng tuyển, 2 hoàn tất + 1 đang chạy (lịch sử); agency: 5 Đang tuyển + 1 đã đóng tuyển', () => {
+  test('Nhãn hàng demo: Booking 1 KOL — 3 đã chọn KOL (đóng tuyển), 1 riêng tư đang mời, 3 trên Sàn đang tuyển, 1 nháp, 1 chờ duyệt; Booking nhiều KOL đã đóng tuyển; lịch sử 4 hoàn tất + 1 đã chọn KOL', () => {
     const mine = s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID);
     expect(mine.map((c) => [c.status, c.visibility])).toEqual([
-      ['OPEN', 'PRIVATE'],
+      ['CLOSED', 'PRIVATE'],
       ['OPEN', 'MARKETPLACE'],
+      ['OPEN', 'PRIVATE'],
+      ['CLOSED', 'PRIVATE'],
+      ['CLOSED', 'PRIVATE'],
       ['DRAFT', 'PRIVATE'],
       ['PENDING_REVIEW', 'MARKETPLACE'],
       ['OPEN', 'MARKETPLACE'],
@@ -22,8 +25,17 @@ describe('seed v9 — chiến dịch & booking', () => {
       ['CLOSED', 'MARKETPLACE'],
       ['COMPLETED', 'PRIVATE'],
       ['COMPLETED', 'PRIVATE'],
-      ['OPEN', 'PRIVATE'],
+      ['COMPLETED', 'PRIVATE'],
+      ['COMPLETED', 'PRIVATE'],
+      ['CLOSED', 'PRIVATE'],
     ]);
+    // Booking 1 KOL: không chiến dịch nào có quá 1 booking đã chốt, mọi nhóm 1 suất.
+    for (const c of mine.filter((x) => x.type !== 'OPEN_RECRUITMENT')) {
+      const confirmed = s.bookings.filter((b) => b.campaignId === c.id && !['SENT', 'APPLIED', 'NEGOTIATING', 'DECLINED', 'CANCELLED', 'EXPIRED'].includes(b.status));
+      expect(confirmed.length, c.id).toBeLessThanOrEqual(1);
+      expect((c.groups ?? []).every((g) => g.slots === 1), c.id).toBe(true);
+    }
+    expect(s.bookings.filter((b) => b.campaignId === SEED_CAMPAIGN.marketplace && b.status === 'APPLIED').length).toBeGreaterThanOrEqual(3);
     const agency = s.campaigns.filter((c) => c.brandAccountId === SEED_AGENCY_ID);
     expect(agency).toHaveLength(6);
     const agencyOpen = agency.filter((c) => c.id !== SEED_CAMPAIGN.recruitPosting);
@@ -48,7 +60,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   });
 
   test('v11 — mọi chiến dịch mẫu có ảnh chiến dịch (ảnh JPG từ kho ảnh mẫu), các chiến dịch trên Sàn không trùng ảnh', () => {
-    expect(s.campaigns).toHaveLength(16);
+    expect(s.campaigns).toHaveLength(21);
     for (const c of s.campaigns) {
       expect(c.cover).toMatchObject({ type: 'image/jpeg' });
       expect(c.cover!.thumbnail).toMatch(/^https:\/\//);

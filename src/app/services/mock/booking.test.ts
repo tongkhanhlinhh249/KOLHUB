@@ -43,10 +43,9 @@ beforeEach(() => {
 describe('xem booking & quyền sở hữu', () => {
   test('Nhãn hàng thấy booking của mình, hồ sơ công khai KOL từng hạng mục, giới hạn quyền thao tác', async () => {
     as(BRAND);
-    const list = await svc.listForBrand({ campaignId: SEED_CAMPAIGN.running });
-    expect(list.map((b) => b.id).sort()).toEqual(
-      [SEED_BOOKING.completed, SEED_BOOKING.khanhVyInvite, SEED_BOOKING.review, SEED_BOOKING.verified].sort(),
-    );
+    // Booking 1 KOL: mỗi chiến dịch một KOL được chọn.
+    expect((await svc.listForBrand({ campaignId: SEED_CAMPAIGN.running })).map((b) => b.id)).toEqual([SEED_BOOKING.review]);
+    expect((await svc.listForBrand({ campaignId: SEED_CAMPAIGN.breakfast })).map((b) => b.id)).toEqual([SEED_BOOKING.khanhVyInvite]);
     const app = await svc.get(SEED_BOOKING.application);
     expect(app).toMatchObject({ viewer: 'BRAND', status: 'APPLIED', supplier: { type: 'MCN', name: 'Sao Việt Media', code: 'MCN-2026-0001' } });
     expect(app.allowedActions).toEqual(expect.arrayContaining(['ACCEPT', 'DECLINE']));
@@ -108,10 +107,26 @@ describe('thương lượng', () => {
     ]);
   });
 
-  test('Nhãn hàng chốt đề xuất ứng tuyển → chiến dịch vẫn Đang tuyển (đến khi đóng tuyển)', async () => {
+  test('Booking 1 KOL: chốt 1 đơn → các đơn khác "Không được chọn", chiến dịch tự Đã đóng tuyển; không chốt được người thứ 2', async () => {
     as(BRAND);
+    const others = (await svc.listForBrand({ campaignId: SEED_CAMPAIGN.marketplace })).filter((b) => b.id !== SEED_BOOKING.application);
+    expect(others.length).toBeGreaterThanOrEqual(2);
     await svc.accept(SEED_BOOKING.application);
-    expect((await campaigns.get(SEED_CAMPAIGN.marketplace)).status).toBe('OPEN');
+    const c = await campaigns.get(SEED_CAMPAIGN.marketplace);
+    expect(c).toMatchObject({ status: 'CLOSED', recruitmentClosedAt: h.now() });
+    expect(c.log?.at(-1)).toMatchObject({ by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' });
+    for (const o of others) {
+      const b = stored(o.id);
+      expect(b.status).toBe('DECLINED');
+      expect(b.history.at(-1)).toMatchObject({ by: 'SYSTEM', action: 'NOT_SELECTED' });
+    }
+    // Dữ liệu cũ hoặc đơn mở lại: hệ thống vẫn chặn chốt người thứ 2 (4818).
+    h.db.update((s) => {
+      const b = s.bookings.find((x) => x.id === others[0].id)!;
+      b.status = 'APPLIED';
+      b.awaiting = 'BRAND';
+    });
+    await expect(svc.accept(others[0].id)).rejects.toMatchObject({ code: 'KOLHUB-4818', meta: { slots: 1, remaining: 0 } });
   });
 
   test('chuyển trạng thái không hợp lệ → 4805', async () => {
@@ -201,7 +216,7 @@ describe('hết hạn (tính khi đọc)', () => {
     await expect(svc.accept(SEED_BOOKING.khanhVyInvite)).rejects.toMatchObject({ code: 'KOLHUB-4805' });
     expect(stored(SEED_BOOKING.khanhVyInvite).status).toBe('SENT');
     as(BRAND);
-    const r = await campaigns.inviteKols(SEED_CAMPAIGN.running, ['KOL-2026-0001']);
+    const r = await campaigns.inviteKols(SEED_CAMPAIGN.breakfast, ['KOL-2026-0001']);
     expect(r.created).toBe(1);
   });
 
@@ -325,8 +340,8 @@ describe('hợp đồng, đếm huy hiệu, gói dịch vụ', () => {
 
   test('huy hiệu Nhãn hàng / MCN / KOL theo seed', async () => {
     as(BRAND);
-    // 1 proposal on "Tuần lễ ẩm thực mùa thu" + 4 applicants waiting to be picked on the open-recruitment campaign.
-    expect(await svc.brandCounts()).toEqual({ newApplications: 5, awaitingBrand: 5, pendingReviews: 1, toPay: 1 });
+    // 3 proposals on "Tuần lễ ẩm thực mùa thu" (Booking 1 KOL) + 4 applicants waiting on the open-recruitment campaign.
+    expect(await svc.brandCounts()).toEqual({ newApplications: 7, awaitingBrand: 7, pendingReviews: 1, toPay: 1 });
     as(SAOVIET);
     expect(await svc.supplierCounts()).toEqual({ newInvites: 0, awaitingSupplier: 0, toDeliver: 0, toConfirmPayment: 0, openMarketplace: 8 });
     as(KHANHVY);
