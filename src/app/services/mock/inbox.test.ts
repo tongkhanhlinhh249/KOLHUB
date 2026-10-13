@@ -189,9 +189,12 @@ describe('Thông báo', () => {
     as(KHANHVY);
     await bookings.accept(SEED_THREADS.khanhVyInvite);
     as(BRAND);
-    const top = (await inbox.listNotifications())[0];
-    expect(top).toMatchObject({ kind: 'ACCEPTED', read: false });
-    expect(top.body).toContain('chấp nhận');
+    const list = await inbox.listNotifications();
+    const accepted = list.find((n) => n.kind === 'ACCEPTED')!;
+    expect(accepted).toMatchObject({ read: false });
+    expect(accepted.body).toContain('chấp nhận');
+    // Booking 1 KOL: chọn xong thì chiến dịch tự đóng tuyển.
+    expect(list.find((n) => n.kind === 'CAMPAIGN_CLOSED')?.body).toContain('đã chọn được KOL');
   });
 
   test('lời mời sắp hết hạn: chỉ trong 48 giờ cuối, khi lời mời còn mở', () => {

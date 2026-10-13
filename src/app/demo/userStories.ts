@@ -1584,7 +1584,7 @@ export const RELEASES: Release[] = [
           '[EP-02] Không thu địa chỉ cá nhân công khai trong form chiến dịch; giao nhận sản phẩm thuộc luồng triển khai.',
         ],
         source: 'EP-02 §4.3, §13, US-04 · features/supplier-booking/CampaignDetailBody.tsx · ApplyDialog.tsx',
-        confirm: 'Đã theo EP-02: bỏ đàm phán giá. Booking 1 KOL khai thù lao cố định VND/booking (và/hoặc sản phẩm) theo nhóm đầu việc; ngân sách tự tính; lời mời / đơn ứng tuyển lấy giá theo nhóm của kênh (Σ kênh × nhóm), không báo giá, không trả giá; chốt ghi nhận quyền lợi và chặn vượt số suất của nhóm (4818). Còn lệch: Sàn vẫn hiện "Ngân sách chiến dịch" (EP-02: ngân sách là nội bộ — chưa chọn sửa).',
+        confirm: 'Đã theo EP-02: bỏ đàm phán giá; thù lao / sản phẩm cố định theo nhóm đầu việc, ngân sách tự tính, không báo giá. Booking 1 KOL: chỉ chọn 1 KOL/MCN — mỗi nhóm 1 suất, form không có ô số suất; chốt 1 booking (Nhãn hàng duyệt đơn hoặc KOL nhận lời mời) thì các đơn / lời mời khác chuyển "Không được chọn" (Hệ thống) và chiến dịch tự đóng tuyển; chốt người thứ 2 → 4818. Booking nhiều KOL giữ số suất. Còn lệch: Sàn vẫn hiện "Ngân sách chiến dịch".',
       },
       {
         id: 'R8-5',

@@ -61,11 +61,9 @@ import {
   contractOn,
   draftReviewOn,
   endOfLocalDay,
-  groupOf,
   isRecruit,
   phaseOfTimeline,
   recruitPhase,
-  slotKeys,
   validateGroupsForOpen,
   validateRecruitmentForOpen,
 } from './recruitment';
@@ -702,27 +700,39 @@ export function checkSlots(state: DemoState, c: Campaign, wanted: number, now: n
 }
 
 /**
- * Booking riêng: confirming `b` must fit the free slots of every group it covers — one slot per channel × group
- * among bookings accepted or later (4818 with that group's slots / remaining). Groups without terms are not limited.
+ * Booking 1 KOL: the campaign confirms one booking only (4818 { slots: 1, remaining: 0 } once another booking is
+ * accepted or later, not cancelled).
  */
-export function checkGroupSlots(state: DemoState, c: Campaign, b: Booking, now: number): void {
-  if (!c.groups?.length) return;
-  const taken = new Map<string, Set<string>>();
-  const takenOf = (platform: string) => taken.get(platform) ?? taken.set(platform, new Set()).get(platform)!;
-  for (const x of state.bookings) {
-    if (x.campaignId !== c.id || x.id === b.id) continue;
+export function checkSingleBooking(state: DemoState, c: Campaign, b: Booking, now: number): void {
+  if (campaignType(c) !== 'BOOKING') return;
+  const taken = state.bookings.some((x) => {
+    if (x.campaignId !== c.id || x.id === b.id) return false;
     const st = effectiveStatus(x, c, now);
-    if (!isInProgress(st) && st !== 'COMPLETED') continue;
-    for (const k of slotKeys(x.items)) takenOf(k.split('|')[1]).add(k);
+    return isInProgress(st) || st === 'COMPLETED';
+  });
+  if (taken) throw new KolhubError('KOLHUB-4818', { slots: 1, remaining: 0 });
+}
+
+/**
+ * Booking 1 KOL, once a KOL/MCN is chosen (in place): the other open invites / applications are "Không được chọn"
+ * and recruitment closes (SYSTEM). Applications are not deleted.
+ */
+export function settleSingleBooking(s: DemoState, campaignId: string, chosenId: string, now: number): void {
+  const c = s.campaigns.find((x) => x.id === campaignId);
+  if (!c || campaignType(c) !== 'BOOKING') return;
+  for (const x of s.bookings) {
+    if (x.campaignId !== c.id || x.id === chosenId || !isPreAccept(effectiveStatus(x, c, now))) continue;
+    x.status = 'DECLINED';
+    delete x.awaiting;
+    x.updatedAt = now;
+    x.history.push({ at: now, by: 'SYSTEM', action: 'NOT_SELECTED', note: 'Nhãn hàng đã chọn KOL/MCN khác cho chiến dịch.' });
   }
-  for (const k of slotKeys(b.items)) {
-    const platform = k.split('|')[1];
-    const g = groupOf(c, platform);
-    const used = takenOf(platform);
-    if (!g || used.has(k)) continue;
-    if (used.size >= g.slots) throw new KolhubError('KOLHUB-4818', { slots: g.slots, remaining: Math.max(0, g.slots - used.size) });
-    used.add(k);
+  if (c.status === 'OPEN') {
+    c.status = 'CLOSED';
+    c.recruitmentClosedAt = now;
+    c.log = [...(c.log ?? []), { at: now, by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }];
   }
+  c.updatedAt = now;
 }
 
 /** Picked applicants of an open-recruitment campaign (ACCEPTED or later, not cancelled). */

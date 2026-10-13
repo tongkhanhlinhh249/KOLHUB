@@ -71,7 +71,8 @@ describe('chế độ demo: quản lý chiến dịch', () => {
     await demo.run(id, 'BRAND_ACCEPT');
     expect(statusOf(id)).toBe('ACCEPTED');
     expect(stored(id).price).toBe(40_000_000);
-    expect(h.db.read().campaigns.find((c) => c.id === SEED_CAMPAIGN.marketplace)?.status).toBe('OPEN');
+    // Booking 1 KOL: chọn xong thì tự đóng tuyển.
+    expect(h.db.read().campaigns.find((c) => c.id === SEED_CAMPAIGN.marketplace)?.status).toBe('CLOSED');
     await demo.run(id, 'SUBMIT_DRAFT');
     await demo.run(id, 'REQUEST_CHANGES');
     expect(statusOf(id)).toBe('IN_PRODUCTION');
@@ -119,21 +120,25 @@ describe('chế độ demo: quản lý chiến dịch', () => {
       [
         SEED_CAMPAIGN.marketplace,
         SEED_CAMPAIGN.running,
+        SEED_CAMPAIGN.breakfast,
+        SEED_CAMPAIGN.officeMilk,
+        SEED_CAMPAIGN.smoothie,
         SEED_CAMPAIGN.recruitSelecting,
         SEED_CAMPAIGN.recruitPosting,
         SEED_HISTORY.summerCampaign,
         SEED_HISTORY.runningShoesCampaign,
+        SEED_HISTORY.summerVlogCampaign,
+        SEED_HISTORY.shoesOutfitCampaign,
         SEED_HISTORY.homeOfficeCampaign,
       ].sort(),
     );
     expect(list.slice(firstEmpty).every((c) => c.bookingCount === 0)).toBe(true);
-    expect(list.find((c) => c.id === SEED_CAMPAIGN.running)).toMatchObject({ bookingCount: 4, brandEmail: expect.any(String) });
-    const rows = await demo.listBookings(SEED_CAMPAIGN.running);
-    expect(rows).toHaveLength(4);
-    const byId = Object.fromEntries(rows.map((r) => [r.view.id, r]));
-    expect(byId[SEED_BOOKING.review].steps.next).toBe('BRAND');
-    expect(byId[SEED_BOOKING.verified].steps.primary?.key).toBe('MARK_PAID');
-    expect(byId[SEED_BOOKING.khanhVyInvite].supplierEmail).toBeTruthy();
+    // Booking 1 KOL: một KOL được chọn mỗi chiến dịch; "Tuần lễ ẩm thực" có 3 đơn chờ chọn.
+    expect(list.find((c) => c.id === SEED_CAMPAIGN.running)).toMatchObject({ bookingCount: 1, brandEmail: expect.any(String) });
+    expect(list.find((c) => c.id === SEED_CAMPAIGN.marketplace)).toMatchObject({ bookingCount: 3 });
+    expect((await demo.listBookings(SEED_CAMPAIGN.running)).map((r) => [r.view.id, r.steps.next])).toEqual([[SEED_BOOKING.review, 'BRAND']]);
+    expect((await demo.listBookings(SEED_CAMPAIGN.officeMilk))[0].steps.primary?.key).toBe('MARK_PAID');
+    expect((await demo.listBookings(SEED_CAMPAIGN.breakfast))[0].supplierEmail).toBeTruthy();
   });
 
   test('khôi phục chiến dịch mẫu: chỉ dữ liệu chiến dịch, giữ phiên và tài khoản', async () => {

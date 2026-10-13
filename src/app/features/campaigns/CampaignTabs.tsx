@@ -31,7 +31,6 @@ import {
   CAMPAIGN_LOG_LABEL,
   campaignProgress,
   formatDayTime,
-  groupFill,
   groupRewardText,
   brandTodoLabel,
   campaignFeatures,
@@ -118,9 +117,8 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
   const marketplace = recruit || c.visibility === 'MARKETPLACE';
   // EP-02 US-13 / §8.4: each figure keeps its own name (đơn ≠ đã chọn ≠ booking xác nhận ≠ suất).
   const p = campaignProgress(c, bookings);
-  const fill = recruit ? [] : groupFill(c, bookings);
-  const allFull = recruit ? !!p.slots && p.slotsUsed >= p.slots : fill.length > 0 && fill.every((g) => g.full);
-  const fullGroups = fill.filter((g) => g.full);
+  // Booking nhiều KOL: đủ suất thì cảnh báo, không tự đóng (§8.6). Booking 1 KOL tự đóng tuyển khi đã chọn KOL.
+  const allFull = recruit && !!p.slots && p.slotsUsed >= p.slots;
   return (
     <div className="@container space-y-4">
       <dl className="grid grid-cols-2 gap-2 @2xl:grid-cols-4 @2xl:gap-3">
@@ -129,12 +127,16 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
         ) : (
           <Stat label="Lời mời đã gửi" value={p.invites} hint={`${p.invitesWaiting} chờ KOL/MCN phản hồi`} to="?tab=booking" />
         )}
-        <Stat
-          label={recruit ? 'KOL đã chọn' : 'Booking đã xác nhận'}
-          value={recruit && p.slots ? `${p.slotsUsed} / ${p.slots}` : p.confirmed}
-          hint={recruit ? `${p.confirmed} booking đang làm / hoàn tất` : p.slots ? `Đã dùng ${p.slotsUsed}/${p.slots} suất` : 'Chưa đặt số suất'}
-          to="?tab=booking"
-        />
+        {recruit ? (
+          <Stat label="KOL đã chọn" value={p.slots ? `${p.slotsUsed} / ${p.slots}` : p.slotsUsed} hint={`${p.confirmed} booking đang làm / hoàn tất`} to="?tab=booking" />
+        ) : (
+          <Stat
+            label="KOL được chọn"
+            value={p.slotsUsed ? 'Đã chọn' : 'Chưa chọn'}
+            hint={p.slotsUsed ? 'Chiến dịch chỉ chọn 1 KOL/MCN' : marketplace ? 'Chọn 1 KOL từ đơn ứng tuyển hoặc lời mời' : 'Chọn 1 KOL từ lời mời'}
+            to="?tab=booking"
+          />
+        )}
         <Stat label="Nội dung chờ duyệt" value={p.contentToReview} hint={`${p.completed} booking hoàn tất`} to="?tab=noi-dung" />
         <Stat
           label="Bài đăng đã xác minh"
@@ -145,14 +147,10 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
       </dl>
 
       {/* EP-02 §8.6: đủ số booking xác nhận thì cảnh báo, không tự đóng tuyển. */}
-      {c.status === 'OPEN' && (allFull || fullGroups.length > 0) && (
+      {c.status === 'OPEN' && allFull && (
         <div className="flex items-start gap-2 rounded-[8px] border border-chart-5/40 bg-chart-5/10 p-3 text-sm text-foreground" role="status">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-hidden />
-          <p>
-            {allFull
-              ? 'Đã đủ số suất. Chiến dịch chưa tự đóng tuyển: bạn có thể "Đóng tuyển" nếu không cần thêm ứng viên. Đơn đã gửi vẫn được giữ.'
-              : `Nhóm ${fullGroups.map((g) => platformLabel(g.platform)).join(', ')} đã đủ suất: không chốt thêm booking cho nhóm này. Các nhóm khác vẫn tuyển.`}
-          </p>
+          <p>Đã đủ số suất. Chiến dịch chưa tự đóng tuyển: bạn có thể "Đóng tuyển" nếu không cần thêm ứng viên. Đơn đã gửi vẫn được giữ.</p>
         </div>
       )}
 
@@ -249,29 +247,16 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               {(c.groups ?? []).length === 0 ? (
                 <p className="text-sm text-muted-foreground">Chưa thiết lập số suất và thù lao.</p>
               ) : (
-                <ul className="space-y-2.5">
-                  {c.groups!.map((g) => {
-                    const f = fill.find((x) => x.platform === g.platform);
-                    return (
-                      <li key={g.platform} className="space-y-1 text-sm text-foreground">
-                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-                          <span className="flex items-center gap-2">
-                            <PlatformIcon platform={g.platform} />
-                            {platformLabel(g.platform)}
-                          </span>
-                          <span className="font-semibold tabular-nums">{groupRewardText(g)}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden>
-                            <div className={cn('h-full rounded-full', f?.full ? 'bg-chart-4' : 'bg-primary')} style={{ width: `${g.slots ? Math.min(100, ((f?.used ?? 0) / g.slots) * 100) : 0}%` }} />
-                          </div>
-                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                            {f?.used ?? 0}/{g.slots} suất{f?.full ? ' · đủ suất' : ''}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
+                <ul className="space-y-1.5">
+                  {c.groups!.map((g) => (
+                    <li key={g.platform} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-sm text-foreground">
+                      <span className="flex items-center gap-2">
+                        <PlatformIcon platform={g.platform} />
+                        {platformLabel(g.platform)}
+                      </span>
+                      <span className="font-semibold tabular-nums">{groupRewardText(g)}</span>
+                    </li>
+                  ))}
                 </ul>
               )}
             </Panel>

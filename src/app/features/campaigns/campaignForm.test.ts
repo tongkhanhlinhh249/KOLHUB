@@ -47,9 +47,9 @@ describe('campaign form', () => {
     const input = formToInput(v);
     expect(input).toMatchObject({
       name: 'Ra mắt sữa hạt',
-      // Ngân sách tự tính: 10 suất × 30.000.000 ₫.
-      budget: 300_000_000,
-      groups: [{ platform: 'tiktok', slots: 10, reward: { cash: 30_000_000 } }],
+      // Booking 1 KOL: một KOL được chọn → ngân sách = thù lao của nhóm.
+      budget: 30_000_000,
+      groups: [{ platform: 'tiktok', slots: 1, reward: { cash: 30_000_000 } }],
       startDate: '2026-10-01',
       deliverables: [{ type: 'VIDEO', platform: 'tiktok', quantity: 3 }],
       visibility: 'MARKETPLACE',
@@ -193,18 +193,18 @@ test('Booking 1 KOL: nền tảng lấy theo hạng mục, không có ô chọn 
   expect(formToInput({ ...v, type: 'OPEN_RECRUITMENT' }).platforms).toEqual(['youtube']);
   expect(ADVANCED_FIELDS).toContain('visibility');
   expect(ADVANCED_FIELDS).not.toContain('brief');
-  // Quyền lợi theo nhóm đầu việc: một nhóm mỗi nền tảng của hạng mục; nhóm chưa nhập → 0 suất, 0 ₫ (dịch vụ báo lỗi khi đăng).
+  // Quyền lợi theo nhóm đầu việc: một nhóm mỗi nền tảng của hạng mục; nhóm chưa nhập → 0 ₫ (dịch vụ báo lỗi khi đăng).
   const groups = [
     { platform: 'tiktok' as const, slots: '3', cash: '10.000.000', hasProduct: true, productName: 'Quà', productValue: '500.000' },
     { platform: 'youtube' as const, slots: '9', cash: '99.000.000', hasProduct: false, productName: '', productValue: '' },
   ];
   const withGroups = formToInput({ ...v, groups });
   expect(withGroups.groups).toEqual([
-    { platform: 'tiktok', slots: 3, reward: { cash: 10_000_000, product: { name: 'Quà', value: 500_000 } } },
-    { platform: 'instagram', slots: 0, reward: { cash: 0 } },
+    { platform: 'tiktok', slots: 1, reward: { cash: 10_000_000, product: { name: 'Quà', value: 500_000 } } },
+    { platform: 'instagram', slots: 1, reward: { cash: 0 } },
   ]);
-  // Ngân sách = 3 × (10.000.000 + 500.000); nhóm YouTube không còn hạng mục nên không tính.
-  expect(bookingBudget({ ...v, groups })).toBe(31_500_000);
-  expect(withGroups.budget).toBe(31_500_000);
+  // Booking 1 KOL: ngân sách = quyền lợi của KOL được chọn (10.000.000 + 500.000); nhóm YouTube không còn hạng mục nên không tính.
+  expect(bookingBudget({ ...v, groups })).toBe(10_500_000);
+  expect(withGroups.budget).toBe(10_500_000);
   expect(formToInput({ ...v, groups, type: 'OPEN_RECRUITMENT' }).groups).toBeNull();
 });

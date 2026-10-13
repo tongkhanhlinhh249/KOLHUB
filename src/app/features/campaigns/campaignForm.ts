@@ -341,7 +341,8 @@ export function groupRow(groups: GroupRow[], platform: Platform): GroupRow {
 function groupInput(g: GroupRow): DeliverableGroup {
   return {
     platform: g.platform,
-    slots: intOrUndefined(g.slots) ?? 0,
+    // Booking 1 KOL: one KOL/MCN is chosen per campaign.
+    slots: 1,
     reward: {
       cash: parseVndInput(g.cash) ?? 0,
       ...(g.hasProduct ? { product: { name: g.productName, value: parseVndInput(g.productValue) ?? 0 } } : {}),
@@ -354,13 +355,9 @@ export function groupRowValue(g: GroupRow): number {
   return (parseVndInput(g.cash) ?? 0) + (g.hasProduct ? (parseVndInput(g.productValue) ?? 0) : 0);
 }
 
-/** Budget preview of a Booking riêng form: Σ over the deliverable platforms of slots × (cash + product value). */
+/** Budget preview of a Booking 1 KOL form: Σ over the deliverable platforms of (cash + product value) for the chosen KOL. */
 export function bookingBudget(v: CampaignFormValues): number {
-  return deliverablePlatforms(v.deliverables).reduce((sum, p) => {
-    const g = groupRow(v.groups, p);
-    const slots = intOrUndefined(g.slots) ?? 0;
-    return sum + (Number.isFinite(slots) ? slots * groupRowValue(g) : 0);
-  }, 0);
+  return deliverablePlatforms(v.deliverables).reduce((sum, p) => sum + groupRowValue(groupRow(v.groups, p)), 0);
 }
 
 /** Budget preview of an open-recruitment form: slots × (cash + product value). */

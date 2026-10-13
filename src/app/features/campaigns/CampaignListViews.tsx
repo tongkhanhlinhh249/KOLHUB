@@ -345,14 +345,14 @@ function DeadlineText({ c, className }: { c: CampaignView; className?: string })
   return <span className={cn('text-foreground tabular-nums', className)}>{formatIsoDay(c.applyDeadline)}</span>;
 }
 
-/** "Ứng viên / Booking" (US-09, §8.4): booking xác nhận / suất, đơn nhận được — each with its own name. */
+/** "Booking / Ứng viên" (US-09, §8.4): KOL chosen (Booking 1 KOL) or picked / slots, and applications — each named. */
 function ProgressText({ c, bookings }: { c: CampaignView; bookings: BookingView[] }) {
   const p = campaignProgress(c, bookings);
   const marketplace = c.type === 'OPEN_RECRUITMENT' || c.visibility === 'MARKETPLACE';
   return (
     <>
       <span className="block font-semibold text-foreground">
-        {p.slots ? `${c.type === 'OPEN_RECRUITMENT' ? p.slotsUsed : p.confirmed}/${p.slots} suất` : `${p.confirmed} booking`}
+        {c.type === 'OPEN_RECRUITMENT' ? `${p.slotsUsed}/${p.slots ?? 0} suất` : p.slotsUsed ? 'Đã chọn KOL' : 'Chưa chọn KOL'}
       </span>
       <span className="block text-xs text-muted-foreground">
         {marketplace ? `${p.applications} đơn ứng tuyển` : `${p.invites} lời mời`}

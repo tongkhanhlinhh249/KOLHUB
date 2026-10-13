@@ -28,7 +28,8 @@ import { currentBizAccount } from './bizSession';
 import {
   applySelection,
   checkNote,
-  checkGroupSlots,
+  checkSingleBooking,
+  settleSingleBooking,
   checkSlots,
   currentSupplier,
   draftsCoverItems,
@@ -140,8 +141,9 @@ export function createBookingService(deps: BookingServiceDeps) {
 
   /**
    * The awaited party accepts → ACCEPTED (production can start) at the campaign's fixed group rewards (cash and
-   * product, snapshotted on the booking). Needs a channel on every item (4809), a reward (4810) and a free slot in
-   * every group it covers (4818).
+   * product, snapshotted on the booking). Needs a channel on every item (4809) and a reward (4810). Booking 1 KOL:
+   * only one booking is confirmed (4818); the other invites / applications become "Không được chọn" and
+   * recruitment closes.
    */
   async function accept(id: string): Promise<BookingView> {
     await wait();
@@ -151,7 +153,7 @@ export function createBookingService(deps: BookingServiceDeps) {
     // Older data without groups keeps its agreed price.
     const reward = c?.groups?.length ? fixedRewardOf(c, ctx.booking.items) : undefined;
     if (reward ? rewardValue(reward) <= 0 : !isPrice(ctx.booking.price)) throw new KolhubError('KOLHUB-4810');
-    if (c) checkGroupSlots(ctx.state, c, ctx.booking, ctx.t);
+    if (c) checkSingleBooking(ctx.state, c, ctx.booking, ctx.t);
     return commit(ctx, (b, s) => {
       if (reward) {
         b.price = reward.cash;
@@ -162,6 +164,8 @@ export function createBookingService(deps: BookingServiceDeps) {
       b.acceptedAt = ctx.t;
       b.history.push({ at: ctx.t, by: ctx.party, action: 'ACCEPTED', price: b.price });
       s.campaigns.find((x) => x.id === b.campaignId)!.updatedAt = ctx.t;
+      // Booking 1 KOL: the others are not chosen and recruitment closes.
+      settleSingleBooking(s, b.campaignId, b.id, ctx.t);
     });
   }
 

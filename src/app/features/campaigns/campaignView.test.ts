@@ -5,7 +5,6 @@ import {
   brandTodoLabel,
   campaignActions,
   campaignProgress,
-  groupFill,
   collectDrafts,
   collectPosts,
   countByBookingStatus,
@@ -296,10 +295,6 @@ describe('tiến độ chiến dịch (EP-02 US-13)', () => {
   const item = (channelId: string, platform: 'tiktok' | 'youtube') => ({ channelId, platform, kolAccountId: `k-${channelId}` }) as BookingView['items'][number];
   const b = (status: BookingView['status'], origin: BookingView['origin'], items: BookingView['items'], awaiting?: BookingView['awaiting']) =>
     ({ status, origin, items, awaiting }) as BookingView;
-  const groups = [
-    { platform: 'tiktok' as const, slots: 2, reward: { cash: 1 } },
-    { platform: 'youtube' as const, slots: 1, reward: { cash: 1 } },
-  ];
   const list = [
     b('APPLIED', 'APPLICATION', [item('a', 'tiktok')], 'BRAND'),
     b('ACCEPTED', 'APPLICATION', [item('b', 'tiktok'), item('c', 'youtube')]),
@@ -309,26 +304,20 @@ describe('tiến độ chiến dịch (EP-02 US-13)', () => {
     b('CONTENT_REVIEW', 'INVITE', [item('b', 'tiktok')]),
   ];
 
-  test('suất đã dùng theo nhóm = kênh × nhóm của booking đã xác nhận (trùng kênh tính một lần)', () => {
-    expect(groupFill({ groups }, list)).toEqual([
-      { platform: 'tiktok', slots: 2, used: 2, full: true },
-      { platform: 'youtube', slots: 1, used: 1, full: true },
-    ]);
-  });
-
   test('đơn ≠ booking xác nhận ≠ suất: mỗi chỉ số một tên', () => {
-    expect(campaignProgress({ type: 'BOOKING', groups }, list)).toEqual({
+    // Booking 1 KOL: một KOL được chọn là đủ (1/1).
+    expect(campaignProgress({ type: 'BOOKING' }, list)).toEqual({
       applications: 2,
       toHandle: 1,
       invites: 4,
       invitesWaiting: 1,
       confirmed: 3,
-      slotsUsed: 3,
-      slots: 3,
+      slotsUsed: 1,
+      slots: 1,
       contentToReview: 1,
       completed: 1,
     });
-    expect(campaignProgress({ type: 'BOOKING' }, []).slots).toBeUndefined();
+    expect(campaignProgress({ type: 'BOOKING' }, [])).toMatchObject({ slots: 1, slotsUsed: 0 });
     expect(campaignProgress({ type: 'OPEN_RECRUITMENT', recruitment: { slots: 5 } as never }, list)).toMatchObject({ slots: 5, slotsUsed: 1 });
   });
 });

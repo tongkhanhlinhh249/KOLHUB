@@ -314,7 +314,15 @@ function campaignNotifications(state: DemoState, accountId: string, now: number)
           break;
         case 'CLOSED':
           if (e.by === 'SYSTEM') {
-            out.push({ ...base, kind: 'CAMPAIGN_CLOSED', title: 'Chiến dịch đã đóng tuyển', body: `"${c.name}" hết hạn ứng tuyển. Đơn đã nhận vẫn được giữ để bạn xử lý.` });
+            const chosen = e.note === 'Đã chọn KOL cho chiến dịch.';
+            out.push({
+              ...base,
+              kind: 'CAMPAIGN_CLOSED',
+              title: 'Chiến dịch đã đóng tuyển',
+              body: chosen
+                ? `"${c.name}" đã chọn được KOL; các đơn còn lại được báo "Không được chọn".`
+                : `"${c.name}" hết hạn ứng tuyển. Đơn đã nhận vẫn được giữ để bạn xử lý.`,
+            });
           }
           break;
       }

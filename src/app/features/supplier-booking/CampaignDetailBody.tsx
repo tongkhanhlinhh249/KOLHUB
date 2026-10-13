@@ -157,15 +157,13 @@ export function CampaignDetailSections({
             <ul className="divide-y divide-border rounded-[8px] border border-border">
               {c.groups.map((g) => (
                 <li key={g.platform} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2.5">
-                  <span className="text-sm text-foreground">
-                    {PLATFORM_LABEL[g.platform]} <span className="text-muted-foreground">· {g.slots} suất</span>
-                  </span>
-                  <span className="text-sm font-semibold text-primary tabular-nums">{rewardText(g.reward)} / kênh</span>
+                  <span className="text-sm text-foreground">{PLATFORM_LABEL[g.platform]}</span>
+                  <span className="text-sm font-semibold text-primary tabular-nums">{rewardText(g.reward)}</span>
                 </li>
               ))}
             </ul>
             <p className="text-xs text-muted-foreground">
-              Thù lao cố định cho mỗi kênh trong nhóm, gồm toàn bộ đầu việc của nhóm. Bạn không cần báo giá; Nhãn hàng duyệt hoặc từ chối đơn.
+              Nhãn hàng chọn 1 KOL/MCN cho chiến dịch. Thù lao cố định gồm toàn bộ đầu việc của nhóm; bạn không cần báo giá.
             </p>
           </div>
         )}

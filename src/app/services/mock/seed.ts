@@ -69,7 +69,7 @@ export function seedState(): DemoState {
   const kolProfiles = [emptyKolProfile(SEED_KOL, SEED_T), ...kols.kolProfiles];
   const campaignData = seedCampaigns(channels, now);
   return {
-    version: 18,
+    version: 19,
     accounts,
     otps: [],
     registrations: [],

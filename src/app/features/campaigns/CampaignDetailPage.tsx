@@ -184,7 +184,10 @@ function ReviewNotice({ c }: { c: CampaignView }) {
     );
   } else if (c.status === 'CLOSED') {
     tone = 'neutral';
-    text = 'Đã đóng tuyển: không nhận đơn mới. Các đơn đã gửi và hợp tác đã xác nhận vẫn được xử lý; xử lý xong thì bấm "Hoàn tất".';
+    const chosen = [...(c.log ?? [])].reverse().find((e) => e.action === 'CLOSED')?.note === 'Đã chọn KOL cho chiến dịch.';
+    text = chosen
+      ? 'Đã chọn KOL cho chiến dịch (Booking 1 KOL): không nhận đơn mới, các đơn khác đã được báo "Không được chọn". Hợp tác xong thì bấm "Hoàn tất".'
+      : 'Đã đóng tuyển: không nhận đơn mới. Các đơn đã gửi và hợp tác đã xác nhận vẫn được xử lý; xử lý xong thì bấm "Hoàn tất".';
   } else if (c.status === 'COMPLETED' && c.noCollaboration) {
     tone = 'neutral';
     text = 'Hoàn tất: Không phát sinh hợp tác.';
