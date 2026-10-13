@@ -25,11 +25,11 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
     links: [
       { label: 'Tìm kiếm KOL', path: '/tim-kiem-kol', account: 'biz-verified', hint: 'Lọc, xem hồ sơ, mời vào chiến dịch' },
       { label: 'Hồ sơ KOL có Bài đã đăng', path: '/tim-kiem-kol?kol=KOL-2026-0001', account: 'biz-verified', hint: 'Khánh Vy: mục Bài đã đăng trong Chi tiết' },
-      { label: 'Chiến dịch đang chạy', path: '/chien-dich/cmp-seed-sua-hat?tab=noi-dung', account: 'biz-verified', hint: 'Duyệt nội dung có KOL Safety' },
+      { label: 'Chiến dịch đang chạy', path: '/chien-dich/cmp-seed-sua-hat?tab=hop-tac&muc=noi-dung', account: 'biz-verified', hint: 'Duyệt nội dung có KOL Safety' },
       { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Booking 1 KOL hoặc Booking nhiều KOL' },
       {
         label: 'Chọn ứng viên (Booking nhiều KOL)',
-        path: '/chien-dich/cmp-seed-tuyen-chon?tab=ung-tuyen',
+        path: '/chien-dich/cmp-seed-tuyen-chon?tab=ung-vien',
         account: 'biz-verified',
         hint: 'Giai đoạn Chọn lọc: chọn hàng loạt trong giới hạn suất',
       },

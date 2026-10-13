@@ -165,7 +165,7 @@ export function InviteToCampaignDialog({ targets, onOpenChange }: { targets: Inv
                 className="h-11 md:h-9"
                 onClick={() => {
                   onOpenChange(false);
-                  navigate(`${campaignPath(campaign.id)}?tab=booking`);
+                  navigate(`${campaignPath(campaign.id)}?tab=ung-vien`);
                 }}
               >
                 Xem chiến dịch

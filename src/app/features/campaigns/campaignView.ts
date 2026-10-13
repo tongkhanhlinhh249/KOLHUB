@@ -1,6 +1,7 @@
 // Pure helpers of the Brand campaign screens: money / date formatting, list filters and tab counts,
 // URL params, booking grouping, content / post collections and labels. No React here (unit-tested).
 import {
+  applyDeadlineAt,
   BOOKING_STATUS_LABEL,
   fixedRewardOf,
   IN_PROGRESS_STATUSES,
@@ -157,12 +158,35 @@ export const VISIBILITY_OPTIONS: { key: CampaignVisibility; label: string }[] = 
   { key: 'MARKETPLACE', label: 'Trên sàn' },
 ];
 
-export type CampaignSort = 'updated' | 'start' | 'budget';
+export type CampaignSort = 'updated' | 'deadline' | 'start' | 'budget';
 export const CAMPAIGN_SORTS: { key: CampaignSort; label: string }[] = [
   { key: 'updated', label: 'Cập nhật gần nhất' },
+  { key: 'deadline', label: 'Sắp hết hạn tuyển' },
   { key: 'start', label: 'Ngày bắt đầu gần nhất' },
   { key: 'budget', label: 'Ngân sách cao nhất' },
 ];
+/** Sort menu of the campaign list (UI/UX tối ưu §3.2): "Cập nhật gần nhất" (default) and "Sắp hết hạn tuyển". */
+export const CAMPAIGN_LIST_SORTS = CAMPAIGN_SORTS.filter((s) => s.key === 'updated' || s.key === 'deadline');
+
+/**
+ * Navigation groups of the list (UI/UX tối ưu §3.1). A group is not a status: "Đã đóng tuyển" stays in
+ * "Đang hoạt động" because applications and collaborations may still be handled.
+ */
+export type CampaignGroup = 'all' | 'PREP' | 'ACTIVE' | 'DONE';
+export const CAMPAIGN_GROUPS: { key: CampaignGroup; label: string }[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'PREP', label: 'Chuẩn bị' },
+  { key: 'ACTIVE', label: 'Đang hoạt động' },
+  { key: 'DONE', label: 'Đã kết thúc' },
+];
+export const GROUP_STATUSES: Record<Exclude<CampaignGroup, 'all'>, CampaignStatus[]> = {
+  PREP: ['DRAFT', 'PENDING_REVIEW', 'NEEDS_FIX', 'REJECTED'],
+  ACTIVE: ['OPEN', 'CLOSED'],
+  DONE: ['COMPLETED', 'CANCELLED'],
+};
+export const groupOfStatus = (s: CampaignStatus): Exclude<CampaignGroup, 'all'> =>
+  (Object.keys(GROUP_STATUSES) as Exclude<CampaignGroup, 'all'>[]).find((g) => GROUP_STATUSES[g].includes(s))!;
+const GROUP_PARAM: Record<CampaignGroup, string> = { all: '', PREP: 'chuan-bi', ACTIVE: 'dang-hoat-dong', DONE: 'da-ket-thuc' };
 
 /** "Booking riêng" / "Tuyển nhiều KOL" filter (?loai=booking | tuyen-nhieu, same values as the Sàn). */
 export const CAMPAIGN_TYPE_OPTIONS: { key: CampaignType; label: string }[] = [
@@ -172,7 +196,12 @@ export const CAMPAIGN_TYPE_OPTIONS: { key: CampaignType; label: string }[] = [
 const TYPE_PARAM: Record<CampaignType, string> = { BOOKING: 'booking', OPEN_RECRUITMENT: 'tuyen-nhieu' };
 
 export interface CampaignListQuery {
+  /** Detailed status (inside "Bộ lọc"); 'all' = any. */
   tab: CampaignTab;
+  /** Navigation group (tabs above the list); absent = Tất cả. */
+  group?: CampaignGroup;
+  /** "Cần xử lý": only campaigns with something for the brand to do. */
+  todo?: boolean;
   keyword?: string;
   visibility?: CampaignVisibility;
   type?: CampaignType;
@@ -207,6 +236,9 @@ export function parseCampaignListParams(sp: URLSearchParams): CampaignListQuery 
   if (type) q.type = type;
   const sort = CAMPAIGN_SORTS.find((s) => s.key === sp.get('sap-xep'))?.key;
   if (sort && sort !== 'updated') q.sort = sort;
+  const group = keyOf(GROUP_PARAM, sp.get('nhom'));
+  if (group) q.group = group;
+  if (sp.get('can-xu-ly') === '1') q.todo = true;
   return q;
 }
 
@@ -217,6 +249,8 @@ export function toCampaignListParams(q: CampaignListQuery): URLSearchParams {
   if (q.visibility) sp.set('hien-thi', VIS_PARAM[q.visibility]);
   if (q.type) sp.set('loai', TYPE_PARAM[q.type]);
   if (q.sort && q.sort !== 'updated') sp.set('sap-xep', q.sort);
+  if (q.group && q.group !== 'all') sp.set('nhom', GROUP_PARAM[q.group]);
+  if (q.todo) sp.set('can-xu-ly', '1');
   return sp;
 }
 
@@ -258,13 +292,39 @@ export function countCampaignTypes<T extends FilterRow & Pick<CampaignView, 'sta
   return out;
 }
 
-type ListRow = FilterRow & Pick<CampaignView, 'status' | 'updatedAt' | 'budget' | 'startDate'>;
+type ListRow = FilterRow & Pick<CampaignView, 'id' | 'status' | 'updatedAt' | 'budget' | 'startDate' | 'applyDeadline' | 'applyDeadlineTime'>;
 
-/** Tab + filters, then sorted: updated (newest first) · start (earliest start first, undated last) · budget (desc). */
-export function applyCampaignQuery<T extends ListRow>(list: T[], q: CampaignListQuery): T[] {
-  const out = list.filter((c) => matchesCampaign(c, q) && (q.tab === 'all' || c.status === q.tab));
+/** Group + detailed status + "Cần xử lý" (`todoIds`: campaigns with something to do). */
+const inGroupAndStatus = (c: Pick<CampaignView, 'status' | 'id'>, q: CampaignListQuery, todoIds?: Set<string>) =>
+  (q.tab === 'all' || c.status === q.tab) &&
+  (!q.group || q.group === 'all' || GROUP_STATUSES[q.group].includes(c.status)) &&
+  (!q.todo || !!todoIds?.has(c.id));
+
+/** Per navigation group, for the tab counts: follows keyword / type / visibility / status / "Cần xử lý", not the group. */
+export function countCampaignGroups<T extends FilterRow & Pick<CampaignView, 'status' | 'id'>>(
+  list: T[],
+  q: CampaignListQuery,
+  todoIds?: Set<string>,
+): Record<CampaignGroup, number> {
+  const out: Record<CampaignGroup, number> = { all: 0, PREP: 0, ACTIVE: 0, DONE: 0 };
+  for (const c of list) {
+    if (!matchesCampaign(c, q) || !inGroupAndStatus(c, { ...q, group: 'all' }, todoIds)) continue;
+    out.all++;
+    out[groupOfStatus(c.status)]++;
+  }
+  return out;
+}
+
+/**
+ * Group / status / "Cần xử lý" + filters, then sorted: updated (newest first) · deadline (open campaigns with the
+ * nearest apply deadline first) · start · budget.
+ */
+export function applyCampaignQuery<T extends ListRow>(list: T[], q: CampaignListQuery, todoIds?: Set<string>): T[] {
+  const out = list.filter((c) => matchesCampaign(c, q) && inGroupAndStatus(c, q, todoIds));
   const sort = q.sort ?? 'updated';
+  const deadline = (c: T) => (c.status === 'OPEN' ? (applyDeadlineAt(c) ?? Infinity) : Infinity);
   return out.sort((a, b) => {
+    if (sort === 'deadline') return deadline(a) - deadline(b) || b.updatedAt - a.updatedAt;
     if (sort === 'budget') return b.budget - a.budget || b.updatedAt - a.updatedAt;
     if (sort === 'start') {
       const x = a.startDate ?? '9999-99-99';
@@ -276,7 +336,7 @@ export function applyCampaignQuery<T extends ListRow>(list: T[], q: CampaignList
 }
 
 export function hasCampaignFilters(q: CampaignListQuery): boolean {
-  return !!q.keyword?.trim() || !!q.visibility || !!q.type;
+  return !!q.keyword?.trim() || !!q.visibility || !!q.type || q.tab !== 'all' || !!q.todo;
 }
 
 /** Sortable columns of the "Bảng" view → the list sort they apply (one direction each, as the sort menu). */
@@ -508,13 +568,25 @@ export function actorLabel(by: BookingActor, supplierName: string): string {
 // Detail page URL (/chien-dich/:id?tab=…&booking=…)
 // ---------------------------------------------------------------------------
 
-export type DetailTab = 'tong-quan' | 'booking' | 'ung-tuyen' | 'noi-dung' | 'bao-cao' | 'hoi-dap';
-export const DETAIL_TABS: DetailTab[] = ['tong-quan', 'booking', 'ung-tuyen', 'noi-dung', 'bao-cao', 'hoi-dap'];
+/**
+ * UI/UX tối ưu §5.1: Tổng quan · Ứng viên · Hợp tác · Thông tin chiến dịch (+ Hỏi đáp for campaigns on the Sàn).
+ * Older links still open the right place: booking / noi-dung / bao-cao → Hợp tác, ung-tuyen → Ứng viên.
+ */
+export type DetailTab = 'tong-quan' | 'ung-vien' | 'hop-tac' | 'thong-tin' | 'hoi-dap';
+export const DETAIL_TABS: DetailTab[] = ['tong-quan', 'ung-vien', 'hop-tac', 'thong-tin', 'hoi-dap'];
+const LEGACY_TAB: Record<string, DetailTab> = { booking: 'hop-tac', 'noi-dung': 'hop-tac', 'bao-cao': 'hop-tac', 'ung-tuyen': 'ung-vien' };
 
-/** Unknown tab → Tổng quan; "Ứng tuyển" and "Hỏi đáp" only exist for marketplace campaigns. */
+/** Unknown tab → Tổng quan; "Hỏi đáp" only exists for marketplace campaigns. */
 export function parseDetailTab(value: string | null, marketplace: boolean): DetailTab {
-  const t = DETAIL_TABS.find((x) => x === value) ?? 'tong-quan';
-  return (t === 'ung-tuyen' || t === 'hoi-dap') && !marketplace ? 'tong-quan' : t;
+  const t = DETAIL_TABS.find((x) => x === value) ?? (value ? LEGACY_TAB[value] : undefined) ?? 'tong-quan';
+  return t === 'hoi-dap' && !marketplace ? 'tong-quan' : t;
+}
+
+/** Section inside "Hợp tác": the collaborations, drafts to review, or the report (?muc=, or an older ?tab=). */
+export type CollabSection = 'danh-sach' | 'noi-dung' | 'bao-cao';
+export function parseCollabSection(sp: URLSearchParams): CollabSection {
+  const v = sp.get('muc') ?? sp.get('tab');
+  return v === 'noi-dung' || v === 'bao-cao' ? v : 'danh-sach';
 }
 
 /** Returns a copy of `prev` with `key` set (or removed when value is null / the default). */
@@ -644,3 +716,125 @@ export const CAMPAIGN_LOG_LABEL: Record<CampaignLogEntry['action'], string> = {
   REVISION_REJECTED: 'Bản sửa bị từ chối',
 };
 export const CAMPAIGN_LOG_ACTOR: Record<CampaignLogEntry['by'], string> = { BRAND: 'Bạn', ADMIN: 'Admin KOLHUB', SYSTEM: 'Hệ thống' };
+
+// ---------------------------------------------------------------------------
+// Card chiến dịch (UI/UX tối ưu §4): tiến độ KOL, việc cần xử lý, CTA theo trạng thái
+// ---------------------------------------------------------------------------
+
+type ProgressBooking = Pick<BookingView, 'status' | 'items' | 'origin' | 'awaiting' | 'allowedActions'>;
+
+/**
+ * "Đã chọn x/y KOL" (§6): KOL counted once each (an MCN booking counts every represented KOL). Booking 1 KOL: one
+ * KOL for the whole campaign; Booking nhiều KOL: up to its slots. Booking per channel / deliverable stays in Hợp tác.
+ */
+export function kolProgress(c: Pick<Campaign, 'type' | 'recruitment'>, bookings: ProgressBooking[]): { chosen: number; target: number } {
+  const confirmed = bookings.filter((b) => isConfirmed(b.status));
+  if (c.type !== 'OPEN_RECRUITMENT') return { chosen: confirmed.length > 0 ? 1 : 0, target: 1 };
+  const kols = new Set(confirmed.filter((b) => b.origin === 'APPLICATION').flatMap((b) => b.items.map((i) => i.kolAccountId)));
+  return { chosen: kols.size, target: c.recruitment?.slots ?? 0 };
+}
+
+export interface CampaignTodo {
+  key: 'fix' | 'rejected' | 'applications' | 'content' | 'product' | 'payment' | 'full' | 'complete';
+  /** Concrete action, e.g. "3 đơn chưa xử lý" (never a generic "2 booking"). */
+  text: string;
+  /** Where to do it: a detail tab, or the edit form. */
+  to: 'edit' | DetailTab;
+  /** Blocks the campaign (shown first). */
+  urgent?: boolean;
+}
+
+/**
+ * Everything the brand has to do on a campaign, most important first (§4.4: blocking / overdue first); the card shows
+ * the first one, the overview lists them all.
+ */
+export function campaignTodos(
+  c: Pick<Campaign, 'status' | 'type' | 'recruitment' | 'reviewNote'>,
+  bookings: ProgressBooking[],
+): CampaignTodo[] {
+  const out: CampaignTodo[] = [];
+  if (c.status === 'NEEDS_FIX') out.push({ key: 'fix', text: 'Bổ sung thông tin theo yêu cầu của Admin', to: 'edit', urgent: true });
+  const count = (a: BookingActionKey) => bookings.filter((b) => b.allowedActions.includes(a)).length;
+  const apps = bookings.filter((b) => b.allowedActions.includes('SELECT') || (b.origin === 'APPLICATION' && b.allowedActions.includes('ACCEPT'))).length;
+  if (apps) out.push({ key: 'applications', text: `${apps} đơn chưa xử lý`, to: 'ung-vien' });
+  const content = count('REVIEW_CONTENT');
+  if (content) out.push({ key: 'content', text: `${content} nội dung chờ duyệt`, to: 'hop-tac' });
+  const product = count('MARK_PRODUCT_SENT');
+  if (product) out.push({ key: 'product', text: `${product} KOL chờ gửi sản phẩm`, to: 'hop-tac' });
+  const pay = count('MARK_PAID');
+  if (pay) out.push({ key: 'payment', text: `${pay} hợp tác chờ xác nhận thanh toán`, to: 'hop-tac' });
+  if (c.status === 'OPEN' && c.type === 'OPEN_RECRUITMENT') {
+    const k = kolProgress(c, bookings);
+    if (k.target > 0 && k.chosen >= k.target) out.push({ key: 'full', text: 'Đã đủ KOL: cân nhắc đóng tuyển', to: 'tong-quan' });
+  }
+  if (c.status === 'CLOSED' && out.length === 0 && !bookings.some((b) => PRE_ACCEPT_STATUSES.includes(b.status) || IN_PROGRESS_STATUSES.includes(b.status))) {
+    out.push({ key: 'complete', text: 'Mọi việc đã xong: bấm Hoàn tất để kết thúc', to: 'tong-quan' });
+  }
+  return out;
+}
+
+/** The one primary action of a card (§4.3), by status. */
+export function campaignCta(
+  c: Pick<Campaign, 'id' | 'status'>,
+  bookings: ProgressBooking[],
+): { label: string; to: string } {
+  const detail = campaignPath(c.id);
+  const tab = (t: DetailTab) => `${detail}?tab=${t}`;
+  switch (c.status) {
+    case 'DRAFT':
+      return { label: 'Tiếp tục tạo', to: campaignEditPath(c.id) };
+    case 'PENDING_REVIEW':
+      return { label: 'Xem chiến dịch', to: detail };
+    case 'NEEDS_FIX':
+      return { label: 'Bổ sung thông tin', to: campaignEditPath(c.id) };
+    case 'REJECTED':
+      return { label: 'Xem lý do', to: detail };
+    case 'OPEN':
+      return { label: 'Xem ứng viên', to: tab('ung-vien') };
+    case 'CLOSED': {
+      const waiting = bookings.some((b) => b.origin === 'APPLICATION' && PRE_ACCEPT_STATUSES.includes(b.status));
+      return waiting ? { label: 'Xem ứng viên', to: tab('ung-vien') } : { label: 'Quản lý hợp tác', to: tab('hop-tac') };
+    }
+    case 'COMPLETED':
+      return { label: 'Xem kết quả', to: `${tab('hop-tac')}&muc=bao-cao` };
+    default:
+      return { label: 'Xem chi tiết', to: detail };
+  }
+}
+
+/**
+ * "Mốc thời gian" of the overview (§5.2): dated milestones instead of a sequential flow. Booking nhiều KOL: its four
+ * phases (selection can start before the apply phase ends); Booking 1 KOL: apply deadline and the running period.
+ */
+export function campaignMilestones(
+  c: Pick<Campaign, 'type' | 'recruitment' | 'applyDeadline' | 'applyDeadlineTime' | 'startDate' | 'endDate' | 'status'>,
+  now: number = Date.now(),
+): { label: string; value: string; current?: boolean }[] {
+  const range = (a?: string, b?: string) => formatDateRange(a, b);
+  const today = localIso(now);
+  const within = (a?: string, b?: string) => !!a && !!b && a <= today && today <= b && c.status !== 'DRAFT';
+  if (c.type === 'OPEN_RECRUITMENT' && c.recruitment) {
+    const t = c.recruitment.timeline;
+    return [
+      { label: 'Ứng tuyển', value: range(t.applyStart, t.applyEnd), current: within(t.applyStart, t.applyEnd) },
+      { label: 'Chọn KOL', value: range(t.selectStart, t.selectEnd), current: within(t.selectStart, t.selectEnd) },
+      { label: 'Đăng bài', value: range(t.postStart, t.postEnd), current: within(t.postStart, t.postEnd) },
+      { label: 'Đánh giá', value: range(t.reviewStart, t.reviewEnd), current: within(t.reviewStart, t.reviewEnd) },
+    ].filter((m) => m.value !== 'Chưa đặt lịch');
+  }
+  const out: { label: string; value: string; current?: boolean }[] = [];
+  const at = applyDeadlineAt(c);
+  if (at !== undefined) {
+    const d = new Date(at);
+    const hh = c.applyDeadlineTime ?? '23:59';
+    out.push({ label: 'Hạn ứng tuyển', value: `${hh} · ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`, current: c.status === 'OPEN' && at > now });
+  }
+  if (c.startDate || c.endDate) out.push({ label: 'Thời gian thực hiện', value: range(c.startDate, c.endDate), current: within(c.startDate, c.endDate) });
+  return out;
+}
+
+/** Local 'YYYY-MM-DD' of `ms`. */
+function localIso(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

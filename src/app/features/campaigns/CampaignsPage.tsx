@@ -1,54 +1,40 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
-import { Ban, BellDot, FileSearch, Lock, Megaphone, Plus } from 'lucide-react';
+import { AlertCircle, FileSearch, Megaphone, Plus, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Skeleton } from '../../components/ui/skeleton';
-import { bookingService, campaignService, type BrandBookingCounts } from '../../services';
+import { cn } from '../../components/ui/utils';
+import { bookingService, campaignService } from '../../services';
 import { SearchPagination } from '../biz-search/SearchPagination';
-import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
+import { KeywordSearch } from '../filters/KeywordSearch';
 import { brandLockedView } from '../shared/BrandLocked';
-import { BulkBar, InfoBar, SortMenuButton, useMediaQuery, ViewToggle } from '../shared/DataTable';
-import { StepTabs } from '../shared/StepTabs';
-import { listViewValue, parseListView, TABLE_DEFAULT_QUERY, VIEW_PARAM, type ListView } from '../shared/tableView';
+import { SortMenuButton } from '../shared/DataTable';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { ConfirmAction } from './BookingActions';
 import { CampaignTypeDialog } from './CampaignTypeDialog';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { EmptyBlock, errText, LoadError } from './CampaignParts';
-import { CampaignCardGrid, CampaignTable, groupBookings, type CampaignBulkKind } from './CampaignListViews';
+import { CampaignListCard } from './CampaignListCard';
+import { groupBookings, type CampaignBulkKind } from './CampaignListViews';
 import {
   applyCampaignQuery,
-  campaignActions,
-  CAMPAIGN_SORTS,
+  CAMPAIGN_GROUPS,
+  CAMPAIGN_LIST_SORTS,
   CAMPAIGN_TABS,
   CAMPAIGN_TYPE_OPTIONS,
-  countCampaignTabs,
-  countCampaignTypes,
+  campaignTodos,
+  countCampaignGroups,
   hasCampaignFilters,
   parseCampaignListParams,
-  pendingByCampaign,
   toCampaignListParams,
   VISIBILITY_OPTIONS,
+  type CampaignGroup,
   type CampaignListQuery,
 } from './campaignView';
-
-/** "Cần bạn xử lý" — soft grey info bar above the list (styled like the reference table's notice). */
-function TodoStrip({ counts }: { counts: BrandBookingCounts }) {
-  const parts = [
-    counts.awaitingBrand ? `${counts.awaitingBrand} booking chờ bạn trả lời` : null,
-    counts.pendingReviews ? `${counts.pendingReviews} nội dung chờ duyệt` : null,
-    counts.toPay ? `${counts.toPay} booking chờ thanh toán` : null,
-  ].filter(Boolean);
-  if (parts.length === 0) return null;
-  return (
-    <InfoBar icon={<BellDot className="size-4 text-primary" aria-hidden />}>
-      <span className="font-medium">Cần bạn xử lý:</span> <span className="text-muted-foreground">{parts.join(' · ')}</span>
-    </InfoBar>
-  );
-}
 
 function RowsSkeleton() {
   return (
@@ -84,42 +70,64 @@ const BULK_COPY: Record<CampaignBulkKind, { title: (n: number) => string; text: 
 /** Campaigns per page (table and cards). */
 const CAMPAIGN_PAGE_SIZE = 10;
 
+/** Navigation groups as one tablist that always fits (no horizontal scroll, §3.1). */
+function GroupTabs({ value, counts, onChange }: { value: CampaignGroup; counts?: Record<CampaignGroup, number>; onChange(g: CampaignGroup): void }) {
+  return (
+    <div role="tablist" aria-label="Nhóm chiến dịch" className="grid grid-cols-2 gap-1 rounded-[8px] bg-muted p-1 @xl:inline-grid @xl:grid-cols-4">
+      {CAMPAIGN_GROUPS.map((g) => {
+        const active = g.key === value;
+        return (
+          <button
+            key={g.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(g.key)}
+            className={cn(
+              'flex h-11 items-center justify-center gap-1.5 rounded-[6px] px-3 text-sm whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:h-9',
+              active ? 'bg-card font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {g.label}
+            {counts && <span className={cn('text-xs tabular-nums', active ? 'text-primary' : 'text-muted-foreground')}>{counts[g.key]}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
- * /chien-dich — the brand's campaigns in two views (?xem=bang | the; default: table from `lg`, cards below):
- * "Bảng" (sortable columns, row selection with Đóng / Huỷ, expandable rows) and "Thẻ" (a 3-column card grid).
- * Both share the status step bar (Tất cả · Nháp > Chờ duyệt > … > Đang tuyển > Đã đóng tuyển > Hoàn tất · Đã huỷ), search, type (with counts),
- * visibility and sort.
+ * /chien-dich — "Quản lý chiến dịch" (UI/UX tối ưu): four navigation groups (Tất cả · Chuẩn bị · Đang hoạt động · Đã
+ * kết thúc), a "Cần xử lý" filter, "Bộ lọc" (detailed status, type, visibility) and two sorts; each campaign is a
+ * horizontal card answering: which campaign, where it stands, how many KOL, what to do next. Paginated, never scrolls
+ * sideways. Params: ?nhom=, ?can-xu-ly=1, ?trang-thai=, ?loai=, ?hien-thi=, ?q=, ?sap-xep=han-tuyen.
  */
 export function CampaignsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = parseCampaignListParams(searchParams);
-  const isDesktop = useMediaQuery(TABLE_DEFAULT_QUERY);
-  const viewParam = searchParams.get(VIEW_PARAM);
-  const view = parseListView(viewParam, isDesktop);
-  const table = view === 'table';
-  const q = useLiveQuery(
-    () => Promise.all([campaignService.listMine(), bookingService.listForBrand(), bookingService.brandCounts()]),
-    [],
-  );
-  const [campaigns, bookings, counts] = q.data ?? [];
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const q = useLiveQuery(() => Promise.all([campaignService.listMine(), bookingService.listForBrand()]), []);
+  const [campaigns, bookings] = q.data ?? [];
   const [bulk, setBulk] = useState<{ kind: CampaignBulkKind; ids: string[] } | null>(null);
   // "Tạo chiến dịch" asks for the campaign type first, then opens the form.
   const [typeDialog, setTypeDialog] = useState(false);
+  const now = Date.now();
 
-  // The list params are rebuilt from the query, so ?xem= is carried over explicitly.
-  const write = (next: CampaignListQuery, v: string | null = viewParam) => {
-    const sp = toCampaignListParams(next);
-    if (v) sp.set(VIEW_PARAM, v);
-    setSearchParams(sp, { replace: true });
-  };
+  const write = (next: CampaignListQuery) => setSearchParams(toCampaignListParams(next), { replace: true });
   const change = (patch: Partial<CampaignListQuery>) => write({ ...query, ...patch });
-  const clear = () => write({ tab: query.tab, sort: query.sort });
-  const setView = (v: ListView) => write(query, listViewValue(v));
 
-  const tabCounts = useMemo(() => countCampaignTabs(campaigns ?? [], query), [campaigns, query]);
-  const typeCounts = useMemo(() => countCampaignTypes(campaigns ?? [], query), [campaigns, query]);
-  const allRows = useMemo(() => applyCampaignQuery(campaigns ?? [], query), [campaigns, query]);
+  const byCampaign = useMemo(() => groupBookings(bookings ?? []), [bookings]);
+  // Campaigns with something for the brand to do ("Cần xử lý").
+  const todoIds = useMemo(
+    () => new Set((campaigns ?? []).filter((c) => campaignTodos(c, byCampaign[c.id] ?? []).length > 0).map((c) => c.id)),
+    [campaigns, byCampaign],
+  );
+  const groupCounts = useMemo(() => countCampaignGroups(campaigns ?? [], query, todoIds), [campaigns, query, todoIds]);
+  const allRows = useMemo(() => applyCampaignQuery(campaigns ?? [], query, todoIds), [campaigns, query, todoIds]);
+  const todoCount = useMemo(
+    () => applyCampaignQuery(campaigns ?? [], { ...query, todo: false }, todoIds).filter((c) => todoIds.has(c.id)).length,
+    [campaigns, query, todoIds],
+  );
   // US-09 / §10: phân trang (back to page 1 whenever the filters change).
   const [page, setPage] = useState(1);
   const queryKey = JSON.stringify(query);
@@ -127,12 +135,6 @@ export function CampaignsPage() {
   const pageCount = Math.max(1, Math.ceil(allRows.length / CAMPAIGN_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const rows = useMemo(() => allRows.slice((currentPage - 1) * CAMPAIGN_PAGE_SIZE, currentPage * CAMPAIGN_PAGE_SIZE), [allRows, currentPage]);
-  const pending = useMemo(() => pendingByCampaign(bookings ?? []), [bookings]);
-  const byCampaign = useMemo(() => groupBookings(bookings ?? []), [bookings]);
-
-  const selectedRows = table ? rows.filter((r) => selected.has(r.id)) : [];
-  const closable = selectedRows.filter((c) => campaignActions(c.status, c.type).closeRecruitment).map((c) => c.id);
-  const cancellable = selectedRows.filter((c) => campaignActions(c.status, c.type).cancel).map((c) => c.id);
 
   if (q.error && !q.data) {
     const locked = brandLockedView(q.error);
@@ -147,11 +149,6 @@ export function CampaignsPage() {
     const failed = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
     if (done.length) toast.success(`${copy.done} ${done.length} chiến dịch`);
     if (failed.length) toast.error(`${failed.length} chiến dịch không ${copy.verb} được`, { description: errText(failed[0].reason) });
-    setSelected((prev) => {
-      const next = new Set(prev);
-      done.forEach((id) => next.delete(id));
-      return next;
-    });
   };
 
   const createLink = (
@@ -160,101 +157,71 @@ export function CampaignsPage() {
       Tạo chiến dịch
     </Button>
   );
-
-  const chips = [
-    ...(query.type ? [{ key: 'type', label: CAMPAIGN_TYPE_OPTIONS.find((t) => t.key === query.type)!.label, remove: () => change({ type: undefined }) }] : []),
-    ...(query.visibility
-      ? [{ key: 'vis', label: VISIBILITY_OPTIONS.find((v) => v.key === query.visibility)!.label, remove: () => change({ visibility: undefined }) }]
-      : []),
-  ];
+  const filterCount = (query.tab !== 'all' ? 1 : 0) + (query.type ? 1 : 0) + (query.visibility ? 1 : 0);
 
   return (
-    <div className="@container mx-auto w-full max-w-[1600px] min-w-0 space-y-4 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Tạo chiến dịch, mời KOL/MCN hoặc đăng lên Sàn chiến dịch để nhận đề xuất.</p>
-        {createLink}
+    <div className="@container mx-auto w-full max-w-6xl min-w-0 space-y-4 p-4 md:p-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <KeywordSearch
+          keyword={query.keyword}
+          onKeywordChange={(keyword) => change({ keyword })}
+          placeholder="Tìm tên chiến dịch"
+          label="Tìm tên chiến dịch"
+          className="order-1 w-full @xl:w-auto @xl:min-w-56 @xl:flex-1"
+        />
+        <div className="order-2 flex w-full flex-wrap items-center gap-2 @xl:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            aria-pressed={!!query.todo}
+            onClick={() => change({ todo: !query.todo || undefined })}
+            className={cn('h-11 bg-card md:h-10', query.todo && 'border-primary bg-primary/10 text-primary hover:bg-primary/15')}
+          >
+            <AlertCircle aria-hidden />
+            Cần xử lý
+            {campaigns && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums">{todoCount}</span>}
+          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" className={cn('h-11 bg-card md:h-10', filterCount > 0 && 'border-primary text-primary')}>
+                <SlidersHorizontal aria-hidden />
+                Bộ lọc
+                {filterCount > 0 && <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums">{filterCount}</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-72 space-y-3">
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Trạng thái</p>
+                <FilterSelect
+                  label="Trạng thái"
+                  allLabel="Mọi trạng thái"
+                  value={query.tab === 'all' ? undefined : query.tab}
+                  options={CAMPAIGN_TABS.filter((t) => t.key !== 'all').map((t) => ({ key: t.key as Exclude<typeof t.key, 'all'>, label: t.label }))}
+                  onChange={(tab) => change({ tab: tab ?? 'all' })}
+                  className="h-10 w-full"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Loại booking</p>
+                <FilterSelect label="Loại booking" allLabel="Mọi loại" value={query.type} options={CAMPAIGN_TYPE_OPTIONS} onChange={(type) => change({ type })} className="h-10 w-full" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Hiển thị</p>
+                <FilterSelect label="Hiển thị" allLabel="Mọi hiển thị" value={query.visibility} options={VISIBILITY_OPTIONS} onChange={(visibility) => change({ visibility })} className="h-10 w-full" />
+              </div>
+              {filterCount > 0 && (
+                <Button type="button" variant="ghost" className="h-10 w-full" onClick={() => change({ tab: 'all', type: undefined, visibility: undefined })}>
+                  Xoá bộ lọc
+                </Button>
+              )}
+            </PopoverContent>
+          </Popover>
+          <SortMenuButton value={query.sort ?? 'updated'} options={CAMPAIGN_LIST_SORTS} onChange={(sort) => change({ sort })} className="h-11 md:h-10" />
+          <div className="ml-auto">{createLink}</div>
+        </div>
       </div>
 
-      <FilterBar
-        keyword={query.keyword}
-        onKeywordChange={(keyword) => change({ keyword })}
-        searchPlaceholder="Tìm tên chiến dịch, mục tiêu, brief"
-        searchLabel="Tìm chiến dịch theo tên, mục tiêu hoặc brief"
-        renderFilters={(cls) => (
-          <>
-            <FilterSelect
-              label="Loại chiến dịch"
-              allLabel={`Tất cả loại (${campaigns ? typeCounts.all : '–'})`}
-              value={query.type}
-              options={CAMPAIGN_TYPE_OPTIONS.map((t) => ({ key: t.key, label: `${t.label} (${campaigns ? typeCounts[t.key] : '–'})` }))}
-              onChange={(type) => change({ type })}
-              className={cls}
-            />
-            <FilterSelect
-              label="Hiển thị"
-              allLabel="Tất cả hiển thị"
-              value={query.visibility}
-              options={VISIBILITY_OPTIONS}
-              onChange={(visibility) => change({ visibility })}
-              className={cls}
-            />
-          </>
-        )}
-        filterGridClass="grid-cols-2"
-        inlineFilterClass="@4xl:w-52"
-        renderSort={(className) => (
-          <SortMenuButton value={query.sort ?? 'updated'} options={CAMPAIGN_SORTS} onChange={(sort) => change({ sort })} className={className} />
-        )}
-        sortClass="w-auto @4xl:w-auto"
-        filterCount={(query.type ? 1 : 0) + (query.visibility ? 1 : 0)}
-        active={hasCampaignFilters(query)}
-        chips={chips}
-        onClear={clear}
-      />
-
-      {counts && <TodoStrip counts={counts} />}
-
-      <StepTabs
-        label="Lọc theo trạng thái"
-        value={query.tab}
-        onChange={(t) => change({ tab: t })}
-        items={CAMPAIGN_TABS.map((t) => ({
-          key: t.key,
-          label: t.label,
-          count: campaigns ? tabCounts[t.key] : undefined,
-          kind: t.key === 'all' ? 'start' : t.key === 'CANCELLED' ? 'end' : 'step',
-        }))}
-      />
-
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          {campaigns ? `${allRows.length} chiến dịch` : ''}
-        </p>
-        <ViewToggle value={view} onChange={setView} />
-      </div>
-
-      {table && (
-        <BulkBar count={selectedRows.length} onClear={() => setSelected(new Set())}>
-          {closable.length > 0 && (
-            <Button type="button" variant="outline" size="sm" className="h-11 bg-card md:h-8" onClick={() => setBulk({ kind: 'close', ids: closable })}>
-              <Lock aria-hidden />
-              Đóng tuyển ({closable.length})
-            </Button>
-          )}
-          {cancellable.length > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-11 bg-card text-destructive hover:bg-destructive/10 hover:text-destructive md:h-8"
-              onClick={() => setBulk({ kind: 'cancel', ids: cancellable })}
-            >
-              <Ban aria-hidden />
-              Huỷ chiến dịch ({cancellable.length})
-            </Button>
-          )}
-        </BulkBar>
-      )}
+      <GroupTabs value={query.group ?? 'all'} counts={campaigns ? groupCounts : undefined} onChange={(g) => change({ group: g === 'all' ? undefined : g })} />
 
       {q.loading && !q.data ? (
         <RowsSkeleton />
@@ -271,24 +238,25 @@ export function CampaignsPage() {
           </EmptyBlock>
         </Card>
       ) : allRows.length === 0 ? (
-        <EmptyBlock icon={<FileSearch className="size-6" aria-hidden />} title="Không có chiến dịch phù hợp" text="Thử chọn trạng thái khác hoặc bỏ bớt bộ lọc.">
-          <Button type="button" variant="outline" className="h-11" onClick={() => write({ tab: 'all', sort: query.sort })}>
-            Xoá bộ lọc
-          </Button>
+        <EmptyBlock
+          icon={<FileSearch className="size-6" aria-hidden />}
+          title={query.todo ? 'Không có chiến dịch cần xử lý' : 'Không có chiến dịch phù hợp'}
+          text={query.todo ? 'Mọi việc đã được xử lý.' : 'Thử chọn nhóm khác hoặc bỏ bớt bộ lọc.'}
+        >
+          {hasCampaignFilters(query) && (
+            <Button type="button" variant="outline" className="h-11" onClick={() => write({ tab: 'all', group: query.group, sort: query.sort })}>
+              Xoá bộ lọc
+            </Button>
+          )}
         </EmptyBlock>
-      ) : table ? (
-        <CampaignTable
-          rows={rows}
-          pending={pending}
-          bookingsByCampaign={byCampaign}
-          sort={query.sort ?? 'updated'}
-          onSort={(sort) => change({ sort })}
-          selected={selected}
-          onSelectedChange={setSelected}
-          onAction={(kind, ids) => setBulk({ kind, ids })}
-        />
       ) : (
-        <CampaignCardGrid rows={rows} pending={pending} bookingsByCampaign={byCampaign} onAction={(kind, ids) => setBulk({ kind, ids })} />
+        <ul className="space-y-3" aria-label="Danh sách chiến dịch">
+          {rows.map((c) => (
+            <li key={c.id}>
+              <CampaignListCard c={c} bookings={byCampaign[c.id] ?? []} now={now} onAction={(kind, ids) => setBulk({ kind, ids })} />
+            </li>
+          ))}
+        </ul>
       )}
       {allRows.length > 0 && (
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
@@ -309,7 +277,7 @@ export function CampaignsPage() {
           onConfirm={() => runBulk()}
         />
       )}
-      {/* EP-02 §6.5: huỷ phải có lý do (one reason for the whole selection). */}
+      {/* EP-02 §6.5: huỷ phải có lý do. */}
       <ReasonDialog
         open={bulk?.kind === 'cancel'}
         onOpenChange={(o) => !o && setBulk(null)}
