@@ -193,7 +193,7 @@ export function CampaignFeatures({
         description="Tặng sản phẩm cho KOL được chọn. KOL nhập địa chỉ nhận hàng khi ứng tuyển."
         on={recruit && v.hasProduct}
         onToggle={(x) => set('hasProduct', x, 'product')}
-        lockedText={recruit ? undefined : 'Booking riêng: tặng sản phẩm theo từng nhóm đầu việc ở trên.'}
+        lockedText={recruit ? undefined : 'Booking 1 KOL: tặng sản phẩm theo từng nhóm đầu việc ở trên.'}
         needsSetup={blank(v.productName) || blank(v.productValue)}
         error={!!errors.product}
       >
@@ -201,7 +201,7 @@ export function CampaignFeatures({
       </FeatureCard>
       {recruit && !v.payCash && !v.hasProduct && (
         <p className="rounded-[8px] border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status">
-          Chiến dịch Tuyển nhiều KOL cần bật ít nhất một phần thưởng: “Đề nghị trả phí” hoặc “Tặng quà”.
+          Chiến dịch Booking nhiều KOL cần bật ít nhất một phần thưởng: “Đề nghị trả phí” hoặc “Tặng quà”.
         </p>
       )}
 

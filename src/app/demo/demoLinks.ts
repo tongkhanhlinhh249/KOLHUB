@@ -26,9 +26,9 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
       { label: 'Tìm kiếm KOL', path: '/tim-kiem-kol', account: 'biz-verified', hint: 'Lọc, xem hồ sơ, mời vào chiến dịch' },
       { label: 'Hồ sơ KOL có Bài đã đăng', path: '/tim-kiem-kol?kol=KOL-2026-0001', account: 'biz-verified', hint: 'Khánh Vy: mục Bài đã đăng trong Chi tiết' },
       { label: 'Chiến dịch đang chạy', path: '/chien-dich/cmp-seed-sua-hat?tab=noi-dung', account: 'biz-verified', hint: 'Duyệt nội dung có KOL Safety' },
-      { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Booking riêng hoặc Tuyển nhiều KOL' },
+      { label: 'Tạo chiến dịch', path: '/chien-dich/tao', account: 'biz-verified', hint: 'Booking 1 KOL hoặc Booking nhiều KOL' },
       {
-        label: 'Chọn ứng viên (Tuyển nhiều KOL)',
+        label: 'Chọn ứng viên (Booking nhiều KOL)',
         path: '/chien-dich/cmp-seed-tuyen-chon?tab=ung-tuyen',
         account: 'biz-verified',
         hint: 'Giai đoạn Chọn lọc: chọn hàng loạt trong giới hạn suất',
@@ -75,7 +75,7 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
       },
       { label: 'Lời mời hợp tác', path: '/chien-dich-cua-toi', account: 'kol-verified', hint: 'Lời mời gửi thẳng tới KOL lẻ' },
       {
-        label: 'Đã được chọn (Tuyển nhiều KOL)',
+        label: 'Đã được chọn (Booking nhiều KOL)',
         path: '/chien-dich-cua-toi?booking=bk-seed-rc-khanhvy',
         account: 'kol-verified',
         hint: 'Xác nhận đã nhận sản phẩm, đăng bài trực tiếp',

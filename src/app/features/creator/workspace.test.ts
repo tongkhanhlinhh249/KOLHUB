@@ -53,7 +53,7 @@ describe('Việc cần làm', () => {
     expect(todosOf(bk('c', 'APPLIED', { awaiting: 'BRAND' }))).toEqual([]);
   });
 
-  test('nộp nháp (hạn: ngày bắt đầu đăng bài nếu tuyển nhiều KOL, ngày kết thúc nếu booking riêng); đang chờ duyệt thì không', () => {
+  test('nộp nháp (hạn: ngày bắt đầu đăng bài nếu booking nhiều KOL, ngày kết thúc nếu booking riêng); đang chờ duyệt thì không', () => {
     const draft = todosOf(bk('d', 'ACCEPTED', { allowedActions: ['SUBMIT_DRAFT'] }));
     expect(draft).toMatchObject([{ kind: 'SUBMIT_DRAFT', dueAt: endOfDay('2026-10-20') }]);
     const timeline = { applyStart: '', applyEnd: '', selectStart: '', selectEnd: '', postStart: '2026-10-10', postEnd: '2026-10-15', reviewStart: '', reviewEnd: '' };

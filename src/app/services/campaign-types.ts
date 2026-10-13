@@ -117,14 +117,10 @@ export interface CampaignRevision {
  */
 export type CampaignType = 'BOOKING' | 'OPEN_RECRUITMENT';
 export const CAMPAIGN_TYPES: { key: CampaignType; label: string; description: string }[] = [
-  { key: 'BOOKING', label: 'Booking riêng', description: 'Mời hoặc nhận đề xuất từ KOL/MCN, chốt theo thù lao cố định của từng nhóm đầu việc.' },
-  {
-    key: 'OPEN_RECRUITMENT',
-    label: 'Tuyển nhiều KOL',
-    description: 'Phần thưởng cố định cho mỗi KOL, tuyển N suất theo lịch 4 giai đoạn. KOL/MCN ứng tuyển không cần báo giá.',
-  },
+  { key: 'BOOKING', label: 'Booking 1 KOL', description: 'Mời và nhận ứng tuyển từ nhiều KOL, chọn 1 KOL phù hợp để hợp tác.' },
+  { key: 'OPEN_RECRUITMENT', label: 'Booking nhiều KOL', description: 'Mời và nhận ứng tuyển từ nhiều KOL, chọn nhiều KOL phù hợp để hợp tác.' },
 ];
-export const CAMPAIGN_TYPE_LABEL: Record<CampaignType, string> = { BOOKING: 'Booking riêng', OPEN_RECRUITMENT: 'Tuyển nhiều KOL' };
+export const CAMPAIGN_TYPE_LABEL: Record<CampaignType, string> = { BOOKING: 'Booking 1 KOL', OPEN_RECRUITMENT: 'Booking nhiều KOL' };
 
 /** Slots of an open-recruitment campaign: 1–RECRUIT_SLOTS_MAX. */
 export const RECRUIT_SLOTS_MAX = 500;

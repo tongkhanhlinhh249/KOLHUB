@@ -154,7 +154,7 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4802' });
   });
 
-  test('Booking riêng: brief bắt buộc khi đăng và khi sửa chiến dịch đang mở (4803 brief)', async () => {
+  test('Booking 1 KOL: brief bắt buộc khi đăng và khi sửa chiến dịch đang mở (4803 brief)', async () => {
     const c = await svc.create({ ...complete(), name: 'Book 1 KOL', brief: '   ' });
     await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'brief' } });
     await svc.update(c.id, { brief: 'Giới thiệu vị mới, nhấn mạnh ít đường' });
@@ -326,7 +326,7 @@ describe('mời KOL — quy tắc định tuyến', () => {
 describe('Sàn chiến dịch', () => {
   beforeEach(() => as(SAOVIET));
 
-  test('chỉ hiện chiến dịch MARKETPLACE đang tuyển; Tuyển nhiều KOL đã qua Ứng tuyển là Đã đóng tuyển: rời danh sách, trang vẫn công khai', async () => {
+  test('chỉ hiện chiến dịch MARKETPLACE đang tuyển; Booking nhiều KOL đã qua Ứng tuyển là Đã đóng tuyển: rời danh sách, trang vẫn công khai', async () => {
     const list = await svc.listMarketplace({ sort: 'newest' });
     expect(list.map((c) => c.id)).toEqual([
       SEED_CAMPAIGN.agencyHeadphones,

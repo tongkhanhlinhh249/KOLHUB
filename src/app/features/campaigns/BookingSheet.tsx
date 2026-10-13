@@ -449,7 +449,7 @@ export function BookingSheet({
                     <SupplierTypeBadge type={b.supplierType} />
                     {b.supplier.code && <span>{b.supplier.code}</span>}
                     <span aria-hidden>·</span>
-                    <span>{b.origin === 'INVITE' ? 'Lời mời' : recruit ? 'Ứng tuyển (Tuyển nhiều KOL)' : 'Đề xuất từ Sàn'}</span>
+                    <span>{b.origin === 'INVITE' ? 'Lời mời' : recruit ? 'Ứng tuyển (Booking nhiều KOL)' : 'Đề xuất từ Sàn'}</span>
                     <span aria-hidden>·</span>
                     <span className="tabular-nums">Tạo {formatDayMs(b.createdAt)}</span>
                   </SheetDescription>

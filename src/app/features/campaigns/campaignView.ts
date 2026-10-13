@@ -167,8 +167,8 @@ export const CAMPAIGN_SORTS: { key: CampaignSort; label: string }[] = [
 
 /** "Booking riêng" / "Tuyển nhiều KOL" filter (?loai=booking | tuyen-nhieu, same values as the Sàn). */
 export const CAMPAIGN_TYPE_OPTIONS: { key: CampaignType; label: string }[] = [
-  { key: 'BOOKING', label: 'Booking riêng' },
-  { key: 'OPEN_RECRUITMENT', label: 'Tuyển nhiều KOL' },
+  { key: 'BOOKING', label: 'Booking 1 KOL' },
+  { key: 'OPEN_RECRUITMENT', label: 'Booking nhiều KOL' },
 ];
 const TYPE_PARAM: Record<CampaignType, string> = { BOOKING: 'booking', OPEN_RECRUITMENT: 'tuyen-nhieu' };
 

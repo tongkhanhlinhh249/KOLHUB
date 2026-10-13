@@ -621,7 +621,7 @@ export function CampaignFormPage() {
             <Section title="Hiển thị">
               <p className="flex items-start gap-2 text-sm text-foreground">
                 <Globe2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                Chiến dịch Tuyển nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
+                Chiến dịch Booking nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
               </p>
             </Section>
 

@@ -130,7 +130,7 @@ describe('createDb', () => {
     expect(JSON.parse(mem.getItem('kolhub-demo-v1')!).version).toBe(18);
   });
 
-  test('dữ liệu v11 cũ (chưa có Tuyển nhiều KOL) → seed v12 có chiến dịch tuyển nhiều KOL và Hỏi đáp', () => {
+  test('dữ liệu v11 cũ (chưa có Booking nhiều KOL) → seed v12 có chiến dịch booking nhiều KOL và Hỏi đáp', () => {
     const fresh = seedState();
     const { campaignQuestions: _qa, ...rest } = fresh;
     const v11 = { ...rest, version: 11, campaigns: fresh.campaigns.map(({ type: _t, recruitment: _r, ...c }) => c) };

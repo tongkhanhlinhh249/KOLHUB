@@ -376,8 +376,8 @@ export const BUDGET_RANGES: { key: BudgetRange; label: string; min?: number; max
 /** ?loai= values of the campaign type filter. */
 export type TypeParam = 'booking' | 'tuyen-nhieu';
 export const TYPE_FILTERS: { key: TypeParam; label: string; type: CampaignType }[] = [
-  { key: 'booking', label: 'Booking riêng', type: 'BOOKING' },
-  { key: 'tuyen-nhieu', label: 'Tuyển nhiều KOL', type: 'OPEN_RECRUITMENT' },
+  { key: 'booking', label: 'Booking 1 KOL', type: 'BOOKING' },
+  { key: 'tuyen-nhieu', label: 'Booking nhiều KOL', type: 'OPEN_RECRUITMENT' },
 ];
 
 export interface MarketplaceQuery {

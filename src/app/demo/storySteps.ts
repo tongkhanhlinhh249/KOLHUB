@@ -36,7 +36,7 @@ export const RELEASE_PLAIN: Record<ReleaseKey, { name: string; goal: string }> =
   R3: { name: 'Kiểm soát nội dung', goal: 'Sửa nháp nhiều lần, kiểm tra vi phạm, hợp đồng, số liệu bài đăng, điều kiện ứng tuyển.' },
   R4: { name: 'Sàn dễ tìm hơn', goal: 'Gợi ý chiến dịch hợp với bạn, tìm và lọc, lưu, hỏi đáp, ảnh bìa.' },
   R5: { name: 'Dùng hằng ngày', goal: 'Mở app là biết việc cần làm; theo dõi tiền, đánh giá và bài đã đăng.' },
-  R6: { name: 'Tuyển nhiều KOL', goal: 'Một chiến dịch tuyển nhiều KOL với phần thưởng cố định, Nhãn hàng chọn người theo đợt.' },
+  R6: { name: 'Booking nhiều KOL', goal: 'Một chiến dịch booking nhiều KOL với phần thưởng cố định, Nhãn hàng chọn người theo đợt.' },
   R8: { name: 'Tạo, đăng và quản lý chiến dịch (EP-02)', goal: 'Tạo chiến dịch theo 4 bước, xem trước, Admin duyệt trước khi lên Sàn, quản lý sau đăng mà không đổi lời hứa với KOL.' },
   R7: { name: 'Hồ sơ và xác thực kênh (EP-01)', goal: 'Hoàn thiện hồ sơ; mỗi kênh có dấu xác thực khi được duyệt quyền quản lý và đạt KOL Safety trên N nội dung gần nhất; gia hạn định kỳ; đồng bộ KOLGOV.' },
 };
@@ -164,7 +164,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Nhãn hàng chủ động mời KOL thay vì chờ ứng tuyển.',
     steps: [
       { screen: 'Trang chiến dịch → tab "Booking" → "Mời KOL"', checks: ['Chọn KOL từ danh sách đã lưu, hoặc tìm theo tên / KOL ID', 'Chọn hạng mục (thấy thù lao cố định của nhóm), lời nhắn'] },
-      { screen: 'Hoặc từ Tìm KOL / Danh sách đã lưu → "Mời vào chiến dịch"', checks: ['Chọn chiến dịch muốn mời vào', 'Chiến dịch "Tuyển nhiều KOL" không mời được'] },
+      { screen: 'Hoặc từ Tìm KOL / Danh sách đã lưu → "Mời vào chiến dịch"', checks: ['Chọn chiến dịch muốn mời vào', 'Chiến dịch "Booking nhiều KOL" không mời được'] },
       { screen: 'Bấm "Gửi lời mời"', checks: ['Kết quả: bao nhiêu lời mời mới, bao nhiêu KOL bị bỏ qua và vì sao', 'Chỉ mời được khi chiến dịch Đang tuyển (đã được Admin duyệt)', 'Giá lời mời = thù lao nhóm × số kênh, không nhập giá'] },
     ],
   },
@@ -214,7 +214,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     steps: [
       { screen: 'Mở hợp tác → "Báo giá khác" (Nhãn hàng) / "Trả giá" (KOL/MCN)', checks: ['Chỉ bên đang đến lượt mới báo giá được', 'Nhập tổng giá mới (lớn hơn 0), lời nhắn nếu muốn'] },
       { screen: 'Sau khi gửi', checks: ['Đến lượt bên kia: chấp nhận, trả giá tiếp hoặc từ chối', 'Bên vừa gửi chỉ có thể huỷ', 'Đang trả giá thì không bị hết hạn'] },
-      { screen: 'Lưu ý', checks: ['Chiến dịch "Tuyển nhiều KOL" không trả giá', 'Chiến dịch tắt "Đàm phán" → không có nút trả giá, chỉ chấp nhận hoặc từ chối'] },
+      { screen: 'Lưu ý', checks: ['Chiến dịch "Booking nhiều KOL" không trả giá', 'Chiến dịch tắt "Đàm phán" → không có nút trả giá, chỉ chấp nhận hoặc từ chối'] },
     ],
   },
   'R2-2': {
@@ -312,7 +312,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
         screen: 'Các thẻ',
         checks: [
           'Bản tóm tắt sáng tạo (luôn bật): mục tiêu và brief',
-          'Đề nghị trả phí, Tặng quà: phần thưởng tiền và quà (Tặng quà chỉ có ở "Tuyển nhiều KOL")',
+          'Đề nghị trả phí, Tặng quà: phần thưởng tiền và quà (Tặng quà chỉ có ở "Booking nhiều KOL")',
           'Không còn thẻ Đàm phán: thù lao cố định khai theo nhóm đầu việc (R8-4)',
           'Duyệt nháp: tắt thì KOL/MCN đăng luôn rồi gửi link',
           'Sự tuân thủ: quy định bài đăng (hashtag, ghi nhãn quảng cáo…)',
@@ -591,7 +591,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     title: 'Tạo chiến dịch',
     summary: 'Nhãn hàng/Agency bấm "Tạo chiến dịch", chọn loại rồi vào form.',
     steps: [
-      { screen: 'Quản lý chiến dịch → "Tạo chiến dịch"', checks: ['Popup chọn loại: Booking riêng hoặc Tuyển nhiều KOL', 'Chọn xong mở form đúng loại'] },
+      { screen: 'Quản lý chiến dịch → "Tạo chiến dịch"', checks: ['Popup chọn loại: Booking 1 KOL hoặc Booking nhiều KOL', 'Chọn xong mở form đúng loại'] },
       { screen: 'Theo EP-02 (chưa có trong prototype)', checks: ['Agency phải khai nhãn hàng được quảng bá và căn cứ đại diện', 'Tổ chức phải được Admin xác minh mới gửi đăng được'] },
     ],
   },
@@ -627,7 +627,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Đặt hạn ứng tuyển và lịch triển khai.',
     steps: [
       { screen: 'Theo EP-02', checks: ['Hạn ứng tuyển bắt buộc, có giờ, giờ Việt Nam', 'Đến hạn là ngừng nhận đơn', 'Được chọn KOL trước hạn nếu lịch bàn giao còn kịp'] },
-      { screen: 'Prototype hiện tại', checks: ['Hạn ứng tuyển chỉ có ngày, Booking riêng không bắt buộc'] },
+      { screen: 'Prototype hiện tại', checks: ['Hạn ứng tuyển chỉ có ngày, Booking 1 KOL không bắt buộc'] },
     ],
   },
   'R8-6': {
@@ -696,17 +696,17 @@ export const STORY_STEPS: Record<string, PlainStory> = {
 
   // R6 — Tuyển nhiều KOL
   'R6-1': {
-    title: 'Tạo chiến dịch Tuyển nhiều KOL',
-    summary: 'Nhãn hàng tuyển nhiều KOL cùng lúc với phần thưởng cố định.',
+    title: 'Tạo chiến dịch Booking nhiều KOL',
+    summary: 'Nhãn hàng booking nhiều KOL cùng lúc với phần thưởng cố định.',
     steps: [
-      { screen: 'Trang Tạo chiến dịch → chọn "Tuyển nhiều KOL"', checks: ['Đã có người tham gia thì không đổi loại được'] },
+      { screen: 'Trang Tạo chiến dịch → chọn "Booking nhiều KOL"', checks: ['Đã có người tham gia thì không đổi loại được'] },
       { screen: '"Suất và phần thưởng"', checks: ['Số KOL cần tuyển: 1–500', 'Tiền mỗi KOL, và/hoặc tặng sản phẩm (tên, giá trị)', 'Phải có tiền hoặc sản phẩm', 'Tổng ngân sách tự tính = số suất × phần thưởng'] },
       { screen: '"Lịch trình 4 giai đoạn"', checks: ['Ứng tuyển → Chọn lọc → Đăng bài → Đánh giá, nối tiếp nhau', 'Nút "Gợi ý lịch" điền sẵn 7 · 3 · 15 · 6 ngày', 'Chiến dịch luôn hiện trên Sàn, không mời riêng'] },
     ],
   },
   'R6-2': {
     title: 'Các giai đoạn tự chuyển theo lịch',
-    summary: 'Chiến dịch Tuyển nhiều KOL tự chuyển giai đoạn theo lịch.',
+    summary: 'Chiến dịch Booking nhiều KOL tự chuyển giai đoạn theo lịch.',
     steps: [
       { screen: 'Trên Sàn và trang chiến dịch', checks: ['Nhãn: Sắp mở · D-n (còn n ngày ứng tuyển) · Tuyển chọn · Đang đăng bài · Đang đánh giá · Đã kết thúc', 'Lịch trình 4 bước, bước hiện tại ghi "Đang diễn ra"'] },
       { screen: 'Giai đoạn quyết định việc gì làm được', checks: ['Chỉ ứng tuyển được trong giai đoạn Ứng tuyển', 'Chỉ chọn người trong giai đoạn Chọn lọc', 'Hết lịch thì rời Sàn, nhưng Nhãn hàng vẫn phải bấm đóng chiến dịch'] },
@@ -714,7 +714,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
   },
   'R6-3': {
     title: 'Ứng tuyển không cần báo giá',
-    summary: 'KOL/MCN ứng tuyển chiến dịch Tuyển nhiều KOL, không cần báo giá.',
+    summary: 'KOL/MCN ứng tuyển chiến dịch Booking nhiều KOL, không cần báo giá.',
     steps: [
       { screen: 'Trang chiến dịch trên Sàn → "Ứng tuyển ngay"', checks: ['Chỉ có trong giai đoạn Ứng tuyển', 'Thấy "Phần thưởng cố định mỗi KOL… Bạn không cần báo giá."'] },
       { screen: 'Hộp ứng tuyển', checks: ['Chọn kênh, trả lời câu hỏi, tích điều khoản', 'Có tặng sản phẩm → nhập tỉnh/thành, địa chỉ, số điện thoại nhận hàng', 'Gửi xong: "Đã ứng tuyển"'] },

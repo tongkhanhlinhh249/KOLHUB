@@ -196,7 +196,7 @@ describe('nhóm tab và trạng thái', () => {
     expect(mergeMarketplaceParams(new URLSearchParams(), q).get('loai')).toBe('tuyen-nhieu');
     expect(parseMarketplaceParams(new URLSearchParams('loai=khac'), CATS).type).toBeUndefined();
   });
-  test('Tuyển nhiều KOL: Đã ứng tuyển → Đã được chọn → Đang thực hiện → Hoàn tất / Không được chọn', () => {
+  test('Booking nhiều KOL: Đã ứng tuyển → Đã được chọn → Đang thực hiện → Hoàn tất / Không được chọn', () => {
     const r = (status: BookingView['status'], extra: Partial<BookingView> = {}) =>
       ({ ...b(status), origin: 'APPLICATION', campaign: { type: 'OPEN_RECRUITMENT' }, ...extra }) as unknown as BookingView;
     expect(supplierStatusLabel(r('APPLIED', { awaiting: 'BRAND' }))).toBe('Đã ứng tuyển');

@@ -97,7 +97,7 @@ describe('campaign form', () => {
   });
 });
 
-test('Tuyển nhiều KOL: form ↔ dữ liệu (suất, phần thưởng, lịch, điều kiện, khảo sát, điều khoản)', () => {
+test('Booking nhiều KOL: form ↔ dữ liệu (suất, phần thưởng, lịch, điều kiện, khảo sát, điều khoản)', () => {
   expect(EMPTY_FORM.terms.length).toBe(2); // điều khoản mặc định
   const v = {
     ...EMPTY_FORM,
@@ -175,7 +175,7 @@ test('Tính năng của chiến dịch: đọc trạng thái bật/tắt từ ch
   expect(full).toMatchObject({ useContentRules: true, useConditions: true, useSurvey: true, contract: true });
 });
 
-test('Booking riêng: nền tảng lấy theo hạng mục, không có ô chọn nền tảng riêng', () => {
+test('Booking 1 KOL: nền tảng lấy theo hạng mục, không có ô chọn nền tảng riêng', () => {
   const v = {
     ...EMPTY_FORM,
     name: 'Book 1 KOL',
