@@ -244,6 +244,10 @@ function campaignFieldLabel(field?: string): string {
       return 'Chế độ hiển thị';
     case 'applyDeadline':
       return 'Hạn ứng tuyển';
+    case 'promotedBrand':
+      return 'Nhãn hàng được quảng bá';
+    case 'usageRights':
+      return 'Quyền sử dụng nội dung';
     case 'cover':
       return 'Ảnh chiến dịch';
     case 'note':

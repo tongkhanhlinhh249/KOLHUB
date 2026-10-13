@@ -15,7 +15,7 @@ import {
 } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { CampaignTypeBadge, ConditionsList, PhaseBadge, RecruitTimeline, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
-import { contractLabel, RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, rewardText, workflowLabel } from '../shared/recruitView';
+import { contractLabel, deadlineText, RECRUIT_STAGE_LABEL, recruitStage, regionText, rewardShort, rewardText, usageRightsText, workflowLabel } from '../shared/recruitView';
 import { PLATFORM_LABEL } from '../shared/StatusBadges';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
@@ -55,9 +55,10 @@ const isRecruit = (c: MarketplaceCampaign) => c.type === 'OPEN_RECRUITMENT' && !
 export function CampaignDetailHeader({ campaign: c, now }: { campaign: MarketplaceCampaign; now: number }) {
   return (
     <div className="min-w-0 space-y-2">
-      <p className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+      <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
         <Building2 className="size-4 shrink-0" aria-hidden />
-        <span className="truncate font-medium text-foreground">{c.brand.company}</span>
+        <span className="truncate font-medium text-foreground">{c.promotedBrand?.name ?? c.brand.company}</span>
+        {c.promotedBrand?.viaAgency && <span className="truncate">· vận hành bởi {c.brand.company}</span>}
       </p>
       <h1 className="text-xl font-semibold break-words text-foreground md:text-2xl">{c.name}</h1>
       <div className="flex flex-wrap items-center gap-2">
@@ -75,7 +76,7 @@ function DeadlineValue({ campaign: c, now }: { campaign: MarketplaceCampaign; no
   if (!c.applyDeadline) return <>Không giới hạn</>;
   return (
     <span className="flex flex-col gap-0.5">
-      {formatDay(c.applyDeadline)}
+      {deadlineText(c)}
       <CountdownText countdown={deadlineCountdown(c.applyDeadline, now)} />
     </span>
   );
@@ -90,12 +91,15 @@ export function CampaignDetailSections({
   viewer,
   now,
   narrowOnlyClass,
+  preview = false,
 }: {
   campaign: MarketplaceCampaign;
   viewer: MarketplaceViewer;
   now: number;
   /** Class hiding blocks that the right rail already shows on wide screens. */
   narrowOnlyClass: string;
+  /** "Xem trước" of the create form: no Q&A (the campaign does not exist on the Sàn yet). */
+  preview?: boolean;
 }) {
   const recruit = isRecruit(c);
   return (
@@ -217,11 +221,25 @@ export function CampaignDetailSections({
         )}
       </SheetSection>
 
-      <div id="hoi-dap" className="scroll-mt-20">
-        <SheetSection title="Hỏi đáp">
-          <CampaignQASection campaignId={c.id} viewer={viewer} mine={c.mine} canAsk />
-        </SheetSection>
-      </div>
+      {/* EP-02 §4.2: shown before applying; never "unlimited" by default. */}
+      <SheetSection title="Quyền sử dụng nội dung">
+        {c.usageRights ? (
+          <div className="space-y-1 text-sm text-foreground">
+            <p>{usageRightsText(c.usageRights)}</p>
+            {c.usageRights.note && <LongText text={c.usageRights.note} />}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nhãn hàng không yêu cầu sử dụng lại nội dung ngoài bài đăng gốc.</p>
+        )}
+      </SheetSection>
+
+      {!preview && (
+        <div id="hoi-dap" className="scroll-mt-20">
+          <SheetSection title="Hỏi đáp">
+            <CampaignQASection campaignId={c.id} viewer={viewer} mine={c.mine} canAsk />
+          </SheetSection>
+        </div>
+      )}
 
       {c.brandInfo && (
         <SheetSection title="Nhãn hàng">

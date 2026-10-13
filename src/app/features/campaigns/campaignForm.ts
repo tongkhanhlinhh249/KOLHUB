@@ -6,6 +6,7 @@ import {
   type CampaignInput,
   type CampaignType,
   type CampaignVisibility,
+  type UsageChannel,
   type DeliverableGroup,
   type DeliverableType,
   type KolCategory,
@@ -51,8 +52,23 @@ export interface CampaignFormValues {
   contentRules: string;
   visibility: CampaignVisibility;
   applyDeadline: string;
+  /** 'HH:mm', Vietnam time ('' = 23:59). */
+  applyDeadlineTime: string;
   /** "Ảnh chiến dịch" (16:9 cover); null = none. */
   cover: StoredFile | null;
+  // --- "Nhãn hàng được quảng bá" (EP-02 §4.1) ---
+  /** true = the organisation's own brand; false = Agency promoting a client. */
+  promotedOwn: boolean;
+  promotedName: string;
+  proof: StoredFile | null;
+  proofNote: string;
+  // --- "Quyền sử dụng nội dung" (EP-02 §4.2) ---
+  useUsageRights: boolean;
+  /** Raw text of the months input. */
+  usageMonths: string;
+  usageChannels: UsageChannel[];
+  usageExclusive: boolean;
+  usageNote: string;
   // --- loại chiến dịch / Tuyển nhiều KOL ---
   type: CampaignType;
   /** Raw text of the slots input. */
@@ -140,6 +156,16 @@ export const EMPTY_FORM: CampaignFormValues = {
   contentRules: '',
   visibility: 'PRIVATE',
   applyDeadline: '',
+  applyDeadlineTime: '',
+  promotedOwn: true,
+  promotedName: '',
+  proof: null,
+  proofNote: '',
+  useUsageRights: false,
+  usageMonths: '6',
+  usageChannels: ['BRAND_SOCIAL'],
+  usageExclusive: false,
+  usageNote: '',
   cover: null,
   type: 'BOOKING',
   slots: '',
@@ -189,7 +215,17 @@ export function formFromCampaign(c: Campaign): CampaignFormValues {
     contentRules: c.contentRules,
     visibility: c.visibility,
     applyDeadline: c.applyDeadline ?? '',
+    applyDeadlineTime: c.applyDeadlineTime ?? '',
     cover: c.cover ?? null,
+    promotedOwn: c.promotedBrand?.own ?? true,
+    promotedName: c.promotedBrand?.name ?? '',
+    proof: c.promotedBrand?.proof ?? null,
+    proofNote: c.promotedBrand?.proofNote ?? '',
+    useUsageRights: !!c.usageRights,
+    usageMonths: String(c.usageRights?.months ?? 6),
+    usageChannels: c.usageRights ? [...c.usageRights.channels] : ['BRAND_SOCIAL'],
+    usageExclusive: c.usageRights?.exclusive ?? false,
+    usageNote: c.usageRights?.note ?? '',
     type: c.type === 'OPEN_RECRUITMENT' ? 'OPEN_RECRUITMENT' : 'BOOKING',
     slots: r && r.slots > 0 ? String(r.slots) : '',
     rewardCash: numText(r?.reward.cash),
@@ -284,6 +320,15 @@ export function formToInput(v: CampaignFormValues): CampaignInput {
     contentRules: v.useContentRules ? v.contentRules : '',
     visibility: recruit ? 'MARKETPLACE' : v.visibility,
     applyDeadline: !recruit && v.visibility === 'MARKETPLACE' && v.applyDeadline ? v.applyDeadline : null,
+    applyDeadlineTime: !recruit && v.visibility === 'MARKETPLACE' && v.applyDeadline && v.applyDeadlineTime ? v.applyDeadlineTime : null,
+    // Own brand: the name is optional (the organisation's company); an Agency names the client and gives proof.
+    promotedBrand:
+      v.promotedOwn && !v.promotedName.trim()
+        ? null
+        : { name: v.promotedName, own: v.promotedOwn, ...(v.promotedOwn ? {} : { ...(v.proof ? { proof: v.proof } : {}), ...(v.proofNote.trim() ? { proofNote: v.proofNote } : {}) }) },
+    usageRights: v.useUsageRights
+      ? { months: intOrUndefined(v.usageMonths) ?? 0, channels: v.usageChannels, exclusive: v.usageExclusive, ...(v.usageNote.trim() ? { note: v.usageNote } : {}) }
+      : null,
     cover: v.cover,
   } as CampaignInput;
 }
@@ -368,6 +413,8 @@ export const FORM_FIELDS = [
   'visibility',
   'applyDeadline',
   'cover',
+  'promotedBrand',
+  'usageRights',
   'type',
   'recruitment',
   'slots',
@@ -391,7 +438,9 @@ const HINT: Partial<Record<FormField, string>> = {
   dates: 'Cần ngày bắt đầu và ngày kết thúc; ngày kết thúc không trước ngày bắt đầu và chưa qua.',
   platforms: 'Cần ít nhất một hạng mục nội dung (nền tảng lấy theo hạng mục).',
   deliverables: 'Cần ít nhất một hạng mục, số lượng 1–100. Với Booking nhiều KOL, nền tảng của hạng mục phải nằm trong các nền tảng đã chọn.',
-  applyDeadline: 'Hạn ứng tuyển không được sau ngày kết thúc và chưa qua.',
+  applyDeadline: 'Chiến dịch trên Sàn cần hạn ứng tuyển (ngày và giờ, giờ Việt Nam), không sau ngày kết thúc và chưa qua.',
+  promotedBrand: 'Agency cần ghi tên nhãn hàng và căn cứ được phép đại diện (tệp PDF/ảnh hoặc ghi chú) để Admin kiểm tra.',
+  usageRights: 'Chọn thời hạn 1–24 tháng và ít nhất một kênh sử dụng.',
   objective: 'Tối đa 5.000 ký tự.',
   brief: 'Brief bắt buộc khi đăng chiến dịch Booking 1 KOL, tối đa 5.000 ký tự.',
   contentRules: 'Tối đa 5.000 ký tự.',

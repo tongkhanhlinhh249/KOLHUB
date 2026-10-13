@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
-import { ArrowLeft, ChevronDown, Globe2, ImagePlus, Loader2, Plus, RefreshCw, Send, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Globe2, ImagePlus, Loader2, Plus, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -36,9 +36,10 @@ import { CampaignStatusBadge, errText, LoadError } from './CampaignParts';
 import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
 import { CampaignFeatures } from './FeatureCards';
 import { GroupRewardsEditor } from './GroupRewardsEditor';
+import { ApplyDeadlineField, CampaignPreview, PromotedBrandSection, StepBar, stepOfField, UsageRightsSection, VisibilityChoice, type FormStep } from './CampaignFormExtras';
+import { useAuth } from '../../auth/AuthContext';
 import { RecruitSection, TypeSection } from './RecruitFormSections';
 import {
-  ADVANCED_FIELDS,
   COVER_ACCEPT,
   coverFileError,
   EMPTY_FORM,
@@ -65,52 +66,6 @@ const lastPlatforms = (rows: DeliverableRow[]): Platform[] => (rows.length ? [ro
 
 /** Form values compared for "unsaved changes" (the type alone is not a change). */
 const snapshot = (v: CampaignFormValues) => JSON.stringify({ ...v, type: undefined });
-
-/** One line of the current advanced settings, shown while "Tính năng nâng cao" is collapsed. */
-function advancedSummary(v: CampaignFormValues): string {
-  return [
-    `Duyệt nháp: ${v.draftReview ? 'bật' : 'tắt'}`,
-    `Hợp đồng: ${v.contract ? 'bật' : 'tắt'}`,
-    ...(v.useContentRules ? ['Có quy định nội dung'] : []),
-  ].join(' · ');
-}
-
-/**
- * "Tính năng nâng cao" of a Booking riêng form: collapsed by default with a one-line summary of the current
- * settings; opens on demand or when the service reports an error on a field inside it.
- */
-function AdvancedBlock({ open, onOpenChange, summary, children }: { open: boolean; onOpenChange(open: boolean): void; summary: string; children: ReactNode }) {
-  const id = useId();
-  return (
-    <section aria-labelledby={`${id}-title`} className="rounded-xl border border-border bg-card">
-      <button
-        type="button"
-        onClick={() => onOpenChange(!open)}
-        aria-expanded={open}
-        aria-controls={`${id}-body`}
-        className="flex w-full items-start gap-3 rounded-xl p-4 text-left hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-          <SlidersHorizontal className="size-5" aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1 space-y-0.5">
-          <span id={`${id}-title`} className="block text-base font-semibold text-foreground">
-            Tính năng nâng cao
-          </span>
-          <span className="block text-sm text-muted-foreground">
-            {open ? 'Duyệt nháp, hợp đồng, quy định nội dung.' : summary}
-          </span>
-        </span>
-        <ChevronDown className={cn('mt-2 size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden />
-      </button>
-      {open && (
-        <div id={`${id}-body`} className="space-y-5 border-t border-border px-4 py-4">
-          {children}
-        </div>
-      )}
-    </section>
-  );
-}
 
 function DeliverableEditor({
   row,
@@ -352,7 +307,9 @@ export function CampaignFormPage() {
   const [values, setValues] = useState<CampaignFormValues>(() => newForm(typeParam));
   const [errors, setErrors] = useState<Partial<Record<FormField, string>>>({});
   const [busy, setBusy] = useState<'draft' | 'publish' | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [step, setStep] = useState<FormStep>(0);
+  const { account } = useAuth();
+  const company = loaded?.brand.company ?? account?.company ?? '';
   /** Id once saved (a new campaign becomes a draft on its first save; later saves update it). */
   const savedId = useRef<string | undefined>(id);
   /** Values as last loaded / saved, to warn before leaving with unsaved changes (EP-02 §6.1). */
@@ -426,14 +383,14 @@ export function CampaignFormPage() {
     if (isFormField(field)) {
       // The hint follows the field the service named (e.g. "platforms" → add a deliverable).
       setErrors({ [field]: fieldErrorText(raw ?? field, (e as Error).message) });
-      const inAdvanced = !recruit && ADVANCED_FIELDS.includes(field);
-      if (inAdvanced) setAdvancedOpen(true);
-      // Wait one frame when the advanced block has to open first.
-      requestAnimationFrame(() => {
+      // Open the step that holds the field (EP-02 §6.2: take the user to the field in error).
+      setStep(stepOfField(field, recruit));
+      // Wait for the step to render first.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
         const el = document.getElementById(fieldId(field));
         el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el?.focus({ preventScroll: true });
-      });
+      }));
       toast.error('Vui lòng kiểm tra lại thông tin', { description: (e as Error).message });
     } else {
       toast.error(errText(e));
@@ -469,6 +426,10 @@ export function CampaignFormPage() {
   };
 
   const cancelHref = id ? campaignPath(id) : CAMPAIGNS_PATH;
+  const goto = (s: FormStep) => {
+    setStep(s);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   // A new campaign keeps its type in the URL (?loai=) so a reload opens the same form.
   const pickType = (t: CampaignType) => {
     set('type', t);
@@ -525,6 +486,8 @@ export function CampaignFormPage() {
         </div>
       </div>
 
+      <StepBar step={step} onStep={goto} />
+
       {!editable && (
         <LoadError message="Chiến dịch không ở trạng thái cho phép sửa (sửa được khi Bản nháp, Cần bổ sung, Không được duyệt hoặc Đang tuyển; Chờ duyệt thì rút về nháp trước)." />
       )}
@@ -533,12 +496,14 @@ export function CampaignFormPage() {
         disabled={!editable || busy !== null}
         className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-6"
       >
-        <div className="min-w-0 lg:col-span-2">
-          <TypeSection value={values.type} onChange={pickType} locked={typeLocked} error={errors.type} />
-        </div>
+        {step === 0 && (
+          <div className="min-w-0 lg:col-span-2">
+            <TypeSection value={values.type} onChange={pickType} locked={typeLocked} error={errors.type} />
+          </div>
+        )}
 
         {/* Side column (above the sections on phones): cover image, sticky while the long form scrolls. */}
-        <aside className="min-w-0 lg:sticky lg:top-4 lg:order-2" aria-label="Ảnh chiến dịch">
+        <aside className={cn('min-w-0 lg:sticky lg:top-4 lg:order-2', step !== 0 && 'hidden')} aria-label="Ảnh chiến dịch">
           <Section title="Ảnh chiến dịch" description="Hiện trên thẻ chiến dịch ở Sàn và trong danh sách của bạn. Không bắt buộc.">
             <CoverField
               id={fieldId('cover')}
@@ -550,11 +515,12 @@ export function CampaignFormPage() {
           </Section>
         </aside>
 
-        <div className="min-w-0 space-y-4 lg:order-1">
-
-        {recruit ? (
-          <>
-            <RecruitSection values={values} set={set} errors={errors} />
+        <div className={cn('min-w-0 space-y-4 lg:order-1', step !== 0 && 'lg:col-span-2')}>
+          {/* Bước 1 — Thông tin chung */}
+          {step === 0 && (
+            <>
+              <PromotedBrandSection values={values} set={set} errors={errors} company={company} />
+              {recruit ? (
             <Section title="Nền tảng và lĩnh vực">
               <FormRow id={fieldId('platforms')} label="Nền tảng" error={errors.platforms} hint="Chọn một hoặc nhiều nền tảng.">
                 {(d) => (
@@ -585,6 +551,69 @@ export function CampaignFormPage() {
               </FormRow>
             </Section>
 
+              ) : (
+                <Section title="Giới thiệu chiến dịch" description="Brief là hướng đi KOL dựa vào khi làm nội dung.">
+              <FormRow
+                id={fieldId('brief')}
+                label="Brief"
+                error={errors.brief}
+                hint={`Thông điệp chính, câu chuyện, điểm cần nhấn mạnh. Bắt buộc khi tạo chiến dịch. ${[...values.brief].length.toLocaleString('vi-VN')}/${CAMPAIGN_TEXT_MAX.toLocaleString('vi-VN')}`}
+              >
+                {(d) => (
+                  <Textarea
+                    id={fieldId('brief')}
+                    value={values.brief}
+                    maxLength={CAMPAIGN_TEXT_MAX}
+                    rows={5}
+                    onChange={(e) => set('brief', e.target.value)}
+                    placeholder="VD: Giới thiệu sữa hạt vị mới cho gia đình trẻ, nhấn mạnh ít đường, quay cảnh bữa sáng"
+                    aria-invalid={!!errors.brief || undefined}
+                    aria-describedby={d}
+                  />
+                )}
+              </FormRow>
+
+              <FormRow id={fieldId('objective')} label="Mục tiêu" optional error={errors.objective}>
+                {(d) => (
+                  <Textarea
+                    id={fieldId('objective')}
+                    value={values.objective}
+                    maxLength={CAMPAIGN_TEXT_MAX}
+                    rows={2}
+                    onChange={(e) => set('objective', e.target.value)}
+                    placeholder="VD: Tăng nhận biết sản phẩm với nhóm gia đình trẻ"
+                    aria-invalid={!!errors.objective || undefined}
+                    aria-describedby={d}
+                  />
+                )}
+              </FormRow>
+
+                  <FormRow id={fieldId('categories')} label="Lĩnh vực" optional error={errors.categories} hint="Giúp KOL/MCN trên Sàn tìm thấy chiến dịch phù hợp.">
+                    {(d) => (
+                      <ChipGroup id={fieldId('categories')} label="Lĩnh vực" describedBy={d} invalid={!!errors.categories}>
+                        {KOL_CATEGORIES.map((cat) => {
+                          const Icon = fieldIcon(cat);
+                          return (
+                            <ChipToggle key={cat} pressed={values.categories.includes(cat)} onClick={() => set('categories', toggle(values.categories, cat))}>
+                              <Icon className="size-4 shrink-0" aria-hidden />
+                              {cat}
+                            </ChipToggle>
+                          );
+                        })}
+                      </ChipGroup>
+                    )}
+                  </FormRow>
+
+                </Section>
+              )}
+            </>
+          )}
+
+          {/* Bước 2 — Yêu cầu và quyền lợi */}
+          {step === 1 && (
+            <>
+              {recruit ? (
+                <>
             <Section title="Hạng mục nội dung" description="Những gì KOL cần sản xuất, ví dụ 3 video TikTok và 1 bài đăng Facebook.">
               <div id={fieldId('deliverables')} tabIndex={-1} className="@container space-y-3 focus-visible:outline-none">
                 {values.deliverables.length > 0 && (
@@ -618,18 +647,12 @@ export function CampaignFormPage() {
               </div>
             </Section>
 
-            <Section title="Hiển thị">
-              <p className="flex items-start gap-2 text-sm text-foreground">
-                <Globe2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-                Chiến dịch Booking nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
-              </p>
-            </Section>
-
-            <CampaignFeatures values={values} set={set} errors={errors} />
-          </>
-        ) : (
-          <>
-            <Section title="Nội dung cần làm" description="KOL làm theo các hạng mục và brief này. Nền tảng của chiến dịch lấy theo hạng mục.">
+                  <RecruitSection values={values} set={set} errors={errors} part="slots" />
+                  <CampaignFeatures values={values} set={set} errors={errors} />
+                </>
+              ) : (
+                <>
+                  <Section title="Nội dung cần làm" description="Chọn nền tảng trước, rồi loại nội dung và số lượng. Nền tảng của chiến dịch lấy theo hạng mục.">
               <div id={fieldId('deliverables')} tabIndex={-1} className="@container space-y-3 focus-visible:outline-none">
                 {values.deliverables.length > 0 && (
                   <ul className="space-y-2" aria-label="Hạng mục nội dung">
@@ -661,41 +684,40 @@ export function CampaignFormPage() {
                 </Button>
               </div>
 
-              <FormRow
-                id={fieldId('brief')}
-                label="Brief"
-                error={errors.brief}
-                hint={`Thông điệp chính, câu chuyện, điểm cần nhấn mạnh. Bắt buộc khi tạo chiến dịch. ${[...values.brief].length.toLocaleString('vi-VN')}/${CAMPAIGN_TEXT_MAX.toLocaleString('vi-VN')}`}
-              >
-                {(d) => (
-                  <Textarea
-                    id={fieldId('brief')}
-                    value={values.brief}
-                    maxLength={CAMPAIGN_TEXT_MAX}
-                    rows={5}
-                    onChange={(e) => set('brief', e.target.value)}
-                    placeholder="VD: Giới thiệu sữa hạt vị mới cho gia đình trẻ, nhấn mạnh ít đường, quay cảnh bữa sáng"
-                    aria-invalid={!!errors.brief || undefined}
-                    aria-describedby={d}
-                  />
-                )}
-              </FormRow>
-
-            </Section>
-
-            <Section
-              title="Quyền lợi theo nhóm đầu việc"
-              description="Mỗi nền tảng là một nhóm: số suất cần tuyển và thù lao cố định cho mỗi booking. Không nhận báo giá hay thương lượng."
-            >
-              <GroupRewardsEditor values={values} set={set} errors={errors} />
-              {errors.budget && (
-                <p className="text-xs text-destructive" role="alert">
-                  {errors.budget}
-                </p>
+                  </Section>
+                  <Section
+                    title="Quyền lợi theo nhóm đầu việc"
+                    description="Mỗi nền tảng là một nhóm với thù lao cố định cho booking. Không nhận báo giá hay thương lượng."
+                  >
+                    <GroupRewardsEditor values={values} set={set} errors={errors} />
+                    {errors.budget && (
+                      <p className="text-xs text-destructive" role="alert">
+                        {errors.budget}
+                      </p>
+                    )}
+                  </Section>
+                </>
               )}
-            </Section>
+              <UsageRightsSection values={values} set={set} errors={errors} />
+            </>
+          )}
 
-            <Section title="Thời gian">
+          {/* Bước 3 — Thời gian và hướng dẫn */}
+          {step === 2 && (
+            <>
+              {recruit ? (
+                <>
+                  <RecruitSection values={values} set={set} errors={errors} part="timeline" />
+                  <Section title="Hiển thị">
+                    <p className="flex items-start gap-2 text-sm text-foreground">
+                      <Globe2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                      Chiến dịch Booking nhiều KOL luôn hiển thị trên Sàn chiến dịch và nhận ứng tuyển trong giai đoạn Ứng tuyển.
+                    </p>
+                  </Section>
+                </>
+              ) : (
+                <>
+                  <Section title="Thời gian">
               <FormRow id={fieldId('dates')} label="Thời gian chạy" error={errors.dates}>
                 {(d) => (
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -731,73 +753,21 @@ export function CampaignFormPage() {
                   </div>
                 )}
               </FormRow>
-            </Section>
+                  </Section>
+                  <Section title="Hiển thị và hạn ứng tuyển" description="Trên Sàn: KOL/MCN tự ứng tuyển, bạn vẫn mời thêm được. Riêng tư: chỉ KOL được mời mới thấy.">
+                    <VisibilityChoice value={values.visibility} onChange={(x) => set('visibility', x, 'applyDeadline')} />
+                    {values.visibility === 'MARKETPLACE' && <ApplyDeadlineField values={values} set={set} errors={errors} />}
+                  </Section>
+                  <Section title="Hướng dẫn và tính năng" description="Duyệt nháp, hợp đồng, quy định nội dung, điều kiện tham gia và câu hỏi khi ứng tuyển.">
+                    <CampaignFeatures values={values} set={set} errors={errors} variant="advanced" />
+                  </Section>
+                </>
+              )}
+            </>
+          )}
 
-            <AdvancedBlock open={advancedOpen} onOpenChange={setAdvancedOpen} summary={advancedSummary(values)}>
-              <FormRow id={fieldId('objective')} label="Mục tiêu" optional error={errors.objective}>
-                {(d) => (
-                  <Textarea
-                    id={fieldId('objective')}
-                    value={values.objective}
-                    maxLength={CAMPAIGN_TEXT_MAX}
-                    rows={2}
-                    onChange={(e) => set('objective', e.target.value)}
-                    placeholder="VD: Tăng nhận biết sản phẩm với nhóm gia đình trẻ"
-                    aria-invalid={!!errors.objective || undefined}
-                    aria-describedby={d}
-                  />
-                )}
-              </FormRow>
-
-              <div className="space-y-3">
-                {values.visibility === 'MARKETPLACE' && (
-                  <FormRow
-                    id={fieldId('applyDeadline')}
-                    label="Hạn ứng tuyển"
-                    optional
-                    error={errors.applyDeadline}
-                    hint="Sau ngày này chiến dịch không nhận đề xuất mới. Để trống: nhận đến khi kết thúc."
-                  >
-                    {(d) => (
-                      <Input
-                        id={fieldId('applyDeadline')}
-                        type="date"
-                        value={values.applyDeadline}
-                        max={values.endDate || undefined}
-                        onChange={(e) => set('applyDeadline', e.target.value)}
-                        aria-invalid={!!errors.applyDeadline || undefined}
-                        aria-describedby={d}
-                        className="h-11 sm:max-w-60 md:h-10"
-                      />
-                    )}
-                  </FormRow>
-                )}
-
-                {values.visibility === 'MARKETPLACE' && (
-                  <>
-                  <FormRow id={fieldId('categories')} label="Lĩnh vực" optional error={errors.categories} hint="Giúp KOL/MCN trên Sàn tìm thấy chiến dịch phù hợp.">
-                    {(d) => (
-                      <ChipGroup id={fieldId('categories')} label="Lĩnh vực" describedBy={d} invalid={!!errors.categories}>
-                        {KOL_CATEGORIES.map((cat) => {
-                          const Icon = fieldIcon(cat);
-                          return (
-                            <ChipToggle key={cat} pressed={values.categories.includes(cat)} onClick={() => set('categories', toggle(values.categories, cat))}>
-                              <Icon className="size-4 shrink-0" aria-hidden />
-                              {cat}
-                            </ChipToggle>
-                          );
-                        })}
-                      </ChipGroup>
-                    )}
-                  </FormRow>
-
-                  </>
-                )}
-              </div>
-              <CampaignFeatures values={values} set={set} errors={errors} variant="advanced" />
-            </AdvancedBlock>
-          </>
-        )}
+          {/* Bước 4 — Xem trước và gửi đăng */}
+          {step === 3 && <CampaignPreview values={values} company={company} onGoto={goto} />}
         </div>
       </fieldset>
 
@@ -817,7 +787,7 @@ export function CampaignFormPage() {
                   ? 'Gửi bản sửa để Admin duyệt.'
                   : 'Lưu nháp để làm tiếp sau, hoặc gửi đăng khi đã đủ thông tin.'}
             </p>
-            <div className="grid w-full grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-2 sm:ml-auto sm:flex sm:w-auto">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:ml-auto sm:w-auto">
               <Link to={cancelHref} className={buttonVariants({ variant: 'outline', className: 'h-11 md:h-10' })}>
                 Huỷ bỏ
               </Link>
@@ -825,12 +795,24 @@ export function CampaignFormPage() {
                 {busy === 'draft' && <Loader2 className="animate-spin" aria-hidden />}
                 {isOpen ? 'Gửi bản sửa' : 'Lưu nháp'}
               </Button>
-              {!isOpen && (
-                <Button type="button" className="h-11 md:h-10" disabled={busy !== null || !values.name.trim()} onClick={() => void save(true)}>
-                  {busy === 'publish' ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
-                  <span className="sm:hidden">Gửi</span>
-                  <span className="hidden sm:inline">{status === 'DRAFT' ? 'Gửi đăng' : 'Gửi lại'}</span>
+              {step > 0 && (
+                <Button type="button" variant="ghost" className="h-11 md:h-10" disabled={busy !== null} onClick={() => goto((step - 1) as FormStep)}>
+                  <ChevronLeft aria-hidden />
+                  Quay lại
                 </Button>
+              )}
+              {step < 3 ? (
+                <Button type="button" variant={isOpen ? 'outline' : 'default'} className="h-11 md:h-10" disabled={busy !== null} onClick={() => goto((step + 1) as FormStep)}>
+                  Tiếp tục
+                  <ChevronRight aria-hidden />
+                </Button>
+              ) : (
+                !isOpen && (
+                  <Button type="button" className="h-11 md:h-10" disabled={busy !== null || !values.name.trim()} onClick={() => void save(true)}>
+                    {busy === 'publish' ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
+                    {status === 'DRAFT' ? 'Gửi đăng' : 'Gửi lại'}
+                  </Button>
+                )
               )}
             </div>
           </div>

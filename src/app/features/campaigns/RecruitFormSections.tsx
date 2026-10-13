@@ -121,13 +121,25 @@ export function TypeSection({ value, onChange, locked, error }: { value: Campaig
 // Tuyển nhiều KOL: suất, lịch 4 giai đoạn (phần thưởng nằm ở thẻ "Đề nghị trả phí" / "Tặng quà")
 // ---------------------------------------------------------------------------
 
-export function RecruitSection({ values: v, set, errors }: { values: CampaignFormValues; set: Setter; errors: Errors }) {
+export function RecruitSection({
+  values: v,
+  set,
+  errors,
+  part,
+}: {
+  values: CampaignFormValues;
+  set: Setter;
+  errors: Errors;
+  /** Only one of the two blocks (the create form shows them in different steps). */
+  part?: 'slots' | 'timeline';
+}) {
   const id = useId();
   const budget = recruitBudget(v);
   const setDate = (key: keyof CampaignFormValues['timeline'], value: string) => set('timeline', { ...v.timeline, [key]: value }, 'timeline');
   const timelineErr = errors.timeline ?? errors.recruitment;
   return (
     <>
+      {part !== 'timeline' && (
       <Section title="Số suất" description="Mỗi KOL được chọn nhận cùng một phần thưởng (đặt ở thẻ “Đề nghị trả phí” và “Tặng quà” bên dưới). KOL/MCN ứng tuyển không cần báo giá.">
         <FormRow id={fieldId('slots')} label="Số KOL cần tuyển" error={errors.slots} hint="Bạn chọn tối đa ngần này KOL/MCN trong giai đoạn Chọn lọc.">
           {(d) => (
@@ -148,7 +160,9 @@ export function RecruitSection({ values: v, set, errors }: { values: CampaignFor
           <span className="block text-xs text-muted-foreground">= số suất × (tiền mặt + giá trị sản phẩm). Hiển thị trên Sàn để KOL/MCN so sánh.</span>
         </p>
       </Section>
+      )}
 
+      {part !== 'slots' && (
       <Section title="Lịch trình 4 giai đoạn" description="Ứng tuyển → Chọn lọc → Đăng bài → Đánh giá. Chiến dịch hiển thị trên Sàn và nhận ứng tuyển trong giai đoạn Ứng tuyển.">
         <div id={fieldId('timeline')} tabIndex={-1} className="space-y-3 focus-visible:outline-none">
           <ol className="space-y-2">
@@ -197,6 +211,7 @@ export function RecruitSection({ values: v, set, errors }: { values: CampaignFor
           </Button>
         </div>
       </Section>
+      )}
     </>
   );
 }

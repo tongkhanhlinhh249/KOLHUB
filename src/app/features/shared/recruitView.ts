@@ -2,7 +2,10 @@
 // phase badge (D-n), reward / region / workflow wording, the 4-milestone timeline and the applicant's stage.
 import {
   daysTo,
+  DEADLINE_TIME_DEFAULT,
   RECRUIT_MILESTONES,
+  USAGE_CHANNELS,
+  type UsageRights,
   TARGET_GENDER_LABEL,
   type BookingStatus,
   type CampaignReward,
@@ -206,4 +209,17 @@ export function recruitStageTone(s: RecruitStage): Tone {
   if (s === 'WITHDRAWN' || s === 'CANCELLED') return 'neutral';
   if (s === 'SELECTED' || s === 'DONE') return 'success';
   return s === 'WORKING' ? 'warning' : 'info';
+}
+
+/** "6 tháng · Quảng cáo trả phí, Kênh mạng xã hội của nhãn hàng · độc quyền" (EP-02 §4.2). */
+export function usageRightsText(u: UsageRights): string {
+  const channels = u.channels.map((k) => USAGE_CHANNELS.find((x) => x.key === k)?.label ?? k).join(', ');
+  return [`${u.months} tháng`, channels, u.exclusive ? 'độc quyền (không nhận nhãn hàng cạnh tranh trong thời hạn)' : ''].filter(Boolean).join(' · ');
+}
+
+/** "23:59 · 22/10/2026 (giờ Việt Nam)". */
+export function deadlineText(c: { applyDeadline?: string; applyDeadlineTime?: string }): string {
+  if (!c.applyDeadline) return '';
+  const [y, m, d] = c.applyDeadline.split('-');
+  return `${c.applyDeadlineTime ?? DEADLINE_TIME_DEFAULT} · ${d}/${m}/${y} (giờ Việt Nam)`;
 }

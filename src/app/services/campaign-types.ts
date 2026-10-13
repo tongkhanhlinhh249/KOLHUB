@@ -58,6 +58,41 @@ export interface DeliverableGroup {
 }
 export const GROUP_SLOTS_MAX = 1000;
 
+/** EP-02 §4.2 "Quyền sử dụng nội dung": where and how long the brand may reuse the KOL's content. */
+export type UsageChannel = 'BRAND_SOCIAL' | 'ADS' | 'WEBSITE' | 'OFFLINE';
+export const USAGE_CHANNELS: { key: UsageChannel; label: string }[] = [
+  { key: 'BRAND_SOCIAL', label: 'Kênh mạng xã hội của nhãn hàng' },
+  { key: 'ADS', label: 'Quảng cáo trả phí' },
+  { key: 'WEBSITE', label: 'Website, sàn thương mại điện tử' },
+  { key: 'OFFLINE', label: 'Ấn phẩm, điểm bán' },
+];
+export const USAGE_MONTHS_MAX = 24;
+export const USAGE_NOTE_MAX = 500;
+/** Absent on a campaign = no reuse requested (the brand may only share the original post). Never unlimited. */
+export interface UsageRights {
+  /** 1–24 months from the post date. */
+  months: number;
+  channels: UsageChannel[];
+  /** The KOL does not work with competing brands during `months`. */
+  exclusive: boolean;
+  note?: string;
+}
+
+/** EP-02 §4.1 "Nhãn hàng được quảng bá": the brand being promoted and, for an Agency, its proof of representation. */
+export interface PromotedBrand {
+  name: string;
+  /** true = the organisation's own brand; false = an Agency promoting a client (needs proof for Admin review). */
+  own: boolean;
+  /** Authorisation letter / contract (PDF, JPG, PNG, WebP ≤ 10 MB). */
+  proof?: StoredFile;
+  proofNote?: string;
+}
+export const PROMOTED_BRAND_MAX = 120;
+export const PROOF_NOTE_MAX = 500;
+
+/** Apply deadline time when none is set (Vietnam time, UTC+7). */
+export const DEADLINE_TIME_DEFAULT = '23:59';
+
 /** PRIVATE = invite only; MARKETPLACE = also listed on "Sàn chiến dịch" while open for applications. */
 export type CampaignVisibility = 'PRIVATE' | 'MARKETPLACE';
 export const CAMPAIGN_VISIBILITY_LABEL: Record<CampaignVisibility, string> = {
@@ -351,8 +386,14 @@ export interface Campaign {
    * `thumbnail` is a data URL (uploads) or an image URL (seed).
    */
   cover?: StoredFile;
-  /** 'YYYY-MM-DD', last day suppliers may apply / respond (end of that local day). */
+  /** 'YYYY-MM-DD', last day suppliers may apply (Vietnam time). */
   applyDeadline?: string;
+  /** 'HH:mm' on `applyDeadline`, Vietnam time (UTC+7); absent = 23:59. Applications stop when now ≥ that moment. */
+  applyDeadlineTime?: string;
+  /** EP-02 §4.1: brand being promoted (absent = the organisation's own brand). */
+  promotedBrand?: PromotedBrand;
+  /** EP-02 §4.2: content reuse requested by the brand (absent = none). */
+  usageRights?: UsageRights;
   /** Absent = BOOKING. */
   type?: CampaignType;
   /** OPEN_RECRUITMENT only: slots, reward per KOL and the 4-phase timeline. */
@@ -406,6 +447,10 @@ export interface CampaignInput {
   visibility?: CampaignVisibility;
   /** null clears it. */
   applyDeadline?: string | null;
+  /** 'HH:mm' (Vietnam time); null clears it (23:59). */
+  applyDeadlineTime?: string | null;
+  promotedBrand?: PromotedBrand | null;
+  usageRights?: UsageRights | null;
   /** JPG / PNG / WebP ≤ 10 MB (4803 `cover` otherwise); null removes it. */
   cover?: StoredFile | null;
   /** Cannot change once the campaign has bookings (4803 `type`). */
@@ -548,6 +593,12 @@ export interface MarketplaceCampaign {
   deliverables: Deliverable[];
   contentRules: string;
   applyDeadline?: string;
+  applyDeadlineTime?: string;
+  /** Exact end of applications (ms), Vietnam time. */
+  applyDeadlineAt?: number;
+  /** Brand being promoted; `viaAgency` = run by an Agency on its behalf (proof stays internal). */
+  promotedBrand?: { name: string; viaAgency: boolean };
+  usageRights?: UsageRights;
   /** "Ảnh chiến dịch" (16:9 cover), when the brand added one. */
   cover?: StoredFile;
   publishedAt: number;
@@ -840,9 +891,12 @@ export interface BookingCampaignSummary {
   startDate?: string;
   endDate?: string;
   applyDeadline?: string;
+  applyDeadlineTime?: string;
   platforms: Platform[];
   deliverables: Deliverable[];
   brand: BrandRef;
+  promotedBrand?: { name: string; viaAgency: boolean };
+  usageRights?: UsageRights;
   type: CampaignType;
   /** OPEN_RECRUITMENT only. */
   recruitment?: Recruitment;

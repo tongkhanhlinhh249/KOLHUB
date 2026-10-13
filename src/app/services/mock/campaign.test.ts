@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import type { CampaignInput } from '../campaign-types';
 import { createBookingService } from './booking';
 import { createCampaignService } from './campaign';
-import { isoDay } from './campaignRules';
+import { applyDeadlineAt, isoDay } from './campaignRules';
 import { SEED_BOOKING, SEED_CAMPAIGN, SEED_HISTORY } from './campaignSeed';
 import { VERIFIED_MCN_ACCOUNT_ID as SAOVIET } from './mcnSeed';
 import { makeHarness, type Harness } from './testHarness';
@@ -111,6 +111,49 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     await expect(svc.create({ name: 'A', platforms: ['twitter' as never] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
   });
 
+  test('hạn ứng tuyển có giờ (giờ Việt Nam): bắt buộc khi đăng lên Sàn; hiện tại ≥ hạn là hết tuyển', async () => {
+    const c = await svc.create(complete({ visibility: 'MARKETPLACE' }));
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'applyDeadline' } });
+    await expect(svc.update(c.id, { applyDeadlineTime: '25:00' })).rejects.toMatchObject({ meta: { field: 'applyDeadline' } });
+    // 10:30 hôm nay (giờ VN) — tính đúng thời điểm UTC.
+    const today = new Date(h.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+    expect(applyDeadlineAt({ applyDeadline: today, applyDeadlineTime: '10:30' })).toBe(Date.parse(`${today}T10:30:00+07:00`));
+    expect(applyDeadlineAt({ applyDeadline: today })).toBe(Date.parse(`${today}T23:59:00+07:00`));
+    await svc.update(c.id, { applyDeadline: day(3), applyDeadlineTime: '09:00' });
+    await publishApproved(c.id);
+    as(SAOVIET);
+    const item = await svc.getMarketplaceItem(c.id);
+    expect(item).toMatchObject({ applyDeadlineTime: '09:00', applyDeadlineAt: applyDeadlineAt({ applyDeadline: day(3), applyDeadlineTime: '09:00' }), accepting: true });
+    h.clock.t = item.applyDeadlineAt!;
+    expect(await svc.getMarketplaceItem(c.id)).toMatchObject({ accepting: false, recruitmentClosed: true });
+  });
+
+  test('nhãn hàng được quảng bá: Agency cần tên + căn cứ đại diện; Sàn chỉ thấy tên, không thấy căn cứ', async () => {
+    const c = await svc.create(complete({ visibility: 'MARKETPLACE', applyDeadline: day(5), promotedBrand: { name: 'Sữa Mộc Châu', own: false } }));
+    await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'promotedBrand' } });
+    await expect(svc.update(c.id, { promotedBrand: { name: 'X', own: false, proof: { name: 'a.exe', type: 'application/x-msdownload', size: 1 } } })).rejects.toMatchObject({
+      meta: { field: 'promotedBrand' },
+    });
+    await svc.update(c.id, { promotedBrand: { name: 'Sữa Mộc Châu', own: false, proof: { name: 'uy-quyen.pdf', type: 'application/pdf', size: 200_000 } } });
+    await publishApproved(c.id);
+    as(SAOVIET);
+    const item = await svc.getMarketplaceItem(c.id);
+    expect(item.promotedBrand).toEqual({ name: 'Sữa Mộc Châu', viaAgency: true });
+    expect(JSON.stringify(item)).not.toContain('uy-quyen.pdf');
+  });
+
+  test('quyền sử dụng nội dung: 1–24 tháng, ít nhất một kênh; không mặc định vô hạn; hiện trên Sàn', async () => {
+    await expect(svc.create(complete({ usageRights: { months: 0, channels: ['ADS'], exclusive: false } }))).rejects.toMatchObject({ meta: { field: 'usageRights' } });
+    await expect(svc.create(complete({ usageRights: { months: 6, channels: [], exclusive: false } }))).rejects.toMatchObject({ meta: { field: 'usageRights' } });
+    await expect(svc.create(complete({ usageRights: { months: 6, channels: ['TV' as never], exclusive: false } }))).rejects.toMatchObject({ meta: { field: 'usageRights' } });
+    const c = await svc.create(complete({ visibility: 'MARKETPLACE', applyDeadline: day(5), usageRights: { months: 6, channels: ['ADS', 'ADS', 'BRAND_SOCIAL'], exclusive: true, note: ' Chỉ cắt ngắn ' } }));
+    expect(c.usageRights).toEqual({ months: 6, channels: ['ADS', 'BRAND_SOCIAL'], exclusive: true, note: 'Chỉ cắt ngắn' });
+    await publishApproved(c.id);
+    as(SAOVIET);
+    expect((await svc.getMarketplaceItem(c.id)).usageRights).toMatchObject({ months: 6, exclusive: true });
+    expect((await svc.getMarketplaceItem(SEED_CAMPAIGN.marketplace)).usageRights).toBeUndefined();
+  });
+
   test('loại nội dung theo nền tảng: TikTok chỉ Video / Nhật ký; sai cặp → 4803 deliverables', async () => {
     const ok = await svc.create({
       name: 'Đa nền tảng',
@@ -178,7 +221,7 @@ describe('tạo, sửa, đăng chiến dịch', () => {
   });
 
   test('sửa OPEN chưa có đơn: điều kiện mới phải duyệt lại, tạm ngừng nhận đơn; từ chối bản sửa → giữ bản cũ', async () => {
-    const c = await svc.create(complete({ visibility: 'MARKETPLACE' }));
+    const c = await svc.create(complete({ visibility: 'MARKETPLACE', applyDeadline: day(10) }));
     await publishApproved(c.id);
     const up = await svc.update(c.id, { groups: [{ platform: 'youtube', slots: 15, reward: { cash: 10_000_000 } }] });
     expect(up).toMatchObject({ budget: 100_000_000, pendingRevision: { pausesApplications: true } });
@@ -774,7 +817,7 @@ describe('thù lao cố định theo nhóm đầu việc (EP-02, không đàm ph
 
   test('Sàn và chi tiết booking trả nhóm quyền lợi (chỉ nền tảng của hạng mục) và cờ Hợp đồng', async () => {
     as(BRAND);
-    const cid = (await svc.create(complete({ visibility: 'MARKETPLACE' }))).id;
+    const cid = (await svc.create(complete({ visibility: 'MARKETPLACE', applyDeadline: day(10) }))).id;
     await publishApproved(cid);
     as(SAOVIET);
     const item = await svc.getMarketplaceItem(cid);

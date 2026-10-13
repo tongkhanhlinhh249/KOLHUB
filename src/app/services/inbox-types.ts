@@ -95,6 +95,10 @@ export type NotificationKind =
   | 'PAYMENT_CONFIRMED'
   | 'PRODUCT_RECEIVED'
   | 'QA_ASKED'
+  // Brand: campaign lifecycle (EP-02 US-14)
+  | 'CAMPAIGN_REVIEW'
+  | 'CAMPAIGN_CLOSED'
+  | 'DEADLINE_SOON'
   // both
   | 'CANCELLED'
   | 'MESSAGE';
@@ -110,6 +114,8 @@ export interface AppNotification {
   href: string;
   read: boolean;
   campaignName?: string;
+  /** Also sent by email to this address (EP-02: review results). */
+  email?: string;
 }
 
 export type NotificationFilter = 'all' | 'unread';
@@ -144,4 +150,5 @@ export const INBOX_PATHS = {
   brandQa: (campaignId: string) => `/chien-dich/${encodeURIComponent(campaignId)}?tab=hoi-dap`,
   thread: (bookingId: string) => `/tin-nhan?thread=${encodeURIComponent(bookingId)}`,
   sanCampaign: (campaignId: string) => `/san/${encodeURIComponent(campaignId)}`,
+  brandCampaign: (campaignId: string) => `/chien-dich/${encodeURIComponent(campaignId)}`,
 } as const;

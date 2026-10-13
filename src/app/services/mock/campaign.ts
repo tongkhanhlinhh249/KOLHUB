@@ -170,6 +170,9 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     if (clean.startDate) c.startDate = clean.startDate;
     if (clean.endDate) c.endDate = clean.endDate;
     if (clean.applyDeadline) c.applyDeadline = clean.applyDeadline;
+    if (clean.applyDeadlineTime) c.applyDeadlineTime = clean.applyDeadlineTime;
+    if (clean.promotedBrand) c.promotedBrand = clean.promotedBrand;
+    if (clean.usageRights) c.usageRights = clean.usageRights;
     if (clean.cover) c.cover = clean.cover;
     for (const k of ['recruitment', 'groups', 'draftReview', 'contract', 'regions', 'target', 'survey', 'terms'] as const) {
       if (clean[k] !== undefined) (c as unknown as Record<string, unknown>)[k] = clean[k];
@@ -197,7 +200,9 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     // The type decides how bookings work: it cannot change once there are bookings.
     if (clean.type && campaignType(clean) !== campaignType(c) && mine.length > 0) throw new KolhubError('KOLHUB-4803', { field: 'type' });
     const next: Campaign = { ...c, ...clean, updatedAt: t };
-    for (const k of ['startDate', 'endDate', 'applyDeadline', 'cover', 'recruitment', 'groups', 'target'] as const) if (next[k] === undefined) delete next[k];
+    for (const k of ['startDate', 'endDate', 'applyDeadline', 'applyDeadlineTime', 'promotedBrand', 'usageRights', 'cover', 'recruitment', 'groups', 'target'] as const) {
+      if (next[k] === undefined) delete next[k];
+    }
     deriveCampaignFields(next);
     if (isRecruit(next) && next.recruitment.slots < selectedCount(state, next, t)) throw new KolhubError('KOLHUB-4803', { field: 'slots' });
     if (c.status !== 'OPEN') {
@@ -604,7 +609,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
    * Campaigns still taking applications come first; open-recruitment campaigns past "Ứng tuyển" follow.
    */
   function compare(sort: MarketplaceFilters['sort'] = 'match') {
-    const deadline = (m: MarketplaceCampaign) => (m.applyDeadline && m.accepting !== false ? endOfDay(m.applyDeadline) : Infinity);
+    const deadline = (m: MarketplaceCampaign) => (m.applyDeadlineAt !== undefined && m.accepting !== false ? m.applyDeadlineAt : Infinity);
     return (a: MarketplaceCampaign, b: MarketplaceCampaign) => {
       const open = Number(b.accepting !== false) - Number(a.accepting !== false);
       if (open) return open;

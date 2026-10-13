@@ -308,6 +308,7 @@ export function deriveRecruitmentFields(c: Campaign): void {
   else delete c.endDate;
   if (t.applyEnd) c.applyDeadline = t.applyEnd;
   else delete c.applyDeadline;
+  delete c.applyDeadlineTime;
   c.budget = slots * rewardValue(reward);
 }
 
