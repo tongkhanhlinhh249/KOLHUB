@@ -128,6 +128,7 @@ test('deliverablesSummary', () => {
       { type: 'POST', platform: 'facebook', quantity: 1 },
     ]),
   ).toBe('2 Video TikTok · 1 Bài đăng Facebook');
+  expect(deliverablesSummary([{ type: 'STORY', platform: 'tiktok', quantity: 3 }])).toBe('3 Nhật ký TikTok');
 });
 
 describe('nhóm tab và trạng thái', () => {

@@ -157,9 +157,9 @@ export const CAMPAIGN_DATA: DataGroup[] = [
       {
         key: 'deliverables',
         label: 'Hạng mục nội dung',
-        type: "{ type: 'VIDEO' | 'POST' | 'LIVESTREAM', platform, quantity }[]",
+        type: "{ platform, type: 'VIDEO' | 'SHORTS' | 'REELS' | 'POST' | 'STORY' | 'LIVESTREAM', quantity }[]",
         required: 'Khi đăng: ≥ 1',
-        rules: 'Video / Bài đăng / Livestream; số lượng 1–100; nền tảng của hạng mục phải thuộc nền tảng chiến dịch.',
+        rules: 'Chọn nền tảng trước, loại nội dung theo nền tảng: TikTok Video / Nhật ký; Facebook Bài đăng / Video / Reels / Story / Livestream; Instagram Bài đăng / Reels / Story / Livestream; YouTube Video / Shorts / Livestream (sai cặp → 4803 deliverables). Số lượng 1–100.',
         shown: { form: 'Hạng mục nội dung', san: 'Yêu cầu nội dung › Hạng mục nội dung', supplier: 'Hạng mục nội dung', brand: 'Hạng mục nội dung' },
       },
       {

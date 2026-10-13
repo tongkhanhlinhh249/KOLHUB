@@ -3,6 +3,7 @@
 import {
   channelBadge,
   DELIVERABLE_QTY_MAX,
+  PLATFORM_DELIVERABLES,
   type BookingItem,
   type Channel,
   type Deliverable,
@@ -55,6 +56,12 @@ export const newRowKey = () => `row-${++seq}`;
  * Starting rows for "Ứng tuyển". KOL: one row per campaign deliverable that has a matching own channel
  * (type and quantity from the deliverable). MCN: one empty row with the first deliverable's type/quantity.
  */
+/** `type` if the platform offers it, else the platform's first content type (unknown platform: unchanged). */
+export function fitType(type: DeliverableType, platform: Platform | undefined): DeliverableType {
+  const allowed = platform ? PLATFORM_DELIVERABLES[platform] : undefined;
+  return !allowed || allowed.includes(type) ? type : allowed[0];
+}
+
 export function initialRows(supplierType: SupplierType, deliverables: Deliverable[], ownChannels: Channel[]): ItemDraft[] {
   const first = deliverables[0];
   const blank = (): ItemDraft => ({
@@ -72,7 +79,10 @@ export function initialRows(supplierType: SupplierType, deliverables: Deliverabl
     .filter((r): r is ItemDraft => r !== null);
   if (rows.length) return rows;
   const row = blank();
-  if (ownChannels[0]) row.channelId = ownChannels[0].id;
+  if (ownChannels[0]) {
+    row.channelId = ownChannels[0].id;
+    row.deliverableType = fitType(row.deliverableType, ownChannels[0].platform);
+  }
   return [row];
 }
 

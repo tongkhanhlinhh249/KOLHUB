@@ -10,6 +10,8 @@ import {
   channelService,
   DELIVERABLE_QTY_MAX,
   DELIVERABLE_TYPES,
+  deliverableLabel,
+  PLATFORM_DELIVERABLES,
   mcnKolService,
   type Channel,
   type DeliverableType,
@@ -22,7 +24,7 @@ import { channelName } from '../channels/ChannelParts';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { MCN_KOLS_PATH } from '../../auth/roles';
 import { KolAvatar } from './parts';
-import { eligibleChannels, newRowKey, type ItemDraft, type ItemErrors } from './proposalItems';
+import { eligibleChannels, fitType, newRowKey, type ItemDraft, type ItemErrors } from './proposalItems';
 import { platformName } from './supplierBooking';
 
 export interface KolOption {
@@ -163,6 +165,9 @@ export function ItemsEditor({
           const channels = isMcn ? (r.kolAccountId ? sources.channelsFor(r.kolAccountId) : []) : ownChannels;
           // Keep a channel that is no longer eligible visible so the service error (4809) makes sense.
           const id = `${idPrefix}-${r.key}`;
+          // Content types follow the channel's platform (TikTok: Video / Nhật ký; YouTube: Video / Shorts / Livestream…).
+          const platform = channels.find((c) => c.id === r.channelId)?.platform;
+          const types = platform ? PLATFORM_DELIVERABLES[platform] : DELIVERABLE_TYPES.map((d) => d.key);
           return (
             <li key={r.key} className="space-y-3 rounded-[8px] border border-border p-3">
               <div className="flex items-center justify-between gap-2">
@@ -186,7 +191,10 @@ export function ItemsEditor({
                     <Label htmlFor={`${id}-kol`}>KOL</Label>
                     <Select
                       value={r.kolAccountId ?? ''}
-                      onValueChange={(v) => update(r.key, { kolAccountId: v, channelId: sources.channelsFor(v)[0]?.id ?? '' })}
+                      onValueChange={(v) => {
+                        const ch = sources.channelsFor(v)[0];
+                        update(r.key, { kolAccountId: v, channelId: ch?.id ?? '', deliverableType: fitType(r.deliverableType, ch?.platform) });
+                      }}
                     >
                       <SelectTrigger id={`${id}-kol`} className={selectClass} aria-invalid={!!err.kol}>
                         <SelectValue placeholder="Chọn KOL do MCN quản lý" />
@@ -208,7 +216,11 @@ export function ItemsEditor({
                 )}
                 <div className="space-y-1.5 @md:col-span-2">
                   <Label htmlFor={`${id}-channel`}>Kênh đăng</Label>
-                  <Select value={r.channelId} onValueChange={(v) => update(r.key, { channelId: v })} disabled={isMcn && !r.kolAccountId}>
+                  <Select
+                    value={r.channelId}
+                    onValueChange={(v) => update(r.key, { channelId: v, deliverableType: fitType(r.deliverableType, channels.find((c) => c.id === v)?.platform) })}
+                    disabled={isMcn && !r.kolAccountId}
+                  >
                     <SelectTrigger id={`${id}-channel`} className={selectClass} aria-invalid={!!err.channel}>
                       <SelectValue placeholder={isMcn && !r.kolAccountId ? 'Chọn KOL trước' : 'Chọn kênh'} />
                     </SelectTrigger>
@@ -233,9 +245,9 @@ export function ItemsEditor({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {DELIVERABLE_TYPES.map((d) => (
-                        <SelectItem key={d.key} value={d.key}>
-                          {d.label}
+                      {types.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {deliverableLabel(t, platform)}
                         </SelectItem>
                       ))}
                     </SelectContent>

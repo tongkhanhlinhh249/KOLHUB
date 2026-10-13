@@ -2,7 +2,7 @@
 // money, deadlines, stage tabs, status wording, timeline labels and URL state.
 import {
   BOOKING_STATUS_LABEL,
-  DELIVERABLE_TYPES,
+  deliverableLabel as typeLabelOf,
   MARKETPLACE_SORTS,
   PLATFORMS,
   type BookingAction,
@@ -140,12 +140,12 @@ export function expiryCountdown(expiresAt: number | undefined, now: number): Cou
 // Deliverables, platforms
 // ---------------------------------------------------------------------------
 
-export const deliverableLabel = (t: DeliverableType) => DELIVERABLE_TYPES.find((d) => d.key === t)?.label ?? t;
+export const deliverableLabel = (t: DeliverableType, platform?: Platform) => typeLabelOf(t, platform);
 export const platformName = (p: Platform) => PLATFORMS.find((x) => x.key === p)?.label ?? p;
 
 /** [{VIDEO, tiktok, 2}, {POST, facebook, 1}] → "2 Video TikTok · 1 Bài đăng Facebook". */
 export function deliverablesSummary(list: Pick<Deliverable, 'type' | 'platform' | 'quantity'>[]): string {
-  return list.map((d) => `${d.quantity} ${deliverableLabel(d.type)} ${platformName(d.platform)}`).join(' · ');
+  return list.map((d) => `${d.quantity} ${deliverableLabel(d.type, d.platform)} ${platformName(d.platform)}`).join(' · ');
 }
 
 // ---------------------------------------------------------------------------
