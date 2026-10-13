@@ -1549,7 +1549,7 @@ export const RELEASES: Release[] = [
           '[EP-02] Bản nháp chưa gửi xoá được sau xác nhận.',
         ],
         source: 'EP-02 §6.1, §6.5, US-02 · CampaignFormPage.tsx',
-        confirm: 'Đã có "Xoá nháp" cho bản nháp chưa từng gửi và chưa có booking. Prototype chưa cảnh báo khi rời form còn thay đổi chưa lưu.',
+        confirm: 'Đã có: "Xoá nháp" cho bản nháp chưa từng gửi và chưa có booking; cảnh báo khi rời form còn thay đổi chưa lưu (hộp xác nhận trong app, hộp của trình duyệt khi đóng / tải lại tab). Chưa có tự lưu (không thuộc MVP).',
       },
       {
         id: 'R8-3',
@@ -1665,7 +1665,7 @@ export const RELEASES: Release[] = [
           'Prototype: có tìm, lọc, tab trạng thái, chế độ bảng / thẻ, chọn nhiều để đóng / huỷ hàng loạt.',
         ],
         source: 'EP-02 §6.4, §10, US-09 · features/campaigns/CampaignsPage.tsx',
-        confirm: 'Tab theo vòng đời EP-02: Nháp, Chờ duyệt, Cần bổ sung, Không được duyệt, Đang tuyển, Đã đóng tuyển, Hoàn tất, Đã huỷ. Chưa có cột "Nhãn hàng được quảng bá".',
+        confirm: 'Tab theo vòng đời EP-02: Nháp, Chờ duyệt, Cần bổ sung, Không được duyệt, Đang tuyển, Đã đóng tuyển, Hoàn tất, Đã huỷ. Bảng có cột "Hạn tuyển" (Chỉ mời với chiến dịch riêng tư) và "Booking / Ứng viên" (booking xác nhận / suất, số đơn ứng tuyển hoặc lời mời); phân trang 10 chiến dịch / trang. Chưa có cột "Nhãn hàng được quảng bá".',
       },
       {
         id: 'R8-10',
@@ -1731,7 +1731,7 @@ export const RELEASES: Release[] = [
           '[EP-02] Số đơn khác số KOL được chọn, số booking xác nhận và số suất; ghi đúng tên, không gọi số đơn là số KOL đã tuyển.',
         ],
         source: 'EP-02 §6.4, §8, US-13 · features/campaigns/CampaignDetailPage.tsx',
-        confirm: 'Cần rà tên các chỉ số trên trang chi tiết theo EP-02 (đơn / đã chọn / booking / suất).',
+        confirm: 'Đã có: Tổng quan hiện Đơn ứng tuyển (… cần xử lý) hoặc Lời mời đã gửi với chiến dịch riêng tư, Booking đã xác nhận (đã dùng X/Y suất) hoặc KOL đã chọn, Nội dung chờ duyệt, Bài đăng đã xác minh; mỗi ô dẫn sang tab xử lý. Quyền lợi theo nhóm có thanh suất đã dùng; đủ suất thì cảnh báo, không tự đóng tuyển (§8.6). Thêm "Lịch sử chiến dịch" (gửi đăng, quyết định Admin, đóng tuyển, huỷ / hoàn tất: ai, khi nào).',
       },
       {
         id: 'R8-14',

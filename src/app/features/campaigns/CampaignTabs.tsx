@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { BarChart3, Check, ClipboardCheck, Inbox, Minus, UserPlus, Users } from 'lucide-react';
+import { Link } from 'react-router';
+import { AlertTriangle, BarChart3, Check, ClipboardCheck, Inbox, Minus, UserPlus, Users } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -26,6 +27,11 @@ import {
 import { DraftCard, href } from './ContentParts';
 import {
   bookingPriceText,
+  CAMPAIGN_LOG_ACTOR,
+  CAMPAIGN_LOG_LABEL,
+  campaignProgress,
+  formatDayTime,
+  groupFill,
   groupRewardText,
   brandTodoLabel,
   campaignFeatures,
@@ -69,15 +75,30 @@ function Panel({ title, children, className }: { title: string; children: ReactN
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
-  return (
-    <div className="min-w-0 rounded-[8px] border border-primary/20 bg-primary/5 p-3">
+/** A progress figure; with `to` it links to the tab that handles it (EP-02 US-13). */
+function Stat({ label, value, hint, to }: { label: string; value: ReactNode; hint?: string; to?: string }) {
+  const body = (
+    <>
       <dt className="truncate text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-0.5">
         <span className="block truncate text-lg font-bold text-foreground tabular-nums">{value}</span>
         {hint && <span className="block truncate text-xs text-muted-foreground">{hint}</span>}
       </dd>
+    </>
+  );
+  const box = 'block min-w-0 rounded-[8px] border border-primary/20 bg-primary/5 p-3';
+  return to ? (
+    <div className="min-w-0">
+      <Link
+        to={to}
+        replace
+        className={cn(box, 'transition-colors hover:border-primary/50 hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none')}
+      >
+        {body}
+      </Link>
     </div>
+  ) : (
+    <div className={box}>{body}</div>
   );
 }
 
@@ -93,14 +114,47 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
   const posts = collectPosts(bookings);
   const totals = metricTotals(posts.map((p) => p.post));
   const groups = countByBookingStatus(bookings);
+  const recruit = c.type === 'OPEN_RECRUITMENT';
+  const marketplace = recruit || c.visibility === 'MARKETPLACE';
+  // EP-02 US-13 / §8.4: each figure keeps its own name (đơn ≠ đã chọn ≠ booking xác nhận ≠ suất).
+  const p = campaignProgress(c, bookings);
+  const fill = recruit ? [] : groupFill(c, bookings);
+  const allFull = recruit ? !!p.slots && p.slotsUsed >= p.slots : fill.length > 0 && fill.every((g) => g.full);
+  const fullGroups = fill.filter((g) => g.full);
   return (
     <div className="@container space-y-4">
       <dl className="grid grid-cols-2 gap-2 @2xl:grid-cols-4 @2xl:gap-3">
-        <Stat label="Booking" value={c.stats.total} hint={`${c.stats.inProgress + c.stats.completed} đã chốt`} />
-        <Stat label="Giá trị đã chốt" value={formatVnd(c.stats.committed)} hint={c.budget > 0 ? `Ngân sách ${formatVnd(c.budget)}` : undefined} />
-        <Stat label="Bài đăng đã xác minh" value={totals.posts} hint={`${c.stats.pendingReview} booking chờ duyệt nội dung`} />
-        <Stat label="Lượt xem / Thích" value={`${formatCompactVi(totals.views)} / ${formatCompactVi(totals.likes)}`} hint={`Tương tác ${formatPercent(totals.engagementRate)}`} />
+        {marketplace ? (
+          <Stat label="Đơn ứng tuyển" value={p.applications} hint={`${p.toHandle} đơn cần xử lý`} to="?tab=ung-tuyen" />
+        ) : (
+          <Stat label="Lời mời đã gửi" value={p.invites} hint={`${p.invitesWaiting} chờ KOL/MCN phản hồi`} to="?tab=booking" />
+        )}
+        <Stat
+          label={recruit ? 'KOL đã chọn' : 'Booking đã xác nhận'}
+          value={recruit && p.slots ? `${p.slotsUsed} / ${p.slots}` : p.confirmed}
+          hint={recruit ? `${p.confirmed} booking đang làm / hoàn tất` : p.slots ? `Đã dùng ${p.slotsUsed}/${p.slots} suất` : 'Chưa đặt số suất'}
+          to="?tab=booking"
+        />
+        <Stat label="Nội dung chờ duyệt" value={p.contentToReview} hint={`${p.completed} booking hoàn tất`} to="?tab=noi-dung" />
+        <Stat
+          label="Bài đăng đã xác minh"
+          value={totals.posts}
+          hint={`${formatCompactVi(totals.views)} lượt xem · tương tác ${formatPercent(totals.engagementRate)}`}
+          to="?tab=bao-cao"
+        />
       </dl>
+
+      {/* EP-02 §8.6: đủ số booking xác nhận thì cảnh báo, không tự đóng tuyển. */}
+      {c.status === 'OPEN' && (allFull || fullGroups.length > 0) && (
+        <div className="flex items-start gap-2 rounded-[8px] border border-chart-5/40 bg-chart-5/10 p-3 text-sm text-foreground" role="status">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-hidden />
+          <p>
+            {allFull
+              ? 'Đã đủ số suất. Chiến dịch chưa tự đóng tuyển: bạn có thể "Đóng tuyển" nếu không cần thêm ứng viên. Đơn đã gửi vẫn được giữ.'
+              : `Nhóm ${fullGroups.map((g) => platformLabel(g.platform)).join(', ')} đã đủ suất: không chốt thêm booking cho nhóm này. Các nhóm khác vẫn tuyển.`}
+          </p>
+        </div>
+      )}
 
       <div className="grid gap-4 @4xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-4">
@@ -159,6 +213,7 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               <Meta label={c.type === 'OPEN_RECRUITMENT' ? `Tổng ngân sách dự kiến (${c.recruitment?.slots ?? 0} suất)` : 'Ngân sách'}>
                 {c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập'}
               </Meta>
+              <Meta label="Giá trị đã chốt">{formatVnd(c.stats.committed)}</Meta>
               <Meta label="Hiển thị">
                 <VisibilityLabel visibility={c.visibility} className="text-sm text-foreground" />
                 {c.visibility === 'MARKETPLACE' && (
@@ -194,16 +249,29 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               {(c.groups ?? []).length === 0 ? (
                 <p className="text-sm text-muted-foreground">Chưa thiết lập số suất và thù lao.</p>
               ) : (
-                <ul className="space-y-1.5">
-                  {c.groups!.map((g) => (
-                    <li key={g.platform} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-sm text-foreground">
-                      <span className="flex items-center gap-2">
-                        <PlatformIcon platform={g.platform} />
-                        {g.slots} suất
-                      </span>
-                      <span className="font-semibold tabular-nums">{groupRewardText(g)}</span>
-                    </li>
-                  ))}
+                <ul className="space-y-2.5">
+                  {c.groups!.map((g) => {
+                    const f = fill.find((x) => x.platform === g.platform);
+                    return (
+                      <li key={g.platform} className="space-y-1 text-sm text-foreground">
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                          <span className="flex items-center gap-2">
+                            <PlatformIcon platform={g.platform} />
+                            {platformLabel(g.platform)}
+                          </span>
+                          <span className="font-semibold tabular-nums">{groupRewardText(g)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden>
+                            <div className={cn('h-full rounded-full', f?.full ? 'bg-chart-4' : 'bg-primary')} style={{ width: `${g.slots ? Math.min(100, ((f?.used ?? 0) / g.slots) * 100) : 0}%` }} />
+                          </div>
+                          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                            {f?.used ?? 0}/{g.slots} suất{f?.full ? ' · đủ suất' : ''}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </Panel>
@@ -222,9 +290,39 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               </ul>
             )}
           </Panel>
+          <Panel title="Lịch sử chiến dịch">
+            <CampaignHistory campaign={c} />
+          </Panel>
         </div>
       </div>
     </div>
+  );
+}
+
+/** EP-02 §10 "lịch sử": gửi đăng, quyết định của Admin, đóng tuyển (ai, khi nào), huỷ / hoàn tất — newest first. */
+function CampaignHistory({ campaign: c }: { campaign: CampaignView }) {
+  const log = c.log ?? [];
+  const entries: { at: number; label: string; actor: string; note?: string }[] = [
+    { at: c.createdAt, label: 'Tạo bản nháp', actor: CAMPAIGN_LOG_ACTOR.BRAND },
+    // Older data has no log: its first publication still shows.
+    ...(c.publishedAt && !log.some((e) => e.action === 'APPROVED') ? [{ at: c.publishedAt, label: 'Bắt đầu tuyển', actor: CAMPAIGN_LOG_ACTOR.SYSTEM }] : []),
+    ...log.map((e) => ({ at: e.at, label: CAMPAIGN_LOG_LABEL[e.action], actor: CAMPAIGN_LOG_ACTOR[e.by], note: e.note })),
+  ].sort((a, b) => b.at - a.at);
+  return (
+    <ol className="space-y-3">
+      {entries.map((e, i) => (
+        <li key={`${e.at}-${i}`} className="relative flex gap-3">
+          <span className={cn('mt-1.5 size-2 shrink-0 rounded-full', i === 0 ? 'bg-primary' : 'bg-muted-foreground/50')} aria-hidden />
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium text-foreground">{e.label}</p>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {e.actor} · {formatDayTime(e.at)}
+            </p>
+            {e.note && <p className="text-sm break-words whitespace-pre-line text-foreground/80">{e.note}</p>}
+          </div>
+        </li>
+      ))}
+    </ol>
   );
 }
 

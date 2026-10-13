@@ -117,7 +117,7 @@ export interface CampaignRevision {
  */
 export type CampaignType = 'BOOKING' | 'OPEN_RECRUITMENT';
 export const CAMPAIGN_TYPES: { key: CampaignType; label: string; description: string }[] = [
-  { key: 'BOOKING', label: 'Booking riêng', description: 'Mời hoặc nhận đề xuất từ KOL/MCN, thương lượng giá cho từng booking.' },
+  { key: 'BOOKING', label: 'Booking riêng', description: 'Mời hoặc nhận đề xuất từ KOL/MCN, chốt theo thù lao cố định của từng nhóm đầu việc.' },
   {
     key: 'OPEN_RECRUITMENT',
     label: 'Tuyển nhiều KOL',

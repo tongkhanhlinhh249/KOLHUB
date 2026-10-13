@@ -3,7 +3,9 @@
 import {
   BOOKING_STATUS_LABEL,
   fixedRewardOf,
+  IN_PROGRESS_STATUSES,
   normalizeText,
+  slotKeys,
   PRE_ACCEPT_STATUSES,
   type BookingAction,
   type BookingActionKey,
@@ -12,6 +14,7 @@ import {
   type BookingStatus,
   type BookingView,
   type Campaign,
+  type CampaignLogEntry,
   type CampaignReward,
   type CampaignStatus,
   type CampaignType,
@@ -579,3 +582,84 @@ export function campaignFeatures(c: Campaign): { label: string; on: boolean }[] 
     { label: 'Câu hỏi khảo sát', on: (c.survey ?? []).length > 0 },
   ];
 }
+
+// ---------------------------------------------------------------------------
+// Tiến độ chiến dịch (EP-02 US-13, §8.4): đơn ≠ người được chọn ≠ booking xác nhận ≠ suất
+// ---------------------------------------------------------------------------
+
+/** Accepted or later, not cancelled: the deal is confirmed. */
+const isConfirmed = (s: BookingStatus) => IN_PROGRESS_STATUSES.includes(s) || s === 'COMPLETED';
+
+/** Slots used per group: distinct channel × group among confirmed bookings (Booking riêng). */
+export interface GroupFill {
+  platform: DeliverableGroup['platform'];
+  slots: number;
+  used: number;
+  full: boolean;
+}
+
+export function groupFill(c: Pick<Campaign, 'groups'>, bookings: Pick<BookingView, 'status' | 'items'>[]): GroupFill[] {
+  const confirmed = bookings.filter((b) => isConfirmed(b.status));
+  const keys = new Set(confirmed.flatMap((b) => slotKeys(b.items)));
+  return (c.groups ?? []).map((g) => {
+    const used = [...keys].filter((k) => k.endsWith(`|${g.platform}`)).length;
+    return { platform: g.platform, slots: g.slots, used, full: g.slots > 0 && used >= g.slots };
+  });
+}
+
+export interface CampaignProgress {
+  /** Applications received (any status, not invites). */
+  applications: number;
+  /** Applications waiting for the brand. */
+  toHandle: number;
+  /** Invites sent / still waiting for the supplier. */
+  invites: number;
+  invitesWaiting: number;
+  /** Bookings confirmed (accepted or later, not cancelled). */
+  confirmed: number;
+  /** Slots used / total (Booking riêng: Σ groups; Tuyển nhiều KOL: picked / slots). Undefined when not set. */
+  slotsUsed: number;
+  slots?: number;
+  /** Bookings with drafts waiting for review / completed. */
+  contentToReview: number;
+  completed: number;
+}
+
+export function campaignProgress(
+  c: Pick<Campaign, 'type' | 'groups' | 'recruitment'>,
+  bookings: Pick<BookingView, 'status' | 'items' | 'origin' | 'awaiting'>[],
+): CampaignProgress {
+  const apps = bookings.filter((b) => b.origin === 'APPLICATION');
+  const invites = bookings.filter((b) => b.origin === 'INVITE');
+  const confirmed = bookings.filter((b) => isConfirmed(b.status));
+  const recruit = c.type === 'OPEN_RECRUITMENT';
+  const fill = recruit ? [] : groupFill(c, bookings);
+  const slots = recruit ? c.recruitment?.slots : fill.length ? fill.reduce((n, g) => n + g.slots, 0) : undefined;
+  return {
+    applications: apps.length,
+    toHandle: apps.filter((b) => PRE_ACCEPT_STATUSES.includes(b.status) && b.awaiting === 'BRAND').length,
+    invites: invites.length,
+    invitesWaiting: invites.filter((b) => PRE_ACCEPT_STATUSES.includes(b.status)).length,
+    confirmed: confirmed.length,
+    slotsUsed: recruit ? confirmed.filter((b) => b.origin === 'APPLICATION').length : fill.reduce((n, g) => n + g.used, 0),
+    slots,
+    contentToReview: bookings.filter((b) => b.status === 'CONTENT_REVIEW').length,
+    completed: bookings.filter((b) => b.status === 'COMPLETED').length,
+  };
+}
+
+/** "Lịch sử chiến dịch" line: what happened, by whom. */
+export const CAMPAIGN_LOG_LABEL: Record<CampaignLogEntry['action'], string> = {
+  SUBMITTED: 'Gửi đăng',
+  WITHDRAWN: 'Rút về nháp',
+  APPROVED: 'Được duyệt, bắt đầu tuyển',
+  NEEDS_FIX: 'Cần bổ sung',
+  REJECTED: 'Không được duyệt',
+  CLOSED: 'Đóng tuyển',
+  COMPLETED: 'Hoàn tất',
+  CANCELLED: 'Huỷ chiến dịch',
+  REVISION_SUBMITTED: 'Gửi bản sửa',
+  REVISION_APPROVED: 'Bản sửa được duyệt',
+  REVISION_REJECTED: 'Bản sửa bị từ chối',
+};
+export const CAMPAIGN_LOG_ACTOR: Record<CampaignLogEntry['by'], string> = { BRAND: 'Bạn', ADMIN: 'Admin KOLHUB', SYSTEM: 'Hệ thống' };

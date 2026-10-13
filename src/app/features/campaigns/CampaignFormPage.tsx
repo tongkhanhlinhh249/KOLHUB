@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useBlocker, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ArrowLeft, ChevronDown, Globe2, ImagePlus, Loader2, Plus, RefreshCw, Send, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '../../components/ui/button';
@@ -31,6 +31,7 @@ import { brandLockedView } from '../shared/BrandLocked';
 import { CampaignCover } from '../shared/CampaignCover';
 import { formatFileSize, toStoredFile } from '../shared/files';
 import { fieldIcon } from '../shared/fieldIcons';
+import { ConfirmAction } from './BookingActions';
 import { CampaignStatusBadge, errText, LoadError } from './CampaignParts';
 import { ChipGroup, ChipToggle, FormRow, Section } from './FormParts';
 import { CampaignFeatures } from './FeatureCards';
@@ -61,6 +62,9 @@ const ALL_PLATFORM_KEYS: Platform[] = PLATFORMS.map((p) => p.key);
 
 /** A new deliverable row reuses the platform of the last row (TikTok when there is none). */
 const lastPlatforms = (rows: DeliverableRow[]): Platform[] => (rows.length ? [rows[rows.length - 1].platform] : []);
+
+/** Form values compared for "unsaved changes" (the type alone is not a change). */
+const snapshot = (v: CampaignFormValues) => JSON.stringify({ ...v, type: undefined });
 
 /** One line of the current advanced settings, shown while "Tính năng nâng cao" is collapsed. */
 function advancedSummary(v: CampaignFormValues): string {
@@ -351,11 +355,15 @@ export function CampaignFormPage() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   /** Id once saved (a new campaign becomes a draft on its first save; later saves update it). */
   const savedId = useRef<string | undefined>(id);
+  /** Values as last loaded / saved, to warn before leaving with unsaved changes (EP-02 §6.1). */
+  const baseline = useRef(snapshot(newForm(typeParam)));
+  const leaving = useRef(false);
 
   useEffect(() => {
     savedId.current = id;
     if (!id) {
       setValues(newForm(typeParam));
+      baseline.current = snapshot(newForm(typeParam));
       setLoaded(null);
       return;
     }
@@ -368,12 +376,23 @@ export function CampaignFormPage() {
         if (!alive) return;
         setLoaded(c);
         setValues(formFromCampaign(c));
+        baseline.current = snapshot(formFromCampaign(c));
       })
       .catch((e) => alive && setLoadError(e));
     return () => {
       alive = false;
     };
   }, [id, attempt]);
+
+  const dirty = snapshot(values) !== baseline.current;
+  // In-app navigation asks first; closing / reloading the tab gets the browser's own prompt.
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !leaving.current && currentLocation.pathname !== nextLocation.pathname);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   const set = <K extends keyof CampaignFormValues>(key: K, value: CampaignFormValues[K], clears?: FormField) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -440,6 +459,7 @@ export function CampaignFormPage() {
       } else {
         toast.success('Đã lưu bản nháp.');
       }
+      leaving.current = true;
       navigate(campaignPath(view.id), { replace: !id });
     } catch (e) {
       showError(e);
@@ -816,6 +836,15 @@ export function CampaignFormPage() {
           </div>
         </div>
       )}
+      <ConfirmAction
+        open={blocker.state === 'blocked'}
+        onOpenChange={(o) => !o && blocker.state === 'blocked' && blocker.reset()}
+        title="Rời trang khi chưa lưu?"
+        description="Các thay đổi chưa lưu sẽ mất. Bấm Huỷ để ở lại và lưu nháp."
+        confirmLabel="Rời trang"
+        destructive
+        onConfirm={async () => blocker.proceed?.()}
+      />
     </form>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Ban, BellDot, FileSearch, Lock, Megaphone, Plus } from 'lucide-react';
@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { bookingService, campaignService, type BrandBookingCounts } from '../../services';
+import { SearchPagination } from '../biz-search/SearchPagination';
 import { FilterBar } from '../filters/FilterBar';
 import { FilterSelect } from '../filters/FilterSelect';
 import { brandLockedView } from '../shared/BrandLocked';
@@ -80,6 +81,9 @@ const BULK_COPY: Record<CampaignBulkKind, { title: (n: number) => string; text: 
   },
 };
 
+/** Campaigns per page (table and cards). */
+const CAMPAIGN_PAGE_SIZE = 10;
+
 /**
  * /chien-dich — the brand's campaigns in two views (?xem=bang | the; default: table from `lg`, cards below):
  * "Bảng" (sortable columns, row selection with Đóng / Huỷ, expandable rows) and "Thẻ" (a 3-column card grid).
@@ -115,7 +119,14 @@ export function CampaignsPage() {
 
   const tabCounts = useMemo(() => countCampaignTabs(campaigns ?? [], query), [campaigns, query]);
   const typeCounts = useMemo(() => countCampaignTypes(campaigns ?? [], query), [campaigns, query]);
-  const rows = useMemo(() => applyCampaignQuery(campaigns ?? [], query), [campaigns, query]);
+  const allRows = useMemo(() => applyCampaignQuery(campaigns ?? [], query), [campaigns, query]);
+  // US-09 / §10: phân trang (back to page 1 whenever the filters change).
+  const [page, setPage] = useState(1);
+  const queryKey = JSON.stringify(query);
+  useEffect(() => setPage(1), [queryKey]);
+  const pageCount = Math.max(1, Math.ceil(allRows.length / CAMPAIGN_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const rows = useMemo(() => allRows.slice((currentPage - 1) * CAMPAIGN_PAGE_SIZE, currentPage * CAMPAIGN_PAGE_SIZE), [allRows, currentPage]);
   const pending = useMemo(() => pendingByCampaign(bookings ?? []), [bookings]);
   const byCampaign = useMemo(() => groupBookings(bookings ?? []), [bookings]);
 
@@ -217,7 +228,7 @@ export function CampaignsPage() {
 
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          {campaigns ? `${rows.length} chiến dịch` : ''}
+          {campaigns ? `${allRows.length} chiến dịch` : ''}
         </p>
         <ViewToggle value={view} onChange={setView} />
       </div>
@@ -259,7 +270,7 @@ export function CampaignsPage() {
             {createLink}
           </EmptyBlock>
         </Card>
-      ) : rows.length === 0 ? (
+      ) : allRows.length === 0 ? (
         <EmptyBlock icon={<FileSearch className="size-6" aria-hidden />} title="Không có chiến dịch phù hợp" text="Thử chọn trạng thái khác hoặc bỏ bớt bộ lọc.">
           <Button type="button" variant="outline" className="h-11" onClick={() => write({ tab: 'all', sort: query.sort })}>
             Xoá bộ lọc
@@ -277,7 +288,15 @@ export function CampaignsPage() {
           onAction={(kind, ids) => setBulk({ kind, ids })}
         />
       ) : (
-        <CampaignCardGrid rows={rows} pending={pending} onAction={(kind, ids) => setBulk({ kind, ids })} />
+        <CampaignCardGrid rows={rows} pending={pending} bookingsByCampaign={byCampaign} onAction={(kind, ids) => setBulk({ kind, ids })} />
+      )}
+      {allRows.length > 0 && (
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {(currentPage - 1) * CAMPAIGN_PAGE_SIZE + 1}–{Math.min(currentPage * CAMPAIGN_PAGE_SIZE, allRows.length)} / {allRows.length} chiến dịch
+          </p>
+          <SearchPagination page={currentPage} pageCount={pageCount} onPage={setPage} />
+        </div>
       )}
 
       {bulk?.kind === 'close' && (

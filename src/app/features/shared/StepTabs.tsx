@@ -55,7 +55,7 @@ export function StepTabs<K extends string>({
 
   return (
     <div ref={scroller} className={cn('relative -mx-4 min-w-0 snap-x snap-proximity overflow-x-auto px-4 md:mx-0 md:px-0', className)}>
-      <div role="tablist" aria-label={label} className="flex min-w-max items-stretch gap-2 border-b border-border md:min-w-0">
+      <div role="tablist" aria-label={label} className="flex min-w-max items-stretch gap-2 border-b border-border">
         {ordered.map((it, i) => {
           const kind = it.kind ?? 'step';
           const active = it.key === value;
@@ -112,7 +112,7 @@ export function StepTabs<K extends string>({
           }
           const stepIndex = steps.indexOf(it);
           return (
-            <div key={it.key} className="flex min-w-[9.5rem] flex-1 snap-start items-stretch md:min-w-0">
+            <div key={it.key} className="flex min-w-[9.5rem] flex-1 snap-start items-stretch md:min-w-fit">
               <button
                 {...common}
                 className={cn(
