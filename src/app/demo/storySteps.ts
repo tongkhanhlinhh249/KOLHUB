@@ -601,7 +601,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     steps: [
       { screen: 'Form → "Lưu nháp"', checks: ['Chỉ cần tên là lưu được', 'Lưu xong hiện "Đã lưu bản nháp"'] },
       { screen: 'Chi tiết bản nháp → "Xoá nháp"', checks: ['Chỉ xoá được bản nháp chưa từng gửi, chưa có booking', 'Hỏi xác nhận trước khi xoá'] },
-      { screen: 'Theo EP-02 (chưa có trong prototype)', checks: ['Rời trang khi chưa lưu → hỏi lại'] },
+      { screen: 'Rời form khi chưa lưu', checks: ['Hỏi lại "Rời trang khi chưa lưu?"', 'Đóng / tải lại tab → trình duyệt hỏi lại'] },
     ],
   },
   'R8-3': {
@@ -651,7 +651,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
   'R8-9': {
     title: 'Danh sách chiến dịch',
     summary: 'Xem, tìm và lọc mọi chiến dịch của mình.',
-    steps: [{ screen: 'Quản lý chiến dịch', checks: ['Tìm theo tên, lọc theo loại / hiển thị', 'Tab: Nháp, Chờ duyệt, Cần bổ sung, Không được duyệt, Đang tuyển, Đã đóng tuyển, Hoàn tất, Đã huỷ', 'Xem dạng bảng hoặc thẻ', 'Chọn nhiều để đóng tuyển / huỷ (có lý do)'] }],
+    steps: [{ screen: 'Quản lý chiến dịch', checks: ['Tìm theo tên, lọc theo loại / hiển thị', 'Tab: Nháp, Chờ duyệt, Cần bổ sung, Không được duyệt, Đang tuyển, Đã đóng tuyển, Hoàn tất, Đã huỷ', 'Cột Hạn tuyển và Booking / Ứng viên (đã xác nhận / suất, số đơn)', 'Xem dạng bảng hoặc thẻ, 10 chiến dịch mỗi trang', 'Chọn nhiều để đóng tuyển / huỷ (có lý do)'] }],
   },
   'R8-10': {
     title: 'Sửa sau khi đăng',
@@ -678,7 +678,10 @@ export const STORY_STEPS: Record<string, PlainStory> = {
   'R8-13': {
     title: 'Tổng quan tiến độ',
     summary: 'Biết ngay có bao nhiêu đơn, bao nhiêu hợp tác, việc gì cần làm.',
-    steps: [{ screen: 'Trang chi tiết chiến dịch', checks: ['Số đơn, số đã chọn, số booking, số suất ghi đúng tên', 'Bấm để sang Ứng viên / Booking'] }],
+    steps: [
+      { screen: 'Trang chi tiết → Tổng quan', checks: ['Đơn ứng tuyển (… cần xử lý), Booking đã xác nhận (đã dùng X/Y suất), Nội dung chờ duyệt, Bài đăng đã xác minh', 'Bấm từng ô để sang đúng tab'] },
+      { screen: 'Quyền lợi theo nhóm và Lịch sử', checks: ['Mỗi nhóm có thanh suất đã dùng; đủ suất thì cảnh báo, không tự đóng tuyển', 'Lịch sử: gửi đăng, Admin duyệt / yêu cầu bổ sung, đóng tuyển, huỷ — ai và khi nào'] },
+    ],
   },
   'R8-14': {
     title: 'Thông báo',

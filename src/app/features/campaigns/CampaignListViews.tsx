@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Ban, CalendarDays, ExternalLink, Eye, Lock, Pencil, Wallet } from 'lucide-react';
+import { Ban, CalendarClock, CalendarDays, ExternalLink, Eye, Lock, Pencil, Wallet } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar';
 import { Card } from '../../components/ui/card';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../components/ui/dropdown-menu';
@@ -34,6 +34,7 @@ import { BookingStatusBadge, CampaignStatusBadge, TodoMarker, VisibilityLabel } 
 import {
   brandTodoLabel,
   CAMPAIGN_COLUMN_SORT,
+  campaignProgress,
   campaignActions,
   campaignEditPath,
   campaignPath,
@@ -239,8 +240,8 @@ export function CampaignTable({
           </HeadCell>
           <HeadCell>Chiến dịch</HeadCell>
           <HeadCell>Trạng thái</HeadCell>
-          <HeadCell>Hiển thị</HeadCell>
-          <HeadCell>Booking</HeadCell>
+          <HeadCell>Hạn tuyển</HeadCell>
+          <HeadCell>Booking / Ứng viên</HeadCell>
           <HeadCell>Cần xử lý</HeadCell>
           {sortCell('budget', 'Ngân sách')}
           {sortCell('time', 'Thời gian')}
@@ -255,7 +256,6 @@ export function CampaignTable({
           const open = expanded.has(c.id);
           const isSel = selected.has(c.id);
           const detailId = `campaign-row-${c.id}-detail`;
-          const accepted = c.stats.inProgress + c.stats.completed;
           return (
             <Fragment key={c.id}>
               <tr className={rowClass} data-selected={isSel} data-expanded={open} onClick={rowClick(() => navigate(campaignPath(c.id)))}>
@@ -281,19 +281,21 @@ export function CampaignTable({
                         {c.name}
                       </Link>
                       {c.objective && <p className="line-clamp-1 text-xs text-muted-foreground">{c.objective}</p>}
-                      <TypeBadge c={c} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <TypeBadge c={c} />
+                        <VisibilityLabel visibility={c.visibility} className="text-xs whitespace-nowrap text-muted-foreground" />
+                      </div>
                     </div>
                   </div>
                 </td>
                 <td className={cellClass}>
                   <CampaignStatusBadge status={c.status} />
                 </td>
-                <td className={cellClass}>
-                  <VisibilityLabel visibility={c.visibility} className="text-sm whitespace-nowrap text-foreground" />
+                <td className={cn(cellClass, 'text-sm whitespace-nowrap')}>
+                  <DeadlineText c={c} />
                 </td>
                 <td className={cn(cellClass, 'whitespace-nowrap tabular-nums')}>
-                  <span className="block font-semibold text-foreground">{c.stats.total}</span>
-                  <span className="block text-xs text-muted-foreground">{accepted} đã chốt</span>
+                  <ProgressText c={c} bookings={bookingsByCampaign[c.id] ?? []} />
                 </td>
                 <td className={cellClass}>
                   <PendingPill n={pending[c.id] ?? 0} />
@@ -335,8 +337,41 @@ export function CampaignTable({
 }
 
 /** One campaign in the "Thẻ" view: 16:9 cover on top, then name, badges, booking counts, budget, dates. */
-function CampaignGridCard({ c, pending, onAction }: { c: CampaignView; pending: number; onAction(kind: CampaignBulkKind, ids: string[]): void }) {
-  const accepted = c.stats.inProgress + c.stats.completed;
+/** "Hạn tuyển" (US-09): deadline of a marketplace campaign; private Booking riêng = invites only. */
+function DeadlineText({ c, className }: { c: CampaignView; className?: string }) {
+  const marketplace = c.type === 'OPEN_RECRUITMENT' || c.visibility === 'MARKETPLACE';
+  if (!marketplace) return <span className={cn('text-muted-foreground', className)}>Chỉ mời</span>;
+  if (!c.applyDeadline) return <span className={cn('text-muted-foreground', className)}>Đến khi kết thúc</span>;
+  return <span className={cn('text-foreground tabular-nums', className)}>{formatIsoDay(c.applyDeadline)}</span>;
+}
+
+/** "Ứng viên / Booking" (US-09, §8.4): booking xác nhận / suất, đơn nhận được — each with its own name. */
+function ProgressText({ c, bookings }: { c: CampaignView; bookings: BookingView[] }) {
+  const p = campaignProgress(c, bookings);
+  const marketplace = c.type === 'OPEN_RECRUITMENT' || c.visibility === 'MARKETPLACE';
+  return (
+    <>
+      <span className="block font-semibold text-foreground">
+        {p.slots ? `${c.type === 'OPEN_RECRUITMENT' ? p.slotsUsed : p.confirmed}/${p.slots} suất` : `${p.confirmed} booking`}
+      </span>
+      <span className="block text-xs text-muted-foreground">
+        {marketplace ? `${p.applications} đơn ứng tuyển` : `${p.invites} lời mời`}
+      </span>
+    </>
+  );
+}
+
+function CampaignGridCard({
+  c,
+  bookings,
+  pending,
+  onAction,
+}: {
+  c: CampaignView;
+  bookings: BookingView[];
+  pending: number;
+  onAction(kind: CampaignBulkKind, ids: string[]): void;
+}) {
   return (
     <Card className="group relative h-full gap-0 overflow-hidden p-0 transition-colors hover:border-primary/40">
       <CampaignCover cover={c.cover} className="aspect-video w-full" />
@@ -370,11 +405,15 @@ function CampaignGridCard({ c, pending, onAction }: { c: CampaignView; pending: 
             <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
             <span className="tabular-nums">{formatDateRange(c.startDate, c.endDate)}</span>
           </p>
+          <p className="flex items-center gap-1.5">
+            <CalendarClock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="text-muted-foreground">Hạn tuyển:</span>
+            <DeadlineText c={c} />
+          </p>
         </div>
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
           <p className="text-sm tabular-nums">
-            <span className="font-semibold text-foreground">{c.stats.total}</span>
-            <span className="text-muted-foreground"> booking · {accepted} đã chốt</span>
+            <ProgressText c={c} bookings={bookings} />
           </p>
           {pending > 0 && <TodoMarker label={`${pending}`} />}
         </div>
@@ -387,17 +426,19 @@ function CampaignGridCard({ c, pending, onAction }: { c: CampaignView; pending: 
 export function CampaignCardGrid({
   rows,
   pending,
+  bookingsByCampaign,
   onAction,
 }: {
   rows: CampaignView[];
   pending: Record<string, number>;
+  bookingsByCampaign: Record<string, BookingView[]>;
   onAction(kind: CampaignBulkKind, ids: string[]): void;
 }) {
   return (
     <ul className="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3" aria-label="Danh sách chiến dịch">
       {rows.map((c) => (
         <li key={c.id} className="min-w-0">
-          <CampaignGridCard c={c} pending={pending[c.id] ?? 0} onAction={onAction} />
+          <CampaignGridCard c={c} bookings={bookingsByCampaign[c.id] ?? []} pending={pending[c.id] ?? 0} onAction={onAction} />
         </li>
       ))}
     </ul>
