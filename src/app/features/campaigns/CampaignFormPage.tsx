@@ -15,7 +15,8 @@ import {
   CAMPAIGN_NAME_MAX,
   CAMPAIGN_TEXT_MAX,
   DELIVERABLE_QTY_MAX,
-  DELIVERABLE_TYPES,
+  deliverableLabel,
+  PLATFORM_DELIVERABLES,
   KOL_CATEGORIES,
   KolhubError,
   PLATFORMS,
@@ -126,27 +127,15 @@ function DeliverableEditor({
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 rounded-[8px] border border-border p-3 @xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_auto] @xl:items-end">
       <div className="space-y-1">
-        <Label htmlFor={`${baseId}-type`} className="text-xs text-muted-foreground">
-          Loại nội dung
-        </Label>
-        <Select value={row.type} onValueChange={(v) => onChange({ ...row, type: v as DeliverableType })}>
-          <SelectTrigger id={`${baseId}-type`} className="h-11 w-full bg-card md:h-10" aria-label={`Loại nội dung hạng mục ${index + 1}`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DELIVERABLE_TYPES.map((d) => (
-              <SelectItem key={d.key} value={d.key}>
-                {d.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-1">
         <Label htmlFor={`${baseId}-platform`} className="text-xs text-muted-foreground">
           Nền tảng
         </Label>
-        <Select value={row.platform} onValueChange={(v) => onChange({ ...row, platform: v as Platform })}>
+        <Select value={row.platform} onValueChange={(v) => {
+            const platform = v as Platform;
+            // Content types depend on the platform: keep the type if the new platform has it, else its first type.
+            const types = PLATFORM_DELIVERABLES[platform];
+            onChange({ ...row, platform, type: types.includes(row.type) ? row.type : types[0] });
+          }}>
           <SelectTrigger id={`${baseId}-platform`} className="h-11 w-full bg-card md:h-10" aria-label={`Nền tảng hạng mục ${index + 1}`}>
             <SelectValue />
           </SelectTrigger>
@@ -157,6 +146,23 @@ function DeliverableEditor({
                   <PlatformIcon platform={p.key} />
                   {p.label}
                 </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${baseId}-type`} className="text-xs text-muted-foreground">
+          Loại nội dung
+        </Label>
+        <Select value={row.type} onValueChange={(v) => onChange({ ...row, type: v as DeliverableType })}>
+          <SelectTrigger id={`${baseId}-type`} className="h-11 w-full bg-card md:h-10" aria-label={`Loại nội dung hạng mục ${index + 1}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PLATFORM_DELIVERABLES[row.platform].map((t) => (
+              <SelectItem key={t} value={t}>
+                {deliverableLabel(t, row.platform)}
               </SelectItem>
             ))}
           </SelectContent>

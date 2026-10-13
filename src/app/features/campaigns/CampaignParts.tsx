@@ -6,7 +6,7 @@ import { cn } from '../../components/ui/utils';
 import {
   BOOKING_STATUS_LABEL,
   CAMPAIGN_STATUS_LABEL,
-  DELIVERABLE_TYPES,
+  deliverableLabel,
   type BookingStatus,
   type CampaignStatus,
   type CampaignVisibility,
@@ -76,13 +76,13 @@ export function PlatformIcons({ platforms, className }: { platforms: Platform[];
   );
 }
 
-export function deliverableTypeLabel(t: DeliverableType): string {
-  return DELIVERABLE_TYPES.find((d) => d.key === t)?.label ?? t;
+export function deliverableTypeLabel(t: DeliverableType, platform?: Platform): string {
+  return deliverableLabel(t, platform);
 }
 
-/** "3 Video TikTok". */
+/** "3 Video TikTok", "2 Nhật ký TikTok". */
 export function deliverableText(d: Pick<Deliverable, 'type' | 'platform' | 'quantity'>): string {
-  return `${d.quantity} ${deliverableTypeLabel(d.type)} ${platformLabel(d.platform)}`;
+  return `${d.quantity} ${deliverableTypeLabel(d.type, d.platform)} ${platformLabel(d.platform)}`;
 }
 
 /** Label/value pair used in cards and sheets. */

@@ -11,6 +11,7 @@ import {
   DELIVERABLE_TYPES,
   IN_PROGRESS_STATUSES,
   PRE_ACCEPT_STATUSES,
+  isDeliverableForPlatform,
   type Booking,
   type BookingActionKey,
   type BookingCampaignSummary,
@@ -205,7 +206,8 @@ export function sanitizeCampaignInput(input: Partial<CampaignInput>): Partial<Ca
   }
   if ('deliverables' in input) {
     const list = input.deliverables ?? [];
-    if (!Array.isArray(list) || !list.every((d) => d && isDeliverableType(d.type) && isPlatform(d.platform) && isQty(d.quantity))) {
+    const ok = (d: Deliverable) => d && isDeliverableType(d.type) && isPlatform(d.platform) && isDeliverableForPlatform(d.type, d.platform) && isQty(d.quantity);
+    if (!Array.isArray(list) || !list.every(ok)) {
       throw bad('deliverables');
     }
     out.deliverables = list.map((d) => ({ type: d.type, platform: d.platform, quantity: d.quantity }));
@@ -444,6 +446,8 @@ export function resolveItems(
     if (!kol || kol.status !== 'APPROVED' || !kol.kolId) throw new KolhubError('KOLHUB-4809');
     const ch = eligibleChannel(state, supplier, kol.accountId, it.channelId, now);
     if (!ch || !campaign.platforms.includes(ch.platform)) throw new KolhubError('KOLHUB-4809');
+    // The content type must exist on the channel's platform (e.g. no "Shorts" on TikTok).
+    if (!isDeliverableForPlatform(it.deliverableType, ch.platform)) throw bad('deliverables');
     return {
       id: newId(),
       kolAccountId: kol.accountId,

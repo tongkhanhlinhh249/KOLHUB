@@ -2,13 +2,12 @@ import { useId } from 'react';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { DELIVERABLE_TYPES, GROUP_SLOTS_MAX, PRODUCT_NAME_MAX, type Platform } from '../../services';
+import { deliverableLabel, GROUP_SLOTS_MAX, PRODUCT_NAME_MAX, type Platform } from '../../services';
 import { PLATFORM_LABEL, PlatformIcon } from '../shared/StatusBadges';
 import { bookingBudget, deliverablePlatforms, groupRow, groupRowValue, type CampaignFormValues, type GroupRow } from './campaignForm';
 import { formatVnd } from './campaignView';
 import { MoneyInput, fieldId, type Errors, type Setter } from './RecruitFormSections';
 
-const typeLabel = (t: string) => DELIVERABLE_TYPES.find((d) => d.key === t)?.label ?? t;
 
 /**
  * "Quyền lợi theo nhóm đầu việc" (EP-02 §4.3) of a Booking riêng form: one group per platform of the deliverables,
@@ -33,7 +32,7 @@ export function GroupRewardsEditor({ values: v, set, errors }: { values: Campaig
             <GroupCard
               key={p}
               row={groupRow(v.groups, p)}
-              items={v.deliverables.filter((d) => d.platform === p).map((d) => `${d.quantity || '?'} ${typeLabel(d.type).toLowerCase()}`)}
+              items={v.deliverables.filter((d) => d.platform === p).map((d) => `${d.quantity || '?'} ${deliverableLabel(d.type, d.platform).toLowerCase()}`)}
               invalid={!!errors.groups}
               onChange={(patch) => update(p, patch)}
             />

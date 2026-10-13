@@ -1,7 +1,7 @@
 // "Phù hợp với bạn" (Sàn v2): how well a marketplace campaign fits the signed-in supplier.
 // `matchCampaign` is pure; `supplierMatchContext` reads the supplier's channels / KOL fields from the state.
 import { PLATFORMS, type Platform } from '../bizTypes';
-import { DELIVERABLE_TYPES, type Campaign, type CampaignMatch, type SupplierMatchContext } from '../campaign-types';
+import { deliverableLabel, type Campaign, type DeliverableType, type CampaignMatch, type SupplierMatchContext } from '../campaign-types';
 import type { KolProfile } from '../profile-types';
 import type { DemoState } from './db';
 import { isSearchableChannel, normalizeText } from './directory';
@@ -25,7 +25,7 @@ const BUDGET_SMALL_AUDIENCE_PTS = 8;
 const CATEGORY_TARGET = 2;
 
 const platformLabel = (p: Platform) => PLATFORMS.find((x) => x.key === p)?.label ?? p;
-const typeLabel = (t: string) => DELIVERABLE_TYPES.find((d) => d.key === t)?.label ?? t;
+const typeLabel = (t: DeliverableType, platform?: Platform) => deliverableLabel(t, platform);
 
 export function matchCampaign(campaign: Pick<Campaign, 'platforms' | 'categories' | 'deliverables' | 'budget'>, ctx: SupplierMatchContext): CampaignMatch {
   const reasons: string[] = [];
@@ -74,7 +74,7 @@ export function matchCampaign(campaign: Pick<Campaign, 'platforms' | 'categories
     total += d.quantity;
     feasible += Math.min(d.quantity, n * CHANNEL_CAPACITY);
     if (n > 0 && n * CHANNEL_CAPACITY < d.quantity) {
-      missing.push(`Cần ${d.quantity} ${typeLabel(d.type)} ${platformLabel(d.platform)}, bạn có ${n} kênh`);
+      missing.push(`Cần ${d.quantity} ${typeLabel(d.type, d.platform)} ${platformLabel(d.platform)}, bạn có ${n} kênh`);
     }
   }
   const quantityPts = total ? (MATCH_WEIGHTS.quantity * feasible) / total : MATCH_WEIGHTS.quantity;

@@ -20,7 +20,7 @@ import type {
   SelectionResult,
   SupplierMatchContext,
 } from '../campaign-types';
-import { CAMPAIGN_REASON_MAX, QA_ANSWER_MAX, QA_QUESTION_MAX, UNPUBLISHED_STATUSES, type CampaignLogEntry } from '../campaign-types';
+import { CAMPAIGN_REASON_MAX, isDeliverableForPlatform, QA_ANSWER_MAX, QA_QUESTION_MAX, UNPUBLISHED_STATUSES, type CampaignLogEntry } from '../campaign-types';
 import { KolhubError } from '../types';
 import type { Db, DemoState } from './db';
 import { delay as fakeDelay } from './delay';
@@ -464,7 +464,9 @@ export function createCampaignService(deps: CampaignServiceDeps) {
       }
       const route = routeKol(state, profile.accountId, t);
       const ch =
-        route.channels.find((x) => x.platform === deliverable.platform) ?? route.channels.find((x) => c.platforms.includes(x.platform));
+        route.channels.find((x) => x.platform === deliverable.platform) ??
+        // Another campaign platform only if it offers the same content type (no "Nhật ký" on YouTube).
+        route.channels.find((x) => c.platforms.includes(x.platform) && isDeliverableForPlatform(deliverable.type, x.platform));
       const item: BookingItem = {
         id: newId(),
         kolAccountId: profile.accountId,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import type { Channel } from '../../services';
-import { eligibleChannels, initialRows, rowsFromItems, rowsValid, toProposalItems, validateRows } from './proposalItems';
+import { eligibleChannels, fitType, initialRows, rowsFromItems, rowsValid, toProposalItems, validateRows } from './proposalItems';
 
 const NOW = Date.UTC(2026, 8, 29);
 const ch = (id: string, extra: Partial<Channel> = {}): Channel =>
@@ -82,4 +82,12 @@ describe('dòng hạng mục', () => {
       quantity: '1',
     });
   });
+});
+
+test('fitType: loại nội dung theo nền tảng của kênh', () => {
+  expect(fitType('VIDEO', 'tiktok')).toBe('VIDEO');
+  expect(fitType('SHORTS', 'tiktok')).toBe('VIDEO');
+  expect(fitType('POST', 'youtube')).toBe('VIDEO');
+  expect(fitType('VIDEO', 'instagram')).toBe('POST');
+  expect(fitType('STORY', undefined)).toBe('STORY');
 });

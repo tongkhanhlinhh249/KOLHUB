@@ -11,12 +11,32 @@ import type { PublicKol } from './mock/directory';
 // Campaign
 // ---------------------------------------------------------------------------
 
-export type DeliverableType = 'VIDEO' | 'POST' | 'LIVESTREAM';
+export type DeliverableType = 'VIDEO' | 'SHORTS' | 'REELS' | 'POST' | 'STORY' | 'LIVESTREAM';
+/** Generic labels; use `deliverableLabel(type, platform)` for the platform's own wording (TikTok "Nhật ký"). */
 export const DELIVERABLE_TYPES: { key: DeliverableType; label: string }[] = [
   { key: 'VIDEO', label: 'Video' },
+  { key: 'SHORTS', label: 'Shorts' },
+  { key: 'REELS', label: 'Reels' },
   { key: 'POST', label: 'Bài đăng' },
+  { key: 'STORY', label: 'Story' },
   { key: 'LIVESTREAM', label: 'Livestream' },
 ];
+
+/** Content types each platform offers, in display order (the first is the default when the platform changes). */
+export const PLATFORM_DELIVERABLES: Record<Platform, DeliverableType[]> = {
+  tiktok: ['VIDEO', 'STORY'],
+  facebook: ['POST', 'VIDEO', 'REELS', 'STORY', 'LIVESTREAM'],
+  instagram: ['POST', 'REELS', 'STORY', 'LIVESTREAM'],
+  youtube: ['VIDEO', 'SHORTS', 'LIVESTREAM'],
+};
+
+export const isDeliverableForPlatform = (type: DeliverableType, platform: Platform) => PLATFORM_DELIVERABLES[platform]?.includes(type) ?? false;
+
+/** "Video", "Bài đăng", "Nhật ký" (TikTok's name for stories)… */
+export function deliverableLabel(type: DeliverableType, platform?: Platform): string {
+  if (type === 'STORY' && platform === 'tiktok') return 'Nhật ký';
+  return DELIVERABLE_TYPES.find((d) => d.key === type)?.label ?? type;
+}
 
 export interface Deliverable {
   type: DeliverableType;

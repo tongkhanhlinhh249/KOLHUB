@@ -111,6 +111,22 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     await expect(svc.create({ name: 'A', platforms: ['twitter' as never] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
   });
 
+  test('loại nội dung theo nền tảng: TikTok chỉ Video / Nhật ký; sai cặp → 4803 deliverables', async () => {
+    const ok = await svc.create({
+      name: 'Đa nền tảng',
+      deliverables: [
+        { type: 'STORY', platform: 'tiktok', quantity: 2 },
+        { type: 'SHORTS', platform: 'youtube', quantity: 1 },
+        { type: 'REELS', platform: 'instagram', quantity: 1 },
+        { type: 'STORY', platform: 'facebook', quantity: 1 },
+      ],
+    });
+    expect(ok.deliverables).toHaveLength(4);
+    await expect(svc.create({ name: 'A', deliverables: [{ type: 'SHORTS', platform: 'tiktok', quantity: 1 }] })).rejects.toMatchObject({ meta: { field: 'deliverables' } });
+    await expect(svc.create({ name: 'A', deliverables: [{ type: 'LIVESTREAM', platform: 'tiktok', quantity: 1 }] })).rejects.toMatchObject({ meta: { field: 'deliverables' } });
+    await expect(svc.create({ name: 'A', deliverables: [{ type: 'POST', platform: 'youtube', quantity: 1 }] })).rejects.toMatchObject({ meta: { field: 'deliverables' } });
+  });
+
   test('gửi đăng: thiếu thông tin → 4803 theo trường; đủ → Chờ duyệt; Admin duyệt → OPEN, có publishedAt', async () => {
     const c = await svc.create({ name: 'Nháp' });
     await expect(svc.publish(c.id)).rejects.toMatchObject({ code: 'KOLHUB-4803', meta: { field: 'brief' } });
