@@ -27,8 +27,8 @@ import { useDemoOpen } from './useDemoOpen';
 const errText = (e: unknown) => (e instanceof Error && e.message ? e.message : 'Không thực hiện được bước này.');
 
 const CAMPAIGN_KINDS: { type: CampaignType; label: string }[] = [
-  { type: 'BOOKING', label: 'Booking riêng' },
-  { type: 'OPEN_RECRUITMENT', label: 'Tuyển nhiều KOL' },
+  { type: 'BOOKING', label: 'Booking 1 KOL' },
+  { type: 'OPEN_RECRUITMENT', label: 'Booking nhiều KOL' },
 ];
 
 /** Small icon button that opens a demo screen as the right account. */

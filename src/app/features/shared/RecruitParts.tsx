@@ -33,7 +33,7 @@ export function CampaignTypeBadge({ type, className }: { type?: string; classNam
   if (type === 'OPEN_RECRUITMENT') return <RecruitTypeBadge className={className} />;
   return (
     <span className={cn('inline-flex h-6 items-center rounded-md border border-border bg-card px-2 text-xs font-medium whitespace-nowrap text-muted-foreground', className)}>
-      Booking riêng
+      Booking 1 KOL
     </span>
   );
 }
@@ -42,7 +42,7 @@ export function CampaignTypeBadge({ type, className }: { type?: string; classNam
 export function RecruitTypeBadge({ className }: { className?: string }) {
   return (
     <span className={cn('inline-flex h-6 items-center rounded-md border border-primary/30 bg-primary/5 px-2 text-xs font-medium whitespace-nowrap text-primary', className)}>
-      Tuyển nhiều KOL
+      Booking nhiều KOL
     </span>
   );
 }

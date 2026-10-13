@@ -159,7 +159,7 @@ describe('chế độ demo: quản lý chiến dịch', () => {
   });
 });
 
-describe('chế độ demo: Tuyển nhiều KOL', () => {
+describe('chế độ demo: Booking nhiều KOL', () => {
   const recruitSteps = (id: string) => {
     const s = h.db.read();
     const b = s.bookings.find((x) => x.id === id)!;

@@ -10,7 +10,7 @@ describe('seed v9 — chiến dịch & booking', () => {
   const campaign = (id: string) => s.campaigns.find((c) => c.id === id)!;
   const booking = (id: string) => s.bookings.find((b) => b.id === id)!;
 
-  test('Nhãn hàng demo: 1 Đang tuyển riêng tư, 4 Đang tuyển trên Sàn, 1 nháp, 1 chờ duyệt, 1 tuyển nhiều KOL đã đóng tuyển, 2 hoàn tất + 1 đang chạy (lịch sử); agency: 5 Đang tuyển + 1 đã đóng tuyển', () => {
+  test('Nhãn hàng demo: 1 Đang tuyển riêng tư, 4 Đang tuyển trên Sàn, 1 nháp, 1 chờ duyệt, 1 booking nhiều KOL đã đóng tuyển, 2 hoàn tất + 1 đang chạy (lịch sử); agency: 5 Đang tuyển + 1 đã đóng tuyển', () => {
     const mine = s.campaigns.filter((c) => c.brandAccountId === SEED_BRAND_ID);
     expect(mine.map((c) => [c.status, c.visibility])).toEqual([
       ['OPEN', 'PRIVATE'],

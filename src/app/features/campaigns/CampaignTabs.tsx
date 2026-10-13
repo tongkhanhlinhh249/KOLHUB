@@ -365,7 +365,7 @@ function BookingRow({ booking: b, onOpen }: { booking: BookingView; onOpen(): vo
                 <SupplierTypeBadge type={b.supplierType} />
               </p>
               <p className="text-xs text-muted-foreground">
-                {b.origin === 'INVITE' ? 'Lời mời' : b.campaign.type === 'OPEN_RECRUITMENT' ? 'Ứng tuyển (Tuyển nhiều KOL)' : 'Đề xuất từ Sàn'} · cập nhật{' '}
+                {b.origin === 'INVITE' ? 'Lời mời' : b.campaign.type === 'OPEN_RECRUITMENT' ? 'Ứng tuyển (Booking nhiều KOL)' : 'Đề xuất từ Sàn'} · cập nhật{' '}
                 {formatDayMs(b.updatedAt)}
               </p>
             </div>

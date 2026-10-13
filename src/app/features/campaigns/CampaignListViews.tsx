@@ -53,7 +53,7 @@ export type CampaignBulkKind = 'close' | 'cancel';
 function BookingTypeBadge() {
   return (
     <span className="inline-flex h-6 items-center rounded-md border border-border px-2 text-xs font-medium whitespace-nowrap text-muted-foreground">
-      Booking riêng
+      Booking 1 KOL
     </span>
   );
 }

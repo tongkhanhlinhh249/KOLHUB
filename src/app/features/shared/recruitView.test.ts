@@ -13,7 +13,7 @@ const timeline = {
   reviewEnd: '2026-11-05',
 };
 
-test('nhãn giai đoạn: D-n tới hết Ứng tuyển, Tuyển chọn, Đang đăng bài, Đã kết thúc; Booking riêng theo hạn đề xuất', () => {
+test('nhãn giai đoạn: D-n tới hết Ứng tuyển, Tuyển chọn, Đang đăng bài, Đã kết thúc; Booking 1 KOL theo hạn đề xuất', () => {
   const r = { type: 'OPEN_RECRUITMENT' as const, recruitment: { timeline } };
   expect(phaseBadge({ ...r, phase: 'APPLY' }, now)).toMatchObject({ text: 'D-5', urgent: false });
   expect(phaseBadge({ ...r, phase: 'APPLY', recruitment: { timeline: { ...timeline, applyEnd: '2026-10-06' } } }, now)).toMatchObject({ text: 'D-Day', urgent: true });

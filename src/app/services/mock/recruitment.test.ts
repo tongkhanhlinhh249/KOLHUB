@@ -112,7 +112,7 @@ describe('giai đoạn (4 mốc)', () => {
   });
 });
 
-describe('tạo và đăng chiến dịch Tuyển nhiều KOL', () => {
+describe('tạo và đăng chiến dịch Booking nhiều KOL', () => {
   test('ngân sách, thời gian, hạn ứng tuyển và hiển thị Sàn được suy ra từ suất + phần thưởng + lịch', async () => {
     as(BRAND);
     const c = await campaigns.create(recruitInput('tiktok', { recruitment: { slots: 4, reward: { cash: 1_000_000, product: { name: 'Quà', value: 500_000 } }, timeline: tl([0, 3, 4, 5, 6, 10, 11, 12]) } }));

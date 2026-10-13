@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { Check, ChevronRight, Handshake, Users } from 'lucide-react';
+import { ChevronRight, Handshake, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { CAMPAIGN_TYPES, type CampaignType } from '../../services';
 import { CAMPAIGN_CREATE_PATH } from './campaignView';
@@ -19,10 +19,18 @@ const ICON: Record<CampaignType, ReactNode> = {
   OPEN_RECRUITMENT: <Users className="size-5" aria-hidden />,
 };
 
-/** Two or three points that tell the types apart at a glance. */
-const POINTS: Record<CampaignType, string[]> = {
-  BOOKING: ['Mời KOL hoặc nhận đề xuất trên Sàn', 'Thù lao cố định theo nhóm đầu việc', 'Phù hợp chiến dịch ít KOL, brief riêng'],
-  OPEN_RECRUITMENT: ['Phần thưởng cố định cho mỗi KOL', 'Tuyển N suất, lịch 4 giai đoạn', 'KOL/MCN ứng tuyển không cần báo giá'],
+/** What tells the two options apart: how many KOL the brand ends up working with (shown in bold). */
+const DESCRIPTION: Record<CampaignType, ReactNode> = {
+  BOOKING: (
+    <>
+      Mời và nhận ứng tuyển từ nhiều KOL, chọn <strong className="font-semibold text-foreground">1 KOL</strong> phù hợp để hợp tác.
+    </>
+  ),
+  OPEN_RECRUITMENT: (
+    <>
+      Mời và nhận ứng tuyển từ nhiều KOL, chọn <strong className="font-semibold text-foreground">nhiều KOL</strong> phù hợp để hợp tác.
+    </>
+  ),
 };
 
 /**
@@ -50,7 +58,7 @@ export function CampaignTypeDialog({
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader className="text-left">
           <DialogTitle>Tạo chiến dịch</DialogTitle>
-          <DialogDescription>Chọn cách bạn làm việc với KOL/MCN. Bạn vẫn đổi được loại trong lúc soạn chiến dịch.</DialogDescription>
+          <DialogDescription>Bạn muốn hợp tác với bao nhiêu KOL? Có thể đổi lựa chọn khi chiến dịch còn ở bản nháp.</DialogDescription>
         </DialogHeader>
         <ul className="grid gap-3 sm:grid-cols-2">
           {CAMPAIGN_TYPES.map((t) => (
@@ -58,22 +66,14 @@ export function CampaignTypeDialog({
               <button
                 type="button"
                 onClick={() => pick(t.key)}
-                className="group flex h-full w-full flex-col gap-3 rounded-[8px] border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="group flex h-full w-full flex-col gap-2 rounded-[8px] border border-border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span className="flex items-center gap-3">
                   <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">{ICON[t.key]}</span>
                   <span className="flex-1 font-semibold text-foreground">{t.label}</span>
                   <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden />
                 </span>
-                <span className="text-sm text-muted-foreground">{t.description}</span>
-                <span className="mt-auto space-y-1.5 border-t border-border pt-3">
-                  {POINTS[t.key].map((p) => (
-                    <span key={p} className="flex items-start gap-2 text-sm text-foreground">
-                      <Check className="mt-0.5 size-4 shrink-0 text-chart-4" aria-hidden />
-                      {p}
-                    </span>
-                  ))}
-                </span>
+                <span className="text-sm text-muted-foreground">{DESCRIPTION[t.key]}</span>
               </button>
             </li>
           ))}

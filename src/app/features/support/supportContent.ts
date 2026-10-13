@@ -25,8 +25,8 @@ export function guideSteps(type: AccountType): GuideStep[] {
   if (type === 'BIZ') {
     return [
       { title: 'Tìm KOL phù hợp', text: 'Lọc KOL có kênh đã xác thực theo lĩnh vực, nền tảng, lượt theo dõi; lưu vào danh sách.', to: '/tim-kiem-kol', cta: 'Tìm kiếm KOL' },
-      { title: 'Tạo chiến dịch', text: 'Nhập brief, ngân sách, hạng mục nội dung. Chọn Booking riêng hoặc Tuyển nhiều KOL và đăng lên Sàn nếu muốn nhận đề xuất.', to: '/chien-dich/tao', cta: 'Tạo chiến dịch' },
-      { title: 'Mời KOL hoặc chọn ứng viên', text: 'Gửi lời mời theo thù lao cố định của nhóm đầu việc; với Tuyển nhiều KOL, chọn ứng viên trong giai đoạn Chọn lọc.', to: '/chien-dich', cta: 'Chiến dịch của bạn' },
+      { title: 'Tạo chiến dịch', text: 'Nhập brief, ngân sách, hạng mục nội dung. Chọn Booking 1 KOL hoặc Booking nhiều KOL và đăng lên Sàn nếu muốn nhận đề xuất.', to: '/chien-dich/tao', cta: 'Tạo chiến dịch' },
+      { title: 'Mời KOL hoặc chọn ứng viên', text: 'Gửi lời mời theo thù lao cố định của nhóm đầu việc; với Booking nhiều KOL, chọn ứng viên trong giai đoạn Chọn lọc.', to: '/chien-dich', cta: 'Chiến dịch của bạn' },
       { title: 'Duyệt nội dung', text: 'Xem bản nháp (kèm kết quả KOL Safety), duyệt hoặc yêu cầu chỉnh sửa. Trao đổi qua Tin nhắn của từng booking.', to: '/tin-nhan', cta: 'Tin nhắn' },
       { title: 'Xác minh bài đăng và thanh toán', text: 'Hệ thống xác minh link bài đăng và lấy số liệu. Bạn thanh toán ngoài KOL Hub rồi đánh dấu Đã thanh toán.' },
     ];
@@ -70,8 +70,8 @@ export const FAQ: FaqItem[] = [
   {
     id: 'tuyen-nhieu',
     topic: 'Chiến dịch',
-    q: '"Tuyển nhiều KOL" khác "Booking riêng" thế nào?',
-    a: 'Tuyển nhiều KOL có phần thưởng cố định và lịch 4 giai đoạn (Ứng tuyển, Chọn lọc, Đăng bài, Đánh giá); Nhãn hàng chọn ứng viên trong giới hạn số suất, không thương lượng giá. Booking riêng là lời mời hoặc đề xuất theo thù lao cố định của từng nhóm đầu việc (nền tảng), không trả giá.',
+    q: '"Booking nhiều KOL" khác "Booking 1 KOL" thế nào?',
+    a: 'Booking nhiều KOL có phần thưởng cố định và lịch 4 giai đoạn (Ứng tuyển, Chọn lọc, Đăng bài, Đánh giá); Nhãn hàng chọn ứng viên trong giới hạn số suất, không thương lượng giá. Booking 1 KOL là lời mời hoặc đề xuất theo thù lao cố định của từng nhóm đầu việc (nền tảng), không trả giá.',
   },
   {
     id: 'thanh-toan',
