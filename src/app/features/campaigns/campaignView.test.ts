@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import type { BookingView, ContentSubmission, InviteResult } from '../../services';
+import type { BookingView, CampaignView, ContentSubmission, InviteResult } from '../../services';
 import {
   applyCampaignQuery,
   brandTodoLabel,
   campaignActions,
+  campaignCta,
   campaignProgress,
+  campaignTodos,
+  countCampaignGroups,
+  kolProgress,
+  parseCollabSection,
   collectDrafts,
   collectPosts,
   countByBookingStatus,
@@ -114,7 +119,9 @@ describe('campaign list', () => {
     expect(applyCampaignQuery(list, { tab: 'all' }).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd']);
     expect(applyCampaignQuery(list, { tab: 'all', sort: 'budget' }).map((x) => x.id)).toEqual(['c', 'd', 'b', 'a']);
     expect(applyCampaignQuery(list, { tab: 'all', sort: 'start' }).map((x) => x.id)).toEqual(['c', 'b', 'a', 'd']);
-    expect(hasCampaignFilters({ tab: 'OPEN' })).toBe(false);
+    // Trạng thái chi tiết nằm trong "Bộ lọc" nên được tính là bộ lọc.
+    expect(hasCampaignFilters({ tab: 'OPEN' })).toBe(true);
+    expect(hasCampaignFilters({ tab: 'all', group: 'ACTIVE' })).toBe(false);
     expect(hasCampaignFilters({ tab: 'all', visibility: 'PRIVATE' })).toBe(true);
   });
 
@@ -254,10 +261,15 @@ describe('detail URL', () => {
     expect(parseDetailTab(null, false)).toBe('tong-quan');
     expect(parseDetailTab('hoi-dap', true)).toBe('hoi-dap');
     expect(parseDetailTab('hoi-dap', false)).toBe('tong-quan');
-    expect(parseDetailTab('booking', false)).toBe('booking');
-    expect(parseDetailTab('ung-tuyen', false)).toBe('tong-quan');
-    expect(parseDetailTab('ung-tuyen', true)).toBe('ung-tuyen');
+    // 4 tab mới; link cũ vẫn mở đúng chỗ.
+    expect(parseDetailTab('thong-tin', false)).toBe('thong-tin');
+    expect(parseDetailTab('booking', false)).toBe('hop-tac');
+    expect(parseDetailTab('noi-dung', false)).toBe('hop-tac');
+    expect(parseDetailTab('ung-tuyen', false)).toBe('ung-vien');
     expect(parseDetailTab('xyz', true)).toBe('tong-quan');
+    expect(parseCollabSection(new URLSearchParams('tab=noi-dung'))).toBe('noi-dung');
+    expect(parseCollabSection(new URLSearchParams('tab=hop-tac&muc=bao-cao'))).toBe('bao-cao');
+    expect(parseCollabSection(new URLSearchParams('tab=hop-tac'))).toBe('danh-sach');
   });
   test('withParam copies and sets / removes', () => {
     const prev = new URLSearchParams('tab=booking&kol=KOL-1');
@@ -319,5 +331,56 @@ describe('tiến độ chiến dịch (EP-02 US-13)', () => {
     });
     expect(campaignProgress({ type: 'BOOKING' }, [])).toMatchObject({ slots: 1, slotsUsed: 0 });
     expect(campaignProgress({ type: 'OPEN_RECRUITMENT', recruitment: { slots: 5 } as never }, list)).toMatchObject({ slots: 5, slotsUsed: 1 });
+  });
+});
+
+describe('quản lý chiến dịch — UI/UX tối ưu', () => {
+  const row = (id: string, status: CampaignView['status'], over: Partial<CampaignView> = {}) =>
+    ({ id, name: id, objective: '', brief: '', visibility: 'MARKETPLACE', status, updatedAt: 0, budget: 0, ...over }) as CampaignView;
+  const rows = [
+    row('nhap', 'DRAFT', { updatedAt: 5 }),
+    row('bo-sung', 'NEEDS_FIX', { updatedAt: 4 }),
+    row('tuyen-xa', 'OPEN', { updatedAt: 3, applyDeadline: '2099-12-30' }),
+    row('tuyen-gan', 'OPEN', { updatedAt: 2, applyDeadline: '2099-01-02' }),
+    row('dong', 'CLOSED', { updatedAt: 6 }),
+    row('xong', 'COMPLETED', { updatedAt: 1 }),
+    row('huy', 'CANCELLED', { updatedAt: 0 }),
+  ];
+
+  test('4 nhóm điều hướng: Chuẩn bị · Đang hoạt động (gồm Đã đóng tuyển) · Đã kết thúc; URL ?nhom= & ?can-xu-ly=1', () => {
+    expect(countCampaignGroups(rows, { tab: 'all' })).toEqual({ all: 7, PREP: 2, ACTIVE: 3, DONE: 2 });
+    expect(applyCampaignQuery(rows, { tab: 'all', group: 'ACTIVE' }).map((c) => c.id)).toEqual(['dong', 'tuyen-xa', 'tuyen-gan']);
+    const q = { tab: 'all' as const, group: 'DONE' as const, todo: true };
+    expect(toCampaignListParams(q).toString()).toBe('nhom=da-ket-thuc&can-xu-ly=1');
+    expect(parseCampaignListParams(new URLSearchParams('nhom=da-ket-thuc&can-xu-ly=1'))).toEqual(q);
+    // "Cần xử lý": chỉ chiến dịch có việc.
+    expect(applyCampaignQuery(rows, { tab: 'all', todo: true }, new Set(['bo-sung'])).map((c) => c.id)).toEqual(['bo-sung']);
+  });
+
+  test('sắp xếp "Sắp hết hạn tuyển": chiến dịch đang tuyển có hạn gần nhất lên đầu', () => {
+    expect(applyCampaignQuery(rows, { tab: 'all', sort: 'deadline' }).map((c) => c.id).slice(0, 2)).toEqual(['tuyen-gan', 'tuyen-xa']);
+  });
+
+  const b = (status: BookingView['status'], origin: BookingView['origin'], allowedActions: BookingView['allowedActions'], kols: string[] = ['k1']) =>
+    ({ status, origin, allowedActions, items: kols.map((k) => ({ kolAccountId: k, platform: 'tiktok' })) }) as unknown as BookingView;
+
+  test('việc cần xử lý ghi rõ hành động, việc chặn lên đầu; CTA theo trạng thái', () => {
+    const list = [b('APPLIED', 'APPLICATION', ['ACCEPT', 'DECLINE']), b('APPLIED', 'APPLICATION', ['ACCEPT', 'DECLINE']), b('CONTENT_REVIEW', 'INVITE', ['REVIEW_CONTENT'])];
+    expect(campaignTodos({ status: 'OPEN', type: 'BOOKING' }, list).map((t) => t.text)).toEqual(['2 đơn chưa xử lý', '1 nội dung chờ duyệt']);
+    expect(campaignTodos({ status: 'NEEDS_FIX', type: 'BOOKING' }, [])[0]).toMatchObject({ key: 'fix', urgent: true, to: 'edit' });
+    expect(campaignTodos({ status: 'CLOSED', type: 'BOOKING' }, [b('COMPLETED', 'INVITE', [])]).map((t) => t.key)).toEqual(['complete']);
+    expect(campaignCta({ id: 'c1', status: 'DRAFT' }, []).label).toBe('Tiếp tục tạo');
+    expect(campaignCta({ id: 'c1', status: 'OPEN' }, [])).toEqual({ label: 'Xem ứng viên', to: '/chien-dich/c1?tab=ung-vien' });
+    expect(campaignCta({ id: 'c1', status: 'CLOSED' }, list).label).toBe('Xem ứng viên');
+    expect(campaignCta({ id: 'c1', status: 'CLOSED' }, [b('ACCEPTED', 'INVITE', [])]).label).toBe('Quản lý hợp tác');
+    expect(campaignCta({ id: 'c1', status: 'COMPLETED' }, []).label).toBe('Xem kết quả');
+  });
+
+  test('"Đã chọn x/y KOL": Booking 1 KOL tối đa 1; Booking nhiều KOL đếm mỗi KOL một lần (MCN đại diện nhiều KOL)', () => {
+    expect(kolProgress({ type: 'BOOKING' }, [])).toEqual({ chosen: 0, target: 1 });
+    expect(kolProgress({ type: 'BOOKING' }, [b('ACCEPTED', 'INVITE', [], ['k1', 'k2'])])).toEqual({ chosen: 1, target: 1 });
+    const recruit = { type: 'OPEN_RECRUITMENT' as const, recruitment: { slots: 5 } as never };
+    expect(kolProgress(recruit, [b('ACCEPTED', 'APPLICATION', [], ['k1', 'k2']), b('COMPLETED', 'APPLICATION', [], ['k2']), b('APPLIED', 'APPLICATION', [])])).toEqual({ chosen: 2, target: 5 });
+    expect(campaignTodos({ status: 'OPEN', type: 'OPEN_RECRUITMENT', recruitment: { slots: 2 } as never }, [b('ACCEPTED', 'APPLICATION', [], ['k1', 'k2'])]).map((t) => t.key)).toEqual(['full']);
   });
 });

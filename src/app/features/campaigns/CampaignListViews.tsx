@@ -75,7 +75,7 @@ function PendingPill({ n }: { n: number }) {
 const isPublicOnSan = (c: Pick<CampaignView, 'visibility' | 'status'>) => c.visibility === 'MARKETPLACE' && (c.status === 'OPEN' || c.status === 'CLOSED' || c.status === 'COMPLETED');
 
 /** Kebab items of one campaign: Xem, Sửa, Xem trên Sàn (new tab, the Sàn is its own channel), Đóng tuyển, Huỷ. */
-function CampaignMenuItems({ c, onAction }: { c: CampaignView; onAction(kind: CampaignBulkKind, ids: string[]): void }) {
+export function CampaignMenuItems({ c, onAction }: { c: CampaignView; onAction(kind: CampaignBulkKind, ids: string[]): void }) {
   const acts = campaignActions(c.status, c.type);
   return (
     <>

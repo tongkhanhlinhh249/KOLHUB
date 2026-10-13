@@ -11,6 +11,7 @@ import { KolAvatar } from '../biz-search/KolCard';
 import { PlatformIcon, platformLabel } from '../biz-search/PlatformIcon';
 import { fieldIcon } from '../shared/fieldIcons';
 import { ConditionsList, RecruitTimeline, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
+import { deadlineText, usageRightsText } from '../shared/recruitView';
 import { phaseOfTimeline } from '../../services';
 import { NegotiationButtons, type BookingActionsApi } from './BookingActions';
 import { BookingItemRow } from './BookingSheet';
@@ -27,6 +28,11 @@ import {
 import { DraftCard, href } from './ContentParts';
 import {
   bookingPriceText,
+  campaignEditPath,
+  campaignMilestones,
+  campaignTodos,
+  kolProgress,
+  type DetailTab,
   CAMPAIGN_LOG_ACTOR,
   CAMPAIGN_LOG_LABEL,
   campaignProgress,
@@ -109,51 +115,110 @@ const Paragraph = ({ text, empty }: { text: string; empty: string }) => (
 // Tổng quan
 // ---------------------------------------------------------------------------
 
+/**
+ * "Tổng quan" (UI/UX tối ưu §5.2): what to do first (hidden when nothing), at most three figures for the current stage,
+ * the next dates (apply deadline, selection, posting) instead of a step-by-step flow, and the history on demand.
+ * Brief, rewards and settings live in "Thông tin chiến dịch".
+ */
 export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView; bookings: BookingView[] }) {
-  const posts = collectPosts(bookings);
-  const totals = metricTotals(posts.map((p) => p.post));
-  const groups = countByBookingStatus(bookings);
   const recruit = c.type === 'OPEN_RECRUITMENT';
   const marketplace = recruit || c.visibility === 'MARKETPLACE';
-  // EP-02 US-13 / §8.4: each figure keeps its own name (đơn ≠ đã chọn ≠ booking xác nhận ≠ suất).
+  const todos = campaignTodos(c, bookings);
   const p = campaignProgress(c, bookings);
-  // Booking nhiều KOL: đủ suất thì cảnh báo, không tự đóng (§8.6). Booking 1 KOL tự đóng tuyển khi đã chọn KOL.
-  const allFull = recruit && !!p.slots && p.slotsUsed >= p.slots;
+  const k = kolProgress(c, bookings);
+  const totals = metricTotals(collectPosts(bookings).map((x) => x.post));
+  const tab = (t: DetailTab) => `?tab=${t}`;
+  const kolStat = <Stat key="kol" label="KOL đã chọn" value={`${k.chosen}/${k.target} KOL`} hint={recruit ? 'Đếm mỗi KOL một lần' : 'Booking 1 KOL: chọn một KOL'} to={tab('hop-tac')} />;
+  const stats =
+    c.status === 'OPEN'
+      ? [
+          marketplace ? (
+            <Stat key="apps" label="Đơn ứng tuyển" value={p.applications} hint={`${p.toHandle} đơn chưa xử lý`} to={tab('ung-vien')} />
+          ) : (
+            <Stat key="inv" label="Lời mời đã gửi" value={p.invites} hint={`${p.invitesWaiting} chờ KOL/MCN phản hồi`} to={tab('ung-vien')} />
+          ),
+          kolStat,
+          ...(p.contentToReview ? [<Stat key="content" label="Nội dung chờ duyệt" value={p.contentToReview} to={`${tab('hop-tac')}&muc=noi-dung`} />] : []),
+        ]
+      : c.status === 'CLOSED'
+        ? [
+            kolStat,
+            <Stat key="content" label="Nội dung chờ duyệt" value={p.contentToReview} to={`${tab('hop-tac')}&muc=noi-dung`} />,
+            <Stat key="posts" label="Bài đăng đã xác minh" value={totals.posts} to={`${tab('hop-tac')}&muc=bao-cao`} />,
+          ]
+        : c.status === 'COMPLETED'
+          ? [
+              kolStat,
+              <Stat key="posts" label="Bài đăng đã xác minh" value={totals.posts} to={`${tab('hop-tac')}&muc=bao-cao`} />,
+              <Stat key="views" label="Lượt xem" value={formatCompactVi(totals.views)} hint={`Tương tác ${formatPercent(totals.engagementRate)}`} to={`${tab('hop-tac')}&muc=bao-cao`} />,
+            ]
+          : [];
+  const milestones = campaignMilestones(c);
   return (
     <div className="@container space-y-4">
-      <dl className="grid grid-cols-2 gap-2 @2xl:grid-cols-4 @2xl:gap-3">
-        {marketplace ? (
-          <Stat label="Đơn ứng tuyển" value={p.applications} hint={`${p.toHandle} đơn cần xử lý`} to="?tab=ung-tuyen" />
-        ) : (
-          <Stat label="Lời mời đã gửi" value={p.invites} hint={`${p.invitesWaiting} chờ KOL/MCN phản hồi`} to="?tab=booking" />
-        )}
-        {recruit ? (
-          <Stat label="KOL đã chọn" value={p.slots ? `${p.slotsUsed} / ${p.slots}` : p.slotsUsed} hint={`${p.confirmed} booking đang làm / hoàn tất`} to="?tab=booking" />
-        ) : (
-          <Stat
-            label="KOL được chọn"
-            value={p.slotsUsed ? 'Đã chọn' : 'Chưa chọn'}
-            hint={p.slotsUsed ? 'Chiến dịch chỉ chọn 1 KOL/MCN' : marketplace ? 'Chọn 1 KOL từ đơn ứng tuyển hoặc lời mời' : 'Chọn 1 KOL từ lời mời'}
-            to="?tab=booking"
-          />
-        )}
-        <Stat label="Nội dung chờ duyệt" value={p.contentToReview} hint={`${p.completed} booking hoàn tất`} to="?tab=noi-dung" />
-        <Stat
-          label="Bài đăng đã xác minh"
-          value={totals.posts}
-          hint={`${formatCompactVi(totals.views)} lượt xem · tương tác ${formatPercent(totals.engagementRate)}`}
-          to="?tab=bao-cao"
-        />
-      </dl>
-
-      {/* EP-02 §8.6: đủ số booking xác nhận thì cảnh báo, không tự đóng tuyển. */}
-      {c.status === 'OPEN' && allFull && (
-        <div className="flex items-start gap-2 rounded-[8px] border border-chart-5/40 bg-chart-5/10 p-3 text-sm text-foreground" role="status">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-chart-5" aria-hidden />
-          <p>Đã đủ số suất. Chiến dịch chưa tự đóng tuyển: bạn có thể "Đóng tuyển" nếu không cần thêm ứng viên. Đơn đã gửi vẫn được giữ.</p>
-        </div>
+      {todos.length > 0 && (
+        <Panel title="Việc cần xử lý">
+          <ul className="divide-y divide-border">
+            {todos.map((t) => (
+              <li key={t.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
+                <span className={cn('flex items-center gap-2 text-sm font-medium', t.urgent ? 'text-destructive' : 'text-foreground')}>
+                  <AlertTriangle className={cn('size-4 shrink-0', t.urgent ? 'text-destructive' : 'text-chart-5')} aria-hidden />
+                  {t.text}
+                </span>
+                <Link
+                  to={t.to === 'edit' ? campaignEditPath(c.id) : tab(t.to)}
+                  replace={t.to !== 'edit'}
+                  className="text-sm font-medium text-primary hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {t.to === 'edit' ? 'Bổ sung' : 'Xử lý'}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Panel>
       )}
 
+      {stats.length > 0 && <dl className={cn('grid gap-2 @2xl:gap-3', stats.length === 3 ? 'grid-cols-1 @lg:grid-cols-3' : 'grid-cols-2')}>{stats}</dl>}
+
+      <div className="grid gap-4 @3xl:grid-cols-2">
+        <Panel title="Mốc thời gian">
+          {milestones.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Chưa đặt lịch.</p>
+          ) : (
+            <ol className="space-y-2.5">
+              {milestones.map((m) => (
+                <li key={m.label} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm">
+                  <span className={cn('text-foreground', m.current && 'font-semibold')}>
+                    {m.label}
+                    {m.current && <span className="ml-2 rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">Đang diễn ra</span>}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">{m.value}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+          {recruit && <p className="mt-3 text-xs text-muted-foreground">Bạn có thể xét và chọn KOL ngay khi có đơn, không cần chờ hết hạn ứng tuyển.</p>}
+        </Panel>
+        <Panel title="Lịch sử và phản hồi Admin">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-sm text-primary focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+              <span>Xem lịch sử ({(c.log?.length ?? 0) + 1} mục)</span>
+              <span className="text-xs text-muted-foreground group-open:hidden">Mở</span>
+              <span className="hidden text-xs text-muted-foreground group-open:inline">Thu gọn</span>
+            </summary>
+            <div className="mt-3">
+              <CampaignHistory campaign={c} />
+            </div>
+          </details>
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+export function InfoTab({ campaign: c }: { campaign: CampaignView }) {
+  return (
+    <div className="@container space-y-4">
       <div className="grid gap-4 @4xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-4">
           <Panel title="Mục tiêu">
@@ -173,6 +238,16 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
           )}
           <Panel title="Điều kiện tham gia" className="@container">
             <ConditionsList target={c.target} categories={c.categories} regions={c.regions ?? []} />
+          </Panel>
+          <Panel title="Quyền sử dụng nội dung">
+            {c.usageRights ? (
+              <div className="space-y-1 text-sm text-foreground">
+                <p>{usageRightsText(c.usageRights)}</p>
+                {c.usageRights.note && <Paragraph text={c.usageRights.note} empty="" />}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Không yêu cầu sử dụng lại nội dung ngoài bài đăng gốc.</p>
+            )}
           </Panel>
           <Panel title="Câu hỏi khảo sát và điều khoản">
             {(c.survey ?? []).length === 0 && (c.terms ?? []).length === 0 ? (
@@ -201,7 +276,7 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
         </div>
         <div className="space-y-4">
           {c.type === 'OPEN_RECRUITMENT' && c.recruitment && (
-            <Panel title="Lịch trình">
+            <Panel title="Lịch trình 4 giai đoạn">
               <RecruitTimeline timeline={c.recruitment.timeline} phase={c.status === 'DRAFT' ? undefined : phaseOfTimeline(c.recruitment.timeline, Date.now())} />
             </Panel>
           )}
@@ -211,22 +286,25 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               <Meta label={c.type === 'OPEN_RECRUITMENT' ? `Tổng ngân sách dự kiến (${c.recruitment?.slots ?? 0} suất)` : 'Ngân sách'}>
                 {c.budget > 0 ? formatVnd(c.budget) : 'Chưa nhập'}
               </Meta>
-              <Meta label="Giá trị đã chốt">{formatVnd(c.stats.committed)}</Meta>
+              {c.promotedBrand?.name && (
+                <Meta label="Nhãn hàng được quảng bá">
+                  {c.promotedBrand.name}
+                  {!c.promotedBrand.own && <span className="block text-xs text-muted-foreground">Agency quảng bá · căn cứ đại diện đã gửi Admin</span>}
+                </Meta>
+              )}
               <Meta label="Hiển thị">
                 <VisibilityLabel visibility={c.visibility} className="text-sm text-foreground" />
                 {c.visibility === 'MARKETPLACE' && (
                   <span className="block text-xs text-muted-foreground">
-                    {c.applyDeadline ? `Hạn ứng tuyển: ${formatIsoDay(c.applyDeadline)}` : 'Hạn ứng tuyển: không giới hạn (đến khi kết thúc)'}
+                    {c.applyDeadline ? `Hạn ứng tuyển: ${deadlineText(c)}` : 'Hạn ứng tuyển: chưa đặt'}
                   </span>
                 )}
               </Meta>
               <Meta label="Nền tảng">
                 <PlatformIcons platforms={c.platforms} />
               </Meta>
+              <Meta label="Hợp đồng">{c.contract === false ? 'Không dùng hợp đồng' : 'Có (điều khoản + tệp hợp đồng)'}</Meta>
             </dl>
-          </Panel>
-          <Panel title="Tính năng">
-            <FeatureSummary campaign={c} />
           </Panel>
           <Panel title="Hạng mục nội dung">
             {c.deliverables.length === 0 ? (
@@ -261,23 +339,6 @@ export function OverviewTab({ campaign: c, bookings }: { campaign: CampaignView;
               )}
             </Panel>
           )}
-          <Panel title="Booking theo trạng thái">
-            {groups.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có booking.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {groups.map((g) => (
-                  <li key={g.status} className="flex items-center justify-between gap-2">
-                    <BookingStatusBadge status={g.status} />
-                    <span className="text-sm font-semibold text-foreground tabular-nums">{g.count}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-          <Panel title="Lịch sử chiến dịch">
-            <CampaignHistory campaign={c} />
-          </Panel>
         </div>
       </div>
     </div>
@@ -379,11 +440,19 @@ export function BookingsTab({
   canInvite,
   onInvite,
   onOpen,
+  intro = 'KOL do MCN quản lý được gửi tới MCN đó; KOL độc lập nhận lời mời trực tiếp.',
+  emptyTitle = 'Chưa có booking',
+  emptyText = 'Mời KOL từ danh sách đã lưu hoặc tìm theo tên, KOL ID.',
+  label = 'Booking của chiến dịch',
 }: {
   bookings: BookingView[];
   canInvite: boolean;
   onInvite(): void;
   onOpen(id: string): void;
+  intro?: string;
+  emptyTitle?: string;
+  emptyText?: string;
+  label?: string;
 }) {
   const rows = sortBookings(bookings);
   const inviteButton = canInvite && (
@@ -395,19 +464,17 @@ export function BookingsTab({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          KOL do MCN quản lý được gửi tới MCN đó; KOL độc lập nhận lời mời trực tiếp.
-        </p>
+        <p className="text-sm text-muted-foreground">{intro}</p>
         {inviteButton}
       </div>
       {rows.length === 0 ? (
         <Card className="p-0">
-          <EmptyBlock icon={<Users className="size-6" aria-hidden />} title="Chưa có booking" text="Mời KOL từ danh sách đã lưu hoặc tìm theo tên, KOL ID.">
+          <EmptyBlock icon={<Users className="size-6" aria-hidden />} title={emptyTitle} text={emptyText}>
             {inviteButton}
           </EmptyBlock>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-3" aria-label="Booking của chiến dịch">
+        <ul className="flex flex-col gap-3" aria-label={label}>
           {rows.map((b) => (
             <li key={b.id}>
               <BookingRow booking={b} onOpen={() => onOpen(b.id)} />

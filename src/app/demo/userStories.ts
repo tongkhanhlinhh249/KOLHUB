@@ -1665,7 +1665,7 @@ export const RELEASES: Release[] = [
           'Prototype: có tìm, lọc, tab trạng thái, chế độ bảng / thẻ, chọn nhiều để đóng / huỷ hàng loạt.',
         ],
         source: 'EP-02 §6.4, §10, US-09 · features/campaigns/CampaignsPage.tsx',
-        confirm: 'Tab theo vòng đời EP-02: Nháp, Chờ duyệt, Cần bổ sung, Không được duyệt, Đang tuyển, Đã đóng tuyển, Hoàn tất, Đã huỷ. Bảng có cột "Hạn tuyển" (Chỉ mời với chiến dịch riêng tư) và "Booking / Ứng viên" (booking xác nhận / suất, số đơn ứng tuyển hoặc lời mời); phân trang 10 chiến dịch / trang. Chưa có cột "Nhãn hàng được quảng bá".',
+        confirm: 'Theo "Tối ưu UI/UX quản lý chiến dịch" (13/10/2026): 4 nhóm Tất cả · Chuẩn bị · Đang hoạt động (gồm Đã đóng tuyển) · Đã kết thúc; lọc "Cần xử lý"; "Bộ lọc" chứa 8 trạng thái, loại booking, hiển thị; sắp xếp Cập nhật gần nhất / Sắp hết hạn tuyển. Mỗi chiến dịch là card ngang: tên, thương hiệu · loại, 1 trạng thái, tiến độ (N đơn · Đã chọn x/y KOL), hạn tuyển (nhấn màu khi còn ≤ 2 ngày), 1 việc cần xử lý ghi rõ hành động, 1 CTA theo trạng thái + menu ⋯ (Sửa, Xem trên Sàn, Đóng tuyển, Huỷ). Không cuộn ngang, có phân trang. Chưa có: ẩn/gỡ bởi Admin.',
       },
       {
         id: 'R8-10',
@@ -1731,7 +1731,7 @@ export const RELEASES: Release[] = [
           '[EP-02] Số đơn khác số KOL được chọn, số booking xác nhận và số suất; ghi đúng tên, không gọi số đơn là số KOL đã tuyển.',
         ],
         source: 'EP-02 §6.4, §8, US-13 · features/campaigns/CampaignDetailPage.tsx',
-        confirm: 'Đã có: Tổng quan hiện Đơn ứng tuyển (… cần xử lý) hoặc Lời mời đã gửi với chiến dịch riêng tư, Booking đã xác nhận (đã dùng X/Y suất) hoặc KOL đã chọn, Nội dung chờ duyệt, Bài đăng đã xác minh; mỗi ô dẫn sang tab xử lý. Quyền lợi theo nhóm có thanh suất đã dùng; đủ suất thì cảnh báo, không tự đóng tuyển (§8.6). Thêm "Lịch sử chiến dịch" (gửi đăng, quyết định Admin, đóng tuyển, huỷ / hoàn tất: ai, khi nào).',
+        confirm: 'Trang chi tiết 4 tab: Tổng quan (việc cần xử lý, tối đa 3 chỉ số theo giai đoạn, mốc thời gian thay quy trình tuần tự, lịch sử thu gọn) · Ứng viên (đơn ứng tuyển, lời mời) · Hợp tác (danh sách, nội dung chờ duyệt, báo cáo) · Thông tin chiến dịch (brief, đầu việc, quyền lợi, điều kiện, quyền sử dụng, lịch); Hỏi đáp riêng cho chiến dịch trên Sàn. "Đã chọn x/y KOL" đếm mỗi KOL một lần. Header: 1 nút chính theo trạng thái, Huỷ / Xoá nháp / Sửa trong menu ⋯.',
       },
       {
         id: 'R8-14',
