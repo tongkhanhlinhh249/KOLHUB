@@ -411,8 +411,8 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
   if (recruit && isPreAccept(status)) {
     const phase = recruitPhase(c!, ctx.now ?? Date.now());
     if (party === 'BRAND' && status === 'APPLIED') {
-      if (phase === 'SELECT') out.push('SELECT');
-      if (phase === 'APPLY' || phase === 'SELECT') out.push('DECLINE');
+      // EP-02 §13 "tuyển liên tục": the brand may pick during "Ứng tuyển" too, not only in "Chọn lọc".
+      if (phase === 'APPLY' || phase === 'SELECT') out.push('SELECT', 'DECLINE');
     }
     if (party === 'SUPPLIER') {
       out.push('CANCEL');

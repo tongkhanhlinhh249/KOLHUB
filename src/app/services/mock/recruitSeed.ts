@@ -17,7 +17,7 @@ import {
 import type { Channel } from '../profile-types';
 import { isoDay, postMetrics } from './campaignRules';
 import { VERIFIED_MCN_ACCOUNT_ID, VERIFIED_MCN_ID } from './mcnSeed';
-import { rewardValue } from './recruitment';
+import { isRecruit, rewardValue } from './recruitment';
 
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
@@ -41,6 +41,10 @@ export const SEED_RECRUIT_BOOKING = {
   saoVietVerified: 'bk-seed-rc-saoviet',
   /** Sao Việt's application on the selecting campaign. */
   saoVietApplied: 'bk-seed-rc-saoviet-ap',
+  /** v20 — "Đánh giá tai nghe không dây mới" (agency, in "Ứng tuyển"): demo of the whole flow from applications. */
+  headphonesWaiting: 'bk-seed-rc-tai-nghe-1',
+  headphonesPicked: 'bk-seed-rc-tai-nghe-4',
+  headphonesProducing: 'bk-seed-rc-tai-nghe-5',
 } as const;
 
 const defaultTerms = () => DEFAULT_TERMS.map((text, i) => ({ id: `t-${i + 1}`, text }));
@@ -372,6 +376,53 @@ export function seedRecruitment(
     qa('qa-seed-4', ids.headphones, SAOVIET, 'Sao Việt Media', 'Thời gian giao tai nghe dự kiến là bao lâu sau khi được chọn?', ago(0, 6)),
     qa('qa-seed-5', posting.id, SAOVIET, 'Sao Việt Media', 'Có cần gửi bản nháp trước khi đăng không?', ago(15), 'Không cần. Chiến dịch đăng trực tiếp, chỉ cần gửi link sau khi đăng.', ago(14)),
   ];
+
+  // v20 — "Đánh giá tai nghe không dây mới" (agency, YouTube, still in "Ứng tuyển"): KOL applications to run the whole
+  // flow in the demo — 3 waiting to be reviewed, 1 picked (product still to send), Khánh Vy picked with the product
+  // received (she can submit a draft). Selection is continuous (EP-02 §13): the brand may pick before the apply phase ends.
+  const headphones = campaigns.find((c) => c.id === ids.headphones);
+  if (headphones && isRecruit(headphones)) {
+    const reward = headphones.recruitment.reward;
+    const survey = headphones.survey ?? [];
+    const HEADPHONE_ANSWERS = [
+      ['Có, mình đã review 3 mẫu tai nghe chống ồn năm nay.', 'Đi làm bằng tàu điện và chạy bộ buổi sáng.'],
+      ['Chưa, nhưng kênh mình chuyên đồ công nghệ cho dân văn phòng.', 'Làm việc ở quán cà phê ồn.'],
+      ['Có, video so sánh tai nghe dưới 3 triệu được 120 nghìn lượt xem.', 'Chơi game và gọi họp online.'],
+      ['Mình từng làm video về loa và micro thu âm.', ''],
+      ['Có, mình review thiết bị âm thanh hằng tuần.', 'Tập gym và đi xe máy đường dài.'],
+    ];
+    // Khánh Vy (demo KOL login) is the picked KOL with the product received: log in as her to submit the draft.
+    const vyYoutube = ownChannel(1, ['youtube']);
+    const youtubers = Array.from({ length: 60 }, (_, i) => i + 16)
+      .map((n) => ({ n, ch: ownChannel(n, ['youtube']) }))
+      .filter((x): x is { n: number; ch: Channel } => !!x.ch)
+      .slice(0, vyYoutube ? 4 : 5);
+    if (vyYoutube) youtubers.push({ n: 1, ch: vyYoutube });
+    youtubers.forEach(({ n, ch }, i) => {
+      const at = ago(1, 10 - i * 2);
+      const id = `bk-seed-rc-tai-nghe-${i + 1}`;
+      const who = n === 1 ? KHANHVY : kolAcc(n);
+      const b = base(id, headphones.id, ids.agency, { supplierType: 'KOL', supplierAccountId: who, kolN: n, channelId: ch.id, platform: ch.platform }, at);
+      b.note = i === 0 ? 'Mình có thể quay một tuần dùng thật, đăng trong giờ vàng tối.' : '';
+      b.application = application(HEADPHONE_ANSWERS[i], survey, SHIP[i % SHIP.length], at);
+      if (i >= 3) {
+        const picked = ago(0, 6 - i);
+        b.status = 'ACCEPTED';
+        delete b.awaiting;
+        b.price = reward.cash;
+        b.reward = structuredClone(reward);
+        b.acceptedAt = picked;
+        b.updatedAt = picked;
+        b.history.push(ev(picked, 'BRAND', 'SELECTED', { price: reward.cash }));
+        if (i === 4) {
+          b.shipment = { sentAt: ago(0, 1), receivedAt: ago(0, 0.5) };
+          b.history.push(ev(ago(0, 1), 'BRAND', 'PRODUCT_SENT', { note: reward.product?.name }), ev(ago(0, 0.5), 'SUPPLIER', 'PRODUCT_RECEIVED'));
+          b.updatedAt = ago(0, 0.5);
+        }
+      }
+      bookings.push(b);
+    });
+  }
 
   return { campaigns: [selecting, posting], bookings, questions };
 }

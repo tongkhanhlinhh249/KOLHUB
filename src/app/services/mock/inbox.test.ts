@@ -68,7 +68,8 @@ describe('Tin nhắn: quyền truy cập luồng', () => {
     const list = await inbox.listThreads();
     expect(list.length).toBeGreaterThan(0);
     for (let i = 1; i < list.length; i++) expect(list[i - 1].lastAt).toBeGreaterThanOrEqual(list[i].lastAt);
-    expect(list[0].bookingId).toBe(SEED_THREADS.khanhVyInvite);
+    // Mới nhất: Khánh Vy vừa nhận tai nghe (demo trọn luồng), rồi lời mời "Bữa sáng cùng sữa hạt".
+    expect(list.map((t) => t.bookingId).slice(0, 2)).toEqual(['bk-seed-rc-tai-nghe-5', SEED_THREADS.khanhVyInvite]);
     const found = await inbox.listThreads('sua hat');
     expect(found.map((x) => x.bookingId)).toContain(SEED_THREADS.khanhVyInvite);
     expect(found.every((x) => /sữa hạt|sua hat/i.test(`${x.campaignName} ${x.last?.text}`))).toBe(true);

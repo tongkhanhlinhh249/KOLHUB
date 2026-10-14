@@ -185,8 +185,8 @@ describe('ứng tuyển (không báo giá): khảo sát, điều khoản, địa
     as(BRAND);
     const seen = await bookings.get(b.id);
     expect(seen.application!.answers[0]).toMatchObject({ question: 'Bạn sẽ quay ở đâu?', answer: 'Tại nhà' });
-    expect(seen.allowedActions).toEqual(['DECLINE', 'ATTACH_CONTRACT']); // chưa tới Chọn lọc: chưa chọn được
-    await expect(campaigns.selectApplicants(c.id, [b.id])).rejects.toMatchObject({ code: 'KOLHUB-4819' });
+    // EP-02 §13 tuyển liên tục: chọn được ngay trong giai đoạn Ứng tuyển.
+    expect(seen.allowedActions).toEqual(['SELECT', 'DECLINE', 'ATTACH_CONTRACT']);
 
     as(KHANHVY);
     const edited = await bookings.updateApplication(b.id, { items, answers: { 'q-1': 'Ở quán cà phê' }, acceptedTerms: ['t-1'], shipping: { province: 'Huế', address: 'Số 2 đường Mẫu', phone: '0900000998' } });
