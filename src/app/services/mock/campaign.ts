@@ -826,13 +826,14 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   }
 
   /**
-   * Picks applicants during "Chọn lọc" (4819 otherwise): each becomes ACCEPTED at the fixed reward (price = cash,
-   * reward snapshot), skipping negotiation; the campaign becomes RUNNING. All-or-nothing within the free slots (4818).
+   * Picks applicants during "Ứng tuyển" or "Chọn lọc" (EP-02 §13: continuous selection; 4819 otherwise): each becomes
+   * ACCEPTED at the fixed reward (price = cash, reward snapshot). All-or-nothing within the free slots (4818).
    */
   async function selectApplicants(campaignId: string, bookingIds: string[]): Promise<SelectionResult> {
     await wait();
     const { state, c, t, ids } = selection(campaignId, bookingIds);
-    if (recruitPhase(c, t) !== 'SELECT') throw new KolhubError('KOLHUB-4819');
+    const phase = recruitPhase(c, t);
+    if (phase !== 'APPLY' && phase !== 'SELECT') throw new KolhubError('KOLHUB-4819');
     checkSlots(state, c, ids.length, t);
     db.update((s) => applySelection(s, c.id, ids, t));
     return selectionResult(c.id, ids, t);

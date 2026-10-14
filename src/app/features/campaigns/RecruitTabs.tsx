@@ -50,7 +50,8 @@ export function SelectionTab({
   const [busy, setBusy] = useState<'pick' | 'reject' | null>(null);
   const [confirm, setConfirm] = useState<'finalize' | null>(null);
   const free = Math.max(0, r.slots - picked.length);
-  const canPick = phase === 'SELECT';
+  // EP-02 §13 tuyển liên tục: chọn được ngay khi có đơn (Ứng tuyển) và trong Chọn lọc.
+  const canPick = phase === 'APPLY' || phase === 'SELECT';
   const canReject = phase === 'APPLY' || phase === 'SELECT';
   const tickedHere = ticked.filter((id) => waiting.some((b) => b.id === id));
   const allTicked = waiting.length > 0 && tickedHere.length === waiting.length;
@@ -79,10 +80,10 @@ export function SelectionTab({
 
   const hint =
     phase === 'UPCOMING' || phase === 'APPLY'
-      ? `Đang nhận ứng tuyển đến hết ${formatIsoDay(r.timeline.applyEnd)}. Bạn chọn KOL trong giai đoạn Chọn lọc (${formatIsoDay(r.timeline.selectStart)} – ${formatIsoDay(r.timeline.selectEnd)}); có thể loại ứng viên không phù hợp ngay bây giờ.`
+      ? `Đang nhận ứng tuyển đến hết ${formatIsoDay(r.timeline.applyEnd)}. Bạn có thể chọn KOL ngay khi có đơn phù hợp (tối đa ${r.slots} KOL), không cần chờ giai đoạn Chọn lọc (${formatIsoDay(r.timeline.selectStart)} – ${formatIsoDay(r.timeline.selectEnd)}).`
       : phase === 'SELECT'
         ? `Chọn tối đa ${r.slots} KOL/MCN trước hết ngày ${formatIsoDay(r.timeline.selectEnd)}. Người được chọn nhận phần thưởng cố định và bắt đầu ngay, không cần thương lượng. Ứng viên chưa được chọn khi hết giai đoạn sẽ là “Không được chọn”.`
-        : 'Giai đoạn Chọn lọc đã kết thúc. Theo dõi KOL đã chọn ở tab Booking và Nội dung.';
+        : 'Giai đoạn Chọn lọc đã kết thúc. Theo dõi KOL đã chọn ở tab Hợp tác.';
 
   return (
     <div className="@container space-y-4">

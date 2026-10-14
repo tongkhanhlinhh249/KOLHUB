@@ -72,12 +72,13 @@ export interface PendingRegistration {
  * v17: EP-02 vòng đời chiến dịch — Chờ duyệt / Cần bổ sung / Không được duyệt / Đã đóng tuyển, bỏ "Đang chạy",
  * nhật ký duyệt, bản sửa chờ duyệt; 1 chiến dịch mẫu Chờ duyệt.
  * v18: EP-02 thù lao cố định — `Campaign.groups` (số suất + quyền lợi theo nhóm đầu việc), bỏ đàm phán giá.
+ * v20: demo trọn luồng — "Đánh giá tai nghe không dây mới" có 5 KOL ứng tuyển (3 chờ xét, 2 đã chọn); tuyển liên tục.
  * v19: Booking 1 KOL chỉ chọn 1 KOL — mỗi chiến dịch mẫu một KOL được chọn; thêm đơn ứng tuyển để demo chọn 1.
  */
-export const DB_VERSION = 19;
+export const DB_VERSION = 20;
 
 export interface DemoState {
-  version: 19;
+  version: 20;
   accounts: StoredAccount[];
   otps: OtpRecord[];
   registrations: PendingRegistration[];

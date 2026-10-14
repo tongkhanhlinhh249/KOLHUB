@@ -438,12 +438,13 @@ export function createDemoCampaignService(deps: DemoCampaignServiceDeps) {
     return made;
   }
 
-  /** The brand picks the oldest waiting applicants up to the free slots (only during "Chọn lọc"). */
+  /** The brand picks the oldest waiting applicants up to the free slots (during "Ứng tuyển" or "Chọn lọc"). */
   async function pickWinners(campaignId: string): Promise<number> {
     await wait();
     const c = recruitCampaign(campaignId);
     const t = now();
-    if (recruitPhase(c, t) !== 'SELECT') throw new KolhubError('KOLHUB-4819');
+    const phase = recruitPhase(c, t);
+    if (phase !== 'APPLY' && phase !== 'SELECT') throw new KolhubError('KOLHUB-4819');
     const s = db.read();
     const free = c.recruitment.slots - selectedCount(s, c, t);
     const ids = s.bookings

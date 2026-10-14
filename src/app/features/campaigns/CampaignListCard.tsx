@@ -8,7 +8,7 @@ import { applyDeadlineAt, CAMPAIGN_TYPE_LABEL, type BookingView, type CampaignVi
 import { CampaignCover } from '../shared/CampaignCover';
 import { CampaignStatusBadge } from './CampaignParts';
 import { CampaignMenuItems, type CampaignBulkKind } from './CampaignListViews';
-import { campaignCta, campaignPath, campaignTodos, collectPosts, formatDayMs, kolProgress, type CampaignTodo } from './campaignView';
+import { campaignCta, campaignPath, campaignTodos, collectPosts, formatDayMs, kolProgress, todoCta, type CampaignTodo } from './campaignView';
 
 const DAY = 86_400_000;
 
@@ -103,13 +103,14 @@ export function CampaignListCard({
   onAction(kind: CampaignBulkKind, ids: string[]): void;
 }) {
   const todos = campaignTodos(c, bookings);
-  const cta = campaignCta(c, bookings);
+  // Filled = a to-do with its own verb; outline = just open the campaign. The two never share a label.
+  const cta = todos[0] ? todoCta(c, todos[0]) : campaignCta(c, bookings);
   const brand = c.promotedBrand?.name ?? c.brand.company;
   return (
     <Card className="@container gap-0 p-0 transition-colors hover:border-primary/40">
       <div className="flex flex-col gap-3 p-4 @2xl:flex-row @2xl:items-center @2xl:gap-4">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          <CampaignCover cover={c.cover} className="aspect-square w-14 shrink-0 rounded-[6px] border border-border @2xl:aspect-video @2xl:w-28" iconClassName="size-4" />
+          <CampaignCover cover={c.cover} className="aspect-square w-14 shrink-0 rounded-[6px] border border-border @2xl:w-20" iconClassName="size-4" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <h3 className="text-base leading-snug font-semibold text-foreground">
               <Link

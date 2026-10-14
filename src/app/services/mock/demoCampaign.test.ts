@@ -125,6 +125,7 @@ describe('chế độ demo: quản lý chiến dịch', () => {
         SEED_CAMPAIGN.smoothie,
         SEED_CAMPAIGN.recruitSelecting,
         SEED_CAMPAIGN.recruitPosting,
+        SEED_CAMPAIGN.agencyHeadphones,
         SEED_HISTORY.summerCampaign,
         SEED_HISTORY.runningShoesCampaign,
         SEED_HISTORY.summerVlogCampaign,
@@ -179,10 +180,8 @@ describe('chế độ demo: Booking nhiều KOL', () => {
     const applied = ofCampaign(cid);
     expect(applied.every((b) => b.status === 'APPLIED' && b.price === 0 && !!b.application?.shipping)).toBe(true);
     expect(applied.some((b) => b.supplierAccountId === 'acc-kol-2026-0001')).toBe(true); // Khánh Vy (đăng nhập demo) đi đầu
-    expect(recruitSteps(applied[0].id).primary).toBeUndefined();
-    expect(recruitSteps(applied[0].id).waiting).toMatch(/Chọn lọc/);
-    await expect(demo.pickWinners(cid)).rejects.toMatchObject({ code: 'KOLHUB-4819' });
-
+    // Tuyển liên tục (EP-02 §13): chọn được ngay trong Ứng tuyển.
+    expect(recruitSteps(applied[0].id).primary?.key).toBe('SELECT');
     expect(await demo.advancePhase(cid)).toBe('SELECT');
     expect(recruitSteps(applied[0].id).primary?.key).toBe('SELECT');
     const picked = await demo.pickWinners(cid);

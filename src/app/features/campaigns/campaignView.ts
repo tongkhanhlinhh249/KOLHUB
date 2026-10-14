@@ -802,6 +802,27 @@ export function campaignCta(
   }
 }
 
+const TODO_CTA_LABEL: Record<CampaignTodo['key'], string> = {
+  fix: 'Bổ sung thông tin',
+  rejected: 'Xem lý do',
+  applications: 'Xét duyệt ứng viên',
+  content: 'Duyệt nội dung',
+  product: 'Gửi sản phẩm',
+  payment: 'Xác nhận thanh toán',
+  full: 'Đóng tuyển',
+  complete: 'Hoàn tất chiến dịch',
+};
+
+/**
+ * The primary (filled) button of a card that has something to handle: an action verb matching the to-do, so it never
+ * reads the same as the neutral "Xem …" button of a card with nothing pending.
+ */
+export function todoCta(c: Pick<Campaign, 'id'>, todo: CampaignTodo): { label: string; to: string } {
+  if (todo.to === 'edit') return { label: TODO_CTA_LABEL[todo.key], to: campaignEditPath(c.id) };
+  const to = `${campaignPath(c.id)}?tab=${todo.to}${todo.key === 'content' ? '&muc=noi-dung' : ''}`;
+  return { label: TODO_CTA_LABEL[todo.key], to };
+}
+
 /**
  * "Mốc thời gian" of the overview (§5.2): dated milestones instead of a sequential flow. Booking nhiều KOL: its four
  * phases (selection can start before the apply phase ends); Booking 1 KOL: apply deadline and the running period.

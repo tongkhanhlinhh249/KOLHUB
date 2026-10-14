@@ -5,6 +5,7 @@ import {
   brandTodoLabel,
   campaignActions,
   campaignCta,
+  todoCta,
   campaignProgress,
   campaignTodos,
   countCampaignGroups,
@@ -374,6 +375,11 @@ describe('quản lý chiến dịch — UI/UX tối ưu', () => {
     expect(campaignCta({ id: 'c1', status: 'CLOSED' }, list).label).toBe('Xem ứng viên');
     expect(campaignCta({ id: 'c1', status: 'CLOSED' }, [b('ACCEPTED', 'INVITE', [])]).label).toBe('Quản lý hợp tác');
     expect(campaignCta({ id: 'c1', status: 'COMPLETED' }, []).label).toBe('Xem kết quả');
+    // Nút chính (có việc) dùng động từ riêng, không trùng nhãn "Xem …" của nút phụ.
+    const [apps, content] = campaignTodos({ status: 'OPEN', type: 'BOOKING' }, list);
+    expect(todoCta({ id: 'c1' }, apps)).toEqual({ label: 'Xét duyệt ứng viên', to: '/chien-dich/c1?tab=ung-vien' });
+    expect(todoCta({ id: 'c1' }, content)).toEqual({ label: 'Duyệt nội dung', to: '/chien-dich/c1?tab=hop-tac&muc=noi-dung' });
+    expect(todoCta({ id: 'c1' }, campaignTodos({ status: 'NEEDS_FIX', type: 'BOOKING' }, [])[0]).to).toBe('/chien-dich/c1/sua');
   });
 
   test('"Đã chọn x/y KOL": Booking 1 KOL tối đa 1; Booking nhiều KOL đếm mỗi KOL một lần (MCN đại diện nhiều KOL)', () => {
