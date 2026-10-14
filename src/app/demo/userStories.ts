@@ -1283,7 +1283,7 @@ export const RELEASES: Release[] = [
   {
     key: 'R7',
     name: 'EP-01 · Hồ sơ KOL/MCN và xác thực kênh',
-    goal: 'KOL/MCN hoàn thiện hồ sơ và xác thực từng kênh. Dấu xác thực kênh = quyền quản lý hợp lệ (Admin duyệt) + đạt kiểm tra nội dung KOL Safety trên N nội dung gần nhất; hiệu lực có hạn, gia hạn bằng quét lại; kết quả đồng bộ sang KOLGOV. Nhãn quy tắc: [Đã thống nhất] · [Quy tắc cơ sở] · [Đề xuất] · [Cần xác nhận] theo EP-01.',
+    goal: 'KOL/MCN hoàn thiện hồ sơ và xác thực từng kênh. Dấu xác thực kênh = quyền quản lý hợp lệ (Admin duyệt) + đạt kiểm tra nội dung KOL Safety trên N nội dung gần nhất; hiệu lực có hạn, gia hạn bằng quét lại; kết quả đồng bộ sang KOLGOV. Nhãn quy tắc: [Đã thống nhất] · [Quy tắc cơ sở] · [Đề xuất] · [Cần xác nhận] theo EP-01. Ngoài Epic: tạo/đăng chiến dịch, tuyển chọn, hợp đồng, thanh toán; mô hình chấm nội dung, ví/token, định giá quét của Safety; quét bản nháp chiến dịch (đặc tả riêng, không suy ra từ dấu xác thực kênh).',
     stories: [
       {
         id: 'R7-1',
@@ -1302,8 +1302,10 @@ export const RELEASES: Release[] = [
           '[Đã thống nhất 12/10/2026] KOL bắt buộc: eKYC, liên hệ đủ trường, ≥ 1 kênh đang hoạt động kèm ảnh, ≥ 1 kênh đạt KOL Safety, 3 cam đoan. MCN bắt buộc: 5 trường định danh tổ chức, GCN ĐKDN, liên hệ; nhân sự, kênh, kênh đạt KOL Safety và gán KOL chỉ là khuyến nghị.',
           '[Đề xuất] Trạng thái hồ sơ: Bản nháp → Chờ duyệt → Đã duyệt | Cần bổ sung. Không gộp kết quả duyệt hồ sơ vào trạng thái kênh.',
           'Duyệt hồ sơ không tự cấp dấu KOL Safety cho kênh.',
+          '[Đề xuất] Trường công khai được chỉ rõ trên form.',
+          '[Đề xuất bắt buộc] Máy chủ kiểm tra quyền với mọi thao tác; đổi ID trong yêu cầu không xem được hồ sơ, báo cáo hay ảnh chứng minh của người khác.',
         ],
-        source: 'EP-01 §4.1, §6.1, §8 · features/profile/* · services/mock/profileRules.ts (submitChecklist, completeness)',
+        source: 'EP-01 §3, §4.1, §6.1, §8 · features/profile/* · services/mock/profileRules.ts (submitChecklist, completeness)',
         confirm: 'Prototype còn trạng thái "Không được duyệt" mà EP-01 chưa có. Danh sách trường bắt buộc và việc sửa thông tin nhận diện có phải duyệt lại cần chốt. Với MCN, kênh đạt KOL Safety vẫn chỉ là khuyến nghị.',
       },
       {
@@ -1359,6 +1361,7 @@ export const RELEASES: Release[] = [
           '[Quy tắc cơ sở] N theo nền tảng: TikTok 20 video, Facebook/Instagram 20 nội dung (ảnh, bài viết, story, ghi chú), YouTube 5 video (gồm Shorts). Video chỉ kiểm tra tối đa 3 phút đầu.',
           '[Đề xuất] Ô cam đoan "Tôi hiểu phạm vi kiểm tra và chịu trách nhiệm về toàn bộ nội dung trên kênh"; prototype bắt buộc tick.',
           'Thiếu N nội dung hoặc không lấy được dữ liệu: hiện đúng nguyên nhân, không coi là "không đạt", không cấp Đạt giả định.',
+          'Không lấy được dữ liệu kênh: "Chưa lấy được nội dung kênh. Vui lòng thử lại." (prototype chưa có mã lỗi riêng).',
           'Bấm "Mở KOL Safety để quét": chốt danh sách N nội dung mới nhất và mở KOL Safety ở tab mới. KOLHUB không thu mật khẩu KOL Safety hay mạng xã hội.',
         ],
         errors: [
@@ -1366,7 +1369,7 @@ export const RELEASES: Release[] = [
           { code: '4211', when: 'Danh sách đã chốt quá 7 ngày', message: 'Danh sách nội dung đã quá 7 ngày. Bấm xác thực lại để lấy danh sách mới.' },
         ],
         source: 'EP-01 §6.2, §7, §9 · features/channels/SafetyVerify.tsx · services/mock/safetyVerification.ts (start, snapshotItems)',
-        confirm: 'EP-01 lấy N nội dung "tại thời điểm bắt đầu quét"; prototype chốt khi bấm mở KOL Safety và giữ 7 ngày (đề xuất cũ, EP-01 không có). Thứ tự theo thời gian đăng gốc hay sửa, bài ghim, repost, đồng tác giả: chờ đội Safety.',
+        confirm: 'EP-01 lấy N nội dung "tại thời điểm bắt đầu quét"; prototype chốt khi bấm mở KOL Safety và giữ 7 ngày (đề xuất cũ, EP-01 không có). Thứ tự theo thời gian đăng gốc hay sửa, bài ghim, repost, đồng tác giả: chờ đội Safety. Prototype chưa giả lập lỗi không lấy được dữ liệu kênh.',
       },
       {
         id: 'R7-5',
@@ -1381,7 +1384,8 @@ export const RELEASES: Release[] = [
           'Kết quả "Không đạt" phải có nguyên nhân và nguồn kết quả; KOLHUB hiện nguyên văn: "{X} nội dung chưa đạt tiêu chí KOL Safety. Xem kết quả để xử lý."',
           '[Quy tắc cơ sở] Nội dung không truy cập được / quét lỗi: "Chưa kiểm tra được", không tính Đạt, không phải vi phạm, không tự bỏ qua để đủ N: "{X} nội dung chưa kiểm tra được. Đây chưa phải kết luận vi phạm."',
           '"Làm mới" hỏi lại KOL Safety khi chưa nhận được kết quả.',
-          '[Đề xuất kỹ thuật] Nhận kết quả có xác thực nguồn, đúng kênh/đợt/danh sách; gửi lặp không cấp dấu hai lần; kết quả cũ đến muộn không ghi đè kết quả mới; hỏi lại theo ID yêu cầu, không chỉ theo URL.',
+          '[Đề xuất kỹ thuật] Nhận kết quả có xác thực nguồn, đúng kênh/đợt/danh sách; gửi lặp không cấp dấu hai lần; kết quả cũ đến muộn không ghi đè kết quả mới; hỏi lại theo ID yêu cầu, không chỉ theo URL. Mỗi đợt quét có mã riêng để phân biệt lần đầu, gia hạn và kết quả gửi lại.',
+          'Thay đổi phát sinh trong lúc đang quét: kết quả chỉ tính cho danh sách/phiên bản phù hợp.',
         ],
         source: 'EP-01 §6.2, §10 · SafetyVerify.tsx · safetyVerification.ts (scan, refresh) · demo/SafetySimulatorBlock.tsx',
         confirm: 'Mock hỏi lại theo kênh, chưa có ID đợt quét. Chính sách bỏ qua / thay thế nội dung không truy cập được: chờ đội Safety.',
@@ -1437,6 +1441,8 @@ export const RELEASES: Release[] = [
           'Lấy N nội dung mới nhất tại thời điểm quét gia hạn, cùng quy tắc với lần đầu (R7-4, R7-6).',
           'Nội dung không đạt khi gia hạn: xử lý theo mức độ và cơ chế Safety, không tự đình chỉ mọi trường hợp.',
           'Đến hạn chưa đủ điều kiện → Hết hạn, loại khỏi điều kiện nhận booking mới; làm lại quy trình để khôi phục.',
+          'Thông báo hết hạn: "Xác thực kênh đã hết hạn. Hoàn tất kiểm tra để tiếp tục tham gia chiến dịch bằng kênh này."',
+          '[Cần xác nhận] Tính 3 tháng lịch hay 90 ngày; nối tiếp hạn cũ hay tính từ ngày gia hạn; có duyệt lại quyền quản lý không.',
         ],
         source: 'EP-01 §6.4, §8 · safetyVerification.ts (canRenew, complete) · profileRules.ts (sweepExpired)',
         confirm: 'Prototype đã tự chọn: 90 ngày, nối tiếp hạn cũ khi gia hạn sớm, không duyệt lại quyền quản lý — EP-01 để "Cần chốt" cả ba. Dữ liệu mẫu đổi dấu cũ 365 ngày thành kỳ 90 ngày; EP-01 yêu cầu chính sách chuyển đổi, không tự chuyển hàng loạt.',
@@ -1507,6 +1513,11 @@ export const RELEASES: Release[] = [
           '[Đề xuất] Nhắc trước hạn 14, 7, 1 ngày, gửi trong app và email; SMS chưa bắt buộc.',
           'Mọi thay đổi kênh giữ lịch sử để booking cũ tham chiếu đúng kênh đã chốt; có nhật ký và phân quyền phía máy chủ.',
           'Prototype đang báo: kênh đạt KOL Safety N/N, gia hạn thành công, kết quả duyệt hồ sơ/kênh.',
+          '[Cần xác nhận] Thời gian lưu giấy tờ, ảnh, báo cáo và nhật ký phải chốt trước vận hành; Epic không tự đặt thời hạn.',
+        ],
+        notes: [
+          'Thứ tự bàn giao (EP-01 §12): ① Nền tảng hồ sơ/kênh (R7-1, R7-2, R7-3) → ② Xác thực lần đầu (R7-4 → R7-7, tích hợp Safety bắt đầu sớm) → ③ Duy trì hiệu lực (R7-8, R7-9, R7-11) → ④ Đồng bộ và vận hành (R7-10, R7-12); kết nối KOLGOV thiết kế song song từ đầu.',
+          'Definition of Done: quyết định ảnh hưởng phần phát hành được PO duyệt; đủ UI người dùng và Admin (tải, rỗng, lỗi, không đủ điều kiện, hết hạn); hợp đồng dữ liệu Safety/KOLGOV được xác nhận và kiểm thử tích hợp; qua các ca QA (gửi lặp/đến muộn, đổi kênh, đình chỉ, hết hạn); cấp dấu và điều kiện chiến dịch kiểm tra phía máy chủ, có nhật ký và phân quyền; có đầu mối hỗ trợ lỗi đồng bộ/khiếu nại; dấu cũ 365 ngày cần chính sách chuyển đổi trước phát hành.',
         ],
         source: 'EP-01 §9, §10, §12 · services/mock/safetyVerification.ts (send) · review.ts',
         confirm: 'Prototype chưa gửi nhắc trước hạn 14/7/1 ngày (chỉ hiện "Còn N ngày" trên kênh) và chưa có lịch sử thay đổi kênh. Lịch gửi, kênh gửi và nội dung thông báo cần phê duyệt.',
