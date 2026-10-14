@@ -516,7 +516,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Chủ kênh bấm Xác thực, đọc quy tắc, cam đoan rồi mở KOL Safety để quét.',
     steps: [
       { screen: 'Quản lý kênh → nút "Xác thực" trên kênh', checks: ['Hộp hiện quy tắc của nền tảng: TikTok/Facebook/Instagram xét 20 nội dung gần nhất, YouTube 5 video', 'Video chỉ được kiểm tra 3 phút đầu'] },
-      { screen: 'Tick cam đoan → "Mở KOL Safety để quét"', checks: ['Chốt danh sách nội dung gần nhất', 'Mở KOL Safety ở tab mới', 'Kênh chưa đủ số nội dung → báo cần đăng thêm, không tính là không đạt'] },
+      { screen: 'Tick cam đoan → "Mở KOL Safety để quét"', checks: ['Chốt danh sách nội dung gần nhất', 'Mở KOL Safety ở tab mới', 'Kênh chưa đủ số nội dung → báo cần đăng thêm, không tính là không đạt', 'Không lấy được nội dung kênh → báo thử lại, không cấp kết quả Đạt (prototype chưa có)'] },
     ],
   },
   'R7-5': {
@@ -550,7 +550,7 @@ export const STORY_STEPS: Record<string, PlainStory> = {
     summary: 'Gần hết hạn thì quét lại N nội dung mới nhất để gia hạn.',
     steps: [
       { screen: 'Quản lý kênh → nhãn "KOL Safety còn N ngày" → "Gia hạn"', checks: ['Mở khi còn 14 ngày trở xuống', 'Trong lúc gia hạn, dấu cũ vẫn giữ tới hạn cũ'] },
-      { screen: 'Kết quả', checks: ['Đạt đủ → dấu được gia hạn (prototype: thêm 90 ngày, không cần Admin duyệt lại)', 'Quá hạn chưa đạt → "KOL Safety hết hạn", kênh không nhận booking mới', 'Kênh hết hạn vẫn bấm "Gia hạn" để làm lại'] },
+      { screen: 'Kết quả', checks: ['Đạt đủ → dấu được gia hạn (prototype: thêm 90 ngày, không cần Admin duyệt lại)', 'Quá hạn chưa đạt → "KOL Safety hết hạn", kênh không nhận booking mới', 'Hộp gia hạn báo: "Xác thực kênh đã hết hạn. Hoàn tất kiểm tra để tiếp tục tham gia chiến dịch bằng kênh này."', 'Kênh hết hạn vẫn bấm "Gia hạn" để làm lại'] },
     ],
   },
   'R7-9': {
