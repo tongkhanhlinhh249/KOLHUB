@@ -89,7 +89,7 @@ function HeaderCard({ c, bookings, onConfirm, onCancel }: { c: CampaignView; boo
       <div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-start @3xl:justify-between">
         <div className="flex min-w-0 items-start gap-3 @lg:gap-4">
           {c.cover && (
-            <CampaignCover cover={c.cover} className="aspect-video w-24 shrink-0 rounded-[8px] border border-border @lg:w-36" iconClassName="size-5" />
+            <CampaignCover cover={c.cover} className="aspect-square w-20 shrink-0 rounded-[8px] border border-border @lg:w-24" iconClassName="size-5" />
           )}
           <div className="min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -364,7 +364,7 @@ export function CampaignDetailPage() {
       <Tabs
         value={tab}
         onValueChange={(v) => setSearchParams((prev) => withParam(withParam(prev, 'muc', null), 'tab', v === 'tong-quan' ? null : v), { replace: true })}
-        className="gap-4"
+        className="flex flex-col gap-4"
       >
         <div className="border-b border-border">
           <TabsList className="grid h-auto w-full grid-cols-2 gap-x-5 rounded-none bg-transparent p-0 @lg:flex @lg:w-auto @lg:justify-start">

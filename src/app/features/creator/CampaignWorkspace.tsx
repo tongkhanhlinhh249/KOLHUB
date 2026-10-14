@@ -196,7 +196,7 @@ export function SavedCampaignsStrip({ accountId }: { accountId: string }) {
                   to={marketplaceCampaignPath(c.id)}
                   className="group -mx-2 flex min-h-11 items-center gap-3 rounded-[6px] px-2 py-1.5 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
-                  <CampaignCover cover={c.cover} className="aspect-video w-16 shrink-0 rounded-[6px]" iconClassName="size-4" />
+                  <CampaignCover cover={c.cover} className="aspect-square w-12 shrink-0 rounded-[6px]" iconClassName="size-4" />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 text-sm leading-snug font-medium text-foreground">{c.name}</span>
                     <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">

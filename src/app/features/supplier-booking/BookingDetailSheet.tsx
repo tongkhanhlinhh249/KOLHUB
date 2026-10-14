@@ -222,7 +222,7 @@ function BookingDetail({ booking: b, accountId }: { booking: BookingView; accoun
             {b.campaign.brand.contactName && <span className="truncate">· {b.campaign.brand.contactName}</span>}
           </p>
           <div className="flex items-start gap-3 pr-8">
-            <CampaignCover cover={b.campaign.cover} className="aspect-video w-24 shrink-0 rounded-[6px] @lg:w-32" iconClassName="size-5" />
+            <CampaignCover cover={b.campaign.cover} className="aspect-square w-20 shrink-0 rounded-[6px] @lg:w-24" iconClassName="size-5" />
             <h2 className="min-w-0 text-lg font-semibold break-words text-foreground sm:text-xl">{b.campaign.name}</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">

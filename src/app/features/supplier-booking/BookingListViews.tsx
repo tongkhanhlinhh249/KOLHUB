@@ -183,7 +183,7 @@ export function BookingTable({
                 </td>
                 <td className={cn(cellClass, 'max-w-[340px]')}>
                   <div className="flex min-w-[190px] items-center gap-3">
-                    <CampaignCover cover={b.campaign.cover} className="aspect-video w-16 shrink-0 rounded-[6px]" iconClassName="size-4" />
+                    <CampaignCover cover={b.campaign.cover} className="aspect-square w-12 shrink-0 rounded-[6px]" iconClassName="size-4" />
                     <div className="min-w-0 space-y-1">
                       <button
                         type="button"
