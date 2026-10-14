@@ -111,8 +111,8 @@ describe('tạo, sửa, đăng chiến dịch', () => {
     await expect(svc.create({ name: 'A', platforms: ['twitter' as never] })).rejects.toMatchObject({ meta: { field: 'platforms' } });
   });
 
-  test('hạn ứng tuyển có giờ (giờ Việt Nam): bắt buộc khi đăng lên Sàn; hiện tại ≥ hạn là hết tuyển', async () => {
-    const c = await svc.create(complete({ visibility: 'MARKETPLACE' }));
+  test('hạn ứng tuyển (giờ Việt Nam) không bắt buộc; đã qua thì không đăng được; hiện tại ≥ hạn là hết tuyển', async () => {
+    const c = await svc.create(complete({ visibility: 'MARKETPLACE', applyDeadline: day(-1) }));
     await expect(svc.publish(c.id)).rejects.toMatchObject({ meta: { field: 'applyDeadline' } });
     await expect(svc.update(c.id, { applyDeadlineTime: '25:00' })).rejects.toMatchObject({ meta: { field: 'applyDeadline' } });
     // 10:30 hôm nay (giờ VN) — tính đúng thời điểm UTC.
