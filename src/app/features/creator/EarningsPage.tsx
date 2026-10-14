@@ -204,7 +204,7 @@ export function EarningsPage() {
               {rows.map((r) => (
                 <li key={r.bookingId} className="flex flex-col gap-2 p-3 @xl:flex-row @xl:items-center @xl:gap-4 md:p-4">
                   <div className="flex min-w-0 flex-1 items-center gap-3 @xl:min-w-64">
-                  <CampaignCover cover={r.campaignCover} className="aspect-video w-16 shrink-0 rounded-[6px]" iconClassName="size-4" />
+                  <CampaignCover cover={r.campaignCover} className="aspect-square w-12 shrink-0 rounded-[6px]" iconClassName="size-4" />
                   <div className="min-w-0 flex-1">
                     <Link to={bookingDetailPath(r.bookingId)} className="text-sm font-semibold break-words text-foreground underline-offset-4 hover:text-primary hover:underline">
                       {r.campaignName}

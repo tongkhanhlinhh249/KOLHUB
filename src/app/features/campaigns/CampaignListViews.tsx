@@ -272,7 +272,7 @@ export function CampaignTable({
                 </td>
                 <td className={cn(cellClass, 'max-w-[340px]')}>
                   <div className="flex min-w-[230px] items-center gap-3">
-                    <CampaignCover cover={c.cover} className="aspect-video w-16 shrink-0 rounded-[6px]" iconClassName="size-4" />
+                    <CampaignCover cover={c.cover} className="aspect-square w-12 shrink-0 rounded-[6px]" iconClassName="size-4" />
                     <div className="min-w-0 space-y-1">
                       <Link
                         to={campaignPath(c.id)}

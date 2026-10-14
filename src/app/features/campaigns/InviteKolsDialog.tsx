@@ -402,7 +402,7 @@ export function InviteKolsDialog({ campaign, open, onOpenChange }: { campaign: C
             <InviteResultView {...result} />
           ) : (
             <>
-              <Tabs defaultValue="saved" className="gap-3">
+              <Tabs defaultValue="saved" className="flex flex-col gap-3">
                 <TabsList className="h-auto w-full">
                   <TabsTrigger value="saved" className="h-11 md:h-8">
                     Danh sách đã lưu
