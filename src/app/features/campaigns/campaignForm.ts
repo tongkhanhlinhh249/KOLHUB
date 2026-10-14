@@ -435,7 +435,7 @@ const HINT: Partial<Record<FormField, string>> = {
   dates: 'Cần ngày bắt đầu và ngày kết thúc; ngày kết thúc không trước ngày bắt đầu và chưa qua.',
   platforms: 'Cần ít nhất một hạng mục nội dung (nền tảng lấy theo hạng mục).',
   deliverables: 'Cần ít nhất một hạng mục, số lượng 1–100. Với Booking nhiều KOL, nền tảng của hạng mục phải nằm trong các nền tảng đã chọn.',
-  applyDeadline: 'Chiến dịch trên Sàn cần hạn ứng tuyển (ngày và giờ, giờ Việt Nam), không sau ngày kết thúc và chưa qua.',
+  applyDeadline: 'Hạn ứng tuyển không được sau ngày kết thúc và chưa qua.',
   promotedBrand: 'Agency cần ghi tên nhãn hàng và căn cứ được phép đại diện (tệp PDF/ảnh hoặc ghi chú) để Admin kiểm tra.',
   usageRights: 'Chọn thời hạn 1–24 tháng và ít nhất một kênh sử dụng.',
   objective: 'Tối đa 5.000 ký tự.',

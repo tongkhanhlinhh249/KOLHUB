@@ -334,8 +334,7 @@ export function validateForOpen(c: Campaign, now: number, publishing = false): v
   // Fixed reward per deliverable group (EP-02 §4.3); the budget is derived from it.
   validateGroupsForOpen(c);
   if (!isPrice(c.budget)) throw bad('budget');
-  // EP-02 §4.4: a marketplace campaign needs an apply deadline (date + time, Vietnam time) in the future.
-  if (c.visibility === 'MARKETPLACE' && !c.applyDeadline) throw bad('applyDeadline');
+  // Optional apply deadline: not after the end date and still in the future.
   if (c.applyDeadline && (c.applyDeadline > c.endDate || applyDeadlineAt(c)! <= now)) throw bad('applyDeadline');
 }
 
