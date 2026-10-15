@@ -1,6 +1,6 @@
 import { useCallback, useMemo, type ReactNode } from 'react';
 import { Navigate, useLocation, useSearchParams } from 'react-router';
-import { AlertCircle, RotateCcw, SearchX, Store } from 'lucide-react';
+import { AlertCircle, ChevronDown, RotateCcw, SearchX, Store } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -13,7 +13,6 @@ import {
   VN_PROVINCES,
   type KolCategory,
 } from '../../services';
-import { SearchPagination } from '../biz-search/SearchPagination';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
 import { ALL, FilterSelect, triggerActive, triggerBase } from '../filters/FilterSelect';
@@ -155,13 +154,10 @@ function MarketplaceList() {
   if (query.reward) chips.push({ key: 'reward', label: REWARD_FILTERS.find((r) => r.key === query.reward)!.label, remove: () => change({ reward: undefined }) });
 
   const data = q.data ? { list: q.data } : undefined;
-  const pageCount = data ? Math.max(1, Math.ceil(data.list.length / MARKETPLACE_PAGE_SIZE)) : 1;
-  const page = Math.min(query.page, pageCount);
-  const pageItems = data ? data.list.slice((page - 1) * MARKETPLACE_PAGE_SIZE, page * MARKETPLACE_PAGE_SIZE) : [];
-  const goPage = (p: number) => {
-    write({ ...query, page: p });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  // 12 cards first, then "Xem thêm" loads 12 more in place (?trang= = batches loaded, so coming back keeps them).
+  const shown = data ? data.list.slice(0, query.page * MARKETPLACE_PAGE_SIZE) : [];
+  const remaining = data ? data.list.length - shown.length : 0;
+  const loadMore = () => write({ ...query, page: query.page + 1 });
   const now = Date.now();
   let body: ReactNode;
   if (!data && !q.error) {
@@ -208,13 +204,23 @@ function MarketplaceList() {
     body = (
       <div className="space-y-4">
         <ul className={GRID} aria-label="Chiến dịch đang nhận ứng tuyển">
-          {pageItems.map((c) => (
+          {shown.map((c) => (
             <li key={c.id} className="min-w-0 [&>*]:h-full">
               <MarketplaceCampaignCard campaign={c} now={now} to={marketplaceCampaignPath(c.id)} linkState={backState} viewer={viewer} />
             </li>
           ))}
         </ul>
-        {pageCount > 1 && <SearchPagination page={page} pageCount={pageCount} onPage={goPage} />}
+        {remaining > 0 && (
+          <div className="flex flex-col items-center gap-2 pt-2">
+            <Button type="button" variant="outline" className="h-11 min-w-48 bg-card md:h-10" onClick={loadMore}>
+              Xem thêm {Math.min(remaining, MARKETPLACE_PAGE_SIZE)} chiến dịch
+              <ChevronDown aria-hidden />
+            </Button>
+            <p className="text-xs text-muted-foreground tabular-nums" aria-live="polite">
+              Đã hiển thị {shown.length}/{data.list.length} chiến dịch
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -299,12 +305,6 @@ function MarketplaceList() {
         onClear={clear}
       />
 
-      {data && data.list.length > 0 && (
-        <p className="text-sm font-medium text-foreground" aria-live="polite">
-          {data.list.length} chiến dịch trên Sàn
-          {query.sort === 'match' && <span className="font-normal text-muted-foreground"> · xếp theo mức phù hợp với bạn</span>}
-        </p>
-      )}
 
       {body}
     </div>
