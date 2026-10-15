@@ -10,8 +10,10 @@ import {
   KOL_CATEGORIES,
   MARKETPLACE_SORTS,
   PLATFORMS,
+  VN_PROVINCES,
   type KolCategory,
 } from '../../services';
+import { SearchPagination } from '../biz-search/SearchPagination';
 import type { FilterChip } from '../filters/ActiveFilterChips';
 import { FilterBar } from '../filters/FilterBar';
 import { ALL, FilterSelect, triggerActive, triggerBase } from '../filters/FilterSelect';
@@ -23,8 +25,8 @@ import { MarketplaceCampaignCard, MarketplaceCampaignCardSkeleton } from './Mark
 import { SanBanners, SanCategoryRow } from './SanPromoRow';
 import { legacySanTabRedirect } from '../creator/interest';
 import {
-  BUDGET_RANGES,
   hasMarketplaceFilters,
+  MARKETPLACE_PAGE_SIZE,
   legacyMarketplaceRedirect,
   marketplaceCampaignPath,
   marketplaceFilterCount,
@@ -32,6 +34,7 @@ import {
   mergeMarketplaceParams,
   parseMarketplaceParams,
   platformName,
+  REWARD_FILTERS,
   toMarketplaceFilters,
   TYPE_FILTERS,
   type MarketplaceBackState,
@@ -84,8 +87,8 @@ const CATEGORY_OPTIONS = KOL_CATEGORIES.map((c) => {
 const PLATFORM_OPTIONS = PLATFORMS.map((p) => ({ key: p.key, label: p.label, icon: <PlatformIcon platform={p.key} /> }));
 
 const INTRO: Record<MarketplaceViewer, string> = {
-  guest: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN. Xem brief, ngân sách và hạng mục; đăng nhập để ứng tuyển.',
-  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, xếp theo mức phù hợp với bạn. Chiến dịch đã lưu và đã ứng tuyển nằm ở mục Chiến dịch yêu thích.',
+  guest: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN. Xem brief, quyền lợi và hạng mục; đăng nhập để ứng tuyển.',
+  supplier: 'Chiến dịch Nhãn hàng đang tìm KOL/MCN, mới công bố xếp trước. Chiến dịch đã lưu và đã ứng tuyển nằm ở mục Chiến dịch yêu thích.',
   brand: 'Xem các chiến dịch đang nhận đề xuất trên Sàn. Chiến dịch của bạn được đánh dấu "Của bạn".',
 };
 
@@ -94,11 +97,13 @@ const GRID = 'grid grid-cols-1 gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3';
 
 /** Sorts without "Phù hợp nhất" (no match score for guests / Brands). */
 const PUBLIC_SORTS = MARKETPLACE_SORTS.filter((s) => s.key !== 'match');
+const REGION_OPTIONS = VN_PROVINCES.map((p) => ({ key: p, label: p }));
 
 /**
  * /san — the public Sàn chiến dịch (inside MarketplaceLayout; the keyword box lives in its header).
- * Promo banners + category icon row on top, then one list. KOL/MCN: default sort "Phù hợp nhất", save, apply
- * (approved only). Guest / Brand: read-only, default sort "Mới nhất". Cards link to the campaign page /san/<id>
+ * Promo banners + category icon row on top, then one paged list (Công bố lên sàn §6): search by campaign or brand,
+ * filters platform / category / region / reward kind, default sort "Mới nhất" (first publish) or "Sắp hết hạn"; KOL/MCN
+ * also "Phù hợp nhất", save, apply (approved only). Guest / Brand: read-only. Cards link to the campaign page /san/<id>
  * (MarketplaceCampaignPage); old links /san?chien-dich=<id> redirect there. The old tabs (?tab=da-luu | da-ung-tuyen)
  * moved to "Chiến dịch yêu thích" (/chien-dich-da-luu) and redirect there (brands: the tab is ignored).
  */
@@ -137,22 +142,26 @@ function MarketplaceList() {
     (next: MarketplaceQuery) => setParams((prev) => mergeMarketplaceParams(prev, next), { replace: true }),
     [setParams],
   );
-  const change = (patch: Partial<MarketplaceQuery>) => write({ ...query, ...patch });
-  const clear = () => write({ sort: query.sort });
+  // Any filter / sort change goes back to page 1.
+  const change = (patch: Partial<MarketplaceQuery>) => write({ ...query, page: 1, ...patch });
+  const clear = () => write({ sort: query.sort, page: 1 });
 
   const chips: FilterChip[] = [];
   if (query.keyword) chips.push({ key: 'keyword', label: `“${query.keyword}”`, remove: () => change({ keyword: undefined }) });
   if (query.type) chips.push({ key: 'type', label: TYPE_FILTERS.find((t) => t.key === query.type)!.label, remove: () => change({ type: undefined }) });
   if (query.category) chips.push({ key: 'category', label: query.category, remove: () => change({ category: undefined }) });
   if (query.platform) chips.push({ key: 'platform', label: platformName(query.platform), remove: () => change({ platform: undefined }) });
-  if (query.budget)
-    chips.push({
-      key: 'budget',
-      label: BUDGET_RANGES.find((b) => b.key === query.budget)!.label,
-      remove: () => change({ budget: undefined }),
-    });
+  if (query.region) chips.push({ key: 'region', label: query.region, remove: () => change({ region: undefined }) });
+  if (query.reward) chips.push({ key: 'reward', label: REWARD_FILTERS.find((r) => r.key === query.reward)!.label, remove: () => change({ reward: undefined }) });
 
   const data = q.data ? { list: q.data } : undefined;
+  const pageCount = data ? Math.max(1, Math.ceil(data.list.length / MARKETPLACE_PAGE_SIZE)) : 1;
+  const page = Math.min(query.page, pageCount);
+  const pageItems = data ? data.list.slice((page - 1) * MARKETPLACE_PAGE_SIZE, page * MARKETPLACE_PAGE_SIZE) : [];
+  const goPage = (p: number) => {
+    write({ ...query, page: p });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const now = Date.now();
   let body: ReactNode;
   if (!data && !q.error) {
@@ -197,13 +206,16 @@ function MarketplaceList() {
     );
   } else if (data) {
     body = (
-      <ul className={GRID} aria-label="Chiến dịch đang nhận đề xuất">
-        {data.list.map((c) => (
-          <li key={c.id} className="min-w-0 [&>*]:h-full">
-            <MarketplaceCampaignCard campaign={c} now={now} to={marketplaceCampaignPath(c.id)} linkState={backState} viewer={viewer} />
-          </li>
-        ))}
-      </ul>
+      <div className="space-y-4">
+        <ul className={GRID} aria-label="Chiến dịch đang nhận ứng tuyển">
+          {pageItems.map((c) => (
+            <li key={c.id} className="min-w-0 [&>*]:h-full">
+              <MarketplaceCampaignCard campaign={c} now={now} to={marketplaceCampaignPath(c.id)} linkState={backState} viewer={viewer} />
+            </li>
+          ))}
+        </ul>
+        {pageCount > 1 && <SearchPagination page={page} pageCount={pageCount} onPage={goPage} />}
+      </div>
     );
   }
 
@@ -222,8 +234,8 @@ function MarketplaceList() {
       <FilterBar
         keyword={query.keyword}
         onKeywordChange={(keyword) => change({ keyword })}
-        searchPlaceholder="Tìm tên chiến dịch, nhãn hàng, brief"
-        searchLabel="Tìm chiến dịch theo tên, nhãn hàng hoặc brief"
+        searchPlaceholder="Tìm tên chiến dịch hoặc thương hiệu"
+        searchLabel="Tìm chiến dịch theo tên chiến dịch hoặc thương hiệu"
         renderFilters={(triggerClass) => (
           <>
             <FilterSelect
@@ -251,11 +263,19 @@ function MarketplaceList() {
               className={triggerClass}
             />
             <FilterSelect
-              label="Ngân sách"
-              allLabel="Mọi ngân sách"
-              value={query.budget}
-              options={BUDGET_RANGES.map((b) => ({ key: b.key, label: b.label }))}
-              onChange={(budget) => change({ budget })}
+              label="Khu vực"
+              allLabel="Mọi khu vực"
+              value={query.region}
+              options={REGION_OPTIONS}
+              onChange={(region) => change({ region })}
+              className={triggerClass}
+            />
+            <FilterSelect
+              label="Quyền lợi"
+              allLabel="Mọi quyền lợi"
+              value={query.reward}
+              options={REWARD_FILTERS.map((r) => ({ key: r.key, label: r.label }))}
+              onChange={(reward) => change({ reward })}
               className={triggerClass}
             />
           </>

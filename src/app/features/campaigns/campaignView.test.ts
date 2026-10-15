@@ -367,7 +367,12 @@ describe('quản lý chiến dịch — UI/UX tối ưu', () => {
 
   test('việc cần xử lý ghi rõ hành động, việc chặn lên đầu; CTA theo trạng thái', () => {
     const list = [b('APPLIED', 'APPLICATION', ['ACCEPT', 'DECLINE']), b('APPLIED', 'APPLICATION', ['ACCEPT', 'DECLINE']), b('CONTENT_REVIEW', 'INVITE', ['REVIEW_CONTENT'])];
-    expect(campaignTodos({ status: 'OPEN', type: 'BOOKING' }, list).map((t) => t.text)).toEqual(['2 đơn chưa xử lý', '1 nội dung chờ duyệt']);
+    // Booking 1 KOL đã có KOL đang làm: nhắc "Đã chọn đủ KOL" thay vì tự đóng tuyển (Công bố lên sàn §9).
+    expect(campaignTodos({ status: 'OPEN', type: 'BOOKING' }, list).map((t) => t.text)).toEqual([
+      '2 đơn chưa xử lý',
+      '1 nội dung chờ duyệt',
+      'Đã chọn đủ KOL: cân nhắc đóng tuyển',
+    ]);
     expect(campaignTodos({ status: 'NEEDS_FIX', type: 'BOOKING' }, [])[0]).toMatchObject({ key: 'fix', urgent: true, to: 'edit' });
     expect(campaignTodos({ status: 'CLOSED', type: 'BOOKING' }, [b('COMPLETED', 'INVITE', [])]).map((t) => t.key)).toEqual(['complete']);
     expect(campaignCta({ id: 'c1', status: 'DRAFT' }, []).label).toBe('Tiếp tục tạo');

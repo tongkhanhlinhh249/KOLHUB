@@ -13,6 +13,7 @@ import { useLiveQuery } from '../shared/useLiveQuery';
 import { ContactTab } from './ContactTab';
 import { ProfileOverview } from './ProfileOverview';
 import { ProfileInfoNav, ProfileInfoSection } from './ProfileInfoSections';
+import { ReturnToCampaign } from '../supplier-booking/ReturnToCampaign';
 import { infoPath, isProfileAnchor, legacySectionPath, profilePath, type ProfileAnchor, type ProfileSection } from './primaryAction';
 
 /**
@@ -165,6 +166,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
                 <ContactTab view={q.data.view} />
               </div>
             )}
+            {section === 'kenh' && <ReturnToCampaign />}
             {section === 'kenh' && (
               <ChannelsTab
                 accountId={accountId}

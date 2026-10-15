@@ -298,10 +298,36 @@ function campaignNotifications(state: DemoState, accountId: string, now: number)
       const mail = email ? { email } : {};
       switch (e.action) {
         case 'APPROVED':
-          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch đã được duyệt', body: `"${c.name}" đã lên Sàn và bắt đầu nhận ứng tuyển.` });
+          // Công bố lên sàn §14: a marketplace campaign is published on the Sàn; a private one only opens for invites.
+          out.push({
+            ...base,
+            ...mail,
+            kind: 'CAMPAIGN_REVIEW',
+            title: 'Chiến dịch đã được duyệt',
+            body: c.visibility === 'MARKETPLACE' ? `Chiến dịch "${c.name}" đã được duyệt và công bố trên sàn.` : `Chiến dịch "${c.name}" đã được duyệt. Bạn có thể mời KOL tham gia.`,
+          });
           break;
         case 'NEEDS_FIX':
-          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch cần bổ sung', body: `"${c.name}" cần chỉnh sửa trước khi đăng.${reason}` });
+          out.push({
+            ...base,
+            ...mail,
+            kind: 'CAMPAIGN_REVIEW',
+            title: 'Chiến dịch cần bổ sung',
+            // §14: the deadline passed while waiting for review → the note itself is the message.
+            body: e.by === 'ADMIN' && e.note?.startsWith('Hạn ứng tuyển đã qua') ? `"${c.name}": ${e.note}` : `"${c.name}" cần chỉnh sửa trước khi đăng.${reason}`,
+          });
+          break;
+        case 'HIDDEN':
+          out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch bị ẩn khỏi sàn', body: `Chiến dịch "${c.name}" đã bị ẩn khỏi sàn. Xem lý do và hướng xử lý.${reason}` });
+          break;
+        case 'RESTORED':
+          out.push({
+            ...base,
+            ...mail,
+            kind: 'CAMPAIGN_REVIEW',
+            title: 'Chiến dịch hiển thị lại trên sàn',
+            body: `"${c.name}" đã được hiển thị lại. Chiến dịch chỉ nhận đơn mới nếu còn Đang tuyển và chưa hết hạn.`,
+          });
           break;
         case 'REJECTED':
           out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Chiến dịch không được duyệt', body: `"${c.name}" không được đăng.${reason}` });
@@ -313,17 +339,13 @@ function campaignNotifications(state: DemoState, accountId: string, now: number)
           out.push({ ...base, ...mail, kind: 'CAMPAIGN_REVIEW', title: 'Bản sửa không được duyệt', body: `"${c.name}" giữ nội dung cũ.${reason}` });
           break;
         case 'CLOSED':
-          if (e.by === 'SYSTEM') {
-            const chosen = e.note === 'Đã chọn KOL cho chiến dịch.';
-            out.push({
-              ...base,
-              kind: 'CAMPAIGN_CLOSED',
-              title: 'Chiến dịch đã đóng tuyển',
-              body: chosen
-                ? `"${c.name}" đã chọn được KOL; các đơn còn lại được báo "Không được chọn".`
-                : `"${c.name}" hết hạn ứng tuyển. Đơn đã nhận vẫn được giữ để bạn xử lý.`,
-            });
-          }
+          // §14: closed by hand or at the deadline — applications already received stay to be handled.
+          out.push({
+            ...base,
+            kind: 'CAMPAIGN_CLOSED',
+            title: 'Chiến dịch đã đóng tuyển',
+            body: `Chiến dịch "${c.name}" đã ngừng nhận ứng tuyển. Bạn vẫn có thể xử lý các đơn đã nhận.`,
+          });
           break;
       }
     });
@@ -334,7 +356,7 @@ function campaignNotifications(state: DemoState, accountId: string, now: number)
         id: `cmp-deadline:${c.id}:${c.applyDeadline}`,
         kind: 'DEADLINE_SOON',
         title: 'Sắp hết hạn ứng tuyển',
-        body: `"${c.name}" còn 24 giờ nhận ứng tuyển. Xem đơn và chọn KOL trước khi chiến dịch tự đóng tuyển.`,
+        body: `Chiến dịch "${c.name}" sẽ hết hạn ứng tuyển sau 24 giờ.`,
         at: remindAt,
         href,
         campaignName: c.name,

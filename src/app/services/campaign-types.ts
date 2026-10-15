@@ -127,7 +127,20 @@ export const CAMPAIGN_REASON_MAX = 1000;
 export interface CampaignLogEntry {
   at: number;
   by: 'BRAND' | 'ADMIN' | 'SYSTEM';
-  action: 'SUBMITTED' | 'WITHDRAWN' | 'APPROVED' | 'NEEDS_FIX' | 'REJECTED' | 'CLOSED' | 'COMPLETED' | 'CANCELLED' | 'REVISION_SUBMITTED' | 'REVISION_APPROVED' | 'REVISION_REJECTED';
+  action:
+    | 'SUBMITTED'
+    | 'WITHDRAWN'
+    | 'APPROVED'
+    | 'NEEDS_FIX'
+    | 'REJECTED'
+    | 'CLOSED'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'REVISION_SUBMITTED'
+    | 'REVISION_APPROVED'
+    | 'REVISION_REJECTED'
+    | 'HIDDEN'
+    | 'RESTORED';
   note?: string;
 }
 
@@ -427,6 +440,9 @@ export interface Campaign {
   pendingRevision?: CampaignRevision;
   /** COMPLETED without any confirmed collaboration: "Không phát sinh hợp tác". */
   noCollaboration?: boolean;
+  /** Admin hid the campaign from the Sàn (Công bố lên sàn §12.3): no listing, no new applications; bookings kept. */
+  hiddenAt?: number;
+  hiddenReason?: string;
   cancelReason?: string;
   createdAt: number;
   updatedAt: number;
@@ -512,26 +528,29 @@ export interface CampaignFilters {
 // Marketplace ("Sàn chiến dịch")
 // ---------------------------------------------------------------------------
 
-export type MarketplaceSort = 'match' | 'newest' | 'budget' | 'deadline';
+export type MarketplaceSort = 'match' | 'newest' | 'deadline';
+/** Reward kind of a campaign on the Sàn: "Tiền", "Sản phẩm/trải nghiệm" or both. */
+export type RewardKind = 'CASH' | 'PRODUCT' | 'BOTH';
+export const REWARD_KIND_LABEL: Record<RewardKind, string> = { CASH: 'Tiền', PRODUCT: 'Sản phẩm/trải nghiệm', BOTH: 'Tiền và sản phẩm' };
 export const MARKETPLACE_SORTS: { key: MarketplaceSort; label: string }[] = [
-  { key: 'match', label: 'Phù hợp nhất' },
   { key: 'newest', label: 'Mới nhất' },
-  { key: 'budget', label: 'Ngân sách cao nhất' },
-  { key: 'deadline', label: 'Sắp hết hạn nhận đề xuất' },
+  { key: 'deadline', label: 'Sắp hết hạn' },
+  { key: 'match', label: 'Phù hợp nhất' },
 ];
 
 export interface MarketplaceFilters {
-  /** Accent-insensitive match on name / objective / brief / brand company. */
+  /** Accent-insensitive match on the campaign name or the brand (promoted brand or operating company). */
   keyword?: string;
   category?: KolCategory;
   platform?: Platform;
   /** "Booking riêng" / "Tuyển nhiều KOL". */
   type?: CampaignType;
-  /** VND, inclusive. */
-  budgetMin?: number;
-  budgetMax?: number;
+  /** Target province; campaigns for "Toàn quốc" always match. */
+  region?: string;
+  /** Reward kind: cash only, product/experience only, or both. */
+  reward?: RewardKind;
   /**
-   * Default 'match' (match score desc, then newest). 'newest' = publishedAt desc; 'budget' = desc;
+   * Default 'newest' (first publish time desc; edits never bump a campaign). 'match' = match score desc, then newest;
    * 'deadline' = soonest applyDeadline first, none last.
    */
   sort?: MarketplaceSort;
@@ -585,7 +604,6 @@ export interface MarketplaceCampaign {
   name: string;
   objective: string;
   brief: string;
-  budget: number;
   startDate: string;
   endDate: string;
   platforms: Platform[];
@@ -603,8 +621,8 @@ export interface MarketplaceCampaign {
   cover?: StoredFile;
   publishedAt: number;
   brand: { company: string };
-  /** Applications received (any status except withdrawn/expired/declined). */
-  applicationCount: number;
+  /** "Số KOL cần tuyển": Booking 1 KOL = 1, Booking nhiều KOL = slots. Budget, application and selection counts stay internal (§13). */
+  kolTarget: number;
   /** The viewer's own occupying booking on this campaign, if any (invite or application). */
   myBooking?: { id: string; status: BookingStatus; origin: BookingOrigin };
   /** Fit for the viewer (listMarketplace / listSaved / getMarketplaceItem / listApplied); undefined for a brand viewer or a guest. */
@@ -615,6 +633,8 @@ export interface MarketplaceCampaign {
   accepting?: boolean;
   /** "Đã đóng tuyển" (or completed): public page, no apply button (EP-02 §8). */
   recruitmentClosed?: boolean;
+  /** COMPLETED: the public page is kept as history with the "Hoàn tất" label. */
+  completed?: boolean;
   /** An edit of the campaign is under Admin review: new applications are paused meanwhile (EP-02 §7). */
   paused?: boolean;
   /** getMarketplaceItem only: the "Nhãn hàng" block. */
@@ -626,8 +646,6 @@ export interface MarketplaceCampaign {
   recruitment?: Recruitment;
   /** OPEN_RECRUITMENT only: current phase. */
   phase?: RecruitPhase;
-  /** OPEN_RECRUITMENT only: applicants picked so far (selected, in progress or completed). */
-  selectedCount?: number;
   draftReview: boolean;
   /** BOOKING: slots and fixed reward per platform group. */
   groups: DeliverableGroup[];

@@ -105,7 +105,8 @@ describe('giai đoạn (4 mốc)', () => {
       [SEED_CAMPAIGN.agencyChallenge]: 'APPLY',
     });
     const sel = await campaigns.getMarketplaceItem(SEED_CAMPAIGN.recruitSelecting);
-    expect(sel).toMatchObject({ phase: 'SELECT', recruitmentClosed: true, accepting: false, selectedCount: 1, applicationCount: 5, draftReview: true });
+    expect(sel).toMatchObject({ phase: 'SELECT', recruitmentClosed: true, accepting: false, kolTarget: 3, draftReview: true });
+    expect(sel).not.toHaveProperty('selectedCount');
     expect((await campaigns.getMarketplaceItem(SEED_CAMPAIGN.recruitPosting)).phase).toBe('POST');
     expect(sel.recruitment!.slots).toBe(3);
     expect(list.find((c) => c.id === SEED_CAMPAIGN.agencyChallenge)!.draftReview).toBe(false);

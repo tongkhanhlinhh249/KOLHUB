@@ -227,16 +227,16 @@ test('timeline: mới nhất trước, ẩn đánh giá của Nhãn hàng', () =
 });
 
 describe('tham số URL', () => {
-  test('Sàn: đọc / ghi, giá trị lạ → mặc định, giữ tham số khác', () => {
+  test('Sàn: đọc / ghi, giá trị lạ → mặc định (Mới nhất, trang 1), giữ tham số khác', () => {
     const q = parseMarketplaceParams(
-      new URLSearchParams('q=%20trà%20&linh-vuc=Ẩm thực&nen-tang=tiktok&ngan-sach=50-100&sap-xep=budget'),
+      new URLSearchParams('q=%20trà%20&linh-vuc=Ẩm thực&nen-tang=tiktok&khu-vuc=Hà Nội&quyen-loi=ca-hai&sap-xep=deadline&trang=2'),
       CATS,
     );
-    expect(q).toEqual({ keyword: 'trà', category: 'Ẩm thực', platform: 'tiktok', budget: '50-100', sort: 'budget' });
-    expect(parseMarketplaceParams(new URLSearchParams('linh-vuc=X&nen-tang=ig&ngan-sach=1&sap-xep=z'), CATS)).toEqual({ sort: 'match' });
-    const next = mergeMarketplaceParams(new URLSearchParams('x=c1&q=a&tab=da-luu'), { sort: 'match', platform: 'youtube' });
+    expect(q).toEqual({ keyword: 'trà', category: 'Ẩm thực', platform: 'tiktok', region: 'Hà Nội', reward: 'ca-hai', sort: 'deadline', page: 2 });
+    expect(parseMarketplaceParams(new URLSearchParams('linh-vuc=X&nen-tang=ig&khu-vuc=Mars&quyen-loi=1&sap-xep=budget&trang=-3'), CATS)).toEqual({ sort: 'newest', page: 1 });
+    const next = mergeMarketplaceParams(new URLSearchParams('x=c1&q=a&tab=da-luu'), { sort: 'newest', page: 1, platform: 'youtube' });
     expect(next.toString()).toBe('x=c1&tab=da-luu&nen-tang=youtube');
-    expect(mergeMarketplaceParams(new URLSearchParams(), { sort: 'newest' }).toString()).toBe('sap-xep=newest');
+    expect(mergeMarketplaceParams(new URLSearchParams(), { sort: 'match', page: 3 }).toString()).toBe('sap-xep=match&trang=3');
   });
   test('Sàn: nhãn mức phù hợp', () => {
     expect(withParam(new URLSearchParams('q=a&tab=x'), 'tab', null).toString()).toBe('q=a');
@@ -247,15 +247,14 @@ describe('tham số URL', () => {
     expect(memberSinceText('2026-09-01T08:00:00.000Z')).toBe('Tháng 9/2026');
     expect(memberSinceText('')).toBe('');
   });
-  test('Sàn: query → bộ lọc dịch vụ (khoảng ngân sách)', () => {
-    expect(toMarketplaceFilters({ sort: 'deadline', budget: '50-100', keyword: 'x' })).toEqual({
+  test('Sàn: query → bộ lọc dịch vụ (khu vực, loại quyền lợi; không còn lọc ngân sách)', () => {
+    expect(toMarketplaceFilters({ sort: 'deadline', page: 2, region: 'Đà Nẵng', reward: 'san-pham', keyword: 'x' })).toEqual({
       sort: 'deadline',
       keyword: 'x',
-      budgetMin: 50_000_000,
-      budgetMax: 100_000_000,
+      region: 'Đà Nẵng',
+      reward: 'PRODUCT',
     });
-    expect(toMarketplaceFilters({ sort: 'newest', budget: 'duoi-50' })).toEqual({ sort: 'newest', budgetMax: 49_999_999 });
-    expect(toMarketplaceFilters({ sort: 'newest', budget: 'tren-200' }).budgetMin).toBe(200_000_001);
+    expect(toMarketplaceFilters({ sort: 'newest', page: 1, reward: 'tien' })).toEqual({ sort: 'newest', reward: 'CASH' });
   });
   test('Booking: tab, link chi tiết', () => {
     expect(parseBookingTab(new URLSearchParams('tab=hoan-tat'))).toBe('hoan-tat');

@@ -5,6 +5,8 @@ import {
   deliverableLabel as typeLabelOf,
   MARKETPLACE_SORTS,
   PLATFORMS,
+  VN_PROVINCES,
+  type RewardKind,
   type BookingAction,
   type BookingActor,
   type BookingEvent,
@@ -364,14 +366,16 @@ export function supplierTimeline(history: BookingEvent[]): BookingEvent[] {
 // URL state
 // ---------------------------------------------------------------------------
 
-export type BudgetRange = 'duoi-50' | '50-100' | '100-200' | 'tren-200';
-const M = 1_000_000;
-export const BUDGET_RANGES: { key: BudgetRange; label: string; min?: number; max?: number }[] = [
-  { key: 'duoi-50', label: 'Dưới 50 triệu', max: 50 * M - 1 },
-  { key: '50-100', label: '50 – 100 triệu', min: 50 * M, max: 100 * M },
-  { key: '100-200', label: '100 – 200 triệu', min: 100 * M + 1, max: 200 * M },
-  { key: 'tren-200', label: 'Trên 200 triệu', min: 200 * M + 1 },
+/** ?quyen-loi= values of the reward filter (Công bố lên sàn §6.3). */
+export type RewardParam = 'tien' | 'san-pham' | 'ca-hai';
+export const REWARD_FILTERS: { key: RewardParam; label: string; kind: RewardKind }[] = [
+  { key: 'tien', label: 'Tiền', kind: 'CASH' },
+  { key: 'san-pham', label: 'Sản phẩm/trải nghiệm', kind: 'PRODUCT' },
+  { key: 'ca-hai', label: 'Tiền và sản phẩm', kind: 'BOTH' },
 ];
+
+/** Campaigns per page of the Sàn. */
+export const MARKETPLACE_PAGE_SIZE = 12;
 
 /** ?loai= values of the campaign type filter. */
 export type TypeParam = 'booking' | 'tuyen-nhieu';
@@ -385,26 +389,35 @@ export interface MarketplaceQuery {
   type?: TypeParam;
   category?: KolCategory;
   platform?: Platform;
-  budget?: BudgetRange;
+  region?: string;
+  reward?: RewardParam;
   sort: MarketplaceSort;
+  /** 1-based page. */
+  page: number;
 }
 
 const SORT_KEYS = MARKETPLACE_SORTS.map((s) => s.key);
 const PLATFORM_KEYS = PLATFORMS.map((p) => p.key);
-const BUDGET_KEYS = BUDGET_RANGES.map((b) => b.key);
+const REWARD_KEYS = REWARD_FILTERS.map((r) => r.key);
 
-/** ?q=…&linh-vuc=…&nen-tang=tiktok&ngan-sach=50-100&sap-xep=budget (unknown values → defaults; sort "Phù hợp nhất"). */
+/**
+ * ?q=…&linh-vuc=…&nen-tang=tiktok&khu-vuc=Hà Nội&quyen-loi=tien&sap-xep=deadline&trang=2 (unknown values → defaults;
+ * sort "Mới nhất", page 1).
+ */
 export function parseMarketplaceParams(p: URLSearchParams, categories: readonly string[]): MarketplaceQuery {
   const sort = p.get('sap-xep') as MarketplaceSort | null;
-  const q: MarketplaceQuery = { sort: sort && SORT_KEYS.includes(sort) ? sort : 'match' };
+  const page = Number(p.get('trang'));
+  const q: MarketplaceQuery = { sort: sort && SORT_KEYS.includes(sort) ? sort : 'newest', page: Number.isInteger(page) && page > 1 ? page : 1 };
   const kw = p.get('q')?.trim();
   if (kw) q.keyword = kw;
   const cat = p.get('linh-vuc');
   if (cat && categories.includes(cat)) q.category = cat as KolCategory;
   const pf = p.get('nen-tang') as Platform | null;
   if (pf && PLATFORM_KEYS.includes(pf)) q.platform = pf;
-  const b = p.get('ngan-sach') as BudgetRange | null;
-  if (b && BUDGET_KEYS.includes(b)) q.budget = b;
+  const region = p.get('khu-vuc');
+  if (region && (VN_PROVINCES as readonly string[]).includes(region)) q.region = region;
+  const r = p.get('quyen-loi') as RewardParam | null;
+  if (r && REWARD_KEYS.includes(r)) q.reward = r;
   const t = p.get('loai') as TypeParam | null;
   if (t && TYPE_FILTERS.some((x) => x.key === t)) q.type = t;
   return q;
@@ -417,9 +430,11 @@ export function mergeMarketplaceParams(prev: URLSearchParams, q: MarketplaceQuer
   set('q', q.keyword?.trim() || undefined);
   set('linh-vuc', q.category);
   set('nen-tang', q.platform);
-  set('ngan-sach', q.budget);
+  set('khu-vuc', q.region);
+  set('quyen-loi', q.reward);
   set('loai', q.type);
-  set('sap-xep', q.sort === 'match' ? undefined : q.sort);
+  set('sap-xep', q.sort === 'newest' ? undefined : q.sort);
+  set('trang', q.page > 1 ? String(q.page) : undefined);
   return next;
 }
 
@@ -442,7 +457,7 @@ export function memberSinceText(iso: string): string {
   return `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
 }
 
-export const marketplaceFilterCount = (q: MarketplaceQuery) => [q.type, q.category, q.platform, q.budget].filter(Boolean).length;
+export const marketplaceFilterCount = (q: MarketplaceQuery) => [q.type, q.category, q.platform, q.region, q.reward].filter(Boolean).length;
 export const hasMarketplaceFilters = (q: MarketplaceQuery) => !!q.keyword || marketplaceFilterCount(q) > 0;
 
 /** URL query → service filters. */
@@ -453,9 +468,9 @@ export function toMarketplaceFilters(q: MarketplaceQuery): MarketplaceFilters {
   if (q.platform) f.platform = q.platform;
   const type = TYPE_FILTERS.find((x) => x.key === q.type)?.type;
   if (type) f.type = type;
-  const range = BUDGET_RANGES.find((b) => b.key === q.budget);
-  if (range?.min !== undefined) f.budgetMin = range.min;
-  if (range?.max !== undefined) f.budgetMax = range.max;
+  if (q.region) f.region = q.region;
+  const reward = REWARD_FILTERS.find((x) => x.key === q.reward)?.kind;
+  if (reward) f.reward = reward;
   return f;
 }
 

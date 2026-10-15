@@ -11,8 +11,8 @@ import { cn } from '../components/ui/utils';
 import { KeywordSearch } from '../features/filters/KeywordSearch';
 import { withParam } from '../features/supplier-booking/supplierBooking';
 
-const SEARCH_PLACEHOLDER = 'Tìm tên chiến dịch, nhãn hàng, brief';
-const SEARCH_LABEL = 'Tìm chiến dịch theo tên, nhãn hàng hoặc brief';
+const SEARCH_PLACEHOLDER = 'Tìm tên chiến dịch hoặc thương hiệu';
+const SEARCH_LABEL = 'Tìm chiến dịch theo tên chiến dịch hoặc thương hiệu';
 
 /**
  * Public frame of the Sàn chiến dịch (/san, /san/<id>), outside the app shell: marketplace header (logo, title,
@@ -30,7 +30,8 @@ export function MarketplaceLayout() {
   const setKeyword = useCallback(
     (kw: string | undefined) => {
       const q = kw?.trim() || null;
-      if (onList) setParams((prev) => withParam(prev, 'q', q), { replace: true });
+      // A new keyword starts again from page 1.
+      if (onList) setParams((prev) => withParam(withParam(prev, 'q', q), 'trang', null), { replace: true });
       else if (q) navigate(`${MARKETPLACE_PATH}?${new URLSearchParams({ q }).toString()}`);
     },
     [onList, setParams, navigate],

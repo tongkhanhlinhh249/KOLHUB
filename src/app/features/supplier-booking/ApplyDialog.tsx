@@ -125,9 +125,8 @@ export function ApplyDialog({
       const booking = editing ? await bookingService.updateApplication(editing.id, proposal) : await campaignService.apply(campaign.id, proposal);
       if (editing) toast.success('Đã cập nhật đề xuất', { description: `${campaign.name} — Nhãn hàng sẽ thấy đề xuất mới.` });
       else
-        toast.success(recruit ? 'Đã ứng tuyển' : 'Đã gửi đề xuất ứng tuyển', {
-          description: recruit ? `${campaign.name} — Nhãn hàng chọn KOL trong giai đoạn Chọn lọc.` : `${campaign.name} — chờ Nhãn hàng phản hồi.`,
-        });
+        // Công bố lên sàn §14 (the section is called "Chiến dịch của tôi" in the app).
+        toast.success('Đã gửi ứng tuyển', { description: `${campaign.name}. Bạn có thể theo dõi kết quả trong mục Chiến dịch của tôi.` });
       onApplied(booking);
       onOpenChange(false);
     } catch (e) {

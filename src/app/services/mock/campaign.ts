@@ -43,6 +43,9 @@ import {
   applyWindowEnded,
   checkSlots,
   hasPublicPage,
+  notAcceptingReason,
+  reviewVersionOf,
+  rewardKindOf,
   sweepCampaignStatuses,
   routeKol,
   sanitizeCampaignInput,
@@ -300,11 +303,12 @@ export function createCampaignService(deps: CampaignServiceDeps) {
    * Admin approves: a submitted campaign goes OPEN (published) — unless its apply window already ended, then it goes
    * back to NEEDS_FIX ("Hạn ứng tuyển đã qua…", EP-02 §6.3); an edit under review is applied to the OPEN campaign.
    */
-  async function approveReview(id: string): Promise<CampaignView> {
+  async function approveReview(id: string, version?: number): Promise<CampaignView> {
     await wait();
     const t = now();
     db.update((s) => {
       const c = anyCampaign(s, id);
+      checkReviewVersion(c, version);
       if (c.status === 'OPEN' && c.pendingRevision) {
         Object.assign(c, c.pendingRevision.patch);
         for (const k of Object.keys(c.pendingRevision.patch) as (keyof Campaign)[]) if ((c as unknown as Record<string, unknown>)[k] === null) delete (c as unknown as Record<string, unknown>)[k];
@@ -314,8 +318,9 @@ export function createCampaignService(deps: CampaignServiceDeps) {
         return;
       }
       if (c.status !== 'PENDING_REVIEW') throw new KolhubError('KOLHUB-4802');
-      if (applyWindowEnded(c, t)) {
-        const note = 'Hạn ứng tuyển đã qua. Vui lòng cập nhật trước khi gửi đăng.';
+      // Công bố lên sàn §4.1: the deadline passed while waiting (or the schedule no longer holds) → not published.
+      if (applyWindowEnded(c, t) || !scheduleStillValid(c, t)) {
+        const note = 'Hạn ứng tuyển đã qua. Vui lòng cập nhật thời gian và gửi duyệt lại.';
         c.status = 'NEEDS_FIX';
         c.reviewNote = note;
         c.updatedAt = t;
@@ -329,6 +334,74 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     return view(id);
   }
 
+  /**
+   * Công bố lên sàn §4.1: Admin decides on the version they opened. `version` (reviewVersionOf when the queue was read)
+   * no longer matching — the brand withdrew, edited and resubmitted — refuses the decision (4828: tải lại).
+   */
+  function checkReviewVersion(c: Campaign, version: number | undefined): void {
+    if (version !== undefined && reviewVersionOf(c) !== version) throw new KolhubError('KOLHUB-4828');
+  }
+
+  /** Dates still valid at approval (end date not passed); a hard data problem keeps the campaign out of the Sàn. */
+  function scheduleStillValid(c: Campaign, t: number): boolean {
+    try {
+      validateForOpen(c, t);
+      return true;
+    } catch (e) {
+      const field = e instanceof KolhubError ? e.meta?.field : undefined;
+      if (field === 'dates' || field === 'timeline' || field === 'applyDeadline') return false;
+      throw e;
+    }
+  }
+
+  /** Admin (Bảng demo): published marketplace campaigns that can be hidden or restored, hidden ones first, newest first. */
+  async function listPublishedForModeration(): Promise<CampaignView[]> {
+    await wait();
+    const state = read();
+    const t = now();
+    return state.campaigns
+      .filter((c) => c.visibility === 'MARKETPLACE' && !UNPUBLISHED_STATUSES.includes(c.status) && c.status !== 'CANCELLED')
+      .sort((a, b) => Number(b.hiddenAt !== undefined) - Number(a.hiddenAt !== undefined) || (b.publishedAt ?? 0) - (a.publishedAt ?? 0))
+      .map((c) => toCampaignView(state, c, t));
+  }
+
+  /**
+   * Admin hides a published campaign from the Sàn with a reason (§12.3): no listing, no new applications, the public page
+   * says "không còn khả dụng"; applications and bookings are kept. 4802 when unpublished, private or already hidden.
+   */
+  async function hideFromMarketplace(id: string, reason: string): Promise<CampaignView> {
+    await wait();
+    const r = reviewReason(reason);
+    const t = now();
+    db.update((s) => {
+      const c = anyCampaign(s, id);
+      if (UNPUBLISHED_STATUSES.includes(c.status) || c.visibility !== 'MARKETPLACE' || c.hiddenAt !== undefined) throw new KolhubError('KOLHUB-4802');
+      c.hiddenAt = t;
+      c.hiddenReason = r;
+      c.updatedAt = t;
+      log(c, { at: t, by: 'ADMIN', action: 'HIDDEN', note: r });
+    });
+    return view(id);
+  }
+
+  /**
+   * Admin restores a hidden campaign (§12.3). It never reopens recruitment: a campaign that closed, expired, completed or
+   * was cancelled meanwhile stays so; only an OPEN one still within its deadline returns to the list. 4802 if not hidden.
+   */
+  async function restoreToMarketplace(id: string): Promise<CampaignView> {
+    await wait();
+    const t = now();
+    db.update((s) => {
+      const c = anyCampaign(s, id);
+      if (c.hiddenAt === undefined) throw new KolhubError('KOLHUB-4802');
+      delete c.hiddenAt;
+      delete c.hiddenReason;
+      c.updatedAt = t;
+      log(c, { at: t, by: 'ADMIN', action: 'RESTORED' });
+    });
+    return view(id);
+  }
+
   function reviewReason(note: string): string {
     const r = (note ?? '').trim();
     if (!r || [...r].length > CAMPAIGN_REASON_MAX) throw new KolhubError('KOLHUB-4825');
@@ -336,12 +409,13 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   }
 
   /** Admin: "Cần bổ sung" / "Không được duyệt" with a reason (4821). On an edit under review: the edit is dropped. */
-  async function decideReview(id: string, outcome: 'NEEDS_FIX' | 'REJECTED', note: string): Promise<CampaignView> {
+  async function decideReview(id: string, outcome: 'NEEDS_FIX' | 'REJECTED', note: string, version?: number): Promise<CampaignView> {
     await wait();
     const r = reviewReason(note);
     const t = now();
     db.update((s) => {
       const c = anyCampaign(s, id);
+      checkReviewVersion(c, version);
       if (c.status === 'OPEN' && c.pendingRevision) {
         delete c.pendingRevision;
         c.reviewNote = r;
@@ -574,6 +648,7 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     };
     // EP-02 §8: a closed campaign keeps its public page with the "Đã đóng tuyển" label; an edit under review pauses it.
     if (c.status === 'CLOSED' || c.status === 'COMPLETED') item.recruitmentClosed = true;
+    if (c.status === 'COMPLETED') item.completed = true;
     if (c.status === 'OPEN' && c.pendingRevision?.pausesApplications) item.paused = true;
     if (ctx) item.match = matchCampaign(c, ctx);
     return item;
@@ -589,31 +664,32 @@ export function createCampaignService(deps: CampaignServiceDeps) {
   const savedIds = (state: DemoState, accountId: string) =>
     new Set(state.savedCampaigns.filter((x) => x.accountId === accountId).map((x) => x.campaignId));
 
-  /** Filters on the campaign itself (category / platform / budget); the keyword is matched on the card. */
+  /** Filters on the campaign itself (type / category / platform / region / reward kind); the keyword is matched on the card. */
   function campaignFilter(filters: MarketplaceFilters) {
     return (c: Campaign) =>
       (!filters.type || campaignType(c) === filters.type) &&
       (!filters.category || c.categories.includes(filters.category)) &&
       (!filters.platform || c.platforms.includes(filters.platform)) &&
-      (filters.budgetMin === undefined || c.budget >= filters.budgetMin) &&
-      (filters.budgetMax === undefined || c.budget <= filters.budgetMax);
+      // "Toàn quốc" (no region) suits every province.
+      (!filters.region || !c.regions?.length || c.regions.includes(filters.region)) &&
+      (!filters.reward || rewardKindOf(c) === filters.reward);
   }
 
+  /** Công bố lên sàn §6.3: campaign name or brand (promoted brand or operating company), accent-insensitive. */
   function keywordFilter(filters: MarketplaceFilters) {
     const kw = normalizeText(filters.keyword ?? '');
-    return (m: MarketplaceCampaign) => !kw || normalizeText(`${m.name} ${m.objective} ${m.brief} ${m.brand.company}`).includes(kw);
+    return (m: MarketplaceCampaign) => !kw || normalizeText(`${m.name} ${m.promotedBrand?.name ?? ''} ${m.brand.company}`).includes(kw);
   }
 
   /**
-   * Sort (default 'match': score desc, then newest — without match scores (brand viewer) that is just newest).
-   * Campaigns still taking applications come first; open-recruitment campaigns past "Ứng tuyển" follow.
+   * Sort (default 'newest': first publish time, so an approved edit never bumps a campaign; 'match': score desc, then
+   * newest). Campaigns still taking applications come first; open recruitment not open yet follows.
    */
-  function compare(sort: MarketplaceFilters['sort'] = 'match') {
+  function compare(sort: MarketplaceFilters['sort'] = 'newest') {
     const deadline = (m: MarketplaceCampaign) => (m.applyDeadlineAt !== undefined && m.accepting !== false ? m.applyDeadlineAt : Infinity);
     return (a: MarketplaceCampaign, b: MarketplaceCampaign) => {
       const open = Number(b.accepting !== false) - Number(a.accepting !== false);
       if (open) return open;
-      if (sort === 'budget') return b.budget - a.budget || b.publishedAt - a.publishedAt;
       if (sort === 'deadline') return deadline(a) - deadline(b) || b.publishedAt - a.publishedAt;
       if (sort === 'match') return (b.match?.score ?? 0) - (a.match?.score ?? 0) || b.publishedAt - a.publishedAt;
       return b.publishedAt - a.publishedAt;
@@ -655,12 +731,12 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const me = marketplaceViewer(state, { allowPublic: true });
     const t = now();
     const c = state.campaigns.find((x) => x.id === id);
-    if (!c || UNPUBLISHED_STATUSES.includes(c.status)) throw new KolhubError('KOLHUB-4801');
+    if (!c || UNPUBLISHED_STATUSES.includes(c.status) || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
     const { ctx, saved } = viewerContext(state, me, t);
     const item = card(state, c, me.accountId, ctx, saved, t);
-    // Published marketplace campaigns keep a public page after recruitment closed (EP-02 §8: "Đã đóng tuyển", no apply
-    // button); a cancelled one stays viewable by a supplier that has a booking on it or saved it.
-    if (!hasPublicPage(c) && !(c.visibility === 'MARKETPLACE' && (item.myBooking || item.saved))) throw new KolhubError('KOLHUB-4801');
+    // §10: Đang tuyển / Đã đóng tuyển / Hoàn tất keep a public page. Cancelled or hidden: "Chiến dịch không còn khả dụng"
+    // for everyone — no brief or files; a participant is pointed to its own booking, the owner to its management page.
+    if (!hasPublicPage(c)) throw new KolhubError('KOLHUB-4827', { ...(item.myBooking ? { bookingId: item.myBooking.id } : {}), ...(item.mine ? { mine: true } : {}) });
     return { ...item, brandInfo: brandInfoOf(state, c.brandAccountId, t) };
   }
 
@@ -762,7 +838,10 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     const t = now();
     const c = state.campaigns.find((x) => x.id === campaignId);
     if (!c || UNPUBLISHED_STATUSES.includes(c.status) || c.visibility !== 'MARKETPLACE') throw new KolhubError('KOLHUB-4801');
-    if (!isAcceptingApplications(c, t)) throw new KolhubError('KOLHUB-4808');
+    if (!isAcceptingApplications(c, t)) {
+      const reason = notAcceptingReason(c);
+      throw new KolhubError('KOLHUB-4808', reason ? { reason } : undefined);
+    }
     if (state.bookings.some((b) => b.campaignId === c.id && b.supplierAccountId === me.accountId && isOccupying(effectiveStatus(b, c, t)))) {
       throw new KolhubError('KOLHUB-4807');
     }
@@ -961,6 +1040,9 @@ export function createCampaignService(deps: CampaignServiceDeps) {
     listReviewQueue,
     approveReview,
     decideReview,
+    hideFromMarketplace,
+    restoreToMarketplace,
+    listPublishedForModeration,
     inviteKols,
     listMarketplace,
     getMarketplaceItem,

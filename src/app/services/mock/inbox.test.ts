@@ -194,8 +194,8 @@ describe('Thông báo', () => {
     const accepted = list.find((n) => n.kind === 'ACCEPTED')!;
     expect(accepted).toMatchObject({ read: false });
     expect(accepted.body).toContain('chấp nhận');
-    // Booking 1 KOL: chọn xong thì chiến dịch tự đóng tuyển.
-    expect(list.find((n) => n.kind === 'CAMPAIGN_CLOSED')?.body).toContain('đã chọn được KOL');
+    // Booking 1 KOL: chọn xong không tự đóng tuyển, nên không có thông báo đóng tuyển.
+    expect(list.find((n) => n.kind === 'CAMPAIGN_CLOSED' && n.campaignName === accepted.campaignName)).toBeUndefined();
   });
 
   test('lời mời sắp hết hạn: chỉ trong 48 giờ cuối, khi lời mời còn mở', () => {
