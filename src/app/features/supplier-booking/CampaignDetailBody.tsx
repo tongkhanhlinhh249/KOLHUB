@@ -15,22 +15,20 @@ import {
   type ProfileStatus,
 } from '../../services';
 import { PlatformIcon } from '../biz-search/PlatformIcon';
-import { CampaignTypeBadge, ConditionsList, RecruitTimeline, RewardBlock, WorkflowNote } from '../shared/RecruitParts';
-import { contractLabel, RECRUIT_STAGE_LABEL, recruitStage, usageRightsText, workflowLabel } from '../shared/recruitView';
+import { CampaignTypeBadge, ConditionsList, RecruitTimeline } from '../shared/RecruitParts';
+import { RECRUIT_STAGE_LABEL, recruitStage, usageRightsText, workflowHint } from '../shared/recruitView';
 import { PLATFORM_LABEL, ToneBadge } from '../shared/StatusBadges';
-import { deadlineInfo, groupRewardLines, kolTargetText, MARKETPLACE_STATUS, marketplaceStatus, rewardSummary } from './marketplaceView';
+import { deadlineInfo, kolTargetText, MARKETPLACE_STATUS, marketplaceStatus, rewardSummary } from './marketplaceView';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
 import { CampaignQASection } from './CampaignQA';
 import { MineBadge, MyBookingBadge } from './MarketplaceCampaignCard';
 import { BrandInfoBlock, MatchDetails, SaveButton } from './MarketplaceParts';
-import { CountdownText, errText, Fact, LongText, PlatformIcons, SheetSection } from './parts';
+import { CategoryChips, errText, Fact, LongText, PlatformIcons, SheetSection } from './parts';
 import {
   bookingDetailPath,
   brandCampaignPath,
-  deadlineCountdown,
   deliverableLabel,
-  formatDay,
   formatDayRange,
   formatVnd,
   loginToApplyPath,
@@ -112,11 +110,47 @@ function RewardFact({ campaign: c }: { campaign: MarketplaceCampaign }) {
   );
 }
 
+/** Label / value line of a detail section. */
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="min-w-0 text-right font-medium text-foreground">{children}</span>
+    </div>
+  );
+}
+
+/** Gift as the brand set it: name, value (not money received), note; open recruitment asks for a shipping address. */
+function ProductText({ product, shipping = false }: { product: { name: string; value: number; note?: string }; shipping?: boolean }) {
+  return (
+    <span className="flex flex-col items-end gap-0.5">
+      <span>{product.name}</span>
+      <span className="text-xs font-normal text-muted-foreground tabular-nums">Trị giá {formatVnd(product.value)}</span>
+      {product.note && <span className="text-xs font-normal text-muted-foreground">{product.note}</span>}
+      {shipping && <span className="text-xs font-normal text-muted-foreground">Nhập địa chỉ nhận hàng khi ứng tuyển</span>}
+    </span>
+  );
+}
+
+/** One "Tính năng của chiến dịch" card of the create form, read-only: on → its settings; off → what that means. */
+function FeatureRow({ title, on, offText, children }: { title: string; on: boolean; offText?: string; children: ReactNode }) {
+  return (
+    <li className="space-y-1.5 px-3 py-3">
+      <p className="flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+        {title}
+        <span className={cn('text-xs font-medium', on ? 'text-chart-4' : 'text-muted-foreground')}>{on ? 'Bật' : 'Tắt'}</span>
+      </p>
+      <div className="space-y-1 text-sm text-foreground">{on ? children : <p className="text-muted-foreground">{offText}</p>}</div>
+    </li>
+  );
+}
+
 /**
- * Main column in the order of Công bố lên sàn §7.1: summary (quyền lợi, nền tảng, số KOL cần tuyển, hạn ứng tuyển),
- * Phù hợp với bạn, Lịch trình (only where the rail is hidden: `narrowOnlyClass`), Giới thiệu và brief, Đầu việc và
- * quyền lợi, Tiêu chí tham gia, Thông điệp bắt buộc và quyền sử dụng nội dung, Hỏi đáp, Nhãn hàng (thông tin hỗ trợ).
- * No budget, application or selection counts (§13).
+ * Main column: summary (quyền lợi, nền tảng, số KOL cần tuyển, hạn ứng tuyển — Công bố lên sàn §7.1), Phù hợp với bạn,
+ * Lịch trình (only where the rail is hidden: `narrowOnlyClass`), then the sections of "Tạo chiến dịch" with the same
+ * labels: Bản tóm tắt sáng tạo, Nội dung cần làm / Hạng mục nội dung, Quyền lợi theo nhóm đầu việc / Phần thưởng,
+ * Thời gian, Tính năng của chiến dịch (Duyệt nháp, Sự tuân thủ, Hợp đồng, Điều kiện tham gia, Câu hỏi khảo sát), Quyền sử
+ * dụng nội dung; then Hỏi đáp and Nhãn hàng. No budget, application or selection counts (§13).
  */
 export function CampaignDetailSections({
   campaign: c,
@@ -165,7 +199,8 @@ export function CampaignDetailSections({
         </div>
       )}
 
-      <SheetSection title="Giới thiệu và brief">
+      {/* Same sections and labels as "Tạo chiến dịch", so KOL/MCN read exactly what the brand set. */}
+      <SheetSection title="Bản tóm tắt sáng tạo">
         <div className="space-y-3">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Mục tiêu</p>
@@ -175,10 +210,16 @@ export function CampaignDetailSections({
             <p className="text-xs text-muted-foreground">Brief</p>
             <LongText text={c.brief} />
           </div>
+          {c.categories.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">Lĩnh vực</p>
+              <CategoryChips categories={c.categories} />
+            </div>
+          )}
         </div>
       </SheetSection>
 
-      <SheetSection title="Đầu việc và quyền lợi">
+      <SheetSection title={recruit ? 'Hạng mục nội dung' : 'Nội dung cần làm'}>
         <ul className="divide-y divide-border rounded-[8px] border border-border bg-card">
           {c.deliverables.map((d, i) => (
             <li key={i} className="flex min-h-12 items-center gap-3 px-3 py-2 text-sm">
@@ -190,23 +231,33 @@ export function CampaignDetailSections({
             </li>
           ))}
         </ul>
+      </SheetSection>
+
+      <SheetSection title={recruit ? 'Phần thưởng' : 'Quyền lợi theo nhóm đầu việc'}>
         {recruit ? (
-          <RewardBlock reward={c.recruitment!.reward} slots={c.recruitment!.slots} />
+          <div className="space-y-3">
+            <DetailRow label="Số KOL cần tuyển">{kolTargetText(c)}</DetailRow>
+            <DetailRow label="Đề nghị trả phí">
+              {c.recruitment!.reward.cash > 0 ? <span className="font-semibold text-primary tabular-nums">{formatVnd(c.recruitment!.reward.cash)}/booking</span> : 'Không'}
+            </DetailRow>
+            <DetailRow label="Tặng quà">{c.recruitment!.reward.product ? <ProductText product={c.recruitment!.reward.product} shipping /> : 'Không'}</DetailRow>
+            <p className="text-xs text-muted-foreground">Phần thưởng cố định cho mỗi KOL được chọn, không cần báo giá. Giá trị quà tặng không phải tiền nhận được.</p>
+          </div>
         ) : (
           <div className="space-y-2">
             <ul className="divide-y divide-border rounded-[8px] border border-border">
-              {c.groups.map((g) => {
-                const lines = groupRewardLines(g);
-                return (
-                  <li key={g.platform} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2.5">
-                    <span className="text-sm text-foreground">Nhóm {PLATFORM_LABEL[g.platform]}</span>
-                    <span className="flex flex-col items-end text-right text-sm">
-                      {lines.cash && <span className="font-semibold text-primary tabular-nums">{lines.cash}</span>}
-                      {lines.product && <span className="text-foreground">{lines.product}</span>}
-                    </span>
-                  </li>
-                );
-              })}
+              {c.groups.map((g) => (
+                <li key={g.platform} className="space-y-2 px-3 py-3">
+                  <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <PlatformIcon platform={g.platform} className="size-5 rounded-md" />
+                    Nhóm {PLATFORM_LABEL[g.platform]}
+                  </p>
+                  <DetailRow label="Đề nghị trả phí">
+                    {g.reward.cash > 0 ? <span className="font-semibold text-primary tabular-nums">{formatVnd(g.reward.cash)}/booking</span> : 'Không'}
+                  </DetailRow>
+                  <DetailRow label="Tặng quà">{g.reward.product ? <ProductText product={g.reward.product} /> : 'Không'}</DetailRow>
+                </li>
+              ))}
             </ul>
             <p className="text-xs text-muted-foreground">
               Nhãn hàng chọn 1 KOL/MCN cho chiến dịch. Mỗi kênh trong một nhóm là một booking; thù lao cố định gồm toàn bộ đầu việc của nhóm, bạn
@@ -214,46 +265,72 @@ export function CampaignDetailSections({
             </p>
           </div>
         )}
-        <dl className="grid grid-cols-2 gap-4 @lg:grid-cols-3">
-          <Fact label="Thời gian thực hiện">{formatDayRange(c.startDate, c.endDate)}</Fact>
-          <Fact label="Workflow">{workflowLabel(c.draftReview)}</Fact>
-          <Fact label="Hợp đồng">{contractLabel(c.contract)}</Fact>
-        </dl>
-        <WorkflowNote draftReview={c.draftReview} />
       </SheetSection>
 
-      <SheetSection title="Tiêu chí tham gia">
-        <ConditionsList target={c.target} categories={c.categories} regions={c.regions} />
-        {c.target?.minFollowers !== undefined && (
-          <p className="text-xs text-muted-foreground">Số follower là tiêu chí Nhãn hàng xét khi chọn KOL, không chặn việc gửi ứng tuyển.</p>
-        )}
-        {(c.survey.length > 0 || c.terms.length > 0) && (
-          <p className="text-xs text-muted-foreground">
-            Khi ứng tuyển: {c.survey.length > 0 ? `trả lời ${c.survey.length} câu hỏi khảo sát` : ''}
-            {c.survey.length > 0 && c.terms.length > 0 ? ', ' : ''}
-            {c.terms.length > 0 ? `đồng ý ${c.terms.length} điều khoản` : ''}
-            {recruit && c.recruitment!.reward.product ? ', nhập địa chỉ nhận sản phẩm' : ''}.
-          </p>
-        )}
+      {!recruit && (
+        <SheetSection title="Thời gian">
+          <div className="space-y-3">
+            <DetailRow label="Thời gian chạy">{formatDayRange(c.startDate, c.endDate)}</DetailRow>
+            <DetailRow label="Hạn ứng tuyển">
+              <DeadlineValue campaign={c} now={now} />
+            </DetailRow>
+          </div>
+        </SheetSection>
+      )}
+
+      <SheetSection title="Tính năng của chiến dịch">
+        <ul className="divide-y divide-border rounded-[8px] border border-border bg-card">
+          <FeatureRow title="Duyệt nháp" on={c.draftReview}>
+            {workflowHint(c.draftReview)}
+          </FeatureRow>
+          <FeatureRow title="Sự tuân thủ" on={!!c.contentRules.trim()} offText="Nhãn hàng không đặt quy định nội dung riêng.">
+            <span className="block text-xs text-muted-foreground">Quy định nội dung</span>
+            <LongText text={c.contentRules} />
+          </FeatureRow>
+          <FeatureRow title="Hợp đồng" on={c.contract} offText="Không dùng hợp đồng: không có điều khoản khi ứng tuyển và tệp hợp đồng trong booking.">
+            {c.terms.length > 0 ? (
+              <>
+                <span className="block text-xs text-muted-foreground">Điều khoản bạn đồng ý khi ứng tuyển</span>
+                <ol className="list-decimal space-y-1 pl-5">
+                  {c.terms.map((t) => (
+                    <li key={t.id}>{t.text}</li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              'Tệp hợp đồng hai bên đính kèm trong booking.'
+            )}
+          </FeatureRow>
+          <FeatureRow title="Điều kiện tham gia" on>
+            <ConditionsList target={c.target} categories={c.categories} regions={c.regions} />
+            {c.target?.minFollowers !== undefined && (
+              <span className="block text-xs text-muted-foreground">Số follower là tiêu chí Nhãn hàng xét khi chọn KOL, không chặn việc gửi ứng tuyển.</span>
+            )}
+          </FeatureRow>
+          <FeatureRow title="Câu hỏi khảo sát" on={c.survey.length > 0} offText="Không có câu hỏi khi ứng tuyển.">
+            <span className="block text-xs text-muted-foreground">Bạn trả lời khi ứng tuyển</span>
+            <ol className="list-decimal space-y-1 pl-5">
+              {c.survey.map((q) => (
+                <li key={q.id}>
+                  {q.text}
+                  {q.required && <span className="text-muted-foreground"> (bắt buộc)</span>}
+                </li>
+              ))}
+            </ol>
+          </FeatureRow>
+        </ul>
       </SheetSection>
 
       {/* EP-02 §4.2: shown before applying; never "unlimited" by default. */}
-      <SheetSection title="Thông điệp bắt buộc và quyền sử dụng nội dung">
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Quy định nội dung</p>
-          <LongText text={c.contentRules} />
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Quyền sử dụng nội dung</p>
-          {c.usageRights ? (
-            <div className="space-y-1 text-sm text-foreground">
-              <p>{usageRightsText(c.usageRights)}</p>
-              {c.usageRights.note && <LongText text={c.usageRights.note} />}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nhãn hàng không yêu cầu sử dụng lại nội dung ngoài bài đăng gốc.</p>
-          )}
-        </div>
+      <SheetSection title="Quyền sử dụng nội dung">
+        {c.usageRights ? (
+          <div className="space-y-1 text-sm text-foreground">
+            <p>{usageRightsText(c.usageRights)}</p>
+            {c.usageRights.note && <LongText text={c.usageRights.note} />}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Nhãn hàng không yêu cầu sử dụng lại nội dung ngoài bài đăng gốc.</p>
+        )}
       </SheetSection>
 
       {!preview && (

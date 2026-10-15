@@ -5,7 +5,6 @@ import {
   rewardKindOf,
   type CampaignReward,
   type Channel,
-  type DeliverableGroup,
   type MarketplaceCampaign,
   type OwnerType,
   type Platform,
@@ -97,14 +96,6 @@ export function rewardSummary(c: Pick<MarketplaceCampaign, 'type' | 'groups' | '
   if (rewards.some((r) => !sameReward(r, rewards[0]))) return { kind, byGroup: true };
   const r = rewards[0];
   return { kind, byGroup: false, ...(r.cash > 0 ? { cash: `${money(r.cash)}/booking` } : {}), ...(r.product ? { product: r.product.name } : {}) };
-}
-
-/** Detail rows per group: "TikTok: 3.000.000 ₫/booking" + gift on its own line. */
-export function groupRewardLines(g: DeliverableGroup): { cash?: string; product?: string } {
-  return {
-    ...(g.reward.cash > 0 ? { cash: `${formatVnd(g.reward.cash)}/booking` } : {}),
-    ...(g.reward.product ? { product: `${g.reward.product.name} (trị giá ${formatVnd(g.reward.product.value)}, quà tặng, không phải tiền)` } : {}),
-  };
 }
 
 // ---------------------------------------------------------------------------
