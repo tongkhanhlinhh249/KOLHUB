@@ -18,13 +18,13 @@ import { PlatformIcon } from '../biz-search/PlatformIcon';
 import { CampaignTypeBadge, ConditionsList, RecruitTimeline } from '../shared/RecruitParts';
 import { RECRUIT_STAGE_LABEL, recruitStage, usageRightsText, workflowHint } from '../shared/recruitView';
 import { PLATFORM_LABEL, ToneBadge } from '../shared/StatusBadges';
-import { deadlineInfo, kolTargetText, MARKETPLACE_STATUS, marketplaceStatus, rewardSummary } from './marketplaceView';
+import { deadlineInfo, kolTargetText, MARKETPLACE_STATUS, marketplaceStatus } from './marketplaceView';
 import { ReasonDialog } from '../violations/ReasonDialog';
 import { ApplyDialog } from './ApplyDialog';
 import { CampaignQASection } from './CampaignQA';
 import { MineBadge, MyBookingBadge } from './MarketplaceCampaignCard';
 import { BrandInfoBlock, MatchDetails, SaveButton } from './MarketplaceParts';
-import { CategoryChips, errText, Fact, LongText, PlatformIcons, SheetSection } from './parts';
+import { CategoryChips, errText, Fact, LongText, SheetSection } from './parts';
 import {
   bookingDetailPath,
   brandCampaignPath,
@@ -97,19 +97,6 @@ function DeadlineValue({ campaign: c, now }: { campaign: MarketplaceCampaign; no
   );
 }
 
-/** Reward summary (§7.1 ②): cash per booking and gift apart, or "Quyền lợi theo hạng mục". */
-function RewardFact({ campaign: c }: { campaign: MarketplaceCampaign }) {
-  const r = rewardSummary(c, false);
-  if (r.byGroup) return <span className="font-semibold text-primary">Quyền lợi theo hạng mục</span>;
-  return (
-    <span className="flex flex-col gap-0.5">
-      {r.cash && <span className="font-semibold text-primary tabular-nums">{r.cash}</span>}
-      {r.product && <span className="font-normal">Quà: {r.product}</span>}
-      {!r.cash && !r.product && <span className="text-muted-foreground">Chưa công bố</span>}
-    </span>
-  );
-}
-
 /** Label / value line of a detail section. */
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -146,9 +133,8 @@ function FeatureRow({ title, on, offText, children }: { title: string; on: boole
 }
 
 /**
- * Main column: summary (quyền lợi, nền tảng, số KOL cần tuyển, hạn ứng tuyển — Công bố lên sàn §7.1), Phù hợp với bạn,
- * Lịch trình (only where the rail is hidden: `narrowOnlyClass`), then the sections of "Tạo chiến dịch" with the same
- * labels: Bản tóm tắt sáng tạo, Nội dung cần làm / Hạng mục nội dung, Quyền lợi theo nhóm đầu việc / Phần thưởng,
+ * Main column: Phù hợp với bạn, Lịch trình (only where the rail is hidden: `narrowOnlyClass`), then the sections of
+ * "Tạo chiến dịch" with the same labels: Bản tóm tắt sáng tạo, Nội dung cần làm / Hạng mục nội dung, Quyền lợi theo nhóm đầu việc / Phần thưởng,
  * Thời gian, Tính năng của chiến dịch (Duyệt nháp, Sự tuân thủ, Hợp đồng, Điều kiện tham gia, Câu hỏi khảo sát), Quyền sử
  * dụng nội dung; then Hỏi đáp and Nhãn hàng. No budget, application or selection counts (§13).
  */
@@ -170,21 +156,6 @@ export function CampaignDetailSections({
   const recruit = isRecruit(c);
   return (
     <div className="@container min-w-0 space-y-6">
-      <dl className="grid grid-cols-2 gap-4 rounded-[8px] border border-border bg-card p-4 @lg:grid-cols-4">
-        <Fact label="Quyền lợi">
-          <RewardFact campaign={c} />
-        </Fact>
-        <Fact label="Nền tảng">
-          <PlatformIcons platforms={c.platforms} withLabel />
-        </Fact>
-        <Fact label="Số KOL cần tuyển">
-          <span className="tabular-nums">{kolTargetText(c)}</span>
-        </Fact>
-        <Fact label="Hạn ứng tuyển">
-          <DeadlineValue campaign={c} now={now} />
-        </Fact>
-      </dl>
-
       {c.match && (
         <SheetSection title="Phù hợp với bạn">
           <MatchDetails match={c.match} />
