@@ -227,7 +227,14 @@ export function MarketplaceCampaignCard({
   return (
     <CoverCard
       cover={c.cover}
-      topLeft={c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
+      topLeft={
+        (recruit || c.myBooking) && (
+          <>
+            {recruit && <RecruitTypeBadge className={cn('h-6 border-transparent px-2 text-xs', OVER_BG)} />}
+            {c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
+          </>
+        )
+      }
       topRight={
         viewer === 'supplier' ? (
           <SaveIconButton campaignId={c.id} saved={!!c.saved} name={c.name} className={saveClass} />
@@ -237,7 +244,6 @@ export function MarketplaceCampaignCard({
       }
     >
       <div className="space-y-1">
-        {recruit && <RecruitTypeBadge className="h-5 px-1.5 text-[11px]" />}
         <h2 className={TITLE}>
           <Link to={to} state={linkState} className={STRETCHED} title={c.name}>
             <span className="line-clamp-2">{c.name}</span>
@@ -261,25 +267,15 @@ export function MarketplaceCampaignCard({
 
       <PlatformIcons platforms={c.platforms} />
 
+      {/* Two lines reserved (tiền + quà) so the divider lines up across a row of cards. */}
       <dl className="mt-auto border-t border-border pt-3">
         <Fact label="Quyền lợi">
-          <RewardLines campaign={c} />
+          <div className="min-h-[2.625rem]">
+            <RewardLines campaign={c} />
+          </div>
         </Fact>
       </dl>
 
-      {c.myBooking && (
-        <div className="-mt-1 flex flex-wrap gap-x-4">
-          {c.myBooking && (
-            <Link
-              to={bookingDetailPath(c.myBooking.id)}
-              className="relative z-10 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
-            >
-              Xem booking của bạn
-              <ChevronRight className="size-4" aria-hidden />
-            </Link>
-          )}
-        </div>
-      )}
     </CoverCard>
   );
 }

@@ -374,7 +374,7 @@ export const REWARD_FILTERS: { key: RewardParam; label: string; kind: RewardKind
   { key: 'ca-hai', label: 'Tiền và sản phẩm', kind: 'BOTH' },
 ];
 
-/** Campaigns per page of the Sàn. */
+/** Campaigns per batch of the Sàn (first load and each "Xem thêm"). */
 export const MARKETPLACE_PAGE_SIZE = 12;
 
 /** ?loai= values of the campaign type filter. */
@@ -392,7 +392,7 @@ export interface MarketplaceQuery {
   region?: string;
   reward?: RewardParam;
   sort: MarketplaceSort;
-  /** 1-based page. */
+  /** Batches of MARKETPLACE_PAGE_SIZE loaded (1 = first 12; "Xem thêm" adds one). */
   page: number;
 }
 
