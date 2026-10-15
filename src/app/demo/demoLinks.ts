@@ -98,6 +98,12 @@ export const DEMO_LINK_GROUPS: DemoLinkGroup[] = [
       { label: 'Hỗ trợ › Hướng dẫn', path: '/ho-tro/huong-dan', account: 'kol-verified', hint: 'Hướng dẫn 6 bước; FAQ và Liên hệ ở mục Hỗ trợ' },
       { label: 'Đánh giá', path: '/danh-gia', account: 'kol-verified', hint: 'Nhãn hàng đánh giá bạn, Bạn đánh giá, Chờ bạn đánh giá' },
       { label: 'Hồ sơ mới → gửi xét duyệt', path: '/ho-so-kol/tong-quan', account: 'kol-new', hint: 'Dùng "Điền nhanh hồ sơ mẫu"' },
+      {
+        label: 'Hồ sơ mới → ứng tuyển khi còn hạn',
+        path: '/san/cmp-seed-thoi-trang',
+        account: 'kol-new',
+        hint: 'Hoàn thiện hồ sơ (Điền nhanh) → gửi duyệt → Admin duyệt → Quay lại chiến dịch → Ứng tuyển trước hạn',
+      },
     ],
   },
 ];

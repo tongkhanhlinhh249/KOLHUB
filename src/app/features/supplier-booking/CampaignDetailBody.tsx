@@ -136,7 +136,7 @@ function FeatureRow({ title, on, offText, children }: { title: string; on: boole
  * Main column: Phù hợp với bạn, Lịch trình (only where the rail is hidden: `narrowOnlyClass`), then the sections of
  * "Tạo chiến dịch" with the same labels: Bản tóm tắt sáng tạo, Nội dung cần làm / Hạng mục nội dung, Quyền lợi theo nhóm đầu việc / Phần thưởng,
  * Thời gian, Tính năng của chiến dịch (Duyệt nháp, Sự tuân thủ, Hợp đồng, Điều kiện tham gia, Câu hỏi khảo sát), Quyền sử
- * dụng nội dung; then Hỏi đáp and Nhãn hàng. No budget, application or selection counts (§13).
+ * dụng nội dung (Booking nhiều KOL only, like its form); then Hỏi đáp and Nhãn hàng. No budget, application or selection counts (§13).
  */
 export function CampaignDetailSections({
   campaign: c,
@@ -292,17 +292,19 @@ export function CampaignDetailSections({
         </ul>
       </SheetSection>
 
-      {/* EP-02 §4.2: shown before applying; never "unlimited" by default. */}
-      <SheetSection title="Quyền sử dụng nội dung">
-        {c.usageRights ? (
-          <div className="space-y-1 text-sm text-foreground">
-            <p>{usageRightsText(c.usageRights)}</p>
-            {c.usageRights.note && <LongText text={c.usageRights.note} />}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Nhãn hàng không yêu cầu sử dụng lại nội dung ngoài bài đăng gốc.</p>
-        )}
-      </SheetSection>
+      {/* Only the Booking nhiều KOL form asks for "Quyền sử dụng nội dung" (EP-02 §4.2); Booking 1 KOL has no such field. */}
+      {recruit && (
+        <SheetSection title="Quyền sử dụng nội dung">
+          {c.usageRights ? (
+            <div className="space-y-1 text-sm text-foreground">
+              <p>{usageRightsText(c.usageRights)}</p>
+              {c.usageRights.note && <LongText text={c.usageRights.note} />}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Nhãn hàng không yêu cầu sử dụng lại nội dung ngoài bài đăng gốc.</p>
+          )}
+        </SheetSection>
+      )}
 
       {!preview && (
         <div id="hoi-dap" className="scroll-mt-20">
@@ -419,7 +421,9 @@ export function useCampaignActions(
               ? `Bạn đã ứng tuyển · ${RECRUIT_STAGE_LABEL[recruitStage(c.myBooking)]}`
               : 'Bạn đã ứng tuyển · Chờ Nhãn hàng chọn trong giai đoạn Chọn lọc'
             : c.myBooking
-              ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${c.myBooking.status === 'SENT' ? 'Lời mời mới' : BOOKING_STATUS_LABEL[c.myBooking.status]}`
+              ? `${c.myBooking.origin === 'APPLICATION' ? 'Bạn đã ứng tuyển' : 'Bạn đã được mời'} · ${
+                  c.myBooking.status === 'SENT' ? 'Lời mời mới' : c.myBooking.status === 'APPLIED' ? 'Chờ Nhãn hàng phản hồi' : BOOKING_STATUS_LABEL[c.myBooking.status]
+                }`
               : 'Bạn đã ứng tuyển · Chờ Nhãn hàng phản hồi'}
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -445,7 +449,12 @@ export function useCampaignActions(
   } else if (!access.approved) {
     cta = (
       <div className="space-y-3">
-        <SupplierGate ownerType={access.ownerType} status={access.status} compact />
+        <SupplierGate
+          ownerType={access.ownerType}
+          status={access.status}
+          compact
+          {...(!closed ? { returnTo: marketplaceCampaignPath(c.id), deadline: deadlineInfo(c, now, true)?.text } : {})}
+        />
         {c.accepting !== false && <SaveButton campaignId={c.id} saved={!!c.saved} name={c.name} className="w-full" />}
       </div>
     );

@@ -27,6 +27,7 @@ import { PLATFORM_LABEL } from '../shared/StatusBadges';
 import { ItemsEditor, useProposalSources } from './ItemsEditor';
 import { errText } from './parts';
 import { initialRows, rowsFromItems, rowsValid, toProposalItems, validateRows, type ItemDraft, type ItemErrors } from './proposalItems';
+import { clearReturnCampaign } from './ReturnToCampaign';
 import { deliverablesSummary } from './supplierBooking';
 
 /**
@@ -127,6 +128,8 @@ export function ApplyDialog({
       else
         // Công bố lên sàn §14 (the section is called "Chiến dịch của tôi" in the app).
         toast.success('Đã gửi ứng tuyển', { description: `${campaign.name}. Bạn có thể theo dõi kết quả trong mục Chiến dịch của tôi.` });
+      // The way back from the profile / channel pages is no longer needed once applied.
+      if (!editing) clearReturnCampaign();
       onApplied(booking);
       onOpenChange(false);
     } catch (e) {
