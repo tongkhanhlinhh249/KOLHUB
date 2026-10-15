@@ -280,8 +280,9 @@ function MarketplaceList() {
             />
           </>
         )}
-        filterGridClass="grid-cols-2"
-        inlineFilterClass="@4xl:w-44"
+        // One row on wide screens: the 5 filters share the width, sort on the right; 3 columns on tablets.
+        filterGridClass="grid-cols-3 @4xl:min-w-0 @4xl:flex-1"
+        inlineFilterClass="@4xl:min-w-0 @4xl:flex-1"
         renderSort={(className) => (
           <SortSelect
             value={query.sort}
@@ -291,7 +292,7 @@ function MarketplaceList() {
           />
         )}
         hideSearch
-        sortClass="@4xl:w-60"
+        sortClass="@4xl:w-48"
         filterCount={marketplaceFilterCount(query)}
         active={hasMarketplaceFilters(query)}
         chips={chips}

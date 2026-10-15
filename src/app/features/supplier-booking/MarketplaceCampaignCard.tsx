@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router';
-import { Building2, Check, ChevronRight, CircleAlert, Clock, Gift, Users, Wallet } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { toast } from 'sonner';
+import { Button } from '../../components/ui/button';
+import { Bookmark, Building2, Check, ChevronRight, CircleAlert, Gift, Wallet } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
@@ -10,8 +12,8 @@ import { PhaseBadge, RecruitTypeBadge } from '../shared/RecruitParts';
 import { ToneBadge } from '../shared/StatusBadges';
 import { MatchPill, SaveIconButton } from './MarketplaceParts';
 import { BookingStatusBadge, CountdownText, PlatformIcons } from './parts';
-import { deadlineInfo, kolTargetText, MARKETPLACE_STATUS, marketplaceStatus, rewardSummary } from './marketplaceView';
-import { bookingDetailPath, brandCampaignPath, cardMatchLine, expiryCountdown, formatDateTime, priceText, type MarketplaceViewer } from './supplierBooking';
+import { kolTargetText, rewardSummary } from './marketplaceView';
+import { bookingDetailPath, cardMatchLine, expiryCountdown, formatDateTime, priceText, type MarketplaceViewer } from './supplierBooking';
 
 /** Solid pill for badges laid over the cover image (tone tint replaced by a near-opaque background; dot keeps the tone). */
 const OVER_BG = 'bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85';
@@ -41,6 +43,31 @@ function CoverCard({
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">{children}</div>
     </Card>
+  );
+}
+
+/**
+ * Bookmark on the card for viewers who cannot save: a guest signs in first (back to this list), a Brand is told that
+ * only KOL/MCN keep saved campaigns.
+ */
+function PublicSaveIconButton({ viewer, name, className }: { viewer: MarketplaceViewer; name: string; className?: string }) {
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={`Lưu chiến dịch ${name}`}
+      title="Lưu chiến dịch"
+      onClick={() => {
+        if (viewer === 'guest') navigate(`/dang-nhap?returnTo=${encodeURIComponent(pathname + search)}`);
+        else toast.info('Chỉ tài khoản KOL/MCN lưu được chiến dịch', { description: 'Đăng nhập bằng tài khoản KOL hoặc MCN để lưu và ứng tuyển.' });
+      }}
+      className={cn('relative z-10 size-11 shrink-0 text-muted-foreground md:size-8', className)}
+    >
+      <Bookmark aria-hidden />
+    </Button>
   );
 }
 
@@ -78,19 +105,6 @@ function RewardLines({ campaign }: { campaign: MarketplaceCampaign }) {
   );
 }
 
-/** Status of the public page plus "Sắp hết hạn" (≤ 24 h, §6.2). */
-function StatusBadges({ campaign: c, now, className }: { campaign: MarketplaceCampaign; now: number; className?: string }) {
-  const st = marketplaceStatus(c);
-  const dl = deadlineInfo(c, now);
-  const soon = st === 'OPEN' && !!dl?.soon;
-  return (
-    <>
-      <ToneBadge tone={soon ? 'warning' : MARKETPLACE_STATUS[st].tone} className={className}>
-        {soon ? 'Sắp hết hạn' : MARKETPLACE_STATUS[st].label}
-      </ToneBadge>
-    </>
-  );
-}
 
 /** Title heading; the name inside is clamped to 2 lines (full name in the tooltip / accessible name). */
 const TITLE = 'text-base leading-snug font-semibold break-words text-foreground';
@@ -207,37 +221,23 @@ export function MarketplaceCampaignCard({
   /** Bookmark button for any signed-in KOL / MCN; Brand: "Của bạn" on own campaigns; guest: public card only. */
   viewer?: MarketplaceViewer;
 }) {
-  const canSave = viewer === 'supplier';
   const recruit = c.type === 'OPEN_RECRUITMENT' && !!c.recruitment;
-  const dl = deadlineInfo(c, now);
   const line = c.match && c.accepting !== false ? cardMatchLine(c.match) : null;
-  const badges = (
-    <>
-      <StatusBadges campaign={c} now={now} className={OVER_IMAGE} />
-      {c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
-      {c.mine && <MineBadge className={OVER_IMAGE} />}
-    </>
-  );
+  const saveClass = cn('rounded-full md:size-9', OVER_BG, 'hover:bg-background', !c.saved && 'text-foreground/80 hover:text-foreground');
   return (
     <CoverCard
       cover={c.cover}
-      topLeft={badges}
+      topLeft={c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
       topRight={
-        canSave && (
-          <SaveIconButton
-            campaignId={c.id}
-            saved={!!c.saved}
-            name={c.name}
-            className={cn('rounded-full md:size-9', OVER_BG, 'hover:bg-background', !c.saved && 'text-foreground/80 hover:text-foreground')}
-          />
+        viewer === 'supplier' ? (
+          <SaveIconButton campaignId={c.id} saved={!!c.saved} name={c.name} className={saveClass} />
+        ) : (
+          <PublicSaveIconButton viewer={viewer} name={c.name} className={saveClass} />
         )
       }
     >
       <div className="space-y-1">
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          <BrandLine campaign={c} />
-          {recruit && <RecruitTypeBadge className="h-5 shrink-0 px-1.5 text-[11px]" />}
-        </div>
+        {recruit && <RecruitTypeBadge className="h-5 px-1.5 text-[11px]" />}
         <h2 className={TITLE}>
           <Link to={to} state={linkState} className={STRETCHED} title={c.name}>
             <span className="line-clamp-2">{c.name}</span>
@@ -261,25 +261,9 @@ export function MarketplaceCampaignCard({
 
       <PlatformIcons platforms={c.platforms} />
 
-      <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
-        <Fact label="Quyền lợi" className="col-span-2">
+      <dl className="mt-auto border-t border-border pt-3">
+        <Fact label="Quyền lợi">
           <RewardLines campaign={c} />
-        </Fact>
-        <Fact label="Hạn ứng tuyển">
-          {dl ? (
-            <span className={cn('flex items-center gap-1 tabular-nums', dl.soon && !dl.passed && 'text-chart-5')}>
-              <Clock className="size-3.5 shrink-0" aria-hidden />
-              {dl.text}
-            </span>
-          ) : (
-            'Đến khi đóng tuyển'
-          )}
-        </Fact>
-        <Fact label="Số KOL cần tuyển">
-          <span className="flex items-center gap-1 tabular-nums">
-            <Users className="size-3.5 shrink-0" aria-hidden />
-            {kolTargetText(c)}
-          </span>
         </Fact>
       </dl>
 
@@ -288,17 +272,8 @@ export function MarketplaceCampaignCard({
         <ChevronRight className="size-4" />
       </span>
 
-      {(c.mine || c.myBooking) && (
+      {c.myBooking && (
         <div className="-mt-1 flex flex-wrap gap-x-4">
-          {c.mine && (
-            <Link
-              to={brandCampaignPath(c.id)}
-              className="relative z-10 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline md:min-h-8"
-            >
-              Quản lý chiến dịch
-              <ChevronRight className="size-4" aria-hidden />
-            </Link>
-          )}
           {c.myBooking && (
             <Link
               to={bookingDetailPath(c.myBooking.id)}
