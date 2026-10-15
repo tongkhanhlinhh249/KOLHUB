@@ -267,11 +267,6 @@ export function MarketplaceCampaignCard({
         </Fact>
       </dl>
 
-      <span className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-primary md:min-h-8" aria-hidden>
-        Xem chiến dịch
-        <ChevronRight className="size-4" />
-      </span>
-
       {c.myBooking && (
         <div className="-mt-1 flex flex-wrap gap-x-4">
           {c.myBooking && (
