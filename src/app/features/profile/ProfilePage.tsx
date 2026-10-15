@@ -89,6 +89,13 @@ function NeedsFixNotice({ ownerType }: { ownerType: OwnerType }) {
  * Shared KOL/MCN profile section page (sidebar item). "Tổng quan hồ sơ" (tong-quan) shows the header
  * (SCR-03), submit and review status; the other sections start directly with their content.
  */
+/** "Quay lại chiến dịch" banner text: what is left before the KOL/MCN can apply to the Sàn campaign they came from. */
+function returnMessage(status: string, section: ProfileSection): string {
+  if (status === 'APPROVED') return section === 'kenh' ? 'Xong việc với kênh? Quay lại chiến dịch để ứng tuyển.' : 'Hồ sơ đã được duyệt. Quay lại chiến dịch để ứng tuyển trước hạn.';
+  if (status === 'SUBMITTED') return 'Hồ sơ đang chờ duyệt. Khi được duyệt, quay lại chiến dịch để ứng tuyển trước hạn.';
+  return 'Hoàn thiện và gửi hồ sơ xét duyệt. Khi hồ sơ được duyệt, quay lại chiến dịch để ứng tuyển trước hạn.';
+}
+
 export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; section: ProfileSection }) {
   const { account } = useAuth();
   const accountId = account?.id ?? '';
@@ -150,6 +157,7 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
         </Alert>
       ) : (
         <>
+          <ReturnToCampaign message={returnMessage(q.data.view.profile.status, section)} />
           {isOverview && <ProfileOverview view={q.data.view} ekyc={q.data.ekyc} channels={q.data.channels} kols={q.data.kols} />}
           {!isOverview && q.data.view.profile.status === 'NEEDS_FIX' && <NeedsFixNotice ownerType={q.data.view.profile.ownerType} />}
           <div>
@@ -166,7 +174,6 @@ export function ProfilePage({ ownerType, section }: { ownerType: OwnerType; sect
                 <ContactTab view={q.data.view} />
               </div>
             )}
-            {section === 'kenh' && <ReturnToCampaign />}
             {section === 'kenh' && (
               <ChannelsTab
                 accountId={accountId}

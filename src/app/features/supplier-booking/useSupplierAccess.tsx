@@ -6,6 +6,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { profileService, type OwnerType, type ProfileStatus } from '../../services';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { profilePath } from '../profile/primaryAction';
+import { RETURN_PARAM } from './marketplaceView';
 
 export interface SupplierAccess {
   accountId: string;
@@ -50,23 +51,53 @@ const GATE: Record<Exclude<ProfileStatus, 'APPROVED'>, { title: string; text: st
   },
 };
 
-/** Friendly notice for suppliers whose profile is not approved, linking to "Tổng quan hồ sơ". */
-export function SupplierGate({ ownerType, status, compact }: { ownerType: OwnerType; status?: ProfileStatus; compact?: boolean }) {
+/**
+ * Friendly notice for suppliers whose profile is not approved, linking to "Tổng quan hồ sơ". From a campaign that still
+ * takes applications (`returnTo` + `deadline`): says until when, and the profile pages keep a way back to it.
+ */
+export function SupplierGate({
+  ownerType,
+  status,
+  compact,
+  returnTo,
+  deadline,
+}: {
+  ownerType: OwnerType;
+  status?: ProfileStatus;
+  compact?: boolean;
+  /** Sàn campaign to come back to (/san/<id>). */
+  returnTo?: string;
+  /** "23:59 · 19/10/2026" — the campaign's apply deadline (Vietnam time). */
+  deadline?: string;
+}) {
   if (!status || status === 'APPROVED') return null;
   const g = GATE[status];
+  const to = returnTo ? `${profilePath(ownerType, 'tong-quan')}?${RETURN_PARAM}=${encodeURIComponent(returnTo)}` : profilePath(ownerType, 'tong-quan');
+  const label = status === 'DRAFT' || status === 'NEEDS_FIX' ? 'Hoàn thiện hồ sơ' : 'Xem Tổng quan hồ sơ';
   return (
     <Alert>
       <Info className="size-4" aria-hidden />
       <AlertTitle>{g.title}</AlertTitle>
       <AlertDescription className="space-y-3">
         <p>{g.text}</p>
+        {deadline && (
+          <p className="font-medium text-foreground">
+            Chiến dịch nhận ứng tuyển đến {deadline} (giờ Việt Nam).{' '}
+            {status === 'SUBMITTED' ? 'Hồ sơ được duyệt trước hạn là bạn ứng tuyển kịp.' : 'Gửi hồ sơ sớm để được duyệt trước hạn.'}
+          </p>
+        )}
         {!compact && (
-          <Link to={profilePath(ownerType, 'tong-quan')} className={buttonVariants({ variant: 'outline', className: 'h-11 md:h-9' })}>
+          <Link to={to} className={buttonVariants({ variant: 'outline', className: 'h-11 md:h-9' })}>
             Tổng quan hồ sơ
           </Link>
         )}
-        {compact && (
-          <Link to={profilePath(ownerType, 'tong-quan')} className="font-medium text-primary underline-offset-4 hover:underline">
+        {compact && returnTo && (
+          <Link to={to} className={buttonVariants({ className: 'h-11 w-full md:h-9' })}>
+            {label}
+          </Link>
+        )}
+        {compact && !returnTo && (
+          <Link to={to} className="font-medium text-primary underline-offset-4 hover:underline">
             Xem Tổng quan hồ sơ
           </Link>
         )}
