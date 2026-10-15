@@ -29,7 +29,6 @@ import {
   applySelection,
   checkNote,
   checkSingleBooking,
-  settleSingleBooking,
   checkSlots,
   currentSupplier,
   draftsCoverItems,
@@ -163,9 +162,9 @@ export function createBookingService(deps: BookingServiceDeps) {
       delete b.awaiting;
       b.acceptedAt = ctx.t;
       b.history.push({ at: ctx.t, by: ctx.party, action: 'ACCEPTED', price: b.price });
+      // Booking 1 KOL (Công bố lên sàn §9): choosing the KOL neither closes recruitment nor answers the other applications;
+      // the owner is warned ("Đã chọn đủ KOL") and decides. checkSingleBooking keeps it to one KOL.
       s.campaigns.find((x) => x.id === b.campaignId)!.updatedAt = ctx.t;
-      // Booking 1 KOL: the others are not chosen and recruitment closes.
-      settleSingleBooking(s, b.campaignId, b.id, ctx.t);
     });
   }
 

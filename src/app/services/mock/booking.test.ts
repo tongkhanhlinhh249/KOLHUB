@@ -107,26 +107,22 @@ describe('thương lượng', () => {
     ]);
   });
 
-  test('Booking 1 KOL: chốt 1 đơn → các đơn khác "Không được chọn", chiến dịch tự Đã đóng tuyển; không chốt được người thứ 2', async () => {
+  test('Booking 1 KOL: chốt 1 đơn → chiến dịch vẫn Đang tuyển, đơn khác vẫn chờ (không tự đóng, không tự từ chối); không chốt được người thứ 2', async () => {
     as(BRAND);
     const others = (await svc.listForBrand({ campaignId: SEED_CAMPAIGN.marketplace })).filter((b) => b.id !== SEED_BOOKING.application);
     expect(others.length).toBeGreaterThanOrEqual(2);
+    const before = others.map((o) => stored(o.id).status);
     await svc.accept(SEED_BOOKING.application);
     const c = await campaigns.get(SEED_CAMPAIGN.marketplace);
-    expect(c).toMatchObject({ status: 'CLOSED', recruitmentClosedAt: h.now() });
-    expect(c.log?.at(-1)).toMatchObject({ by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' });
-    for (const o of others) {
-      const b = stored(o.id);
-      expect(b.status).toBe('DECLINED');
-      expect(b.history.at(-1)).toMatchObject({ by: 'SYSTEM', action: 'NOT_SELECTED' });
-    }
-    // Dữ liệu cũ hoặc đơn mở lại: hệ thống vẫn chặn chốt người thứ 2 (4818).
-    h.db.update((s) => {
-      const b = s.bookings.find((x) => x.id === others[0].id)!;
-      b.status = 'APPLIED';
-      b.awaiting = 'BRAND';
-    });
-    await expect(svc.accept(others[0].id)).rejects.toMatchObject({ code: 'KOLHUB-4818', meta: { slots: 1, remaining: 0 } });
+    // Công bố lên sàn §9, §12.4: đủ người đã chọn → cảnh báo chủ chiến dịch, không tự đóng tuyển.
+    expect(c.status).toBe('OPEN');
+    expect((c.log ?? []).some((e) => e.action === 'CLOSED')).toBe(false);
+    expect(others.map((o) => stored(o.id).status)).toEqual(before);
+    // Đơn còn chờ: Nhãn hàng không còn nút chấp nhận; gọi thẳng vẫn bị chặn (4818).
+    const pending = others.find((o) => stored(o.id).status === 'APPLIED')!;
+    expect((await svc.get(pending.id)).allowedActions).not.toContain('ACCEPT');
+    expect((await svc.get(pending.id)).allowedActions).toContain('DECLINE');
+    await expect(svc.accept(pending.id)).rejects.toMatchObject({ code: 'KOLHUB-4818', meta: { slots: 1, remaining: 0 } });
   });
 
   test('chuyển trạng thái không hợp lệ → 4805', async () => {

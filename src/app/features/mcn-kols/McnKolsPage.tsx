@@ -34,6 +34,7 @@ import { profilePath } from '../profile/primaryAction';
 import { AssignChannelsDialog } from './AssignChannelsDialog';
 import { ASSIGN_LOCKED_TEXT } from './useMcnChannelOwners';
 import { McnKolListRow, McnKolListRowSkeleton } from './McnKolRow';
+import { ReturnToCampaign } from '../supplier-booking/ReturnToCampaign';
 import {
   applyMcnKolQuery,
   assignedChannelsPath,
@@ -215,6 +216,7 @@ export function McnKolsPage() {
 
   return (
     <div className="@container mx-auto w-full max-w-5xl space-y-4 p-4 md:p-6">
+      <ReturnToCampaign />
       {q.data && !canAssign && (
         <Alert>
           <Info className="size-4" aria-hidden />

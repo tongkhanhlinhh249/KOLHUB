@@ -714,6 +714,8 @@ export const CAMPAIGN_LOG_LABEL: Record<CampaignLogEntry['action'], string> = {
   REVISION_SUBMITTED: 'Gửi bản sửa',
   REVISION_APPROVED: 'Bản sửa được duyệt',
   REVISION_REJECTED: 'Bản sửa bị từ chối',
+  HIDDEN: 'Bị ẩn khỏi Sàn',
+  RESTORED: 'Hiển thị lại trên Sàn',
 };
 export const CAMPAIGN_LOG_ACTOR: Record<CampaignLogEntry['by'], string> = { BRAND: 'Bạn', ADMIN: 'Admin KOLHUB', SYSTEM: 'Hệ thống' };
 
@@ -763,9 +765,10 @@ export function campaignTodos(
   if (product) out.push({ key: 'product', text: `${product} KOL chờ gửi sản phẩm`, to: 'hop-tac' });
   const pay = count('MARK_PAID');
   if (pay) out.push({ key: 'payment', text: `${pay} hợp tác chờ xác nhận thanh toán`, to: 'hop-tac' });
-  if (c.status === 'OPEN' && c.type === 'OPEN_RECRUITMENT') {
+  // Công bố lên sàn §9: enough KOL chosen never closes recruitment by itself — the owner is warned and decides.
+  if (c.status === 'OPEN') {
     const k = kolProgress(c, bookings);
-    if (k.target > 0 && k.chosen >= k.target) out.push({ key: 'full', text: 'Đã đủ KOL: cân nhắc đóng tuyển', to: 'tong-quan' });
+    if (k.target > 0 && k.chosen >= k.target) out.push({ key: 'full', text: 'Đã chọn đủ KOL: cân nhắc đóng tuyển', to: 'tong-quan' });
   }
   if (c.status === 'CLOSED' && out.length === 0 && !bookings.some((b) => PRE_ACCEPT_STATUSES.includes(b.status) || IN_PROGRESS_STATUSES.includes(b.status))) {
     out.push({ key: 'complete', text: 'Mọi việc đã xong: bấm Hoàn tất để kết thúc', to: 'tong-quan' });

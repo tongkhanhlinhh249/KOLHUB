@@ -30,6 +30,10 @@ import {
   type BookingView,
   type BrandRef,
   type Campaign,
+  type CampaignType,
+  type DeliverableGroup,
+  type Recruitment,
+  type RewardKind,
   type CampaignInput,
   type CampaignStats,
   type CampaignView,
@@ -392,6 +396,8 @@ export function postsCoverItems(b: Booking): boolean {
 export interface ActionContext {
   campaign?: Campaign;
   now?: number;
+  /** Booking 1 KOL: another booking already holds the one KOL — no further ACCEPT (Công bố lên sàn §9). */
+  kolTaken?: boolean;
 }
 
 /**
@@ -419,7 +425,7 @@ export function allowedActions(b: Booking, status: BookingStatus, party: Booking
     }
   } else if (isPreAccept(status)) {
     if (b.awaiting === party) {
-      out.push('ACCEPT');
+      if (!ctx.kolTaken) out.push('ACCEPT');
       out.push('DECLINE');
       if (party === 'SUPPLIER') out.push('ASSIGN_ITEMS');
     } else {
@@ -645,30 +651,66 @@ export function sweepCampaignStatuses(state: DemoState, now: number): boolean {
 /** An OPEN campaign has an edit under review that pauses new applications (C2, EP-02 §7). */
 export const isPausedForRevision = (c: Campaign) => !!c.pendingRevision?.pausesApplications;
 
+/** Hidden from the Sàn by Admin (Công bố lên sàn §12.3). */
+export const isHiddenByAdmin = (c: Campaign) => c.hiddenAt !== undefined;
+
 /**
- * OPEN ("Đang tuyển") marketplace campaign whose apply window is still running and that is not paused by an edit under
- * review. Open recruitment: only while its "Ứng tuyển" phase lasts.
+ * OPEN ("Đang tuyển") marketplace campaign whose apply window is still running, not paused by an edit under review and
+ * not hidden by Admin. Open recruitment: only while its "Ứng tuyển" phase lasts.
  */
 export function isAcceptingApplications(c: Campaign, now: number): boolean {
-  if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN' || isPausedForRevision(c)) return false;
+  if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN' || isPausedForRevision(c) || isHiddenByAdmin(c)) return false;
   if (c.type === 'OPEN_RECRUITMENT') return isRecruit(c) && phaseOfTimeline(c.recruitment.timeline, now) === 'APPLY';
   if (!c.endDate || endOfDay(c.endDate) < now) return false;
   return !c.applyDeadline || applyDeadlineAt(c)! > now;
 }
 
 /**
- * In the Sàn list of opportunities: OPEN marketplace campaigns (accepting, upcoming open recruitment, or paused while an
- * edit is reviewed). CLOSED campaigns leave the list but their page stays public (EP-02 §8).
+ * In the Sàn list of opportunities (Công bố lên sàn §4.2): published, Đang tuyển, before the deadline, not hidden and not
+ * paused by a terms edit under review (its page stays public with "đang cập nhật"). Open recruitment also shows while
+ * its "Ứng tuyển" phase has not started yet. CLOSED campaigns leave the list but their page stays public.
  */
 export function isListedOnMarketplace(c: Campaign, now: number): boolean {
-  if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN') return false;
-  if (isAcceptingApplications(c, now) || isPausedForRevision(c)) return true;
+  if (c.visibility !== 'MARKETPLACE' || c.status !== 'OPEN' || isHiddenByAdmin(c) || isPausedForRevision(c)) return false;
+  if (isAcceptingApplications(c, now)) return true;
   return isRecruit(c) && phaseOfTimeline(c.recruitment.timeline, now) === 'UPCOMING';
 }
 
-/** Public page of a published marketplace campaign: Đang tuyển, Đã đóng tuyển or Hoàn tất (not drafts / cancelled). */
+/**
+ * Public page of a published marketplace campaign: Đang tuyển, Đã đóng tuyển or Hoàn tất (§10). Drafts never have one;
+ * cancelled or hidden campaigns show "Chiến dịch không còn khả dụng" instead (KOLHUB-4827).
+ */
 export function hasPublicPage(c: Campaign): boolean {
-  return c.visibility === 'MARKETPLACE' && (c.status === 'OPEN' || c.status === 'CLOSED' || c.status === 'COMPLETED');
+  return c.visibility === 'MARKETPLACE' && !isHiddenByAdmin(c) && (c.status === 'OPEN' || c.status === 'CLOSED' || c.status === 'COMPLETED');
+}
+
+/**
+ * Reward kind shown and filtered on the Sàn (§6.2–6.3): cash only, product/experience only, or both. Booking 1 KOL looks at
+ * every deliverable group; Booking nhiều KOL at its single reward. undefined when nothing is set yet.
+ */
+export function rewardKindOf(c: { type?: CampaignType; groups?: DeliverableGroup[]; recruitment?: Recruitment }): RewardKind | undefined {
+  const rewards = c.type === 'OPEN_RECRUITMENT' ? (c.recruitment ? [c.recruitment.reward] : []) : (c.groups ?? []).map((g) => g.reward);
+  const cash = rewards.some((r) => r.cash > 0);
+  const product = rewards.some((r) => !!r.product);
+  return cash && product ? 'BOTH' : cash ? 'CASH' : product ? 'PRODUCT' : undefined;
+}
+
+/**
+ * The version Admin is deciding on (§4.1): when the pending submission was sent — the last "Gửi đăng" of a campaign
+ * waiting for review, or the edit under review of an OPEN one. Changes whenever the brand withdraws and resubmits.
+ */
+export function reviewVersionOf(c: Campaign): number | undefined {
+  if (c.status === 'OPEN' && c.pendingRevision) return c.pendingRevision.submittedAt;
+  if (c.status !== 'PENDING_REVIEW') return undefined;
+  return [...(c.log ?? [])].reverse().find((e) => e.action === 'SUBMITTED')?.at ?? c.updatedAt;
+}
+
+/** Why a published campaign takes no new applications (KOLHUB-4808 meta.reason). */
+export function notAcceptingReason(c: Campaign): 'PAUSED' | 'CLOSED' | 'HIDDEN' | undefined {
+  if (isHiddenByAdmin(c) || c.status === 'CANCELLED') return 'HIDDEN';
+  if (c.status === 'CLOSED' || c.status === 'COMPLETED') return 'CLOSED';
+  if (c.status === 'OPEN' && isPausedForRevision(c)) return 'PAUSED';
+  return undefined;
 }
 
 /**
@@ -700,7 +742,7 @@ export function checkSlots(state: DemoState, c: Campaign, wanted: number, now: n
 
 /**
  * Booking 1 KOL: the campaign confirms one booking only (4818 { slots: 1, remaining: 0 } once another booking is
- * accepted or later, not cancelled).
+ * accepted or later, not cancelled). Recruitment stays open and other applications stay pending (Công bố lên sàn §9).
  */
 export function checkSingleBooking(state: DemoState, c: Campaign, b: Booking, now: number): void {
   if (campaignType(c) !== 'BOOKING') return;
@@ -712,26 +754,14 @@ export function checkSingleBooking(state: DemoState, c: Campaign, b: Booking, no
   if (taken) throw new KolhubError('KOLHUB-4818', { slots: 1, remaining: 0 });
 }
 
-/**
- * Booking 1 KOL, once a KOL/MCN is chosen (in place): the other open invites / applications are "Không được chọn"
- * and recruitment closes (SYSTEM). Applications are not deleted.
- */
-export function settleSingleBooking(s: DemoState, campaignId: string, chosenId: string, now: number): void {
-  const c = s.campaigns.find((x) => x.id === campaignId);
-  if (!c || campaignType(c) !== 'BOOKING') return;
-  for (const x of s.bookings) {
-    if (x.campaignId !== c.id || x.id === chosenId || !isPreAccept(effectiveStatus(x, c, now))) continue;
-    x.status = 'DECLINED';
-    delete x.awaiting;
-    x.updatedAt = now;
-    x.history.push({ at: now, by: 'SYSTEM', action: 'NOT_SELECTED', note: 'Nhãn hàng đã chọn KOL/MCN khác cho chiến dịch.' });
-  }
-  if (c.status === 'OPEN') {
-    c.status = 'CLOSED';
-    c.recruitmentClosedAt = now;
-    c.log = [...(c.log ?? []), { at: now, by: 'SYSTEM', action: 'CLOSED', note: 'Đã chọn KOL cho chiến dịch.' }];
-  }
-  c.updatedAt = now;
+/** Booking 1 KOL: another (not cancelled) booking of `c` is accepted or later. */
+export function kolTakenBy(state: DemoState, c: Campaign | undefined, b: Booking, now: number): boolean {
+  if (!c || campaignType(c) !== 'BOOKING') return false;
+  return state.bookings.some((x) => {
+    if (x.campaignId !== c.id || x.id === b.id) return false;
+    const st = effectiveStatus(x, c, now);
+    return isInProgress(st) || st === 'COMPLETED';
+  });
 }
 
 /** Picked applicants of an open-recruitment campaign (ACCEPTED or later, not cancelled). */
@@ -751,7 +781,6 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     name: c.name,
     objective: c.objective,
     brief: c.brief,
-    budget: c.budget,
     startDate: c.startDate ?? '',
     endDate: c.endDate ?? '',
     platforms: [...c.platforms],
@@ -760,7 +789,7 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
     contentRules: c.contentRules,
     publishedAt: c.publishedAt ?? c.createdAt,
     brand: { company: brandRef(acc, c.brandAccountId).company },
-    applicationCount: own.filter((b) => b.origin === 'APPLICATION' && isOccupying(effectiveStatus(b, c, now))).length,
+    kolTarget: isRecruit(c) ? c.recruitment.slots : 1,
     type: campaignType(c),
     draftReview: draftReviewOn(c),
     groups: structuredClone(c.groups ?? []),
@@ -781,7 +810,6 @@ export function toMarketplaceCampaign(state: DemoState, c: Campaign, viewerId: s
   if (isRecruit(c)) {
     item.recruitment = structuredClone(c.recruitment);
     item.phase = phaseOfTimeline(c.recruitment.timeline, now);
-    item.selectedCount = selectedCount(state, c, now);
   }
   const mine = viewerId ? own.find((b) => b.supplierAccountId === viewerId && isOccupying(effectiveStatus(b, c, now))) : undefined;
   if (mine) item.myBooking = { id: mine.id, status: effectiveStatus(mine, c, now), origin: mine.origin };
@@ -877,7 +905,7 @@ export function toBookingView(state: DemoState, b: Booking, party: BookingParty,
     ...rest,
     status,
     viewer: party,
-    allowedActions: allowedActions(b, status, party, { campaign: c, now }),
+    allowedActions: allowedActions(b, status, party, { campaign: c, now, kolTaken: kolTakenBy(state, c, b, now) }),
     campaign: campaignSummary(state, c, now),
     supplier: supplierRef(state, b),
     items: items.map((it) => itemView(state, it, now)),

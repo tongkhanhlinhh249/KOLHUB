@@ -104,19 +104,18 @@ export function RewardBlock({ reward, slots }: { reward: CampaignReward; slots?:
   return (
     <div className="space-y-3">
       {reward.cash > 0 && (
-        <Row icon={<Wallet className="size-4" />} label="Tiền mặt mỗi KOL">
+        <Row icon={<Wallet className="size-4" />} label="Tiền mặt mỗi booking">
           <span className="text-base font-semibold text-primary tabular-nums">{vnd(reward.cash)}</span>
         </Row>
       )}
       {reward.product && (
-        <Row icon={<Gift className="size-4" />} label="Sản phẩm tặng">
+        <Row icon={<Gift className="size-4" />} label="Sản phẩm/trải nghiệm tặng">
           {reward.product.name} <span className="font-normal text-muted-foreground tabular-nums">· trị giá {vnd(reward.product.value)}</span>
           {reward.product.note && <span className="block text-xs font-normal text-muted-foreground">{reward.product.note}</span>}
         </Row>
       )}
       <p className="text-xs text-muted-foreground">
-        Tổng giá trị mỗi KOL: <span className="font-medium text-foreground tabular-nums">{vnd(rewardTotal(reward))}</span>
-        {slots ? ` · Tuyển ${slots} KOL` : ''}. Phần thưởng cố định, không cần báo giá.
+        {slots ? `Tuyển ${slots} KOL. ` : ''}Phần thưởng cố định, không cần báo giá. Giá trị quà tặng không phải tiền nhận được.
       </p>
     </div>
   );

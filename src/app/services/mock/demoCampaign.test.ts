@@ -71,8 +71,8 @@ describe('chế độ demo: quản lý chiến dịch', () => {
     await demo.run(id, 'BRAND_ACCEPT');
     expect(statusOf(id)).toBe('ACCEPTED');
     expect(stored(id).price).toBe(40_000_000);
-    // Booking 1 KOL: chọn xong thì tự đóng tuyển.
-    expect(h.db.read().campaigns.find((c) => c.id === SEED_CAMPAIGN.marketplace)?.status).toBe('CLOSED');
+    // Booking 1 KOL: chọn xong vẫn Đang tuyển — chủ chiến dịch được nhắc và tự đóng tuyển (Công bố lên sàn §9).
+    expect(h.db.read().campaigns.find((c) => c.id === SEED_CAMPAIGN.marketplace)?.status).toBe('OPEN');
     await demo.run(id, 'SUBMIT_DRAFT');
     await demo.run(id, 'REQUEST_CHANGES');
     expect(statusOf(id)).toBe('IN_PRODUCTION');

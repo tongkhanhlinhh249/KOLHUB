@@ -171,7 +171,16 @@ function HeaderCard({ c, bookings, onConfirm, onCancel }: { c: CampaignView; boo
 function ReviewNotice({ c }: { c: CampaignView }) {
   let tone: 'info' | 'warning' | 'error' | 'neutral' = 'info';
   let text: ReactNode = null;
-  if (c.status === 'PENDING_REVIEW') text = 'Chiến dịch đã được gửi duyệt. Admin KOL Hub kiểm tra trước khi công bố lên Sàn; bạn có thể rút về nháp để sửa.';
+  // Công bố lên sàn §12.3: hidden by Admin — no listing, no new applications; work already agreed continues.
+  if (c.hiddenAt !== undefined && c.status !== 'CANCELLED') {
+    tone = 'error';
+    text = (
+      <>
+        <span className="font-medium">Chiến dịch đã bị ẩn khỏi sàn:</span> {c.hiddenReason}. Chiến dịch không nhận đơn mới; đơn và hợp tác đã có vẫn được giữ.
+        Liên hệ hỗ trợ KOL Hub để được hướng dẫn.
+      </>
+    );
+  } else if (c.status === 'PENDING_REVIEW') text = 'Chiến dịch đã được gửi duyệt. Admin KOL Hub kiểm tra trước khi công bố lên Sàn; bạn có thể rút về nháp để sửa.';
   else if (c.status === 'NEEDS_FIX') {
     tone = 'warning';
     text = (

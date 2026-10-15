@@ -1,29 +1,17 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { Building2, Check, ChevronRight, CircleAlert } from 'lucide-react';
+import { Building2, Check, ChevronRight, CircleAlert, Clock, Gift, Users, Wallet } from 'lucide-react';
 import { Card } from '../../components/ui/card';
 import { Skeleton } from '../../components/ui/skeleton';
 import { cn } from '../../components/ui/utils';
 import type { AppliedCampaign, MarketplaceCampaign, StoredFile } from '../../services';
 import { CampaignCover } from '../shared/CampaignCover';
-import { PhaseBadge, RecruitTypeBadge, RegionLine } from '../shared/RecruitParts';
-import { rewardShort, workflowLabel } from '../shared/recruitView';
+import { PhaseBadge, RecruitTypeBadge } from '../shared/RecruitParts';
 import { ToneBadge } from '../shared/StatusBadges';
 import { MatchPill, SaveIconButton } from './MarketplaceParts';
-import { BookingStatusBadge, CategoryChips, CountdownText, PlatformIcons } from './parts';
-import {
-  bookingDetailPath,
-  brandCampaignPath,
-  cardMatchLine,
-  deadlineCountdown,
-  expiryCountdown,
-  formatDateTime,
-  formatDay,
-  formatVnd,
-  formatVndShort,
-  priceText,
-  type MarketplaceViewer,
-} from './supplierBooking';
+import { BookingStatusBadge, CountdownText, PlatformIcons } from './parts';
+import { deadlineInfo, kolTargetText, MARKETPLACE_STATUS, marketplaceStatus, rewardSummary } from './marketplaceView';
+import { bookingDetailPath, brandCampaignPath, cardMatchLine, expiryCountdown, formatDateTime, priceText, type MarketplaceViewer } from './supplierBooking';
 
 /** Solid pill for badges laid over the cover image (tone tint replaced by a near-opaque background; dot keeps the tone). */
 const OVER_BG = 'bg-background/95 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85';
@@ -56,12 +44,51 @@ function CoverCard({
   );
 }
 
-function BrandLine({ company }: { company: string }) {
+/** Brand being promoted (§6.2), the organisation when it promotes itself. */
+function BrandLine({ campaign: c }: { campaign: Pick<MarketplaceCampaign, 'promotedBrand' | 'brand'> }) {
+  const name = c.promotedBrand?.name ?? c.brand.company;
   return (
-    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+    <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground" title={c.promotedBrand?.viaAgency ? `${name} · vận hành bởi ${c.brand.company}` : name}>
       <Building2 className="size-3.5 shrink-0" aria-hidden />
-      <span className="truncate font-medium text-foreground">{company}</span>
+      <span className="truncate font-medium text-foreground">{name}</span>
     </p>
+  );
+}
+
+/** Reward on the card: cash per booking and the gift on separate lines, or "Quyền lợi theo hạng mục" (§6.2). */
+function RewardLines({ campaign }: { campaign: MarketplaceCampaign }) {
+  const r = rewardSummary(campaign);
+  if (r.byGroup) return <span className="font-semibold text-primary">Quyền lợi theo hạng mục</span>;
+  if (!r.cash && !r.product) return <span className="text-muted-foreground">Chưa công bố</span>;
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5">
+      {r.cash && (
+        <span className="flex items-center gap-1 font-semibold text-primary tabular-nums">
+          <Wallet className="size-3.5 shrink-0" aria-hidden />
+          {r.cash}
+        </span>
+      )}
+      {r.product && (
+        <span className="flex min-w-0 items-center gap-1 font-normal text-foreground" title={r.product}>
+          <Gift className="size-3.5 shrink-0 text-chart-4" aria-hidden />
+          <span className="truncate">{r.product}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Status of the public page plus "Sắp hết hạn" (≤ 24 h, §6.2). */
+function StatusBadges({ campaign: c, now, className }: { campaign: MarketplaceCampaign; now: number; className?: string }) {
+  const st = marketplaceStatus(c);
+  const dl = deadlineInfo(c, now);
+  const soon = st === 'OPEN' && !!dl?.soon;
+  return (
+    <>
+      <ToneBadge tone={soon ? 'warning' : MARKETPLACE_STATUS[st].tone} className={className}>
+        {soon ? 'Sắp hết hạn' : MARKETPLACE_STATUS[st].label}
+      </ToneBadge>
+    </>
   );
 }
 
@@ -101,7 +128,7 @@ export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now:
       }
     >
       <div className="space-y-1">
-        <BrandLine company={c.brand.company} />
+        <BrandLine campaign={c} />
         <h2 className={TITLE}>
           <Link to={bookingDetailPath(b.id)} className={STRETCHED} title={c.name}>
             <span className="line-clamp-2">{c.name}</span>
@@ -118,29 +145,12 @@ export function AppliedCampaignCard({ item, now }: { item: AppliedCampaign; now:
       )}
 
       <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
-        {recruit ? (
-          <>
-            <Fact label="Phần thưởng">
-              <span className="font-semibold text-primary tabular-nums">{rewardShort(c.recruitment!.reward)}</span>
-            </Fact>
-            <Fact label="Đã ứng tuyển">
-              <span className="tabular-nums">
-                {c.applicationCount} / {c.recruitment!.slots}
-              </span>
-            </Fact>
-          </>
-        ) : (
-          <>
-            <Fact label="Giá đề xuất">
-              <span className="font-semibold tabular-nums">{priceText(b.price)}</span>
-            </Fact>
-            <Fact label="Ngân sách">
-              <span className="text-primary tabular-nums" title={formatVnd(c.budget)}>
-                {formatVndShort(c.budget)}
-              </span>
-            </Fact>
-          </>
-        )}
+        <Fact label="Quyền lợi">
+          {recruit || !b.price ? <RewardLines campaign={c} /> : <span className="font-semibold tabular-nums">{priceText(b.price)}</span>}
+        </Fact>
+        <Fact label="Số KOL cần tuyển">
+          <span className="tabular-nums">{kolTargetText(c)}</span>
+        </Fact>
         <Fact label={expiry ? 'Hạn phản hồi' : 'Cập nhật'}>
           {expiry ? <CountdownText countdown={expiry} className="text-sm" /> : <span className="tabular-nums">{formatDateTime(b.updatedAt)}</span>}
         </Fact>
@@ -199,11 +209,11 @@ export function MarketplaceCampaignCard({
 }) {
   const canSave = viewer === 'supplier';
   const recruit = c.type === 'OPEN_RECRUITMENT' && !!c.recruitment;
-  const countdown = deadlineCountdown(c.applyDeadline, now);
+  const dl = deadlineInfo(c, now);
   const line = c.match && c.accepting !== false ? cardMatchLine(c.match) : null;
   const badges = (
     <>
-      <PhaseBadge campaign={c} now={now} className={OVER_IMAGE} />
+      <StatusBadges campaign={c} now={now} className={OVER_IMAGE} />
       {c.myBooking && <MyBookingBadge myBooking={c.myBooking} className={OVER_IMAGE} />}
       {c.mine && <MineBadge className={OVER_IMAGE} />}
     </>
@@ -225,7 +235,7 @@ export function MarketplaceCampaignCard({
     >
       <div className="space-y-1">
         <div className="flex min-w-0 items-center justify-between gap-2">
-          <BrandLine company={c.brand.company} />
+          <BrandLine campaign={c} />
           {recruit && <RecruitTypeBadge className="h-5 shrink-0 px-1.5 text-[11px]" />}
         </div>
         <h2 className={TITLE}>
@@ -249,50 +259,34 @@ export function MarketplaceCampaignCard({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <CategoryChips categories={c.categories} max={2} className="min-w-0" />
-        <PlatformIcons platforms={c.platforms} className="ml-auto" />
-      </div>
+      <PlatformIcons platforms={c.platforms} />
 
       <dl className="mt-auto grid grid-cols-2 gap-x-3 gap-y-3 border-t border-border pt-3">
-        {recruit ? (
-          <>
-            <Fact label="Phần thưởng">
-              <span className="font-semibold text-primary tabular-nums">{rewardShort(c.recruitment!.reward)}</span>
-            </Fact>
-            <Fact label="Đã ứng tuyển">
-              <span className="tabular-nums">
-                {c.applicationCount} / {c.recruitment!.slots}
-              </span>
-              {c.phase !== 'APPLY' && c.phase !== 'UPCOMING' && (
-                <span className="block text-xs font-normal text-muted-foreground tabular-nums">Đã chọn {c.selectedCount ?? 0}</span>
-              )}
-            </Fact>
-          </>
-        ) : (
-          <>
-            <Fact label="Ngân sách">
-              <span className="font-semibold text-primary tabular-nums" title={formatVnd(c.budget)}>
-                {formatVndShort(c.budget)}
-              </span>
-            </Fact>
-            <Fact label="Hạn ứng tuyển">
-              {c.applyDeadline ? (
-                <span className="flex flex-col">
-                  <span className="tabular-nums">{formatDay(c.applyDeadline)}</span>
-                  <CountdownText countdown={countdown} />
-                </span>
-              ) : (
-                'Không giới hạn'
-              )}
-            </Fact>
-          </>
-        )}
-        <Fact label="Khu vực">
-          <RegionLine regions={c.regions} className="max-w-full" />
+        <Fact label="Quyền lợi" className="col-span-2">
+          <RewardLines campaign={c} />
         </Fact>
-        <Fact label="Workflow">{workflowLabel(c.draftReview)}</Fact>
+        <Fact label="Hạn ứng tuyển">
+          {dl ? (
+            <span className={cn('flex items-center gap-1 tabular-nums', dl.soon && !dl.passed && 'text-chart-5')}>
+              <Clock className="size-3.5 shrink-0" aria-hidden />
+              {dl.text}
+            </span>
+          ) : (
+            'Đến khi đóng tuyển'
+          )}
+        </Fact>
+        <Fact label="Số KOL cần tuyển">
+          <span className="flex items-center gap-1 tabular-nums">
+            <Users className="size-3.5 shrink-0" aria-hidden />
+            {kolTargetText(c)}
+          </span>
+        </Fact>
       </dl>
+
+      <span className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-medium text-primary md:min-h-8" aria-hidden>
+        Xem chiến dịch
+        <ChevronRight className="size-4" />
+      </span>
 
       {(c.mine || c.myBooking) && (
         <div className="-mt-1 flex flex-wrap gap-x-4">

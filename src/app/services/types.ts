@@ -123,7 +123,9 @@ export type ErrorCode =
   | 'KOLHUB-4823'
   | 'KOLHUB-4824'
   | 'KOLHUB-4825'
-  | 'KOLHUB-4826';
+  | 'KOLHUB-4826'
+  | 'KOLHUB-4827'
+  | 'KOLHUB-4828';
 
 export interface KolhubErrorMeta {
   attemptsLeft?: number;
@@ -143,6 +145,13 @@ export interface KolhubErrorMeta {
   /** KOLHUB-4210: N nội dung cần có / số nội dung kênh đang có. */
   required?: number;
   have?: number;
+  // --- Sàn chiến dịch ---
+  /** KOLHUB-4808: why the campaign takes no new applications. */
+  reason?: 'PAUSED' | 'CLOSED' | 'HIDDEN';
+  /** KOLHUB-4827: the viewer's booking on the unavailable campaign (its own work area). */
+  bookingId?: string;
+  /** KOLHUB-4827: the viewer owns the campaign. */
+  mine?: boolean;
 }
 
 /** Business error carrying a KOLHUB-xxxx code; message is the Vietnamese text from errorMessage(). */

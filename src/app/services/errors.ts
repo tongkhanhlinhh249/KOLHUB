@@ -325,6 +325,9 @@ function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
     case 'KOLHUB-4807':
       return 'Bạn đã có đề xuất hoặc lời mời đang hoạt động cho chiến dịch này.';
     case 'KOLHUB-4808':
+      if (meta?.reason === 'PAUSED') return 'Chiến dịch đang cập nhật nên tạm ngừng nhận ứng tuyển. Vui lòng quay lại sau.';
+      if (meta?.reason === 'CLOSED') return 'Chiến dịch đã đóng tuyển, không nhận đơn mới.';
+      if (meta?.reason === 'HIDDEN') return 'Chiến dịch không còn khả dụng.';
       return 'Chiến dịch đã hết hạn nhận đề xuất.';
     case 'KOLHUB-4809':
       return 'KOL hoặc kênh không hợp lệ: kênh phải đã xác thực, đang hoạt động, thuộc nền tảng của chiến dịch và thuộc quyền quản lý của bạn.';
@@ -350,6 +353,10 @@ function campaignMessage(code: ErrorCode, meta?: KolhubErrorMeta): string {
       return 'Chiến dịch đã có đơn ứng tuyển: chỉ sửa được ảnh, tên và mô tả giới thiệu. Các điều kiện hợp tác đã bị khoá.';
     case 'KOLHUB-4825':
       return 'Vui lòng nhập lý do (tối đa 1.000 ký tự).';
+    case 'KOLHUB-4827':
+      return 'Chiến dịch không còn khả dụng.';
+    case 'KOLHUB-4828':
+      return 'Phiên bản chờ duyệt đã thay đổi (đã rút hoặc gửi lại). Vui lòng tải lại trước khi duyệt.';
     case 'KOLHUB-4826':
       return 'Chiến dịch còn đơn ứng tuyển hoặc hợp tác cần xử lý. Vui lòng xử lý xong trước khi hoàn tất.';
     case 'KOLHUB-4818':

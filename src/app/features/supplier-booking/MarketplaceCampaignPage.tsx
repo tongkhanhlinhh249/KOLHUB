@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { AlertCircle, ArrowLeft, ChevronRight, RotateCcw, SearchX } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronRight, EyeOff, RotateCcw, SearchX } from 'lucide-react';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
@@ -11,7 +11,7 @@ import { CampaignCover } from '../shared/CampaignCover';
 import { useLiveQuery } from '../shared/useLiveQuery';
 import { CampaignDetailHeader, CampaignDetailSections, CampaignScheduleCard, useCampaignActions } from './CampaignDetailBody';
 import { errText } from './parts';
-import { marketplaceBackLabel, marketplaceBackPath, marketplaceViewerOf } from './supplierBooking';
+import { bookingDetailPath, brandCampaignPath, marketplaceBackLabel, marketplaceBackPath, marketplaceViewerOf } from './supplierBooking';
 import { useSupplierAccess } from './useSupplierAccess';
 
 /** Hidden on wide screens, where the right rail shows the same block. */
@@ -33,7 +33,8 @@ function BackLink({ to }: { to: string }) {
 /**
  * /san/:campaignId — full-page campaign detail on the public Sàn (MarketplaceLayout), open to guests, KOL/MCN and
  * Brands. Wide screens: content + sticky right rail (schedule, call to action); phones / tablets: one column with
- * the call to action in a sticky bottom bar. Draft, hidden or deleted campaigns → "không tồn tại hoặc đã đóng".
+ * the call to action in a sticky bottom bar. Drafts / unknown ids → "không tồn tại"; cancelled or hidden by Admin →
+ * "Chiến dịch không còn khả dụng" without any content (a participant goes to its booking, the owner to its page).
  */
 export function MarketplaceCampaignPage() {
   const { campaignId = '' } = useParams();
@@ -48,6 +49,7 @@ export function MarketplaceCampaignPage() {
   const now = Date.now();
   const { cta, dialogs } = useCampaignActions(c, access, viewer, now);
   const notFound = !c && q.error instanceof KolhubError && q.error.code === 'KOLHUB-4801';
+  const unavailable = !c && q.error instanceof KolhubError && q.error.code === 'KOLHUB-4827' ? q.error : null;
 
   useEffect(() => {
     if (!c?.name) return;
@@ -80,15 +82,40 @@ export function MarketplaceCampaignPage() {
     return (
       <div className="w-full space-y-4">
         <BackLink to={backTo} />
-        {notFound ? (
+        {unavailable ? (
+          <div className="flex flex-col items-center gap-3 rounded-[8px] border border-dashed border-border bg-card px-4 py-12 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <EyeOff className="size-6" aria-hidden />
+            </div>
+            <h1 className="text-base font-semibold text-foreground">Chiến dịch không còn khả dụng</h1>
+            <p className="max-w-md text-sm text-muted-foreground">
+              {unavailable.meta?.mine
+                ? 'Chiến dịch không còn hiển thị trên Sàn. Xem lý do và hướng xử lý trong trang quản lý chiến dịch.'
+                : unavailable.meta?.bookingId
+                  ? 'Chiến dịch không còn hiển thị trên Sàn. Công việc của bạn với chiến dịch này vẫn nằm trong khu vực booking riêng.'
+                  : 'Chiến dịch đã ngừng hiển thị trên Sàn và không nhận ứng tuyển.'}
+            </p>
+            {unavailable.meta?.mine ? (
+              <Link to={brandCampaignPath(campaignId)} className={buttonVariants({ className: 'h-11 md:h-9' })}>
+                Quản lý chiến dịch
+              </Link>
+            ) : unavailable.meta?.bookingId ? (
+              <Link to={bookingDetailPath(unavailable.meta.bookingId)} className={buttonVariants({ className: 'h-11 md:h-9' })}>
+                Xem booking của bạn
+              </Link>
+            ) : (
+              <Link to={MARKETPLACE_PATH} className={buttonVariants({ className: 'h-11 md:h-9' })}>
+                Xem chiến dịch khác trên Sàn
+              </Link>
+            )}
+          </div>
+        ) : notFound ? (
           <div className="flex flex-col items-center gap-3 rounded-[8px] border border-dashed border-border bg-card px-4 py-12 text-center">
             <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <SearchX className="size-6" aria-hidden />
             </div>
-            <h1 className="text-base font-semibold text-foreground">Chiến dịch không tồn tại hoặc đã đóng</h1>
-            <p className="max-w-md text-sm text-muted-foreground">
-              Chiến dịch có thể đã ngừng hiển thị trên Sàn, đã kết thúc hoặc đường dẫn không đúng.
-            </p>
+            <h1 className="text-base font-semibold text-foreground">Không tìm thấy chiến dịch</h1>
+            <p className="max-w-md text-sm text-muted-foreground">Chiến dịch chưa được công bố trên Sàn hoặc đường dẫn không đúng.</p>
             <Link to={MARKETPLACE_PATH} className={buttonVariants({ className: 'h-11 md:h-9' })}>
               Xem chiến dịch khác trên Sàn
             </Link>

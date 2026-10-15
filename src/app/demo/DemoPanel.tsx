@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { campaignService, reviewService, violationService } from '../services';
 import { useLiveQuery } from '../features/shared/useLiveQuery';
 import { AdminSimulator } from './AdminSimulator';
-import { CampaignReviewBlock } from './CampaignReviewBlock';
+import { CampaignReviewBlock, MarketplaceModerationBlock } from './CampaignReviewBlock';
 import { AssumptionsBlock } from './AssumptionsBlock';
 import { CampaignSimulatorBlock } from './CampaignSimulatorBlock';
 import { DemoDataBlock } from './DemoDataBlock';
@@ -82,6 +82,7 @@ function DemoPanelBody({ onDone }: { onDone(): void }) {
                 <>
                   <AdminSimulator />
                   <CampaignReviewBlock />
+                  <MarketplaceModerationBlock />
                   <ViolationReviewBlock />
                   <FunnelView />
                 </>

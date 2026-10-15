@@ -151,7 +151,7 @@ export type { BookingService } from './mock/booking';
 export type { PlanService } from './mock/plans';
 export { postMatchesPlatform, platformOfLink, isAcceptingApplications, isListedOnMarketplace } from './mock/campaignRules';
 // "Tuyển nhiều KOL": pure helpers (phase, reward value, workflow) for the screens.
-export { applyDeadlineAt } from './mock/campaignRules';
+export { applyDeadlineAt, reviewVersionOf, rewardKindOf } from './mock/campaignRules';
 export { campaignType, contractOn, daysTo, draftReviewOn, fixedPriceOf, fixedRewardOf, groupBudget, groupOf, groupPlatforms, phaseOfTimeline, rewardValue, shiftIso, slotKeys } from './mock/recruitment';
 export { SEED_BOOKING, SEED_CAMPAIGN, SEED_RECRUIT_BOOKING } from './mock/campaignSeed';
 // --- demo: campaign simulator (Demo Panel only) ---
